@@ -57,6 +57,13 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
   narrator are read from folder names like `Harry Potter Audio Books 1-7; Read by Stephen Fry` /
   `Book 01 - …`. HomeTunes remembers your place in every book (resuming a few seconds back), and
   the music queue waits while a book plays. "Continue listening" is on Home.
+  While a book plays: previous/next chapter, skip back 15 s / forward 30 s (across files, amounts
+  adjustable), speed 0.75×–2.5× remembered per book, and a chapter list. The lock screen,
+  notification, headset buttons, keyboard media keys and the Windows overlay skip seconds too.
+- **Sleep timer** – the moon button beside play/pause: one tap starts it, another stops it. Books
+  and music have their own length (minutes, or end of chapter / end of song), and the volume
+  fades out before it pauses. All of these are in Settings → Audiobooks, where the button can
+  also be hidden.
   `dart run tool/probe_library.dart <folder>` previews how a folder will be grouped.
 - **System media controls** – Android: media notification, lock screen, Bluetooth/headset buttons,
   and background playback that Android won't kill. Windows: keyboard media keys and the Windows
