@@ -16,6 +16,7 @@ class NowPlayingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.watch<PlayerModel>();
     final t = p.current;
+    final book = p.book;
     if (t == null) {
       return Scaffold(appBar: AppBar(), body: const Center(child: Text('Nothing playing')));
     }
@@ -48,7 +49,17 @@ class NowPlayingScreen extends StatelessWidget {
                       maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
                 ]),
               ),
-              TrackMenuButton(track: t, closeRouteFirst: true),
+              if (book != null)
+                IconButton(
+                  tooltip: 'Go to book',
+                  icon: const Icon(Icons.menu_book_outlined),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    context.read<AppNav>().openBook(book);
+                  },
+                )
+              else
+                TrackMenuButton(track: t, closeRouteFirst: true),
             ]),
             Expanded(
               child: Center(
@@ -71,14 +82,20 @@ class NowPlayingScreen extends StatelessWidget {
                         InkWell(
                           onTap: () {
                             Navigator.of(context).pop();
-                            context.read<AppNav>().openArtist(t.albumArtist);
+                            if (book != null) {
+                              context.read<AppNav>().openBook(book);
+                            } else {
+                              context.read<AppNav>().openArtist(t.albumArtist);
+                            }
                           },
-                          child: Text(t.artist, maxLines: 1, overflow: TextOverflow.ellipsis,
+                          child: Text(book != null ? '${book.title} · ${book.author}' : t.artist,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(fontSize: 16, color: AppColors.textDim)),
                         ),
                       ]),
                     ),
-                    const LikeButton(),
+                    if (book == null) const LikeButton(),
                   ]),
                 ),
                 const SizedBox(height: 8),
@@ -101,6 +118,12 @@ class NowPlayingScreen extends StatelessWidget {
                       )
                     else
                       const Spacer(),
+                    if (book != null && p.hasWaitingMusic)
+                      TextButton.icon(
+                        icon: const Icon(Icons.library_music_outlined, size: 18),
+                        label: const Text('Back to music'),
+                        onPressed: p.resumeMusic,
+                      ),
                     IconButton(
                       tooltip: 'Queue',
                       icon: const Icon(Icons.queue_music),

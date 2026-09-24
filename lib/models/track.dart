@@ -31,6 +31,9 @@ class Track {
   /// Last-modified time of the file, used to skip unchanged files when rescanning.
   final int? modifiedMs;
 
+  /// Chapter markers inside the file (audiobooks), in order. Usually empty.
+  final List<Chapter> chapters;
+
   const Track({
     required this.id,
     required this.source,
@@ -47,6 +50,7 @@ class Track {
     this.remoteId,
     this.art,
     this.modifiedMs,
+    this.chapters = const [],
   });
 
   bool get isLocal => source == TrackSource.local;
@@ -58,7 +62,7 @@ class Track {
   /// Key that groups tracks into an album.
   String get albumKey => '${albumArtist.toLowerCase()}\u0000${album.toLowerCase()}';
 
-  Track copyWith({String? art, Duration? duration}) => Track(
+  Track copyWith({String? art, Duration? duration, List<Chapter>? chapters}) => Track(
         id: id,
         source: source,
         title: title,
@@ -74,6 +78,7 @@ class Track {
         remoteId: remoteId,
         art: art ?? this.art,
         modifiedMs: modifiedMs,
+        chapters: chapters ?? this.chapters,
       );
 
   Map<String, dynamic> toJson() => {
@@ -92,6 +97,7 @@ class Track {
         if (remoteId != null) 'remoteId': remoteId,
         if (art != null) 'art': art,
         if (modifiedMs != null) 'modifiedMs': modifiedMs,
+        if (chapters.isNotEmpty) 'chapters': [for (final c in chapters) c.toJson()],
       };
 
   factory Track.fromJson(Map<String, dynamic> j) => Track(
@@ -110,6 +116,9 @@ class Track {
         remoteId: j['remoteId'] as String?,
         art: j['art'] as String?,
         modifiedMs: j['modifiedMs'] as int?,
+        chapters: [
+          for (final c in (j['chapters'] as List? ?? const [])) Chapter.fromJson(c as Map<String, dynamic>),
+        ],
       );
 
   @override
@@ -117,6 +126,24 @@ class Track {
 
   @override
   int get hashCode => id.hashCode;
+}
+
+/// A chapter marker inside an audio file.
+class Chapter {
+  final Duration start;
+  final String title;
+  const Chapter(this.start, this.title);
+
+  Map<String, dynamic> toJson() => {'startMs': start.inMilliseconds, 'title': title};
+
+  factory Chapter.fromJson(Map<String, dynamic> j) =>
+      Chapter(Duration(milliseconds: (j['startMs'] as int?) ?? 0), (j['title'] as String?) ?? '');
+
+  @override
+  bool operator ==(Object other) => other is Chapter && other.start == start && other.title == title;
+
+  @override
+  int get hashCode => Object.hash(start, title);
 }
 
 /// An album built by grouping tracks.

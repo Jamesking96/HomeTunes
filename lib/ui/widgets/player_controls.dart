@@ -133,9 +133,11 @@ class LikeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.watch<PlayerModel>().current;
+    final player = context.watch<PlayerModel>();
+    final t = player.current;
     final pl = context.watch<PlaylistsModel>();
-    if (t == null) return const SizedBox.shrink();
+    // Audiobooks aren't liked like songs.
+    if (t == null || player.inBook) return const SizedBox.shrink();
     final liked = pl.isLiked(t);
     return IconButton(
       tooltip: liked ? 'Remove from Liked Songs' : 'Like',

@@ -96,6 +96,7 @@ class TrackEdit {
         remoteId: t.remoteId,
         art: art ?? t.art,
         modifiedMs: t.modifiedMs,
+        chapters: t.chapters,
       );
 
   Map<String, dynamic> toJson() => {
