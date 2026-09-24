@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -318,14 +319,59 @@ class DesktopPlayerBar extends StatelessWidget {
                 onPressed: () => showChaptersSheet(context),
               ),
             IconButton(tooltip: 'Queue', icon: const Icon(Icons.queue_music), onPressed: () => openQueue(context)),
-            Icon(p.volume == 0 ? Icons.volume_off : Icons.volume_up, size: 20, color: AppColors.textDim),
-            SizedBox(
-              width: 120,
-              child: Slider(value: p.volume.clamp(0.0, 100.0), max: 100, onChanged: p.setVolume),
-            ),
+            const VolumeControl(),
           ]),
         ),
       ]),
+    );
+  }
+}
+
+/// Speaker icon + volume slider. Scrolling the mouse wheel over either turns
+/// the volume up (wheel up) or down (wheel down); a two-finger swipe on a
+/// touchpad works too.
+class VolumeControl extends StatelessWidget {
+  const VolumeControl({super.key});
+
+  /// How much one notch of the wheel changes the volume (out of 100).
+  static const wheelStep = 5.0;
+
+  /// The volume after one wheel notch: scrolling down ([dy] > 0) turns it down.
+  static double afterWheel(double volume, double dy) {
+    if (dy == 0) return volume;
+    return (volume + (dy > 0 ? -wheelStep : wheelStep)).clamp(0.0, 100.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<PlayerModel>();
+    final volume = p.volume.clamp(0.0, 100.0);
+    return Listener(
+      onPointerSignal: (event) {
+        if (event is PointerScrollEvent) {
+          // Claim the scroll so nothing behind the bar scrolls as well.
+          GestureBinding.instance.pointerSignalResolver.register(event, (e) {
+            final player = context.read<PlayerModel>();
+            player.setVolume(afterWheel(player.volume, (e as PointerScrollEvent).scrollDelta.dy));
+          });
+        }
+      },
+      onPointerPanZoomUpdate: (event) {
+        final player = context.read<PlayerModel>();
+        player.setVolume((player.volume - event.panDelta.dy * 0.25).clamp(0.0, 100.0));
+      },
+      child: Tooltip(
+        message: 'Volume ${volume.round()}% – scroll to change',
+        waitDuration: const Duration(milliseconds: 800),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(volume == 0 ? Icons.volume_off : (volume < 50 ? Icons.volume_down : Icons.volume_up),
+              size: 20, color: AppColors.textDim),
+          SizedBox(
+            width: 120,
+            child: Slider(value: volume, max: 100, onChanged: p.setVolume),
+          ),
+        ]),
+      ),
     );
   }
 }
