@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart' show Media, Player;
@@ -72,7 +73,7 @@ class PlayerModel extends ChangeNotifier {
   /// Plays everything shuffled.
   Future<void> shufflePlay(List<Track> tracks, {String? label}) {
     if (tracks.isEmpty) return Future.value();
-    final start = DateTime.now().microsecond % tracks.length;
+    final start = Random().nextInt(tracks.length);
     return playTracks(tracks, start: start, shuffle: true, label: label);
   }
 

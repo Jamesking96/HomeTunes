@@ -27,8 +27,10 @@ class PlaylistScreen extends StatelessWidget {
       final tracks = [for (final id in pl.liked) lib.byId(id)].whereType<Track>().toList();
       return Scaffold(
         appBar: AppBar(),
-        body: ListView(padding: const EdgeInsets.only(bottom: 24), children: [
-          CollectionHeader(
+        // Rows are built lazily as you scroll, so a long Liked list stays fast.
+        body: CustomScrollView(slivers: [
+          SliverToBoxAdapter(
+            child: CollectionHeader(
             art: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(6),
@@ -45,15 +47,21 @@ class PlaylistScreen extends StatelessWidget {
             subtitle: '${tracks.length} songs',
             tracks: tracks,
             contextLabel: 'Liked Songs',
+            ),
           ),
           if (tracks.isEmpty)
-            const EmptyState(
-              icon: Icons.favorite_border,
-              title: 'Songs you like will appear here',
-              message: 'Tap the heart on any song.',
+            const SliverToBoxAdapter(
+              child: EmptyState(
+                icon: Icons.favorite_border,
+                title: 'Songs you like will appear here',
+                message: 'Tap the heart on any song.',
+              ),
             ),
-          for (var i = 0; i < tracks.length; i++)
-            TrackTile(track: tracks[i], list: tracks, index: i, contextLabel: 'Liked Songs'),
+          SliverList.builder(
+            itemCount: tracks.length,
+            itemBuilder: (_, i) => TrackTile(track: tracks[i], list: tracks, index: i, contextLabel: 'Liked Songs'),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ]),
       );
     }
