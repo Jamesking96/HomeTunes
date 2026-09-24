@@ -131,6 +131,14 @@ class PlayerModel extends ChangeNotifier {
     await _player.playOrPause();
   }
 
+  /// Resume (used by lock-screen / headset / media-key controls).
+  Future<void> play() async {
+    if (queue.current == null) return;
+    await _player.play();
+  }
+
+  Future<void> pause() => _player.pause();
+
   Future<void> next() => _advance(auto: false);
 
   /// Restarts the song if we're more than 3 seconds in, otherwise goes back.
@@ -143,7 +151,10 @@ class PlayerModel extends ChangeNotifier {
     await _openCurrent();
   }
 
-  Future<void> seek(Duration d) => _player.seek(d);
+  Future<void> seek(Duration d) async {
+    await _player.seek(d);
+    notifyListeners(); // lets the system media controls pick up the new position
+  }
   Future<void> setVolume(double v) => _player.setVolume(v.clamp(0.0, 100.0));
 
   void toggleShuffle() {
