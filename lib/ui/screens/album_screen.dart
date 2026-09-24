@@ -8,6 +8,7 @@ import '../widgets/artwork.dart';
 import '../widgets/cards.dart';
 import '../widgets/collection_header.dart';
 import '../widgets/track_tile.dart';
+import 'edit_details.dart';
 
 class AlbumScreen extends StatelessWidget {
   final String albumKey;
@@ -57,6 +58,27 @@ class AlbumScreen extends StatelessWidget {
           tracks: tracks,
           contextLabel: label,
           extraActions: [
+            IconButton(
+              tooltip: 'Edit album details',
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () async {
+                final firstId = tracks.first.id;
+                // Grab these first: renaming the album rebuilds this page as
+                // "not found", which unmounts this button's context.
+                final navigator = Navigator.of(context);
+                final library = context.read<LibraryModel>();
+                final saved = await showEditDetails(context, tracks, album: true);
+                if (!saved) return;
+                // Renaming the album (or its artist) changes which album the songs group
+                // under, so follow them to the album's new page.
+                final newKey = library.byId(firstId)?.albumKey;
+                if (newKey != null && newKey != albumKey && navigator.mounted) {
+                  navigator.pushReplacement(
+                    MaterialPageRoute(builder: (_) => AlbumScreen(albumKey: newKey)),
+                  );
+                }
+              },
+            ),
             IconButton(
               tooltip: 'Add album to playlist',
               icon: const Icon(Icons.playlist_add),

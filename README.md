@@ -21,6 +21,10 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
 - **Server streaming** – Subsonic API with token auth; server songs show a small cloud icon and can
   be switched off in Settings at any time.
 - **Responsive** – sidebar + bottom player bar on desktop, mini player + bottom tabs on phones.
+- **Edit song details** – title, artist, album, album artist, track/disc number, year, genre and
+  cover image, for one song (⋮ → Edit details), a whole album (✎ on the album page), or several
+  songs at once (long-press or ⋮ → Select, then ✎). Edits are stored by HomeTunes in `edits.json`;
+  your music files are never modified, and "Reset to file details" undoes them.
 - **System media controls** – Android: media notification, lock screen, Bluetooth/headset buttons,
   and background playback that Android won't kill. Windows: keyboard media keys and the Windows
   media overlay. Back on the Android Home screen hides the app and keeps the music playing.

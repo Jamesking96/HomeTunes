@@ -1,9 +1,12 @@
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
+import 'package:path/path.dart' as p;
 
 import '../models/track.dart';
+import '../models/track_edit.dart';
 import '../services/local_scanner.dart';
 import '../services/storage.dart';
 import '../services/subsonic_client.dart';
@@ -28,6 +31,12 @@ class LibraryModel extends ChangeNotifier {
   List<Track> _local = [];
   List<Track> _remote = [];
   Map<String, Track> _byId = {};
+
+  /// Tracks exactly as read from the files / server, before the user's edits.
+  Map<String, Track> _rawById = {};
+
+  /// The user's edits (song details and covers), by track id. Saved in edits.json.
+  Map<String, TrackEdit> _edits = {};
   List<Track> tracks = [];
   List<Album> albums = [];
   List<Artist> artists = [];
@@ -54,6 +63,13 @@ class LibraryModel extends ChangeNotifier {
       serverEnabled = (s['serverEnabled'] as bool?) ?? false;
     }
     _rebuildClient();
+    final edits = await storage.read('edits.json') as Map<String, dynamic>?;
+    if (edits != null) {
+      _edits = {
+        for (final e in edits.entries)
+          if (e.value is Map<String, dynamic>) e.key: TrackEdit.fromJson(e.value as Map<String, dynamic>),
+      };
+    }
     final lib = await storage.read('library.json') as Map<String, dynamic>?;
     if (lib != null) {
       _local = [for (final j in (lib['local'] as List? ?? const [])) Track.fromJson(j as Map<String, dynamic>)];
@@ -79,7 +95,9 @@ class LibraryModel extends ChangeNotifier {
   }
 
   void _rebuild() {
-    tracks = [..._local, if (serverEnabled) ..._remote];
+    final raw = [..._local, if (serverEnabled) ..._remote];
+    _rawById = {for (final t in raw) t.id: t};
+    tracks = [for (final t in raw) _edits[t.id]?.applyTo(t) ?? t];
     _byId = {for (final t in tracks) t.id: t};
     albums = index.groupAlbums(tracks);
     artists = index.groupArtists(albums);
@@ -227,6 +245,109 @@ class LibraryModel extends ChangeNotifier {
         }
       });
 
+  // ---- editing song details ----
+
+  /// The song as read from the file/server, ignoring the user's edits.
+  Track? originalById(String id) => _rawById[id];
+
+  bool isEdited(String id) => _edits.containsKey(id);
+
+  /// Applies [changes] (by track id). Fields left null in a change keep their
+  /// current value. Edits that end up matching the file are dropped.
+  Future<void> editTracks(Map<String, TrackEdit> changes) async {
+    for (final entry in changes.entries) {
+      final original = _rawById[entry.key];
+      if (original == null) continue;
+      final merged = (_edits[entry.key] ?? TrackEdit.empty).mergedWith(entry.value).normalizedAgainst(original);
+      if (merged.isEmpty) {
+        _edits.remove(entry.key);
+      } else {
+        _edits[entry.key] = merged;
+      }
+    }
+    await _saveEdits();
+  }
+
+  /// Replaces one song's edit completely (the single-song editor, where a
+  /// blank field means "use the file's value").
+  Future<void> setEdit(String id, TrackEdit edit) async {
+    final original = _rawById[id];
+    if (original == null) return;
+    final e = edit.normalizedAgainst(original);
+    if (e.isEmpty) {
+      _edits.remove(id);
+    } else {
+      _edits[id] = e;
+    }
+    await _saveEdits();
+  }
+
+  /// Removes custom covers (keeping any other edits) so the files' own art shows.
+  Future<void> resetCovers(Iterable<String> ids) async {
+    for (final id in ids) {
+      final e = _edits[id];
+      if (e == null || e.art == null) continue;
+      final without = e.withoutArt();
+      if (without.isEmpty) {
+        _edits.remove(id);
+      } else {
+        _edits[id] = without;
+      }
+    }
+    await _saveEdits();
+  }
+
+  /// Applies the same change to several songs (album edit, multi-select).
+  Future<void> editMany(Iterable<String> ids, TrackEdit change) =>
+      editTracks({for (final id in ids) id: change});
+
+  /// Forgets the user's edits so the songs show what the files say again.
+  Future<void> resetEdits(Iterable<String> ids) async {
+    for (final id in ids) {
+      _edits.remove(id);
+    }
+    await _saveEdits();
+  }
+
+  Future<void> _saveEdits() async {
+    await storage.write('edits.json', {for (final e in _edits.entries) e.key: e.value.toJson()});
+    _rebuild();
+    await _removeUnusedCustomArt();
+  }
+
+  String get _customArtDir => p.join(storage.artDir, 'custom');
+
+  /// Copies an image the user picked into the app's data folder (so moving or
+  /// deleting the original doesn't break the cover) and returns the copy's path.
+  Future<String> importCover(String sourcePath) async {
+    final bytes = await File(sourcePath).readAsBytes();
+    final dir = Directory(_customArtDir);
+    await dir.create(recursive: true);
+    final ext = p.extension(sourcePath).toLowerCase();
+    final dest = File(p.join(dir.path, '${md5.convert(bytes)}${ext.isEmpty ? '.img' : ext}'));
+    if (!await dest.exists()) await dest.writeAsBytes(bytes, flush: true);
+    // Make sure images show the new picture even if an old one was cached.
+    PaintingBinding.instance.imageCache.clear();
+    return dest.path;
+  }
+
+  Future<void> _removeUnusedCustomArt() async {
+    final dir = Directory(_customArtDir);
+    if (!await dir.exists()) return;
+    final used = {for (final e in _edits.values) if (e.art != null) p.normalize(e.art!)};
+    await for (final f in dir.list()) {
+      if (f is File && !used.contains(p.normalize(f.path))) {
+        try {
+          await f.delete();
+        } catch (_) {}
+      }
+    }
+  }
+
+  /// Local songs, and any song given a custom cover, use an image file on disk;
+  /// server songs otherwise use the server's cover art.
+  bool _artIsFile(Track t) => t.isLocal || _edits[t.id]?.art != null;
+
   // ---- playback helpers ----
 
   /// What the player should open for this track: a file path or a stream URL.
@@ -241,14 +362,14 @@ class LibraryModel extends ChangeNotifier {
   Uri? artUriFor(Track t, {int size = 512}) {
     final art = t.art;
     if (art == null) return null;
-    if (t.isLocal) return Uri.file(art);
+    if (_artIsFile(t)) return Uri.file(art);
     final c = _client;
     return c == null ? null : Uri.parse(c.coverArtUrl(art, size: size));
   }
 
   ImageProvider? artFor(Track? t, {int size = 512}) {
     if (t == null || t.art == null) return null;
-    if (t.isLocal) return FileImage(File(t.art!));
+    if (_artIsFile(t)) return FileImage(File(t.art!));
     final c = _client;
     if (c == null) return null;
     return NetworkImage(c.coverArtUrl(t.art!, size: size));
