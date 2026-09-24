@@ -195,4 +195,50 @@ void main() {
     final merged = await storage.read('bookmarks.json') as Map;
     expect([for (final b in merged['bookmarks'] as List) (b as Map)['id']], ['b', 'a']);
   });
+
+  group('Search', () {
+    final books = [
+      _book('The Philosopher\'s Stone', 'J.K. Rowling', ['Chapter 01 - The Boy Who Lived', 'Chapter 05 - Diagon Alley'],
+          series: 'Harry Potter'),
+      _book('Stone Soup', 'Someone', ['One']),
+      _book('The Hobbit', 'J.R.R. Tolkien', ['An Unexpected Party']),
+    ];
+
+    test('books by title, author or series; titles starting with the search first', () {
+      expect([for (final b in searchBookList(books, 'stone')) b.title], ['Stone Soup', 'The Philosopher\'s Stone']);
+      expect(searchBookList(books, 'tolkien').single.title, 'The Hobbit');
+      expect(searchBookList(books, 'harry potter').single.title, 'The Philosopher\'s Stone');
+      expect(searchBookList(books, '  '), isEmpty);
+    });
+
+    test('chapters by name', () {
+      final hits = searchChapterList(books, 'diagon');
+      expect(hits.single.book.title, 'The Philosopher\'s Stone');
+      expect(hits.single.chapter, 1);
+      expect(searchChapterList(books, 'boy lived').single.chapter, 0);
+      expect(searchChapterList(books, 'dragon'), isEmpty);
+    });
+  });
 }
+
+// ---------------------------------------------------------------- search
+
+Book _book(String title, String author, List<String> chapterTitles, {String? series}) => Book(
+      id: 'book:$title',
+      title: title,
+      author: author,
+      series: series,
+      parts: [
+        for (var i = 0; i < chapterTitles.length; i++)
+          Track(
+            id: 'local:F:\\$title\\$i.mp3',
+            source: TrackSource.local,
+            title: chapterTitles[i],
+            artist: author,
+            album: title,
+            albumArtist: author,
+            duration: const Duration(minutes: 20),
+            path: 'F:\\$title\\$i.mp3',
+          ),
+      ],
+    );
