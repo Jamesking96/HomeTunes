@@ -129,8 +129,11 @@ class _FoldersSection extends StatelessWidget {
             label: const Text('Rescan'),
             onPressed: lib.busy || lib.folders.isEmpty ? null : lib.scanLocal,
           ),
-          Text(lib.busy ? (lib.status ?? 'Working…') : '$localCount songs found',
-              style: const TextStyle(color: AppColors.textDim)),
+          ValueListenableBuilder<String?>(
+            valueListenable: lib.statusText,
+            builder: (_, status, _) => Text(lib.busy ? (status ?? 'Working…') : '$localCount songs found',
+                style: const TextStyle(color: AppColors.textDim)),
+          ),
         ]),
       ),
       if (lib.missingTracks.isNotEmpty) _MissingSongsTile(count: lib.missingTracks.length),

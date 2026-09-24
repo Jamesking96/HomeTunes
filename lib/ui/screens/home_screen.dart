@@ -39,7 +39,7 @@ class HomeScreen extends StatelessWidget {
           icon: Icons.library_music_outlined,
           title: lib.busy ? 'Scanning your music…' : 'No music yet',
           message: lib.busy
-              ? lib.status
+              ? 'Progress is shown at the bottom of the screen.'
               : 'Point HomeTunes at the folder where your music lives, or connect a music server.',
           action: lib.busy
               ? null
@@ -53,7 +53,7 @@ class HomeScreen extends StatelessWidget {
     }
 
     // "Recently added": newest local files first.
-    final recent = [...lib.albums]..sort((a, b) => _newest(b).compareTo(_newest(a)));
+    final recent = lib.albumsByNewest;
     final likedTracks = [for (final id in pl.liked) lib.byId(id)].whereType<Track>().toList();
 
     return Scaffold(
@@ -116,9 +116,6 @@ class HomeScreen extends StatelessWidget {
       ]),
     );
   }
-
-  static int _newest(Album a) =>
-      a.tracks.fold<int>(0, (m, t) => (t.modifiedMs ?? 0) > m ? (t.modifiedMs ?? 0) : m);
 
   static List<Album> _albumsOf(List<Track> tracks, LibraryModel lib) {
     final seen = <String>{};

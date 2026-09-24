@@ -97,7 +97,7 @@ class _BooksScreenState extends State<BooksScreen> {
           icon: Icons.menu_book_outlined,
           title: lib.busy ? 'Looking for audiobooks…' : 'No audiobooks yet',
           message: lib.busy
-              ? lib.status
+              ? 'Progress is shown at the bottom of the screen.'
               : 'Add the folder your audiobooks are in under Settings › Audiobooks. '
                   '.m4b files and files with the genre "Audiobook" in your music folders show up here too.',
           action: lib.busy
