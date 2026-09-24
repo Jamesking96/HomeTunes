@@ -20,8 +20,7 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
   final PlayerModel player;
   final LibraryModel library;
 
-  String? _shownItemId;
-  Duration? _shownDuration;
+  MediaItem? _shownItem;
 
   /// Set when the system asked us to stop (e.g. the notification was swiped
   /// away while paused). Keeps the session idle until music plays again.
@@ -61,8 +60,8 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
     if (player.playing) _stopped = false;
 
     if (t == null || _stopped) {
-      if (t == null && _shownItemId != null) {
-        _shownItemId = null;
+      if (t == null && _shownItem != null) {
+        _shownItem = null;
         mediaItem.add(null);
       }
       playbackState.add(playbackState.value.copyWith(
@@ -73,17 +72,25 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
     }
 
     final duration = player.duration > Duration.zero ? player.duration : t.duration;
-    if (t.id != _shownItemId || duration != _shownDuration) {
-      _shownItemId = t.id;
-      _shownDuration = duration;
-      mediaItem.add(MediaItem(
-        id: t.id,
-        title: t.title,
-        artist: t.artist,
-        album: t.album,
-        duration: duration,
-        artUri: library.artUriFor(t),
-      ));
+    final item = MediaItem(
+      id: t.id,
+      title: t.title,
+      artist: t.artist,
+      album: t.album,
+      duration: duration,
+      artUri: library.artUriFor(t),
+    );
+    // Only resend when something visible changed (new song, or its details edited).
+    final old = _shownItem;
+    if (old == null ||
+        old.id != item.id ||
+        old.title != item.title ||
+        old.artist != item.artist ||
+        old.album != item.album ||
+        old.duration != item.duration ||
+        old.artUri != item.artUri) {
+      _shownItem = item;
+      mediaItem.add(item);
     }
 
     playbackState.add(PlaybackState(
