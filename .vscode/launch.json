@@ -1,0 +1,33 @@
+   {
+     "version": "0.2.0",
+     "configurations": [
+       {
+         "name": "HomeTunes – Windows",
+         "request": "launch",
+         "type": "dart",
+         "program": "lib/main.dart",
+         "deviceId": "windows"
+       },
+       {
+         "name": "HomeTunes – Pixel 8",
+         "request": "launch",
+         "type": "dart",
+         "program": "lib/main.dart",
+         "deviceId": "43141FDJH002LV"
+       },
+       {
+         "name": "HomeTunes – Pixel 8 (release)",
+         "request": "launch",
+         "type": "dart",
+         "program": "lib/main.dart",
+         "deviceId": "43141FDJH002LV",
+         "flutterMode": "release"
+       }
+     ],
+     "compounds": [
+       {
+         "name": "HomeTunes – Windows + Pixel 8",
+         "configurations": ["HomeTunes – Windows", "HomeTunes – Pixel 8"]
+       }
+     ]
+   }
