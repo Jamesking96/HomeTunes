@@ -3,12 +3,15 @@ import 'package:provider/provider.dart';
 
 import '../../models/track.dart';
 import '../../state/library_model.dart';
+import '../../state/listening_model.dart';
 import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/artwork.dart';
+import '../widgets/book_card.dart';
 import '../widgets/cards.dart';
+import '../widgets/music_access_banner.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -25,15 +28,18 @@ class HomeScreen extends StatelessWidget {
     final lib = context.watch<LibraryModel>();
     final pl = context.watch<PlaylistsModel>();
     final nav = context.read<AppNav>();
+    final listening = context.watch<ListeningModel>();
+    final continueBooks = listening.inProgress(lib.books);
+    final ratio = bookCoverRatio(context);
 
-    if (lib.tracks.isEmpty) {
+    if (lib.tracks.isEmpty && lib.books.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: Text(_greeting())),
         body: EmptyState(
           icon: Icons.library_music_outlined,
           title: lib.busy ? 'Scanning your music…' : 'No music yet',
           message: lib.busy
-              ? lib.status
+              ? 'Progress is shown at the bottom of the screen.'
               : 'Point HomeTunes at the folder where your music lives, or connect a music server.',
           action: lib.busy
               ? null
@@ -47,12 +53,19 @@ class HomeScreen extends StatelessWidget {
     }
 
     // "Recently added": newest local files first.
-    final recent = [...lib.albums]..sort((a, b) => _newest(b).compareTo(_newest(a)));
+    final recent = lib.albumsByNewest;
     final likedTracks = [for (final id in pl.liked) lib.byId(id)].whereType<Track>().toList();
 
     return Scaffold(
       appBar: AppBar(title: Text(_greeting(), style: const TextStyle(fontWeight: FontWeight.w800))),
       body: ListView(padding: const EdgeInsets.only(bottom: 24), children: [
+        const MusicAccessBanner(),
+        if (continueBooks.isNotEmpty)
+          Shelf(
+            title: 'Continue listening',
+            height: bookCardHeight(150, ratio),
+            children: [for (final b in continueBooks.take(12)) BookCard(book: b, width: 150)],
+          ),
         // Quick tiles
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -103,9 +116,6 @@ class HomeScreen extends StatelessWidget {
       ]),
     );
   }
-
-  static int _newest(Album a) =>
-      a.tracks.fold<int>(0, (m, t) => (t.modifiedMs ?? 0) > m ? (t.modifiedMs ?? 0) : m);
 
   static List<Album> _albumsOf(List<Track> tracks, LibraryModel lib) {
     final seen = <String>{};

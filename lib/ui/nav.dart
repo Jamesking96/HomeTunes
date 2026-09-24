@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../models/book.dart';
 import '../models/playlist.dart';
 import '../models/track.dart';
 import 'screens/album_screen.dart';
 import 'screens/artist_screen.dart';
+import 'screens/book_screen.dart';
 import 'screens/playlist_screen.dart';
 
 /// Keeps one Navigator per tab so album/artist pages open inside the content
 /// area while the player bar stays put.
 class AppNav extends ChangeNotifier {
-  static const tabCount = 4; // Home, Search, Library, Settings
-  static const settingsTab = 3;
+  static const tabCount = 5; // Home, Search, Library, Books, Settings
+  static const libraryTab = 2;
+  static const booksTab = 3;
+  static const settingsTab = 4;
   final List<GlobalKey<NavigatorState>> keys = List.generate(tabCount, (_) => GlobalKey<NavigatorState>());
   int tab = 0;
 
@@ -32,4 +36,14 @@ class AppNav extends ChangeNotifier {
   void openArtist(String name) => push(ArtistScreen(name: name));
   void openPlaylist(Playlist p) => push(PlaylistScreen(playlistId: p.id));
   void openLiked() => push(const PlaylistScreen.liked());
+
+  /// Opens a book's page on the Books tab.
+  void openBook(Book b) {
+    if (tab != booksTab) {
+      tab = booksTab;
+      notifyListeners();
+    }
+    // The Books tab's navigator may not exist until the tab is shown.
+    WidgetsBinding.instance.addPostFrameCallback((_) => push(BookScreen(bookId: b.id)));
+  }
 }

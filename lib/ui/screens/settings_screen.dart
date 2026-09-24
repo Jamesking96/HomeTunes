@@ -2,15 +2,22 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:permission_handler_platform_interface/permission_handler_platform_interface.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/app_backup.dart';
+import '../../services/music_permission.dart';
 import '../../services/subsonic_client.dart';
 import '../../services/tag_writer.dart';
+import '../../state/book_index.dart';
+import '../../state/bookmarks_model.dart';
 import '../../state/library_model.dart';
+import '../../state/listening_model.dart';
+import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
 import '../theme.dart';
+import '../widgets/listening_controls.dart' show SpeedButton;
+import '../widgets/music_access_banner.dart';
+import '../widgets/track_tile.dart' show askForName;
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -22,7 +29,10 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 32),
         children: const [
+          MusicAccessBanner(),
           _FoldersSection(),
+          Divider(height: 32),
+          _AudiobooksSection(),
           Divider(height: 32),
           _CoversSection(),
           Divider(height: 32),
@@ -57,26 +67,30 @@ class _SectionTitle extends StatelessWidget {
 
 // ---------------------------------------------------------------- folders
 
+/// Asks for permission to read audio files (Android), then lets the user pick a folder.
+Future<String?> pickFolderWithPermission(BuildContext context, String title) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final lib = context.read<LibraryModel>();
+  final access = await MusicPermission.request();
+  await lib.refreshMusicAccess(rescanIfNewlyAllowed: false);
+  if (access != MusicAccess.allowed) {
+    messenger.showSnackBar(const SnackBar(
+      content: Text('HomeTunes needs "Music and audio" access to read your music and audiobooks.'),
+      action: SnackBarAction(label: 'Open settings', onPressed: MusicPermission.openSettings),
+      duration: Duration(seconds: 8),
+    ));
+    return null;
+  }
+  return FilePicker.getDirectoryPath(dialogTitle: title);
+}
+
 class _FoldersSection extends StatelessWidget {
   const _FoldersSection();
 
   Future<void> _addFolder(BuildContext context) async {
     final lib = context.read<LibraryModel>();
     final messenger = ScaffoldMessenger.of(context);
-    if (Platform.isAndroid) {
-      // Android 13+ uses "Music and audio"; older versions use storage.
-      final perms = PermissionHandlerPlatform.instance;
-      final statuses = await perms.requestPermissions([Permission.audio, Permission.storage]);
-      final ok = statuses.values.any((s) => s.isGranted || s.isLimited);
-      if (!ok) {
-        messenger.showSnackBar(SnackBar(
-          content: const Text('HomeTunes needs permission to read your music.'),
-          action: SnackBarAction(label: 'Open settings', onPressed: perms.openAppSettings),
-        ));
-        return;
-      }
-    }
-    final path = await FilePicker.getDirectoryPath(dialogTitle: 'Choose your music folder');
+    final path = await pickFolderWithPermission(context, 'Choose your music folder');
     if (path == null) return;
     await lib.addFolder(path);
     final n = lib.tracks.where((t) => t.isLocal).length;
@@ -115,8 +129,11 @@ class _FoldersSection extends StatelessWidget {
             label: const Text('Rescan'),
             onPressed: lib.busy || lib.folders.isEmpty ? null : lib.scanLocal,
           ),
-          Text(lib.busy ? (lib.status ?? 'Working…') : '$localCount songs found',
-              style: const TextStyle(color: AppColors.textDim)),
+          ValueListenableBuilder<String?>(
+            valueListenable: lib.statusText,
+            builder: (_, status, _) => Text(lib.busy ? (status ?? 'Working…') : '$localCount songs found',
+                style: const TextStyle(color: AppColors.textDim)),
+          ),
         ]),
       ),
       if (lib.missingTracks.isNotEmpty) _MissingSongsTile(count: lib.missingTracks.length),
@@ -190,6 +207,205 @@ class _MissingSongsTile extends StatelessWidget {
         trailing: const Icon(Icons.chevron_right),
         onTap: () => _showList(context),
       );
+}
+
+// ---------------------------------------------------------------- audiobooks
+
+class _AudiobooksSection extends StatelessWidget {
+  const _AudiobooksSection();
+
+  Future<void> _addFolder(BuildContext context) async {
+    final lib = context.read<LibraryModel>();
+    final messenger = ScaffoldMessenger.of(context);
+    final path = await pickFolderWithPermission(context, 'Choose your audiobooks folder');
+    if (path == null) return;
+    await lib.addAudiobookFolder(path);
+    messenger.showSnackBar(SnackBar(content: Text('${lib.books.length} audiobooks found')));
+  }
+
+  Future<void> _addGenre(BuildContext context) async {
+    final lib = context.read<LibraryModel>();
+    final name = await askForName(context, title: 'Genre that means "audiobook"');
+    if (name == null) return;
+    await lib.setBookGenres([...lib.bookGenres, name]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lib = context.watch<LibraryModel>();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const _SectionTitle(
+        'Audiobooks',
+        'Audiobooks have their own tab and never show up with your music. Everything in an audiobook folder is '
+            'a book; so are .m4b files and files with an audiobook genre in your music folders.',
+      ),
+      const Padding(
+        padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
+        child: Text('Audiobook folders', style: TextStyle(fontWeight: FontWeight.w600)),
+      ),
+      for (final f in lib.audiobookFolders)
+        ListTile(
+          leading: const Icon(Icons.folder_special_outlined),
+          title: Text(f, maxLines: 2, overflow: TextOverflow.ellipsis),
+          trailing: IconButton(
+            tooltip: 'Remove folder',
+            icon: const Icon(Icons.close),
+            onPressed: lib.busy ? null : () => lib.removeAudiobookFolder(f),
+          ),
+        ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Wrap(spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          OutlinedButton.icon(
+            icon: const Icon(Icons.create_new_folder_outlined),
+            label: const Text('Add audiobook folder'),
+            onPressed: lib.busy ? null : () => _addFolder(context),
+          ),
+          Text('${lib.books.length} audiobook${lib.books.length == 1 ? '' : 's'}',
+              style: const TextStyle(color: AppColors.textDim)),
+        ]),
+      ),
+      const Padding(
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: Text('Genres that mean "audiobook"', style: TextStyle(fontWeight: FontWeight.w600)),
+      ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Wrap(spacing: 8, runSpacing: 4, children: [
+          for (final g in lib.bookGenres)
+            InputChip(
+              label: Text(g),
+              onDeleted: () => lib.setBookGenres([for (final x in lib.bookGenres) if (x != g) x]),
+            ),
+          ActionChip(
+            avatar: const Icon(Icons.add, size: 18),
+            label: const Text('Add'),
+            onPressed: () => _addGenre(context),
+          ),
+          if (!_sameGenres(lib.bookGenres, defaultBookGenres))
+            TextButton(
+              onPressed: () => lib.setBookGenres(List.of(defaultBookGenres)),
+              child: const Text('Reset'),
+            ),
+        ]),
+      ),
+      const Padding(
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+        child: Text('Book cover shape', style: TextStyle(fontWeight: FontWeight.w600)),
+      ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment(value: false, icon: Icon(Icons.crop_square), label: Text('Match music (square)')),
+            ButtonSegment(value: true, icon: Icon(Icons.crop_portrait), label: Text('Book (tall)')),
+          ],
+          selected: {lib.bookCoversTall},
+          onSelectionChanged: (v) => lib.setBookCoversTall(v.first),
+        ),
+      ),
+      const SizedBox(height: 16),
+      _ChoiceTile<int>(
+        title: 'Skip back',
+        value: lib.skipBackSeconds,
+        options: const [5, 10, 15, 30, 45, 60],
+        label: (v) => '$v seconds',
+        onChanged: (v) => lib.updateListeningSettings(skipBackSeconds: v),
+      ),
+      _ChoiceTile<int>(
+        title: 'Skip forward',
+        value: lib.skipForwardSeconds,
+        options: const [5, 10, 15, 30, 45, 60],
+        label: (v) => '$v seconds',
+        onChanged: (v) => lib.updateListeningSettings(skipForwardSeconds: v),
+      ),
+      _ChoiceTile<double>(
+        title: 'Speed for new books',
+        subtitle: 'Each book remembers its own speed once you change it',
+        value: lib.defaultBookSpeed,
+        options: PlayerModel.speeds,
+        label: SpeedButton.label,
+        onChanged: (v) => lib.updateListeningSettings(defaultBookSpeed: v),
+      ),
+      SwitchListTile(
+        title: const Text('Rewind a little when resuming'),
+        subtitle: const Text('A few seconds after a short pause, up to 30 seconds after a long break'),
+        value: lib.rewindOnResume,
+        onChanged: (v) => lib.updateListeningSettings(rewindOnResume: v),
+      ),
+      const Padding(
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: Text('Sleep timer', style: TextStyle(fontWeight: FontWeight.w600)),
+      ),
+      SwitchListTile(
+        title: const Text('Show sleep timer button'),
+        subtitle: const Text('The moon beside play/pause: tap once to start the timer, again to stop it'),
+        value: lib.sleepButtonShown,
+        onChanged: (v) => lib.updateListeningSettings(sleepButtonShown: v),
+      ),
+      _ChoiceTile<int>(
+        title: 'Timer length for books',
+        value: lib.sleepBookMinutes,
+        options: const [5, 10, 15, 20, 30, 45, 60, 90, 120, LibraryModel.sleepAtEnd],
+        label: (v) => v == LibraryModel.sleepAtEnd ? 'End of chapter' : '$v minutes',
+        onChanged: (v) => lib.updateListeningSettings(sleepBookMinutes: v),
+      ),
+      _ChoiceTile<int>(
+        title: 'Timer length for music',
+        value: lib.sleepMusicMinutes,
+        options: const [5, 10, 15, 20, 30, 45, 60, 90, 120, LibraryModel.sleepAtEnd],
+        label: (v) => v == LibraryModel.sleepAtEnd ? 'End of song' : '$v minutes',
+        onChanged: (v) => lib.updateListeningSettings(sleepMusicMinutes: v),
+      ),
+      _ChoiceTile<int>(
+        title: 'Fade out before pausing',
+        value: lib.sleepFadeSeconds,
+        options: const [0, 5, 10, 30],
+        label: (v) => v == 0 ? 'Off' : '$v seconds',
+        onChanged: (v) => lib.updateListeningSettings(sleepFadeSeconds: v),
+      ),
+    ]);
+  }
+
+  static bool _sameGenres(List<String> a, List<String> b) =>
+      a.length == b.length && [for (var i = 0; i < a.length; i++) a[i] == b[i]].every((x) => x);
+}
+
+/// A setting with a few fixed choices, shown as a row with a drop-down.
+class _ChoiceTile<T> extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final T value;
+  final List<T> options;
+  final String Function(T) label;
+  final ValueChanged<T> onChanged;
+
+  const _ChoiceTile({
+    required this.title,
+    this.subtitle,
+    required this.value,
+    required this.options,
+    required this.label,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // A value saved by an older/newer version that isn't in the list still shows.
+    final items = options.contains(value) ? options : [value, ...options];
+    return ListTile(
+      title: Text(title),
+      subtitle: subtitle == null ? null : Text(subtitle!),
+      trailing: DropdownButton<T>(
+        value: value,
+        underline: const SizedBox.shrink(),
+        items: [for (final o in items) DropdownMenuItem(value: o, child: Text(label(o)))],
+        onChanged: (v) {
+          if (v != null) onChanged(v);
+        },
+      ),
+    );
+  }
 }
 
 // ---------------------------------------------------------------- server
@@ -549,6 +765,8 @@ class _BackupSectionState extends State<_BackupSection> {
   Future<void> _import() async {
     final lib = context.read<LibraryModel>();
     final playlists = context.read<PlaylistsModel>();
+    final listening = context.read<ListeningModel>();
+    final bookmarks = context.read<BookmarksModel>();
     final messenger = ScaffoldMessenger.of(context);
 
     BackupContents backup;
@@ -578,6 +796,8 @@ class _BackupSectionState extends State<_BackupSection> {
               '• ${backup.playlistCount} playlist${backup.playlistCount == 1 ? '' : 's'}, '
               '${backup.likedCount} liked song${backup.likedCount == 1 ? '' : 's'}\n'
               '• ${backup.editCount} edited song${backup.editCount == 1 ? '' : 's'}\n'
+              '• your place in ${backup.bookProgressCount} audiobook${backup.bookProgressCount == 1 ? '' : 's'}, '
+              '${backup.bookmarkCount} bookmark${backup.bookmarkCount == 1 ? '' : 's'}\n'
               '• ${backup.folders.length} music folder${backup.folders.length == 1 ? '' : 's'}'
               '${backup.hasPassword ? '\n• server password included' : ''}'),
           const SizedBox(height: 12),
@@ -599,7 +819,11 @@ class _BackupSectionState extends State<_BackupSection> {
 
     setState(() => _working = true);
     try {
-      final result = await lib.restoreBackup(backup, merge: merge, reloadOthers: playlists.load);
+      final result = await lib.restoreBackup(backup, merge: merge, reloadOthers: () async {
+        await playlists.load();
+        await listening.load();
+        await bookmarks.load();
+      });
       if (!mounted) return;
       await showDialog<void>(
         context: context,
@@ -653,8 +877,9 @@ class _BackupSectionState extends State<_BackupSection> {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const _SectionTitle(
         'Backup & restore',
-        'Save everything HomeTunes keeps – music folders, server, playlists, Liked Songs, song edits, covers '
-            'and the library – to one file, to restore later or move to another PC or phone.',
+        'Save everything HomeTunes keeps – music and audiobook folders, server, playlists, Liked Songs, song and '
+            'book edits, covers, your place in each audiobook, bookmarks, settings and the library – to one file, '
+            'to restore later or move to another PC or phone.',
       ),
       SwitchListTile(
         title: const Text('Include cover images from music files'),

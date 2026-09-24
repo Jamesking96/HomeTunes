@@ -160,6 +160,17 @@ class TrackMenuButton extends StatelessWidget {
           value: () => showEditDetails(context, [track]),
           child: _row(Icons.edit_outlined, 'Edit details…'),
         ),
+        PopupMenuItem(
+          value: () async {
+            final messenger = ScaffoldMessenger.maybeOf(context);
+            await lib.setIsBook([track.id], true);
+            messenger?.showSnackBar(SnackBar(
+              content: Text('"${track.title}" moved to Books'),
+              action: SnackBarAction(label: 'Undo', onPressed: () => lib.setIsBook([track.id], null)),
+            ));
+          },
+          child: _row(Icons.menu_book_outlined, 'Move to Books'),
+        ),
         if (!closeRouteFirst) // selecting only makes sense in song lists
           PopupMenuItem(
             value: () => context.read<SelectionModel>().toggle(track.id),

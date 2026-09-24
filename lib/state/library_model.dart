@@ -5,14 +5,17 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:path/path.dart' as p;
 
+import '../models/book.dart';
 import '../models/track.dart';
 import '../models/track_edit.dart';
 import '../services/app_backup.dart';
 import '../services/local_scanner.dart';
+import '../services/music_permission.dart';
 import '../services/storage.dart';
 import '../services/subsonic_client.dart';
 import '../services/tag_writer.dart';
 import '../services/track_matching.dart';
+import 'book_index.dart';
 import 'library_index.dart' as index;
 
 /// Holds the music library: local tracks, server tracks, settings, and the
@@ -33,6 +36,42 @@ class LibraryModel extends ChangeNotifier {
 
   /// Offer to look up missing song details (year, artist, genre…) on MusicBrainz.
   bool onlineDetails = true;
+
+  // ---- audiobook settings ----
+
+  /// Folders where everything is an audiobook (scanned as well as [folders]).
+  List<String> audiobookFolders = [];
+
+  /// Genres that mark a file as an audiobook.
+  List<String> bookGenres = List.of(defaultBookGenres);
+
+  /// Show book covers tall like a book, rather than square like music.
+  bool bookCoversTall = false;
+
+  /// Skip buttons while a book plays (seconds).
+  int skipBackSeconds = 15;
+  int skipForwardSeconds = 30;
+
+  /// Go back a few seconds when resuming a book.
+  bool rewindOnResume = true;
+
+  /// Speed for books that haven't had one chosen.
+  double defaultBookSpeed = 1.0;
+
+  /// Show the sleep timer button beside play/pause.
+  bool sleepButtonShown = true;
+
+  /// Sleep timer length in minutes; [sleepAtEnd] means "end of chapter" (books)
+  /// or "end of song" (music).
+  int sleepBookMinutes = 30;
+  int sleepMusicMinutes = 30;
+  static const sleepAtEnd = -1;
+
+  /// Fade the volume out over this many seconds before the timer pauses (0 = off).
+  int sleepFadeSeconds = 10;
+
+  /// "Move to Books" (true) / "Move to Music" (false), by track id.
+  Map<String, bool> _kindOverrides = {};
   SubsonicClient? _client;
   SubsonicClient? get client => _client;
 
@@ -61,16 +100,79 @@ class LibraryModel extends ChangeNotifier {
 
   /// The user's edits (song details and covers), by track id. Saved in edits.json.
   Map<String, TrackEdit> _edits = {};
+  /// Music only (audiobooks are in [books]).
   List<Track> tracks = [];
   List<Album> albums = [];
   List<Artist> artists = [];
 
+  /// Audiobooks, sorted by title.
+  List<Book> books = [];
+
+  /// Songs A–Z by title and albums newest first, worked out once per library
+  /// change rather than on every redraw.
+  List<Track> get songsByTitle => _songsByTitle ??=
+      [...tracks]..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+  List<Track>? _songsByTitle;
+
+  List<Album> get albumsByNewest => _albumsByNewest ??= [...albums]..sort((a, b) => _newest(b).compareTo(_newest(a)));
+  List<Album>? _albumsByNewest;
+
+  static int _newest(Album a) =>
+      a.tracks.fold<int>(0, (m, t) => (t.modifiedMs ?? 0) > m ? (t.modifiedMs ?? 0) : m);
+  Map<String, Book> _bookById = {};
+  Map<String, Book> _bookByTrackId = {};
+
+  /// Whether the phone lets HomeTunes read audio files (always allowed off Android).
+  MusicAccess musicAccess = MusicAccess.allowed;
+
+  /// For tests: how to check access.
+  Future<MusicAccess> Function() checkAccess = MusicPermission.check;
+
+  /// Music or audiobook folders are set up but the files can't be read.
+  bool get needsMusicAccess =>
+      musicAccess != MusicAccess.allowed && (folders.isNotEmpty || audiobookFolders.isNotEmpty);
+
+  /// Re-checks access (at start-up and when coming back from the phone's
+  /// Settings). Rescans when access has just been given.
+  Future<void> refreshMusicAccess({bool rescanIfNewlyAllowed = true}) async {
+    final before = musicAccess;
+    musicAccess = await checkAccess();
+    if (musicAccess != before) {
+      if (musicAccess == MusicAccess.allowed && error == _noAccessMessage) error = null;
+      notifyListeners();
+      if (rescanIfNewlyAllowed && musicAccess == MusicAccess.allowed && before != MusicAccess.allowed) {
+        await scanLocal();
+      }
+    }
+  }
+
+  static const _noAccessMessage =
+      'HomeTunes isn\'t allowed to read your music files. Tap "Allow access" in Settings.';
+
   // ---- status ----
   bool busy = false;
-  String? status; // e.g. "Scanning 120 / 900"
+  /// Progress text, e.g. "Scanning 120 / 900". Kept in its own notifier so
+  /// progress updates only redraw the places that show it, not the whole app
+  /// (with thousands of songs, redrawing everything each time was what made
+  /// big scans slow).
+  final ValueNotifier<String?> statusText = ValueNotifier(null);
+  String? get status => statusText.value;
+  set status(String? v) => statusText.value = v;
   String? error;
 
+  /// Any song or audiobook file by id.
   Track? byId(String id) => _byId[id];
+
+  Book? bookById(String id) => _bookById[id];
+
+  /// The book a file belongs to (null for music).
+  Book? bookOfTrack(String trackId) => _bookByTrackId[trackId];
+
+  /// Whether the user moved this file to Books (true) or Music (false) by hand.
+  bool? kindOverride(String trackId) => _kindOverrides[trackId];
+
+  /// Every folder that's scanned: music and audiobook folders.
+  List<String> get _scanFolders => {...folders, ...audiobookFolders}.toList();
 
   void clearError() {
     error = null;
@@ -84,6 +186,18 @@ class LibraryModel extends ChangeNotifier {
     serverEnabled = false;
     onlineCovers = true;
     onlineDetails = true;
+    audiobookFolders = [];
+    bookGenres = List.of(defaultBookGenres);
+    bookCoversTall = false;
+    skipBackSeconds = 15;
+    skipForwardSeconds = 30;
+    rewindOnResume = true;
+    defaultBookSpeed = 1.0;
+    sleepButtonShown = true;
+    sleepBookMinutes = 30;
+    sleepMusicMinutes = 30;
+    sleepFadeSeconds = 10;
+    _kindOverrides = {};
     _edits = {};
     _local = [];
     _remote = [];
@@ -97,6 +211,19 @@ class LibraryModel extends ChangeNotifier {
       serverEnabled = (s['serverEnabled'] as bool?) ?? false;
       onlineCovers = (s['onlineCovers'] as bool?) ?? true;
       onlineDetails = (s['onlineDetails'] as bool?) ?? true;
+      audiobookFolders = (s['audiobookFolders'] as List? ?? const []).cast<String>().toList();
+      if (s['bookGenres'] is List) bookGenres = (s['bookGenres'] as List).cast<String>().toList();
+      bookCoversTall = (s['bookCoversTall'] as bool?) ?? false;
+      skipBackSeconds = (s['skipBackSeconds'] as int?) ?? 15;
+      skipForwardSeconds = (s['skipForwardSeconds'] as int?) ?? 30;
+      rewindOnResume = (s['rewindOnResume'] as bool?) ?? true;
+      defaultBookSpeed = (s['defaultBookSpeed'] as num?)?.toDouble() ?? 1.0;
+      sleepButtonShown = (s['sleepButtonShown'] as bool?) ?? true;
+      sleepBookMinutes = (s['sleepBookMinutes'] as int?) ?? 30;
+      sleepMusicMinutes = (s['sleepMusicMinutes'] as int?) ?? 30;
+      sleepFadeSeconds = (s['sleepFadeSeconds'] as int?) ?? 10;
+      final o = s['bookOverrides'];
+      if (o is Map) _kindOverrides = {for (final e in o.entries) e.key as String: e.value == true};
     }
     _rebuildClient();
     final edits = await storage.read('edits.json') as Map<String, dynamic>?;
@@ -121,6 +248,18 @@ class LibraryModel extends ChangeNotifier {
         'serverEnabled': serverEnabled,
         'onlineCovers': onlineCovers,
         'onlineDetails': onlineDetails,
+        'audiobookFolders': audiobookFolders,
+        'bookGenres': bookGenres,
+        'bookCoversTall': bookCoversTall,
+        'skipBackSeconds': skipBackSeconds,
+        'skipForwardSeconds': skipForwardSeconds,
+        'rewindOnResume': rewindOnResume,
+        'defaultBookSpeed': defaultBookSpeed,
+        'sleepButtonShown': sleepButtonShown,
+        'sleepBookMinutes': sleepBookMinutes,
+        'sleepMusicMinutes': sleepMusicMinutes,
+        'sleepFadeSeconds': sleepFadeSeconds,
+        'bookOverrides': _kindOverrides,
       });
 
   Future<void> setOnlineDetails(bool on) async {
@@ -149,21 +288,35 @@ class LibraryModel extends ChangeNotifier {
   void _rebuild() {
     final raw = [..._local, if (serverEnabled) ..._remote];
     _rawById = {for (final t in raw) t.id: t};
-    tracks = [for (final t in raw) _edits[t.id]?.applyTo(t) ?? t];
-    _byId = {for (final t in tracks) t.id: t};
+    final all = [for (final t in raw) _edits[t.id]?.applyTo(t) ?? t];
+    _byId = {for (final t in all) t.id: t};
+    final rules = BookRules(genres: bookGenres, bookFolders: audiobookFolders, overrides: _kindOverrides);
+    final bookFiles = <Track>[];
+    tracks = [];
+    for (final t in all) {
+      (rules.isBook(t) ? bookFiles : tracks).add(t);
+    }
+    books = groupBooks(bookFiles);
+    _bookById = {for (final b in books) b.id: b};
+    _bookByTrackId = {for (final b in books) for (final t in b.parts) t.id: b};
     albums = index.groupAlbums(tracks);
     artists = index.groupArtists(albums);
+    _songsByTitle = null;
+    _albumsByNewest = null;
+    _albumByKey = {for (final a in albums) a.key: a};
     notifyListeners();
   }
 
   index.SearchResults search(String q) => index.search(q, tracks, albums, artists);
 
-  Album? albumByKey(String key) {
-    for (final a in albums) {
-      if (a.key == key) return a;
-    }
-    return null;
-  }
+  /// Audiobooks whose title, author, narrator or series contain every word of [q].
+  List<Book> searchBooks(String q) => searchBookList(books, q);
+
+  /// Audiobook chapters whose name contains every word of [q].
+  List<({Book book, int chapter})> searchChapters(String q) => searchChapterList(books, q);
+
+  Album? albumByKey(String key) => _albumByKey[key];
+  Map<String, Album> _albumByKey = {};
 
   Artist? artistByName(String name) {
     final l = name.toLowerCase();
@@ -171,6 +324,70 @@ class LibraryModel extends ChangeNotifier {
       if (a.name.toLowerCase() == l) return a;
     }
     return null;
+  }
+
+  // ---- audiobooks ----
+
+  Future<void> addAudiobookFolder(String path) async {
+    if (audiobookFolders.contains(path)) return;
+    audiobookFolders = [...audiobookFolders, path];
+    await _saveSettings();
+    notifyListeners();
+    await scanLocal();
+  }
+
+  Future<void> removeAudiobookFolder(String path) async {
+    audiobookFolders = audiobookFolders.where((f) => f != path).toList();
+    await _saveSettings();
+    await scanLocal();
+  }
+
+  Future<void> setBookGenres(List<String> genres) async {
+    bookGenres = [for (final g in genres) if (g.trim().isNotEmpty) g.trim()];
+    await _saveSettings();
+    _rebuild();
+  }
+
+  Future<void> setBookCoversTall(bool tall) async {
+    bookCoversTall = tall;
+    await _saveSettings();
+    notifyListeners();
+  }
+
+  /// Changes any of the listening / sleep timer settings (Settings > Audiobooks).
+  Future<void> updateListeningSettings({
+    int? skipBackSeconds,
+    int? skipForwardSeconds,
+    bool? rewindOnResume,
+    double? defaultBookSpeed,
+    bool? sleepButtonShown,
+    int? sleepBookMinutes,
+    int? sleepMusicMinutes,
+    int? sleepFadeSeconds,
+  }) async {
+    this.skipBackSeconds = skipBackSeconds ?? this.skipBackSeconds;
+    this.skipForwardSeconds = skipForwardSeconds ?? this.skipForwardSeconds;
+    this.rewindOnResume = rewindOnResume ?? this.rewindOnResume;
+    this.defaultBookSpeed = defaultBookSpeed ?? this.defaultBookSpeed;
+    this.sleepButtonShown = sleepButtonShown ?? this.sleepButtonShown;
+    this.sleepBookMinutes = sleepBookMinutes ?? this.sleepBookMinutes;
+    this.sleepMusicMinutes = sleepMusicMinutes ?? this.sleepMusicMinutes;
+    this.sleepFadeSeconds = sleepFadeSeconds ?? this.sleepFadeSeconds;
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// "Move to Books" (true), "Move to Music" (false), or back to automatic (null).
+  Future<void> setIsBook(Iterable<String> trackIds, bool? isBook) async {
+    for (final id in trackIds) {
+      if (isBook == null) {
+        _kindOverrides.remove(id);
+      } else {
+        _kindOverrides[id] = isBook;
+      }
+    }
+    await _saveSettings();
+    _rebuild();
   }
 
   // ---- folders ----
@@ -211,14 +428,20 @@ class LibraryModel extends ChangeNotifier {
   }
 
   Future<void> scanLocal() => _enqueue(() async {
+        // Without access the scan would find nothing and wrongly drop every
+        // song from the library, so don't scan at all.
+        musicAccess = await checkAccess();
+        if (musicAccess != MusicAccess.allowed && _scanFolders.isNotEmpty) {
+          error = _noAccessMessage;
+          return;
+        }
         error = null;
         status = 'Looking for music…';
         notifyListeners();
         try {
           final previous = {for (final t in _local) t.id: t};
-          _local = await _scanner.scan(folders, previous: previous, onProgress: (done, total) {
+          _local = await _scanner.scan(_scanFolders, previous: previous, onProgress: (done, total) {
             status = 'Scanning $done / $total';
-            notifyListeners();
           });
           await _reconcile(previous);
           await _saveLibrary();
@@ -280,7 +503,6 @@ class LibraryModel extends ChangeNotifier {
         try {
           final result = await c.fetchAllTracks(onProgress: (done, total) {
             status = 'Syncing server albums $done / $total';
-            notifyListeners();
           });
           status = null;
           // The server may have been forgotten or switched off while we synced.
@@ -334,6 +556,14 @@ class LibraryModel extends ChangeNotifier {
     if (editsChanged) {
       await storage.write('edits.json', {for (final e in _edits.entries) e.key: e.value.toJson()});
     }
+    var overridesChanged = false;
+    for (final e in moved.entries) {
+      final o = _kindOverrides.remove(e.key);
+      if (o == null) continue;
+      overridesChanged = true;
+      _kindOverrides.putIfAbsent(e.value, () => o);
+    }
+    if (overridesChanged) await _saveSettings();
     onIdsRemapped?.call(moved);
   }
 
@@ -534,7 +764,6 @@ class LibraryModel extends ChangeNotifier {
       var done = 0;
       for (final t in tracks) {
         status = 'Writing tags ${++done} / ${tracks.length}';
-        notifyListeners();
         final edit = _edits[t.id];
         if (edit == null || t.path == null) continue;
         final r = await writeTagsToFile(t.path!, edit, backupDir: backupDir);
@@ -552,7 +781,7 @@ class LibraryModel extends ChangeNotifier {
       status = 'Re-reading changed files…';
       notifyListeners();
       final previous = {for (final t in _local) t.id: t};
-      _local = await _scanner.scan(folders, previous: previous);
+      _local = await _scanner.scan(_scanFolders, previous: previous);
       await _reconcile(previous);
       await _saveLibrary();
       await _removeUnusedCustomArt();

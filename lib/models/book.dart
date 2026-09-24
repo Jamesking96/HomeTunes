@@ -1,0 +1,103 @@
+import 'track.dart';
+
+/// An audiobook: one or more audio files ("parts") played in order.
+class Book {
+  /// Stable id built from where the book is (see `bookKey`).
+  final String id;
+  final String title;
+  final String author;
+  final String? narrator;
+  final String? series;
+  final double? seriesIndex;
+  final int? year;
+
+  /// Files in playing order.
+  final List<Track> parts;
+
+  Book({
+    required this.id,
+    required this.title,
+    required this.author,
+    this.narrator,
+    this.series,
+    this.seriesIndex,
+    this.year,
+    required this.parts,
+  });
+
+  /// First part that has a cover.
+  Track? get artTrack {
+    for (final t in parts) {
+      if (t.art != null) return t;
+    }
+    return parts.isEmpty ? null : parts.first;
+  }
+
+  Duration get duration => parts.fold(Duration.zero, (a, t) => a + t.duration);
+
+  /// Newest file's modified time (for "recently added").
+  int get addedMs => parts.fold<int>(0, (m, t) => (t.modifiedMs ?? 0) > m ? (t.modifiedMs ?? 0) : m);
+
+  int indexOfPart(String trackId) => parts.indexWhere((t) => t.id == trackId);
+
+  /// Time from the start of the book to [position] in part [partIndex].
+  Duration offsetOf(int partIndex, Duration position) {
+    var total = Duration.zero;
+    for (var i = 0; i < partIndex && i < parts.length; i++) {
+      total += parts[i].duration;
+    }
+    return total + position;
+  }
+
+  /// Chapters across the whole book: markers inside files, otherwise one per file.
+  List<BookChapter> get chapters {
+    final out = <BookChapter>[];
+    var offset = Duration.zero;
+    for (var i = 0; i < parts.length; i++) {
+      final part = parts[i];
+      if (part.chapters.isEmpty) {
+        out.add(BookChapter(part: i, start: Duration.zero, offset: offset, title: part.title));
+      } else {
+        for (final c in part.chapters) {
+          out.add(BookChapter(
+            part: i,
+            start: c.start,
+            offset: offset + c.start,
+            title: c.title.isEmpty ? 'Chapter ${out.length + 1}' : c.title,
+          ));
+        }
+      }
+      offset += part.duration;
+    }
+    return out;
+  }
+
+  /// "Harry Potter 1" / "Harry Potter" / null.
+  String? get seriesLabel {
+    if (series == null) return null;
+    if (seriesIndex == null) return series;
+    final i = seriesIndex!;
+    return '$series ${i == i.roundToDouble() ? i.round() : i}';
+  }
+
+  @override
+  bool operator ==(Object other) => other is Book && other.id == id;
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
+/// A place to jump to in a book.
+class BookChapter {
+  /// Which file it's in.
+  final int part;
+
+  /// Where it starts within that file.
+  final Duration start;
+
+  /// Where it starts from the beginning of the book.
+  final Duration offset;
+  final String title;
+
+  const BookChapter({required this.part, required this.start, required this.offset, required this.title});
+}
