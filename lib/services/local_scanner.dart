@@ -147,7 +147,8 @@ Track readTrack(String path, int modifiedMs, String artDir) {
     album = _clean(m.album);
     trackNo = m.trackNumber;
     discNo = m.discNumber;
-    year = m.year?.year;
+    final y = m.year?.year;
+    year = (y != null && y > 0) ? y : null; // some files say "year 0"
     duration = m.duration ?? Duration.zero;
     if (m.genres.isNotEmpty) genre = _clean(m.genres.first);
     if (m.pictures.isNotEmpty) pictureBytes = m.pictures.first.bytes;

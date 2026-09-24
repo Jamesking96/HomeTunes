@@ -82,13 +82,17 @@ int comparePartsInBook(Track a, Track b) {
 String _fileName(Track t) => t.path == null ? t.title : splitPath(t.path!).last;
 
 /// Which book a file belongs to. Each .m4b file is a book of its own; other
-/// files are grouped by folder, album and author, so different books sharing
-/// a folder stay apart.
+/// files are grouped by folder and album, so different books sharing a folder
+/// stay apart. (Not by author: one file tagged "J. K. Rowling" and the rest
+/// "J.K. Rowling" is still one book.) Server files have no folder, so there
+/// the author is used instead.
 String bookKey(Track t) {
   final path = t.path;
   if (path != null && path.toLowerCase().endsWith('.m4b')) return 'file:${t.id}';
-  final dir = path == null ? '' : (splitPath(path)..removeLast()).join('/').toLowerCase();
-  return '$dir\u0000${t.album.toLowerCase()}\u0000${bookAuthor(t).toLowerCase()}';
+  final album = t.album.toLowerCase();
+  if (path == null) return 'server\u0000$album\u0000${bookAuthor(t).toLowerCase()}';
+  final dir = (splitPath(path)..removeLast()).join('/').toLowerCase();
+  return '$dir\u0000$album';
 }
 
 String bookAuthor(Track t) {
@@ -151,11 +155,18 @@ Book buildBook(String key, List<Track> parts) {
     }
   }
 
-  final years = parts.map((t) => t.year).whereType<int>();
+  final years = parts.map((t) => t.year).whereType<int>().where((y) => y > 0);
+  // The author most of the files agree on.
+  final votes = <String, int>{};
+  for (final t in parts) {
+    final a = bookAuthor(t);
+    votes[a] = (votes[a] ?? 0) + 1;
+  }
+  final author = votes.entries.reduce((a, b) => b.value > a.value ? b : a).key;
   return Book(
     id: 'book:$key',
     title: title,
-    author: bookAuthor(first),
+    author: author,
     narrator: narrator,
     series: series,
     seriesIndex: series == null ? null : index,

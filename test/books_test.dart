@@ -101,6 +101,16 @@ void main() {
       expect(books.firstWhere((b) => b.title == 'Alpha').parts.length, 2);
     });
 
+    test('one differently-spelled author doesn\'t split a book', () {
+      final books = groupBooks([
+        file(r'F:\HP6\29.mp3', album: 'Half Blood Prince', n: 29),
+        file(r'F:\HP6\30.mp3', album: 'Half Blood Prince', artist: 'J. K. Rowling', n: 30),
+        file(r'F:\HP6\01.mp3', album: 'Half Blood Prince', n: 1),
+      ]);
+      expect(books.single.parts.length, 3);
+      expect(books.single.author, 'J.K. Rowling');
+    });
+
     test('parts without track numbers sort naturally', () {
       final books = groupBooks([
         file(r'F:\B\Part 10.mp3'),
