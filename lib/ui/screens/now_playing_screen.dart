@@ -5,6 +5,8 @@ import '../nav.dart';
 import '../theme.dart';
 import '../../state/player_model.dart';
 import '../widgets/artwork.dart';
+import '../widgets/bookmark_widgets.dart';
+import '../widgets/listening_controls.dart';
 import '../widgets/player_controls.dart';
 import '../widgets/track_tile.dart';
 
@@ -16,6 +18,7 @@ class NowPlayingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.watch<PlayerModel>();
     final t = p.current;
+    final book = p.book;
     if (t == null) {
       return Scaffold(appBar: AppBar(), body: const Center(child: Text('Nothing playing')));
     }
@@ -48,7 +51,17 @@ class NowPlayingScreen extends StatelessWidget {
                       maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
                 ]),
               ),
-              TrackMenuButton(track: t, closeRouteFirst: true),
+              if (book != null)
+                IconButton(
+                  tooltip: 'Go to book',
+                  icon: const Icon(Icons.menu_book_outlined),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    context.read<AppNav>().openBook(book);
+                  },
+                )
+              else
+                TrackMenuButton(track: t, closeRouteFirst: true),
             ]),
             Expanded(
               child: Center(
@@ -66,19 +79,35 @@ class NowPlayingScreen extends StatelessWidget {
                   child: Row(children: [
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                        if (book != null)
+                          const _ChapterTitle()
+                        else
+                          Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                         InkWell(
                           onTap: () {
                             Navigator.of(context).pop();
-                            context.read<AppNav>().openArtist(t.albumArtist);
+                            if (book != null) {
+                              context.read<AppNav>().openBook(book);
+                            } else {
+                              context.read<AppNav>().openArtist(t.albumArtist);
+                            }
                           },
-                          child: Text(t.artist, maxLines: 1, overflow: TextOverflow.ellipsis,
+                          child: Text(book != null ? '${book.title} · ${book.author}' : t.artist,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(fontSize: 16, color: AppColors.textDim)),
                         ),
                       ]),
                     ),
-                    const LikeButton(),
+                    if (book == null)
+                      const LikeButton()
+                    else
+                      IconButton(
+                        tooltip: 'Bookmark this spot',
+                        icon: const Icon(Icons.bookmark_add_outlined),
+                        onPressed: () => addBookmarkNow(context),
+                      ),
                   ]),
                 ),
                 const SizedBox(height: 8),
@@ -101,11 +130,32 @@ class NowPlayingScreen extends StatelessWidget {
                       )
                     else
                       const Spacer(),
-                    IconButton(
-                      tooltip: 'Queue',
-                      icon: const Icon(Icons.queue_music),
-                      onPressed: () => openQueue(context),
-                    ),
+                    if (book != null) ...[
+                      const SpeedButton(),
+                      IconButton(
+                        tooltip: 'Chapters',
+                        icon: const Icon(Icons.format_list_bulleted),
+                        onPressed: () => showChaptersSheet(context),
+                      ),
+                      IconButton(
+                        tooltip: 'Bookmarks',
+                        icon: const Icon(Icons.bookmarks_outlined),
+                        onPressed: () => showBookmarksSheet(context),
+                      ),
+                    ],
+                    if (book != null && p.hasWaitingMusic)
+                      TextButton.icon(
+                        icon: const Icon(Icons.library_music_outlined, size: 18),
+                        label: const Text('Back to music'),
+                        onPressed: p.resumeMusic,
+                      ),
+                    // A book's "queue" is its files; the chapter list covers that.
+                    if (book == null)
+                      IconButton(
+                        tooltip: 'Queue',
+                        icon: const Icon(Icons.queue_music),
+                        onPressed: () => openQueue(context),
+                      ),
                   ]),
                 ),
               ]),
@@ -113,6 +163,24 @@ class NowPlayingScreen extends StatelessWidget {
           ]),
         ),
       ),
+    );
+  }
+}
+
+/// The chapter being listened to, kept up to date as the book plays.
+class _ChapterTitle extends StatelessWidget {
+  const _ChapterTitle();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<PlayerModel>();
+    return StreamBuilder<Duration>(
+      stream: p.positionStream,
+      builder: (context, _) {
+        final title = p.currentChapter?.title ?? p.current?.title ?? '';
+        return Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800));
+      },
     );
   }
 }

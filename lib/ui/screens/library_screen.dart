@@ -145,7 +145,7 @@ class _SongsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
-    final songs = [...lib.tracks]..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    final songs = lib.songsByTitle;
     if (songs.isEmpty) return const EmptyState(icon: Icons.music_note_outlined, title: 'No songs yet');
     return ListView.builder(
       itemCount: songs.length + 1,

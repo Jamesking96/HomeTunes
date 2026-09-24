@@ -10,6 +10,7 @@ import '../state/player_model.dart';
 import '../state/playlists_model.dart';
 import '../state/selection_model.dart';
 import 'nav.dart';
+import 'screens/books_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/library_screen.dart';
 import 'screens/edit_details.dart';
@@ -37,7 +38,8 @@ class Shell extends StatelessWidget {
         _TabNavigator(navKey: nav.keys[0], root: const HomeScreen()),
         _TabNavigator(navKey: nav.keys[1], root: const SearchScreen()),
         _TabNavigator(navKey: nav.keys[2], root: const LibraryScreen()),
-        _TabNavigator(navKey: nav.keys[3], root: const SettingsScreen()),
+        _TabNavigator(navKey: nav.keys[AppNav.booksTab], root: const BooksScreen()),
+        _TabNavigator(navKey: nav.keys[AppNav.settingsTab], root: const SettingsScreen()),
       ],
     );
 
@@ -94,6 +96,8 @@ class Shell extends StatelessWidget {
             NavigationDestination(
                 icon: Icon(Icons.library_music_outlined), selectedIcon: Icon(Icons.library_music), label: 'Library'),
             NavigationDestination(
+                icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book), label: 'Books'),
+            NavigationDestination(
                 icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),
           ],
         ),
@@ -138,9 +142,18 @@ class _StatusStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
-    final text = lib.status ?? lib.error;
+    // Progress text changes many times a second during a scan: only this strip
+    // redraws for it.
+    return ValueListenableBuilder<String?>(
+      valueListenable: lib.statusText,
+      builder: (context, status, _) => _strip(lib, status),
+    );
+  }
+
+  Widget _strip(LibraryModel lib, String? status) {
+    final text = status ?? lib.error;
     if (text == null) return const SizedBox.shrink();
-    final isError = lib.status == null;
+    final isError = status == null;
     return Material(
       color: isError ? const Color(0xFF5A1F1F) : AppColors.surface,
       child: Padding(
@@ -201,7 +214,8 @@ class _Sidebar extends StatelessWidget {
         ),
         item(0, Icons.home, 'Home'),
         item(1, Icons.search, 'Search'),
-        item(2, Icons.library_music, 'Your Library'),
+        item(AppNav.libraryTab, Icons.library_music, 'Your Library'),
+        item(AppNav.booksTab, Icons.menu_book, 'Audiobooks'),
         item(AppNav.settingsTab, Icons.settings, 'Settings'),
         const Divider(height: 24),
         ListTile(
@@ -209,7 +223,7 @@ class _Sidebar extends StatelessWidget {
           leading: Icon(Icons.favorite, color: accent),
           title: const Text('Liked Songs'),
           onTap: () {
-            nav.selectTab(2);
+            nav.selectTab(AppNav.libraryTab);
             nav.openLiked();
           },
         ),
@@ -220,7 +234,7 @@ class _Sidebar extends StatelessWidget {
                 dense: true,
                 title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                 onTap: () {
-                  nav.selectTab(2);
+                  nav.selectTab(AppNav.libraryTab);
                   nav.openPlaylist(p);
                 },
               ),
@@ -270,6 +284,21 @@ class _SelectionBar extends StatelessWidget {
               onPressed: () async {
                 await showAddToPlaylist(context, picked());
                 sel.clear();
+              },
+            ),
+            IconButton(
+              tooltip: 'Move to Books',
+              icon: const Icon(Icons.menu_book_outlined),
+              onPressed: () async {
+                final ids = [for (final t in picked()) t.id];
+                await lib.setIsBook(ids, true);
+                sel.clear();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Moved ${ids.length} to Books'),
+                    action: SnackBarAction(label: 'Undo', onPressed: () => lib.setIsBook(ids, null)),
+                  ));
+                }
               },
             ),
             IconButton(
