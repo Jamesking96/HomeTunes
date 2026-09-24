@@ -60,6 +60,11 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
   While a book plays: previous/next chapter, skip back 15 s / forward 30 s (across files, amounts
   adjustable), speed 0.75×–2.5× remembered per book, and a chapter list. The lock screen,
   notification, headset buttons, keyboard media keys and the Windows overlay skip seconds too.
+- **Book details and bookmarks** – ✎ on a book's page edits its title, author, narrator, series and
+  number, year, genre and cover (choose an image, or find one on Open Library), for every file of
+  the book at once; title, author and year have "find online" buttons too. Bookmarks (with notes)
+  are added from Now Playing and listed on the book's page. Books show up in search, and backups
+  include bookmarks and your place in every book.
 - **Sleep timer** – the moon button beside play/pause: one tap starts it, another stops it. Books
   and music have their own length (minutes, or end of chapter / end of song), and the volume
   fades out before it pauses. All of these are in Settings → Audiobooks, where the button can
