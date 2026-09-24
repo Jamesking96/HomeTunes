@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.hometunes.hometunes"
-    compileSdk = 37 // flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

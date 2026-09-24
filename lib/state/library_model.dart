@@ -237,6 +237,15 @@ class LibraryModel extends ChangeNotifier {
     return c.streamUrl(t.remoteId!);
   }
 
+  /// Cover art location for the system media controls (notification, lock screen).
+  Uri? artUriFor(Track t, {int size = 512}) {
+    final art = t.art;
+    if (art == null) return null;
+    if (t.isLocal) return Uri.file(art);
+    final c = _client;
+    return c == null ? null : Uri.parse(c.coverArtUrl(art, size: size));
+  }
+
   ImageProvider? artFor(Track? t, {int size = 512}) {
     if (t == null || t.art == null) return null;
     if (t.isLocal) return FileImage(File(t.art!));

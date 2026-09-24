@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../state/library_model.dart';
@@ -40,8 +43,9 @@ class Shell extends StatelessWidget {
           n.pop();
         } else if (nav.tab != 0) {
           nav.selectTab(0);
+        } else {
+          await _sendToBackground();
         }
-        // On the home tab root, back does nothing (keeps music playing).
       },
       child: tabs,
     );
@@ -79,6 +83,21 @@ class Shell extends StatelessWidget {
         ),
       ]),
     );
+  }
+}
+
+/// Android: Back on the Home screen hides the app like the Home button does,
+/// so the music keeps playing (closing the app would stop it).
+const _appChannel = MethodChannel('hometunes/app');
+
+Future<void> _sendToBackground() async {
+  if (!Platform.isAndroid) return;
+  try {
+    await _appChannel.invokeMethod<void>('moveToBackground');
+  } on PlatformException catch (e) {
+    debugPrint('HomeTunes: could not move to background: $e');
+  } on MissingPluginException {
+    // Older Android shell without the hook: do nothing, as before.
   }
 }
 
