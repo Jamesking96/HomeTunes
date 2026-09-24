@@ -16,6 +16,8 @@ class PlaylistsModel extends ChangeNotifier {
   Set<String> _likedSet = {};
 
   Future<void> load() async {
+    playlists = [];
+    liked = [];
     final j = await storage.read('playlists.json') as Map<String, dynamic>?;
     if (j != null) {
       playlists = [
@@ -89,6 +91,46 @@ class PlaylistsModel extends ChangeNotifier {
     p.trackIds
       ..clear()
       ..addAll(ids);
+    _changed();
+  }
+
+  /// Every track id used by a playlist or Liked Songs.
+  Set<String> get referencedIds => {..._likedSet, for (final p in playlists) ...p.trackIds};
+
+  /// Songs that moved (old id → new id) keep their places in playlists and likes.
+  void remapIds(Map<String, String> moved) {
+    if (moved.isEmpty) return;
+    var changed = false;
+    List<String> remap(List<String> ids) {
+      final out = <String>[];
+      final seen = <String>{};
+      for (final id in ids) {
+        final n = moved[id] ?? id;
+        if (n != id) changed = true;
+        if (seen.add(n)) out.add(n);
+      }
+      return out;
+    }
+
+    for (final p in playlists) {
+      final ids = remap(p.trackIds);
+      p.trackIds
+        ..clear()
+        ..addAll(ids);
+    }
+    liked = remap(liked);
+    _likedSet = liked.toSet();
+    if (changed) _changed();
+  }
+
+  /// Removes songs from every playlist and from Liked Songs.
+  void removeIds(Set<String> ids) {
+    if (ids.isEmpty) return;
+    for (final p in playlists) {
+      p.trackIds.removeWhere(ids.contains);
+    }
+    liked.removeWhere(ids.contains);
+    _likedSet = liked.toSet();
     _changed();
   }
 
