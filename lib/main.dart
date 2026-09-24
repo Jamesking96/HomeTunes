@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import 'services/media_session.dart';
 import 'services/storage.dart';
+import 'state/bookmarks_model.dart';
 import 'state/library_model.dart';
 import 'state/listening_model.dart';
 import 'state/player_model.dart';
@@ -25,18 +26,21 @@ Future<void> main() async {
   final library = LibraryModel(storage);
   final playlists = PlaylistsModel(storage);
   final listening = ListeningModel(storage);
-  await Future.wait([library.load(), playlists.load(), listening.load()]);
+  final bookmarks = BookmarksModel(storage);
+  await Future.wait([library.load(), playlists.load(), listening.load(), bookmarks.load()]);
   // Songs in playlists / Liked Songs are kept track of even when their files
   // are missing, and follow them if they move.
   library
-    ..otherReferencedIds = (() => {...playlists.referencedIds, ...listening.referencedIds})
+    ..otherReferencedIds = (() => {...playlists.referencedIds, ...listening.referencedIds, ...bookmarks.referencedIds})
     ..onIdsRemapped = ((moved) {
       playlists.remapIds(moved);
       listening.remapIds(moved);
+      bookmarks.remapIds(moved);
     })
     ..onIdsForgotten = ((ids) {
       playlists.removeIds(ids);
       listening.removeIds(ids);
+      bookmarks.removeIds(ids);
     });
 
   // The player lives for the whole app, and the system media controls
@@ -53,7 +57,13 @@ Future<void> main() async {
       ? 'HomeTunes: system media controls are off'
       : 'HomeTunes: system media controls connected');
 
-  runApp(HomeTunesApp(library: library, playlists: playlists, listening: listening, player: player));
+  runApp(HomeTunesApp(
+    library: library,
+    playlists: playlists,
+    listening: listening,
+    bookmarks: bookmarks,
+    player: player,
+  ));
 
   // Android: can we read the music files? (Shows a banner with a fix if not.)
   await library.refreshMusicAccess(rescanIfNewlyAllowed: false);
@@ -81,12 +91,14 @@ class HomeTunesApp extends StatelessWidget {
   final LibraryModel library;
   final PlaylistsModel playlists;
   final ListeningModel listening;
+  final BookmarksModel bookmarks;
   final PlayerModel player;
   const HomeTunesApp({
     super.key,
     required this.library,
     required this.playlists,
     required this.listening,
+    required this.bookmarks,
     required this.player,
   });
 
@@ -97,6 +109,7 @@ class HomeTunesApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: library),
         ChangeNotifierProvider.value(value: playlists),
         ChangeNotifierProvider.value(value: listening),
+        ChangeNotifierProvider.value(value: bookmarks),
         ChangeNotifierProvider.value(value: player),
         ChangeNotifierProvider(create: (_) => SleepTimer(player, library)),
         ChangeNotifierProvider(create: (_) => AppNav()),

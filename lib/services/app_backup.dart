@@ -19,7 +19,14 @@ class AppBackup {
   static const fileExtension = 'htbackup';
 
   /// The data files that make up HomeTunes' state.
-  static const dataFiles = ['settings.json', 'edits.json', 'playlists.json', 'library.json', 'listening.json'];
+  static const dataFiles = [
+    'settings.json',
+    'edits.json',
+    'playlists.json',
+    'library.json',
+    'listening.json',
+    'bookmarks.json',
+  ];
 
   /// Marks a path inside the app's folder in a backup.
   static const appPrefix = '@app/';
@@ -220,6 +227,21 @@ class AppBackup {
       await storage.write('listening.json', bb);
     }
 
+    // ---- bookmarks: merging keeps both sets (same bookmark only once) ----
+    final bm = backupFile('bookmarks.json');
+    if (merge) {
+      final cm = await currentFile('bookmarks.json');
+      final seen = <Object?>{};
+      await storage.write('bookmarks.json', {
+        'bookmarks': [
+          for (final b in [...(cm['bookmarks'] as List? ?? const []), ...(bm['bookmarks'] as List? ?? const [])])
+            if (b is Map && seen.add(b['id'])) b
+        ],
+      });
+    } else if (bm.isNotEmpty) {
+      await storage.write('bookmarks.json', bm);
+    }
+
     return RestoreResult(missingFolders: missingFolders, needsPassword: needsPassword);
   }
 
@@ -298,6 +320,8 @@ class BackupContents {
   int get playlistCount => (_file('playlists.json')['playlists'] as List? ?? const []).length;
   int get likedCount => (_file('playlists.json')['liked'] as List? ?? const []).length;
   int get editCount => _file('edits.json').length;
+  int get bookmarkCount => (_file('bookmarks.json')['bookmarks'] as List? ?? const []).length;
+  int get bookProgressCount => (_file('listening.json')['books'] as Map? ?? const {}).length;
   int get songCount {
     final l = _file('library.json');
     return (l['local'] as List? ?? const []).length + (l['remote'] as List? ?? const []).length;

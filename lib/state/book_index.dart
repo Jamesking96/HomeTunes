@@ -146,12 +146,30 @@ Book buildBook(String key, List<Track> parts) {
     title = m?.group(2)?.trim() ?? own;
   }
 
+  // Details the user set win over what the folder names suggest.
+  T? fromEdits<T>(T? Function(Track t) f) {
+    for (final t in parts) {
+      final v = f(t);
+      if (v != null) return v;
+    }
+    return null;
+  }
+
+  final editedSeries = fromEdits((t) => t.series);
+  if (editedSeries != null) series = editedSeries.isEmpty ? null : editedSeries; // "" = not in a series
+  index = fromEdits((t) => t.seriesIndex) ?? index;
+
+  final editedNarrator = fromEdits((t) => t.narrator);
   String? narrator;
-  for (final name in [own, parent]) {
-    final n = name == null ? null : _narrator.firstMatch(name);
-    if (n != null) {
-      narrator = n.group(1)!.trim();
-      break;
+  if (editedNarrator != null) {
+    narrator = editedNarrator.isEmpty ? null : editedNarrator; // "" = none
+  } else {
+    for (final name in [own, parent]) {
+      final n = name == null ? null : _narrator.firstMatch(name);
+      if (n != null) {
+        narrator = n.group(1)!.trim();
+        break;
+      }
     }
   }
 
