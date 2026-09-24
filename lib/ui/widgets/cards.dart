@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -70,27 +72,107 @@ class ArtistCard extends StatelessWidget {
   }
 }
 
-/// Section header + horizontal carousel.
-class Shelf extends StatelessWidget {
+/// Section header + horizontal carousel. On a PC, where a mouse can't swipe,
+/// it has ‹ › buttons that page through it and a visible scroll bar; the
+/// row can also be dragged with the mouse (see `appScrollBehavior`) or
+/// scrolled with Shift + mouse wheel.
+class Shelf extends StatefulWidget {
   final String title;
   final List<Widget> children;
   final double height;
   const Shelf({super.key, required this.title, required this.children, this.height = 230});
 
   @override
+  State<Shelf> createState() => _ShelfState();
+}
+
+class _ShelfState extends State<Shelf> {
+  final _scroll = ScrollController();
+  bool _canBack = false;
+  bool _canForward = false;
+
+  static final _desktop = Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_update);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _update());
+  }
+
+  @override
+  void didUpdateWidget(Shelf old) {
+    super.didUpdateWidget(old);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _update());
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Enables the arrows only when there's more to see that way.
+  void _update() {
+    if (!mounted || !_scroll.hasClients) return;
+    final pos = _scroll.position;
+    final back = pos.pixels > pos.minScrollExtent + 1;
+    final forward = pos.pixels < pos.maxScrollExtent - 1;
+    if (back != _canBack || forward != _canForward) {
+      setState(() {
+        _canBack = back;
+        _canForward = forward;
+      });
+    }
+  }
+
+  /// Moves most of a screen's width, so the last card seen stays in view.
+  void _page(int direction) {
+    if (!_scroll.hasClients) return;
+    final pos = _scroll.position;
+    final target = (pos.pixels + direction * pos.viewportDimension * 0.85).clamp(pos.minScrollExtent, pos.maxScrollExtent);
+    _scroll.animateTo(target, duration: const Duration(milliseconds: 350), curve: Curves.easeOutCubic);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (children.isEmpty) return const SizedBox.shrink();
+    if (widget.children.isEmpty) return const SizedBox.shrink();
+    final list = ListView(
+      controller: _scroll,
+      scrollDirection: Axis.horizontal,
+      padding: EdgeInsets.fromLTRB(8, 0, 8, _desktop ? 10 : 0),
+      children: widget.children,
+    );
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
-        child: Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+        padding: const EdgeInsets.fromLTRB(16, 20, 8, 4),
+        child: Row(children: [
+          Expanded(child: Text(widget.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700))),
+          if (_desktop && (_canBack || _canForward)) ...[
+            IconButton(
+              tooltip: 'Scroll left',
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.chevron_left),
+              onPressed: _canBack ? () => _page(-1) : null,
+            ),
+            IconButton(
+              tooltip: 'Scroll right',
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.chevron_right),
+              onPressed: _canForward ? () => _page(1) : null,
+            ),
+          ],
+        ]),
       ),
       SizedBox(
-        height: height,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          children: children,
+        height: widget.height + (_desktop ? 10 : 0),
+        // Resizing the window changes how much is hidden: keep the arrows right.
+        child: NotificationListener<ScrollMetricsNotification>(
+          onNotification: (_) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _update());
+            return false;
+          },
+          child: _desktop ? Scrollbar(controller: _scroll, thumbVisibility: true, child: list) : list,
         ),
       ),
     ]);

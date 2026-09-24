@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:audio_service_win/audio_service_win.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
@@ -119,8 +120,20 @@ class HomeTunesApp extends StatelessWidget {
         title: 'HomeTunes',
         debugShowCheckedModeBanner: false,
         theme: buildTheme(),
+        scrollBehavior: appScrollBehavior,
         home: const Shell(),
       ),
     );
   }
 }
+
+/// Lists can be dragged with a mouse as well as a finger, so rows that go off
+/// the side of the window can be pulled across on a PC.
+final appScrollBehavior = const MaterialScrollBehavior().copyWith(
+  dragDevices: {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.stylus,
+  },
+);
