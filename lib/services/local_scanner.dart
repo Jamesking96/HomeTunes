@@ -1,14 +1,14 @@
 import 'dart:io';
 import 'dart:isolate';
 
-import 'package:audio_metadata_reader/audio_metadata_reader.dart';
+import 'package:audio_metadata_reader/audio_metadata_reader.dart' hide Chapter;
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/track.dart';
 
 /// Extensions the scanner picks up.
-const audioExtensions = {'.mp3', '.flac', '.m4a', '.mp4', '.aac', '.ogg', '.opus', '.wav'};
+const audioExtensions = {'.mp3', '.flac', '.m4a', '.m4b', '.mp4', '.aac', '.ogg', '.opus', '.wav'};
 
 /// Image files commonly dropped next to albums.
 const _folderArtNames = ['cover.jpg', 'cover.png', 'folder.jpg', 'folder.png', 'front.jpg', 'front.png', 'album.jpg'];
@@ -137,6 +137,7 @@ Track readTrack(String path, int modifiedMs, String artDir) {
   int? trackNo, discNo, year;
   Duration duration = Duration.zero;
   List<int>? pictureBytes;
+  var chapters = const <Chapter>[];
 
   try {
     final m = readMetadata(File(path), getImage: true);
@@ -150,6 +151,8 @@ Track readTrack(String path, int modifiedMs, String artDir) {
     duration = m.duration ?? Duration.zero;
     if (m.genres.isNotEmpty) genre = _clean(m.genres.first);
     if (m.pictures.isNotEmpty) pictureBytes = m.pictures.first.bytes;
+    // Audiobooks: chapter markers inside the file (M4B with Nero chapters).
+    chapters = [for (final c in m.chapters) Chapter(c.start, c.title.trim())];
   } catch (_) {
     // Unsupported or damaged tags.
   }
@@ -184,6 +187,7 @@ Track readTrack(String path, int modifiedMs, String artDir) {
     path: path,
     art: art,
     modifiedMs: modifiedMs,
+    chapters: chapters,
   );
 }
 

@@ -3,11 +3,13 @@ import 'package:provider/provider.dart';
 
 import '../../models/track.dart';
 import '../../state/library_model.dart';
+import '../../state/listening_model.dart';
 import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/artwork.dart';
+import '../widgets/book_card.dart';
 import '../widgets/cards.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -25,8 +27,11 @@ class HomeScreen extends StatelessWidget {
     final lib = context.watch<LibraryModel>();
     final pl = context.watch<PlaylistsModel>();
     final nav = context.read<AppNav>();
+    final listening = context.watch<ListeningModel>();
+    final continueBooks = listening.inProgress(lib.books);
+    final ratio = bookCoverRatio(context);
 
-    if (lib.tracks.isEmpty) {
+    if (lib.tracks.isEmpty && lib.books.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: Text(_greeting())),
         body: EmptyState(
@@ -53,6 +58,12 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(_greeting(), style: const TextStyle(fontWeight: FontWeight.w800))),
       body: ListView(padding: const EdgeInsets.only(bottom: 24), children: [
+        if (continueBooks.isNotEmpty)
+          Shelf(
+            title: 'Continue listening',
+            height: bookCardHeight(150, ratio),
+            children: [for (final b in continueBooks.take(12)) BookCard(book: b, width: 150)],
+          ),
         // Quick tiles
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),

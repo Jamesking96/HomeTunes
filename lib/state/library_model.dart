@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:path/path.dart' as p;
 
+import '../models/book.dart';
 import '../models/track.dart';
 import '../models/track_edit.dart';
 import '../services/app_backup.dart';
@@ -13,6 +14,7 @@ import '../services/storage.dart';
 import '../services/subsonic_client.dart';
 import '../services/tag_writer.dart';
 import '../services/track_matching.dart';
+import 'book_index.dart';
 import 'library_index.dart' as index;
 
 /// Holds the music library: local tracks, server tracks, settings, and the
@@ -33,6 +35,20 @@ class LibraryModel extends ChangeNotifier {
 
   /// Offer to look up missing song details (year, artist, genre…) on MusicBrainz.
   bool onlineDetails = true;
+
+  // ---- audiobook settings ----
+
+  /// Folders where everything is an audiobook (scanned as well as [folders]).
+  List<String> audiobookFolders = [];
+
+  /// Genres that mark a file as an audiobook.
+  List<String> bookGenres = List.of(defaultBookGenres);
+
+  /// Show book covers tall like a book, rather than square like music.
+  bool bookCoversTall = false;
+
+  /// "Move to Books" (true) / "Move to Music" (false), by track id.
+  Map<String, bool> _kindOverrides = {};
   SubsonicClient? _client;
   SubsonicClient? get client => _client;
 
@@ -61,16 +77,34 @@ class LibraryModel extends ChangeNotifier {
 
   /// The user's edits (song details and covers), by track id. Saved in edits.json.
   Map<String, TrackEdit> _edits = {};
+  /// Music only (audiobooks are in [books]).
   List<Track> tracks = [];
   List<Album> albums = [];
   List<Artist> artists = [];
+
+  /// Audiobooks, sorted by title.
+  List<Book> books = [];
+  Map<String, Book> _bookById = {};
+  Map<String, Book> _bookByTrackId = {};
 
   // ---- status ----
   bool busy = false;
   String? status; // e.g. "Scanning 120 / 900"
   String? error;
 
+  /// Any song or audiobook file by id.
   Track? byId(String id) => _byId[id];
+
+  Book? bookById(String id) => _bookById[id];
+
+  /// The book a file belongs to (null for music).
+  Book? bookOfTrack(String trackId) => _bookByTrackId[trackId];
+
+  /// Whether the user moved this file to Books (true) or Music (false) by hand.
+  bool? kindOverride(String trackId) => _kindOverrides[trackId];
+
+  /// Every folder that's scanned: music and audiobook folders.
+  List<String> get _scanFolders => {...folders, ...audiobookFolders}.toList();
 
   void clearError() {
     error = null;
@@ -84,6 +118,10 @@ class LibraryModel extends ChangeNotifier {
     serverEnabled = false;
     onlineCovers = true;
     onlineDetails = true;
+    audiobookFolders = [];
+    bookGenres = List.of(defaultBookGenres);
+    bookCoversTall = false;
+    _kindOverrides = {};
     _edits = {};
     _local = [];
     _remote = [];
@@ -97,6 +135,11 @@ class LibraryModel extends ChangeNotifier {
       serverEnabled = (s['serverEnabled'] as bool?) ?? false;
       onlineCovers = (s['onlineCovers'] as bool?) ?? true;
       onlineDetails = (s['onlineDetails'] as bool?) ?? true;
+      audiobookFolders = (s['audiobookFolders'] as List? ?? const []).cast<String>().toList();
+      if (s['bookGenres'] is List) bookGenres = (s['bookGenres'] as List).cast<String>().toList();
+      bookCoversTall = (s['bookCoversTall'] as bool?) ?? false;
+      final o = s['bookOverrides'];
+      if (o is Map) _kindOverrides = {for (final e in o.entries) e.key as String: e.value == true};
     }
     _rebuildClient();
     final edits = await storage.read('edits.json') as Map<String, dynamic>?;
@@ -121,6 +164,10 @@ class LibraryModel extends ChangeNotifier {
         'serverEnabled': serverEnabled,
         'onlineCovers': onlineCovers,
         'onlineDetails': onlineDetails,
+        'audiobookFolders': audiobookFolders,
+        'bookGenres': bookGenres,
+        'bookCoversTall': bookCoversTall,
+        'bookOverrides': _kindOverrides,
       });
 
   Future<void> setOnlineDetails(bool on) async {
@@ -149,8 +196,17 @@ class LibraryModel extends ChangeNotifier {
   void _rebuild() {
     final raw = [..._local, if (serverEnabled) ..._remote];
     _rawById = {for (final t in raw) t.id: t};
-    tracks = [for (final t in raw) _edits[t.id]?.applyTo(t) ?? t];
-    _byId = {for (final t in tracks) t.id: t};
+    final all = [for (final t in raw) _edits[t.id]?.applyTo(t) ?? t];
+    _byId = {for (final t in all) t.id: t};
+    final rules = BookRules(genres: bookGenres, bookFolders: audiobookFolders, overrides: _kindOverrides);
+    final bookFiles = <Track>[];
+    tracks = [];
+    for (final t in all) {
+      (rules.isBook(t) ? bookFiles : tracks).add(t);
+    }
+    books = groupBooks(bookFiles);
+    _bookById = {for (final b in books) b.id: b};
+    _bookByTrackId = {for (final b in books) for (final t in b.parts) t.id: b};
     albums = index.groupAlbums(tracks);
     artists = index.groupArtists(albums);
     notifyListeners();
@@ -171,6 +227,47 @@ class LibraryModel extends ChangeNotifier {
       if (a.name.toLowerCase() == l) return a;
     }
     return null;
+  }
+
+  // ---- audiobooks ----
+
+  Future<void> addAudiobookFolder(String path) async {
+    if (audiobookFolders.contains(path)) return;
+    audiobookFolders = [...audiobookFolders, path];
+    await _saveSettings();
+    notifyListeners();
+    await scanLocal();
+  }
+
+  Future<void> removeAudiobookFolder(String path) async {
+    audiobookFolders = audiobookFolders.where((f) => f != path).toList();
+    await _saveSettings();
+    await scanLocal();
+  }
+
+  Future<void> setBookGenres(List<String> genres) async {
+    bookGenres = [for (final g in genres) if (g.trim().isNotEmpty) g.trim()];
+    await _saveSettings();
+    _rebuild();
+  }
+
+  Future<void> setBookCoversTall(bool tall) async {
+    bookCoversTall = tall;
+    await _saveSettings();
+    notifyListeners();
+  }
+
+  /// "Move to Books" (true), "Move to Music" (false), or back to automatic (null).
+  Future<void> setIsBook(Iterable<String> trackIds, bool? isBook) async {
+    for (final id in trackIds) {
+      if (isBook == null) {
+        _kindOverrides.remove(id);
+      } else {
+        _kindOverrides[id] = isBook;
+      }
+    }
+    await _saveSettings();
+    _rebuild();
   }
 
   // ---- folders ----
@@ -216,7 +313,7 @@ class LibraryModel extends ChangeNotifier {
         notifyListeners();
         try {
           final previous = {for (final t in _local) t.id: t};
-          _local = await _scanner.scan(folders, previous: previous, onProgress: (done, total) {
+          _local = await _scanner.scan(_scanFolders, previous: previous, onProgress: (done, total) {
             status = 'Scanning $done / $total';
             notifyListeners();
           });
@@ -334,6 +431,14 @@ class LibraryModel extends ChangeNotifier {
     if (editsChanged) {
       await storage.write('edits.json', {for (final e in _edits.entries) e.key: e.value.toJson()});
     }
+    var overridesChanged = false;
+    for (final e in moved.entries) {
+      final o = _kindOverrides.remove(e.key);
+      if (o == null) continue;
+      overridesChanged = true;
+      _kindOverrides.putIfAbsent(e.value, () => o);
+    }
+    if (overridesChanged) await _saveSettings();
     onIdsRemapped?.call(moved);
   }
 
@@ -552,7 +657,7 @@ class LibraryModel extends ChangeNotifier {
       status = 'Re-reading changed files…';
       notifyListeners();
       final previous = {for (final t in _local) t.id: t};
-      _local = await _scanner.scan(folders, previous: previous);
+      _local = await _scanner.scan(_scanFolders, previous: previous);
       await _reconcile(previous);
       await _saveLibrary();
       await _removeUnusedCustomArt();

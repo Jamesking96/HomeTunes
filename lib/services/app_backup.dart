@@ -19,7 +19,7 @@ class AppBackup {
   static const fileExtension = 'htbackup';
 
   /// The data files that make up HomeTunes' state.
-  static const dataFiles = ['settings.json', 'edits.json', 'playlists.json', 'library.json'];
+  static const dataFiles = ['settings.json', 'edits.json', 'playlists.json', 'library.json', 'listening.json'];
 
   /// Marks a path inside the app's folder in a backup.
   static const appPrefix = '@app/';
@@ -128,20 +128,31 @@ class AppBackup {
     final bs = backupFile('settings.json');
     final cs = await currentFile('settings.json');
     final backupFolders = (bs['folders'] as List? ?? const []).cast<String>();
-    final missingFolders = [for (final f in backupFolders) if (!Directory(f).existsSync()) f];
+    final backupBookFolders = (bs['audiobookFolders'] as List? ?? const []).cast<String>();
+    final missingFolders = [
+      for (final f in [...backupFolders, ...backupBookFolders]) if (!Directory(f).existsSync()) f
+    ];
     final usableFolders = [for (final f in backupFolders) if (Directory(f).existsSync()) f];
+    final usableBookFolders = [for (final f in backupBookFolders) if (Directory(f).existsSync()) f];
     final Map<String, dynamic> settings;
     if (merge) {
       settings = {...bs, ...cs};
       final current = (cs['folders'] as List? ?? const []).cast<String>();
       settings['folders'] = [...current, for (final f in usableFolders) if (!current.contains(f)) f];
+      final currentBooks = (cs['audiobookFolders'] as List? ?? const []).cast<String>();
+      settings['audiobookFolders'] = [
+        ...currentBooks,
+        for (final f in usableBookFolders) if (!currentBooks.contains(f)) f,
+      ];
+      final overrides = {...?(bs['bookOverrides'] as Map?), ...?(cs['bookOverrides'] as Map?)};
+      if (overrides.isNotEmpty) settings['bookOverrides'] = overrides;
       final currentServer = cs['server'];
       if (currentServer is! Map || ((currentServer['url'] as String?) ?? '').isEmpty) {
         settings['server'] = bs['server'];
         settings['serverEnabled'] = bs['serverEnabled'];
       }
     } else {
-      settings = {...bs, 'folders': usableFolders};
+      settings = {...bs, 'folders': usableFolders, 'audiobookFolders': usableBookFolders};
     }
     // No password in the backup: keep this device's one if it's the same server.
     final server = settings['server'];
@@ -200,6 +211,15 @@ class AppBackup {
     await storage.write('playlists.json', playlists);
     await storage.write('library.json', library);
 
+    // ---- place in audiobooks: for the same book, the most recent wins ----
+    final bb = backupFile('listening.json');
+    if (merge) {
+      final cb = await currentFile('listening.json');
+      await storage.write('listening.json', {'books': mergeListening(cb['books'], bb['books'])});
+    } else if (bb.isNotEmpty) {
+      await storage.write('listening.json', bb);
+    }
+
     return RestoreResult(missingFolders: missingFolders, needsPassword: needsPassword);
   }
 
@@ -227,6 +247,18 @@ class AppBackup {
       if (!liked.contains(id)) liked.add(id);
     }
     return {'playlists': lists, 'liked': liked};
+  }
+
+  /// Combines two listening.json "books" maps, keeping the latest place per book.
+  static Map<String, dynamic> mergeListening(Object? current, Object? incoming) {
+    final out = <String, dynamic>{...?(current as Map?)?.cast<String, dynamic>()};
+    for (final e in ((incoming as Map?) ?? const {}).entries) {
+      final mine = out[e.key];
+      final theirs = e.value;
+      int updated(Object? v) => v is Map ? ((v['updated'] as int?) ?? 0) : -1;
+      if (mine == null || updated(theirs) > updated(mine)) out[e.key as String] = theirs;
+    }
+    return out;
   }
 
   /// Replaces paths inside [root] with "@app/..." (forward slashes).
