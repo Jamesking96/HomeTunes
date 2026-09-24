@@ -5,6 +5,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../../state/player_model.dart';
 import '../widgets/artwork.dart';
+import '../widgets/listening_controls.dart';
 import '../widgets/player_controls.dart';
 import '../widgets/track_tile.dart';
 
@@ -77,8 +78,11 @@ class NowPlayingScreen extends StatelessWidget {
                   child: Row(children: [
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                        if (book != null)
+                          const _ChapterTitle()
+                        else
+                          Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                         InkWell(
                           onTap: () {
                             Navigator.of(context).pop();
@@ -118,6 +122,14 @@ class NowPlayingScreen extends StatelessWidget {
                       )
                     else
                       const Spacer(),
+                    if (book != null) ...[
+                      const SpeedButton(),
+                      IconButton(
+                        tooltip: 'Chapters',
+                        icon: const Icon(Icons.format_list_bulleted),
+                        onPressed: () => showChaptersSheet(context),
+                      ),
+                    ],
                     if (book != null && p.hasWaitingMusic)
                       TextButton.icon(
                         icon: const Icon(Icons.library_music_outlined, size: 18),
@@ -136,6 +148,24 @@ class NowPlayingScreen extends StatelessWidget {
           ]),
         ),
       ),
+    );
+  }
+}
+
+/// The chapter being listened to, kept up to date as the book plays.
+class _ChapterTitle extends StatelessWidget {
+  const _ChapterTitle();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<PlayerModel>();
+    return StreamBuilder<Duration>(
+      stream: p.positionStream,
+      builder: (context, _) {
+        final title = p.currentChapter?.title ?? p.current?.title ?? '';
+        return Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800));
+      },
     );
   }
 }

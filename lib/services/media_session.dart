@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
@@ -26,8 +27,15 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
   /// away while paused). Keeps the session idle until music plays again.
   bool _stopped = false;
 
+  /// Chapter last shown, so the title follows the book as it plays.
+  int _shownChapter = -1;
+  StreamSubscription<Duration>? _positionSub;
+
   MediaSession(this.player, this.library) {
     player.addListener(_sync);
+    _positionSub = player.positionStream.listen((_) {
+      if (player.inBook && player.currentChapterIndex != _shownChapter) _sync();
+    });
     _sync();
   }
 
@@ -72,11 +80,14 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
     }
 
     final duration = player.duration > Duration.zero ? player.duration : t.duration;
+    final book = player.book;
+    _shownChapter = player.currentChapterIndex;
     final item = MediaItem(
       id: t.id,
-      title: t.title,
-      artist: t.artist,
-      album: t.album,
+      // Books show the chapter, the author and the book's title.
+      title: book != null ? (player.currentChapter?.title ?? t.title) : t.title,
+      artist: book != null ? book.author : t.artist,
+      album: book != null ? book.title : t.album,
       duration: duration,
       artUri: library.artUriFor(t),
     );
@@ -94,11 +105,18 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
     }
 
     playbackState.add(PlaybackState(
-      controls: [
-        MediaControl.skipToPrevious,
-        player.playing ? MediaControl.pause : MediaControl.play,
-        MediaControl.skipToNext,
-      ],
+      // Books: skip back / forward by seconds instead of changing file.
+      controls: book != null
+          ? [
+              MediaControl.rewind,
+              player.playing ? MediaControl.pause : MediaControl.play,
+              MediaControl.fastForward,
+            ]
+          : [
+              MediaControl.skipToPrevious,
+              player.playing ? MediaControl.pause : MediaControl.play,
+              MediaControl.skipToNext,
+            ],
       androidCompactActionIndices: const [0, 1, 2],
       systemActions: const {MediaAction.seek, MediaAction.seekForward, MediaAction.seekBackward},
       processingState: player.buffering ? AudioProcessingState.buffering : AudioProcessingState.ready,
@@ -129,11 +147,19 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
     _sync();
   }
 
+  // Next / previous (headset buttons, keyboard media keys, the Windows media
+  // overlay) skip by seconds while a book plays.
   @override
-  Future<void> skipToNext() => player.next();
+  Future<void> skipToNext() => player.inBook ? player.skipForward() : player.next();
 
   @override
-  Future<void> skipToPrevious() => player.previous();
+  Future<void> skipToPrevious() => player.inBook ? player.skipBack() : player.previous();
+
+  @override
+  Future<void> fastForward() => player.skipForward();
+
+  @override
+  Future<void> rewind() => player.skipBack();
 
   @override
   Future<void> seek(Duration position) => player.seek(position);
