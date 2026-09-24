@@ -108,6 +108,7 @@ class _WriteJob {
         if (coverMime == null) throw const FormatException('The cover image isn\'t a JPEG or PNG');
       }
 
+      if (p.extension(path).toLowerCase() == '.wav') ensureRiffInfoChunk(file);
       updateMetadata(file, (m) => _apply(m, edit, support, coverBytes, coverMime));
 
       // Make sure the file still reads properly and the main changes stuck
@@ -144,6 +145,39 @@ String _uniqueName(String dir, String name) {
     i++;
   }
   return candidate;
+}
+
+/// The tag library only rewrites an existing `LIST/INFO` block in WAV files,
+/// and many WAVs have none. This appends an empty one (and fixes the RIFF
+/// size) so there's somewhere for the tags to go. Does nothing if present.
+void ensureRiffInfoChunk(File file) {
+  final data = file.readAsBytesSync();
+  if (data.length < 12 ||
+      String.fromCharCodes(data.sublist(0, 4)) != 'RIFF' ||
+      String.fromCharCodes(data.sublist(8, 12)) != 'WAVE') {
+    return;
+  }
+  final view = ByteData.sublistView(data);
+  // Look for an existing LIST/INFO chunk.
+  var pos = 12;
+  while (pos + 8 <= data.length) {
+    final id = String.fromCharCodes(data.sublist(pos, pos + 4));
+    final size = view.getUint32(pos + 4, Endian.little);
+    if (id == 'LIST' && pos + 12 <= data.length && String.fromCharCodes(data.sublist(pos + 8, pos + 12)) == 'INFO') {
+      return;
+    }
+    pos += 8 + size + (size.isOdd ? 1 : 0);
+  }
+  // Append an empty LIST/INFO chunk (keeping chunks on even offsets) and fix the RIFF size.
+  final out = BytesBuilder(copy: false)..add(data);
+  if (data.length.isOdd) out.addByte(0);
+  out
+    ..add('LIST'.codeUnits)
+    ..add((ByteData(4)..setUint32(0, 4, Endian.little)).buffer.asUint8List())
+    ..add('INFO'.codeUnits);
+  final bytes = out.toBytes();
+  ByteData.sublistView(bytes).setUint32(4, bytes.length - 8, Endian.little);
+  file.writeAsBytesSync(bytes, flush: true);
 }
 
 /// JPEG or PNG, from the file's first bytes.
