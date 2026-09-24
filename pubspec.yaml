@@ -28,7 +28,9 @@ dependencies:
   # System media controls: Android notification / lock screen / headset buttons,
   # and Windows media keys + media overlay (audio_service_win)
   audio_service: ^0.18.19
-  audio_service_win: ^0.0.3
+  # Local patched copy (see packages/audio_service_win/HOMETUNES_CHANGES.md)
+  audio_service_win:
+    path: packages/audio_service_win
 
   # State, storage, networking
   provider: ^6.1.5

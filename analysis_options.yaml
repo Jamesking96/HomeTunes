@@ -6,4 +6,5 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    - packages/**
 include: package:flutter_lints/flutter.yaml

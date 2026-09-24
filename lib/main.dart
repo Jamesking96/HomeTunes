@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:audio_service_win/audio_service_win.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
@@ -23,7 +26,14 @@ Future<void> main() async {
   // The player lives for the whole app, and the system media controls
   // (Android notification/lock screen, Windows media keys) are wired to it.
   final player = PlayerModel(library);
-  await MediaSession.start(player, library);
+  if (Platform.isWindows) {
+    // Make sure the Windows media-controls plugin is the one audio_service uses.
+    AudioServiceWin.registerWith();
+  }
+  final session = await MediaSession.start(player, library);
+  debugPrint(session == null
+      ? 'HomeTunes: system media controls are off'
+      : 'HomeTunes: system media controls connected');
 
   runApp(HomeTunesApp(library: library, playlists: playlists, player: player));
 
