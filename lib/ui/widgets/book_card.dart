@@ -6,7 +6,6 @@ import '../../state/library_model.dart';
 import '../../state/listening_model.dart';
 import '../nav.dart';
 import '../theme.dart';
-import 'artwork.dart';
 
 /// Height ÷ width of book covers: square like music, or tall like a book
 /// (Settings > Audiobooks).
