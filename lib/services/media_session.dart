@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
@@ -29,11 +28,11 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
 
   /// Chapter last shown, so the title follows the book as it plays.
   int _shownChapter = -1;
-  StreamSubscription<Duration>? _positionSub;
 
   MediaSession(this.player, this.library) {
     player.addListener(_sync);
-    _positionSub = player.positionStream.listen((_) {
+    // Lives as long as the app, like the session itself.
+    player.positionStream.listen((_) {
       if (player.inBook && player.currentChapterIndex != _shownChapter) _sync();
     });
     _sync();
