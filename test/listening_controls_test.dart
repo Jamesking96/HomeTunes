@@ -9,6 +9,7 @@ import 'package:hometunes/state/listening_model.dart';
 import 'package:hometunes/state/player_model.dart';
 import 'package:hometunes/state/sleep_timer.dart';
 import 'package:hometunes/ui/widgets/listening_controls.dart';
+import 'package:hometunes/ui/widgets/player_controls.dart';
 
 Track song(String id, {int seconds = 180}) => Track(
       id: id,
@@ -93,6 +94,14 @@ void main() {
     expect(PlayerModel.chapterIndexAt(chapters, m * 12), 1);
     expect(PlayerModel.chapterIndexAt(chapters, m * 45), 2);
     expect(PlayerModel.chapterIndexAt(const [], m), -1);
+  });
+
+  test('mouse wheel over the volume: down turns it down, up turns it up, within 0–100', () {
+    expect(VolumeControl.afterWheel(50, 100), 45);
+    expect(VolumeControl.afterWheel(50, -100), 55);
+    expect(VolumeControl.afterWheel(2, 100), 0);
+    expect(VolumeControl.afterWheel(98, -100), 100);
+    expect(VolumeControl.afterWheel(50, 0), 50);
   });
 
   test('speed labels', () {
