@@ -11,6 +11,7 @@ import '../theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/book_card.dart';
 import '../widgets/cards.dart';
+import '../widgets/music_access_banner.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -58,6 +59,7 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(_greeting(), style: const TextStyle(fontWeight: FontWeight.w800))),
       body: ListView(padding: const EdgeInsets.only(bottom: 24), children: [
+        const MusicAccessBanner(),
         if (continueBooks.isNotEmpty)
           Shelf(
             title: 'Continue listening',
