@@ -55,6 +55,10 @@ class TagSupport {
         year: year ? null : e.year,
         genre: genre ? null : e.genre,
         art: cover ? null : e.art,
+        // Audiobook details have no standard tag: they always stay in HomeTunes.
+        narrator: e.narrator,
+        series: e.series,
+        seriesIndex: e.seriesIndex,
       );
 }
 

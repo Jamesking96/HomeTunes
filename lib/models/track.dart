@@ -34,6 +34,11 @@ class Track {
   /// Chapter markers inside the file (audiobooks), in order. Usually empty.
   final List<Chapter> chapters;
 
+  /// Audiobook details set by the user (not read from files).
+  final String? narrator;
+  final String? series;
+  final double? seriesIndex;
+
   const Track({
     required this.id,
     required this.source,
@@ -51,6 +56,9 @@ class Track {
     this.art,
     this.modifiedMs,
     this.chapters = const [],
+    this.narrator,
+    this.series,
+    this.seriesIndex,
   });
 
   bool get isLocal => source == TrackSource.local;
@@ -79,6 +87,9 @@ class Track {
         art: art ?? this.art,
         modifiedMs: modifiedMs,
         chapters: chapters ?? this.chapters,
+        narrator: narrator,
+        series: series,
+        seriesIndex: seriesIndex,
       );
 
   Map<String, dynamic> toJson() => {
@@ -98,6 +109,9 @@ class Track {
         if (art != null) 'art': art,
         if (modifiedMs != null) 'modifiedMs': modifiedMs,
         if (chapters.isNotEmpty) 'chapters': [for (final c in chapters) c.toJson()],
+        if (narrator != null) 'narrator': narrator,
+        if (series != null) 'series': series,
+        if (seriesIndex != null) 'seriesIndex': seriesIndex,
       };
 
   factory Track.fromJson(Map<String, dynamic> j) => Track(
@@ -119,6 +133,9 @@ class Track {
         chapters: [
           for (final c in (j['chapters'] as List? ?? const [])) Chapter.fromJson(c as Map<String, dynamic>),
         ],
+        narrator: j['narrator'] as String?,
+        series: j['series'] as String?,
+        seriesIndex: (j['seriesIndex'] as num?)?.toDouble(),
       );
 
   @override

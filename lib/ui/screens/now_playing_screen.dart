@@ -5,6 +5,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../../state/player_model.dart';
 import '../widgets/artwork.dart';
+import '../widgets/bookmark_widgets.dart';
 import '../widgets/listening_controls.dart';
 import '../widgets/player_controls.dart';
 import '../widgets/track_tile.dart';
@@ -99,7 +100,14 @@ class NowPlayingScreen extends StatelessWidget {
                         ),
                       ]),
                     ),
-                    if (book == null) const LikeButton(),
+                    if (book == null)
+                      const LikeButton()
+                    else
+                      IconButton(
+                        tooltip: 'Bookmark this spot',
+                        icon: const Icon(Icons.bookmark_add_outlined),
+                        onPressed: () => addBookmarkNow(context),
+                      ),
                   ]),
                 ),
                 const SizedBox(height: 8),
@@ -129,6 +137,11 @@ class NowPlayingScreen extends StatelessWidget {
                         icon: const Icon(Icons.format_list_bulleted),
                         onPressed: () => showChaptersSheet(context),
                       ),
+                      IconButton(
+                        tooltip: 'Bookmarks',
+                        icon: const Icon(Icons.bookmarks_outlined),
+                        onPressed: () => showBookmarksSheet(context),
+                      ),
                     ],
                     if (book != null && p.hasWaitingMusic)
                       TextButton.icon(
@@ -136,11 +149,13 @@ class NowPlayingScreen extends StatelessWidget {
                         label: const Text('Back to music'),
                         onPressed: p.resumeMusic,
                       ),
-                    IconButton(
-                      tooltip: 'Queue',
-                      icon: const Icon(Icons.queue_music),
-                      onPressed: () => openQueue(context),
-                    ),
+                    // A book's "queue" is its files; the chapter list covers that.
+                    if (book == null)
+                      IconButton(
+                        tooltip: 'Queue',
+                        icon: const Icon(Icons.queue_music),
+                        onPressed: () => openQueue(context),
+                      ),
                   ]),
                 ),
               ]),

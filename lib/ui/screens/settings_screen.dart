@@ -9,6 +9,7 @@ import '../../services/music_permission.dart';
 import '../../services/subsonic_client.dart';
 import '../../services/tag_writer.dart';
 import '../../state/book_index.dart';
+import '../../state/bookmarks_model.dart';
 import '../../state/library_model.dart';
 import '../../state/listening_model.dart';
 import '../../state/player_model.dart';
@@ -762,6 +763,7 @@ class _BackupSectionState extends State<_BackupSection> {
     final lib = context.read<LibraryModel>();
     final playlists = context.read<PlaylistsModel>();
     final listening = context.read<ListeningModel>();
+    final bookmarks = context.read<BookmarksModel>();
     final messenger = ScaffoldMessenger.of(context);
 
     BackupContents backup;
@@ -791,6 +793,8 @@ class _BackupSectionState extends State<_BackupSection> {
               '• ${backup.playlistCount} playlist${backup.playlistCount == 1 ? '' : 's'}, '
               '${backup.likedCount} liked song${backup.likedCount == 1 ? '' : 's'}\n'
               '• ${backup.editCount} edited song${backup.editCount == 1 ? '' : 's'}\n'
+              '• your place in ${backup.bookProgressCount} audiobook${backup.bookProgressCount == 1 ? '' : 's'}, '
+              '${backup.bookmarkCount} bookmark${backup.bookmarkCount == 1 ? '' : 's'}\n'
               '• ${backup.folders.length} music folder${backup.folders.length == 1 ? '' : 's'}'
               '${backup.hasPassword ? '\n• server password included' : ''}'),
           const SizedBox(height: 12),
@@ -815,6 +819,7 @@ class _BackupSectionState extends State<_BackupSection> {
       final result = await lib.restoreBackup(backup, merge: merge, reloadOthers: () async {
         await playlists.load();
         await listening.load();
+        await bookmarks.load();
       });
       if (!mounted) return;
       await showDialog<void>(
@@ -869,8 +874,9 @@ class _BackupSectionState extends State<_BackupSection> {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const _SectionTitle(
         'Backup & restore',
-        'Save everything HomeTunes keeps – music folders, server, playlists, Liked Songs, song edits, covers '
-            'and the library – to one file, to restore later or move to another PC or phone.',
+        'Save everything HomeTunes keeps – music and audiobook folders, server, playlists, Liked Songs, song and '
+            'book edits, covers, your place in each audiobook, bookmarks, settings and the library – to one file, '
+            'to restore later or move to another PC or phone.',
       ),
       SwitchListTile(
         title: const Text('Include cover images from music files'),

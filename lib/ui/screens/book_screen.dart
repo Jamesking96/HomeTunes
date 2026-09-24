@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/book.dart';
+import '../../state/bookmarks_model.dart';
 import '../../state/library_model.dart';
 import '../../state/listening_model.dart';
 import '../../state/player_model.dart';
 import '../theme.dart';
 import '../widgets/book_card.dart';
+import '../widgets/bookmark_widgets.dart';
 import '../widgets/cards.dart';
+import 'edit_book.dart';
 
 /// One audiobook: details, Resume / Play, and its chapters.
 class BookScreen extends StatelessWidget {
@@ -28,6 +31,7 @@ class BookScreen extends StatelessWidget {
     final state = listening.stateOf(book);
     final progress = listening.progressFor(book);
     final chapters = book.chapters;
+    final bookmarks = context.watch<BookmarksModel>().forBook(book);
     final current = _currentChapter(book, chapters, progress);
     final accent = Theme.of(context).colorScheme.primary;
     final wide = MediaQuery.sizeOf(context).width > 600;
@@ -112,6 +116,11 @@ class BookScreen extends StatelessWidget {
             label: const Text('Play from start'),
             onPressed: () => player.playBook(book, fromStart: true),
           ),
+        IconButton(
+          tooltip: 'Edit book details',
+          icon: const Icon(Icons.edit_outlined),
+          onPressed: () => _edit(context, book),
+        ),
         PopupMenuButton<VoidCallback>(
           tooltip: 'More',
           icon: const Icon(Icons.more_vert),
@@ -169,6 +178,19 @@ class BookScreen extends StatelessWidget {
       appBar: AppBar(),
       body: CustomScrollView(slivers: [
         SliverToBoxAdapter(child: header),
+        if (bookmarks.isNotEmpty) ...[
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Text('${bookmarks.length} bookmark${bookmarks.length == 1 ? '' : 's'}',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            ),
+          ),
+          SliverList.builder(
+            itemCount: bookmarks.length,
+            itemBuilder: (_, i) => BookmarkTile(book: book, bookmark: bookmarks[i]),
+          ),
+        ],
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -215,6 +237,19 @@ class BookScreen extends StatelessWidget {
       if (chapters[i].offset <= at) found = i;
     }
     return found;
+  }
+
+  /// Opens the editor; renaming the book gives it a new id, so follow it.
+  Future<void> _edit(BuildContext context, Book book) async {
+    final lib = context.read<LibraryModel>();
+    final navigator = Navigator.of(context);
+    final firstPart = book.parts.first.id;
+    final saved = await showEditBook(context, book);
+    if (!saved) return;
+    final now = lib.bookOfTrack(firstPart);
+    if (now != null && now.id != book.id && navigator.mounted) {
+      navigator.pushReplacement(MaterialPageRoute(builder: (_) => BookScreen(bookId: now.id)));
+    }
   }
 
   Future<void> _moveToMusic(BuildContext context, Book book) async {

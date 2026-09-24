@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../state/library_index.dart';
 import '../../state/library_model.dart';
 import '../theme.dart';
+import '../widgets/book_card.dart';
 import '../widgets/cards.dart';
 import '../widgets/track_tile.dart';
 
@@ -28,6 +29,8 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
     final results = _query.trim().isEmpty ? SearchResults.empty : lib.search(_query);
+    final books = lib.searchBooks(_query);
+    final ratio = bookCoverRatio(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -38,7 +41,7 @@ class _SearchScreenState extends State<SearchScreen> {
           textInputAction: TextInputAction.search,
           onChanged: (v) => setState(() => _query = v),
           decoration: InputDecoration(
-            hintText: 'Songs, artists or albums',
+            hintText: 'Songs, artists, albums or books',
             prefixIcon: const Icon(Icons.search),
             suffixIcon: _query.isEmpty
                 ? null
@@ -57,8 +60,9 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
       ),
       body: _query.trim().isEmpty
-          ? const EmptyState(icon: Icons.search, title: 'Search your library', message: 'Find songs, artists and albums.')
-          : results.isEmpty
+          ? const EmptyState(
+              icon: Icons.search, title: 'Search your library', message: 'Find songs, artists, albums and audiobooks.')
+          : results.isEmpty && books.isEmpty
               ? EmptyState(icon: Icons.search_off, title: 'No results for "$_query"')
               : CustomScrollView(slivers: [
                   if (results.artists.isNotEmpty)
@@ -75,6 +79,14 @@ class _SearchScreenState extends State<SearchScreen> {
                         title: 'Albums',
                         height: 220,
                         children: [for (final a in results.albums.take(12)) AlbumCard(album: a, width: 160)],
+                      ),
+                    ),
+                  if (books.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: Shelf(
+                        title: 'Audiobooks',
+                        height: bookCardHeight(150, ratio),
+                        children: [for (final b in books.take(12)) BookCard(book: b, width: 150)],
                       ),
                     ),
                   if (results.tracks.isNotEmpty) ...[

@@ -511,6 +511,9 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   Future<void> skipBack() => skipBy(-Duration(seconds: library.skipBackSeconds));
   Future<void> skipForward() => skipBy(Duration(seconds: library.skipForwardSeconds));
 
+  /// Goes to [at] in file [part] of the playing book (e.g. a bookmark).
+  Future<void> goToPart(int part, Duration at) => _goTo(part, at);
+
   /// Jumps to the start of chapter [i] of the playing book.
   Future<void> goToChapter(int i) async {
     if (i < 0 || i >= _chapters.length) return;

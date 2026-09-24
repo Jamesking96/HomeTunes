@@ -288,6 +288,16 @@ class LibraryModel extends ChangeNotifier {
 
   index.SearchResults search(String q) => index.search(q, tracks, albums, artists);
 
+  /// Audiobooks whose title, author, narrator or series contain every word of [q].
+  List<Book> searchBooks(String q) {
+    final words = q.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (words.isEmpty) return const [];
+    return [
+      for (final b in books)
+        if (words.every('${b.title} ${b.author} ${b.narrator ?? ''} ${b.series ?? ''}'.toLowerCase().contains)) b
+    ];
+  }
+
   Album? albumByKey(String key) {
     for (final a in albums) {
       if (a.key == key) return a;

@@ -16,6 +16,11 @@ class TrackEdit {
   /// Path of a cover image chosen by the user (a copy kept in the app's data folder).
   final String? art;
 
+  /// Audiobook details (kept by HomeTunes; music files have no place for them).
+  final String? narrator;
+  final String? series;
+  final double? seriesIndex;
+
   const TrackEdit({
     this.title,
     this.artist,
@@ -26,6 +31,9 @@ class TrackEdit {
     this.year,
     this.genre,
     this.art,
+    this.narrator,
+    this.series,
+    this.seriesIndex,
   });
 
   static const empty = TrackEdit();
@@ -39,7 +47,10 @@ class TrackEdit {
       discNumber == null &&
       year == null &&
       genre == null &&
-      art == null;
+      art == null &&
+      narrator == null &&
+      series == null &&
+      seriesIndex == null;
 
   TrackEdit withoutArt() => TrackEdit(
         title: title,
@@ -50,6 +61,9 @@ class TrackEdit {
         discNumber: discNumber,
         year: year,
         genre: genre,
+        narrator: narrator,
+        series: series,
+        seriesIndex: seriesIndex,
       );
 
   /// Fields set in [other] win; fields it leaves null keep this edit's value.
@@ -63,6 +77,9 @@ class TrackEdit {
         year: other.year ?? year,
         genre: other.genre ?? genre,
         art: other.art ?? art,
+        narrator: other.narrator ?? narrator,
+        series: other.series ?? series,
+        seriesIndex: other.seriesIndex ?? seriesIndex,
       );
 
   /// Drops fields that match the file's own values, so a song that's been
@@ -77,6 +94,9 @@ class TrackEdit {
         year: year == original.year ? null : year,
         genre: genre == original.genre ? null : genre,
         art: art == original.art ? null : art,
+        narrator: narrator == original.narrator ? null : narrator,
+        series: series == original.series ? null : series,
+        seriesIndex: seriesIndex == original.seriesIndex ? null : seriesIndex,
       );
 
   /// The song as the user wants to see it.
@@ -97,6 +117,9 @@ class TrackEdit {
         art: art ?? t.art,
         modifiedMs: t.modifiedMs,
         chapters: t.chapters,
+        narrator: narrator ?? t.narrator,
+        series: series ?? t.series,
+        seriesIndex: seriesIndex ?? t.seriesIndex,
       );
 
   Map<String, dynamic> toJson() => {
@@ -109,6 +132,9 @@ class TrackEdit {
         if (year != null) 'year': year,
         if (genre != null) 'genre': genre,
         if (art != null) 'art': art,
+        if (narrator != null) 'narrator': narrator,
+        if (series != null) 'series': series,
+        if (seriesIndex != null) 'seriesIndex': seriesIndex,
       };
 
   factory TrackEdit.fromJson(Map<String, dynamic> j) => TrackEdit(
@@ -121,5 +147,8 @@ class TrackEdit {
         year: j['year'] as int?,
         genre: j['genre'] as String?,
         art: j['art'] as String?,
+        narrator: j['narrator'] as String?,
+        series: j['series'] as String?,
+        seriesIndex: (j['seriesIndex'] as num?)?.toDouble(),
       );
 }
