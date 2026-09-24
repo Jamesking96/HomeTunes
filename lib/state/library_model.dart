@@ -47,6 +47,28 @@ class LibraryModel extends ChangeNotifier {
   /// Show book covers tall like a book, rather than square like music.
   bool bookCoversTall = false;
 
+  /// Skip buttons while a book plays (seconds).
+  int skipBackSeconds = 15;
+  int skipForwardSeconds = 30;
+
+  /// Go back a few seconds when resuming a book.
+  bool rewindOnResume = true;
+
+  /// Speed for books that haven't had one chosen.
+  double defaultBookSpeed = 1.0;
+
+  /// Show the sleep timer button beside play/pause.
+  bool sleepButtonShown = true;
+
+  /// Sleep timer length in minutes; [sleepAtEnd] means "end of chapter" (books)
+  /// or "end of song" (music).
+  int sleepBookMinutes = 30;
+  int sleepMusicMinutes = 30;
+  static const sleepAtEnd = -1;
+
+  /// Fade the volume out over this many seconds before the timer pauses (0 = off).
+  int sleepFadeSeconds = 10;
+
   /// "Move to Books" (true) / "Move to Music" (false), by track id.
   Map<String, bool> _kindOverrides = {};
   SubsonicClient? _client;
@@ -121,6 +143,14 @@ class LibraryModel extends ChangeNotifier {
     audiobookFolders = [];
     bookGenres = List.of(defaultBookGenres);
     bookCoversTall = false;
+    skipBackSeconds = 15;
+    skipForwardSeconds = 30;
+    rewindOnResume = true;
+    defaultBookSpeed = 1.0;
+    sleepButtonShown = true;
+    sleepBookMinutes = 30;
+    sleepMusicMinutes = 30;
+    sleepFadeSeconds = 10;
     _kindOverrides = {};
     _edits = {};
     _local = [];
@@ -138,6 +168,14 @@ class LibraryModel extends ChangeNotifier {
       audiobookFolders = (s['audiobookFolders'] as List? ?? const []).cast<String>().toList();
       if (s['bookGenres'] is List) bookGenres = (s['bookGenres'] as List).cast<String>().toList();
       bookCoversTall = (s['bookCoversTall'] as bool?) ?? false;
+      skipBackSeconds = (s['skipBackSeconds'] as int?) ?? 15;
+      skipForwardSeconds = (s['skipForwardSeconds'] as int?) ?? 30;
+      rewindOnResume = (s['rewindOnResume'] as bool?) ?? true;
+      defaultBookSpeed = (s['defaultBookSpeed'] as num?)?.toDouble() ?? 1.0;
+      sleepButtonShown = (s['sleepButtonShown'] as bool?) ?? true;
+      sleepBookMinutes = (s['sleepBookMinutes'] as int?) ?? 30;
+      sleepMusicMinutes = (s['sleepMusicMinutes'] as int?) ?? 30;
+      sleepFadeSeconds = (s['sleepFadeSeconds'] as int?) ?? 10;
       final o = s['bookOverrides'];
       if (o is Map) _kindOverrides = {for (final e in o.entries) e.key as String: e.value == true};
     }
@@ -167,6 +205,14 @@ class LibraryModel extends ChangeNotifier {
         'audiobookFolders': audiobookFolders,
         'bookGenres': bookGenres,
         'bookCoversTall': bookCoversTall,
+        'skipBackSeconds': skipBackSeconds,
+        'skipForwardSeconds': skipForwardSeconds,
+        'rewindOnResume': rewindOnResume,
+        'defaultBookSpeed': defaultBookSpeed,
+        'sleepButtonShown': sleepButtonShown,
+        'sleepBookMinutes': sleepBookMinutes,
+        'sleepMusicMinutes': sleepMusicMinutes,
+        'sleepFadeSeconds': sleepFadeSeconds,
         'bookOverrides': _kindOverrides,
       });
 
@@ -255,6 +301,29 @@ class LibraryModel extends ChangeNotifier {
     bookCoversTall = tall;
     await _saveSettings();
     notifyListeners();
+  }
+
+  /// Changes any of the listening / sleep timer settings (Settings > Audiobooks).
+  Future<void> updateListeningSettings({
+    int? skipBackSeconds,
+    int? skipForwardSeconds,
+    bool? rewindOnResume,
+    double? defaultBookSpeed,
+    bool? sleepButtonShown,
+    int? sleepBookMinutes,
+    int? sleepMusicMinutes,
+    int? sleepFadeSeconds,
+  }) async {
+    this.skipBackSeconds = skipBackSeconds ?? this.skipBackSeconds;
+    this.skipForwardSeconds = skipForwardSeconds ?? this.skipForwardSeconds;
+    this.rewindOnResume = rewindOnResume ?? this.rewindOnResume;
+    this.defaultBookSpeed = defaultBookSpeed ?? this.defaultBookSpeed;
+    this.sleepButtonShown = sleepButtonShown ?? this.sleepButtonShown;
+    this.sleepBookMinutes = sleepBookMinutes ?? this.sleepBookMinutes;
+    this.sleepMusicMinutes = sleepMusicMinutes ?? this.sleepMusicMinutes;
+    this.sleepFadeSeconds = sleepFadeSeconds ?? this.sleepFadeSeconds;
+    notifyListeners();
+    await _saveSettings();
   }
 
   /// "Move to Books" (true), "Move to Music" (false), or back to automatic (null).

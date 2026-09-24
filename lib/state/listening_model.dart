@@ -15,18 +15,24 @@ class BookProgress {
   final int updatedMs;
   final bool finished;
 
+  /// Playback speed chosen for this book (null = the default speed).
+  final double? speed;
+
   const BookProgress({
     required this.partId,
     required this.position,
     required this.updatedMs,
     this.finished = false,
+    this.speed,
   });
 
-  BookProgress copyWith({String? partId, Duration? position, int? updatedMs, bool? finished}) => BookProgress(
+  BookProgress copyWith({String? partId, Duration? position, int? updatedMs, bool? finished, double? speed}) =>
+      BookProgress(
         partId: partId ?? this.partId,
         position: position ?? this.position,
         updatedMs: updatedMs ?? this.updatedMs,
         finished: finished ?? this.finished,
+        speed: speed ?? this.speed,
       );
 
   Map<String, dynamic> toJson() => {
@@ -34,6 +40,7 @@ class BookProgress {
         'posMs': position.inMilliseconds,
         'updated': updatedMs,
         if (finished) 'finished': true,
+        if (speed != null) 'speed': speed,
       };
 
   factory BookProgress.fromJson(Map<String, dynamic> j) => BookProgress(
@@ -41,6 +48,7 @@ class BookProgress {
         position: Duration(milliseconds: (j['posMs'] as int?) ?? 0),
         updatedMs: (j['updated'] as int?) ?? 0,
         finished: (j['finished'] as bool?) ?? false,
+        speed: (j['speed'] as num?)?.toDouble(),
       );
 }
 
@@ -139,11 +147,23 @@ class ListeningModel extends ChangeNotifier {
       position: position.isNegative ? Duration.zero : position,
       updatedMs: now(),
       finished: finished ?? false,
+      speed: old?.speed,
     );
     _byBook[b.id] = p;
     final visible = old == null || old.partId != partId || old.finished != p.finished ||
         (old.position - p.position).abs() > const Duration(seconds: 30);
     if (visible) notifyListeners();
+    await _save();
+  }
+
+  /// The speed chosen for [b], or null for the default.
+  double? speedFor(Book b) => progressFor(b)?.speed;
+
+  Future<void> setSpeed(Book b, double speed) async {
+    final old = progressFor(b);
+    _byBook[b.id] = old?.copyWith(speed: speed) ??
+        BookProgress(partId: b.parts.first.id, position: Duration.zero, updatedMs: now(), speed: speed);
+    notifyListeners();
     await _save();
   }
 
@@ -155,6 +175,7 @@ class ListeningModel extends ChangeNotifier {
         position: b.parts.last.duration,
         updatedMs: now(),
         finished: true,
+        speed: old?.speed,
       );
     } else if (old != null) {
       // "Not finished" starts it over.

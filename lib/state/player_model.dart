@@ -9,6 +9,7 @@ import '../models/track.dart';
 import 'library_model.dart';
 import 'listening_model.dart';
 import 'play_queue.dart';
+import 'sleep_timer.dart';
 
 /// The music queue, kept aside while an audiobook plays.
 class _MusicQueue {
@@ -25,7 +26,7 @@ class _MusicQueue {
 ///
 /// Position is exposed as a stream so the seek bar can update several times a
 /// second without rebuilding the whole app.
-class PlayerModel extends ChangeNotifier {
+class PlayerModel extends ChangeNotifier implements SleepTarget {
   final LibraryModel library;
 
   /// Remembers the place in audiobooks (null in tests that don't need it).
@@ -34,9 +35,12 @@ class PlayerModel extends ChangeNotifier {
   final PlayQueue queue = PlayQueue();
   final List<StreamSubscription> _subs = [];
 
+  @override
   bool playing = false;
   bool buffering = false;
+  @override
   Duration duration = Duration.zero;
+  @override
   double volume = 100; // 0–100
   String? lastError;
 
@@ -44,7 +48,20 @@ class PlayerModel extends ChangeNotifier {
   int _opening = 0;
 
   /// The audiobook playing, or null when playing music.
-  Book? book;
+  Book? get book => _book;
+  Book? _book;
+
+  /// The playing book's chapters (cached; empty for music).
+  List<BookChapter> get chapters => _chapters;
+  List<BookChapter> _chapters = const [];
+
+  void _setBook(Book? b) {
+    _book = b;
+    _chapters = b?.chapters ?? const [];
+  }
+
+  /// Playback speed (1.0 = normal).
+  double speed = 1.0;
 
   /// The music queue waiting while a book plays.
   _MusicQueue? _music;
@@ -98,7 +115,7 @@ class PlayerModel extends ChangeNotifier {
     if (b != null && t != null) {
       final fresh = library.bookOfTrack(t.id);
       if (fresh != null && !identical(fresh, b)) {
-        book = fresh;
+        _setBook(fresh);
         changed = true;
       }
     }
@@ -115,8 +132,10 @@ class PlayerModel extends ChangeNotifier {
     }
   }
 
+  @override
   Track? get current => queue.current;
   Stream<Duration> get positionStream => _player.stream.position;
+  @override
   Duration get position => _player.state.position;
   bool get shuffle => queue.shuffle;
   RepeatSetting get repeat => queue.repeat;
@@ -213,6 +232,7 @@ class PlayerModel extends ChangeNotifier {
     await _player.play();
   }
 
+  @override
   Future<void> pause() => _player.pause();
 
   Future<void> next() => _advance(auto: false);
@@ -231,6 +251,7 @@ class PlayerModel extends ChangeNotifier {
     await _player.seek(d);
     notifyListeners(); // lets the system media controls pick up the new position
   }
+  @override
   Future<void> setVolume(double v) => _player.setVolume(v.clamp(0.0, 100.0));
 
   void toggleShuffle() {
@@ -286,6 +307,7 @@ class PlayerModel extends ChangeNotifier {
   // ---- audiobooks ----
 
   /// True while an audiobook (rather than music) is playing.
+  @override
   bool get inBook => book != null;
 
   /// A music queue is waiting to be picked up again (see [resumeMusic]).
@@ -328,21 +350,23 @@ class PlayerModel extends ChangeNotifier {
         if (i >= 0) {
           index = i;
           final since = Duration(milliseconds: DateTime.now().millisecondsSinceEpoch - saved.updatedMs);
-          position = saved.position - resumeRewind(since);
+          position = library.rewindOnResume ? saved.position - resumeRewind(since) : saved.position;
           if (position.isNegative) position = Duration.zero;
         }
       }
     }
 
-    book = b;
+    _setBook(b);
     queue.setTracks(b.parts, start: index, shuffle: false, label: 'Book · ${b.title}');
     queue.repeat = RepeatSetting.off;
     await listening?.record(b, b.parts[index].id, position);
+    await _applySpeed(listening?.speedFor(b) ?? library.defaultBookSpeed);
     await _openCurrent(startAt: position);
   }
 
   /// Saves the place in the playing book (every 10 s, on pause, when the app
   /// goes to the background, and before switching away).
+  @override
   void saveBookPlace() {
     final b = book;
     final t = queue.current;
@@ -355,7 +379,8 @@ class PlayerModel extends ChangeNotifier {
   void _leaveBook() {
     if (book == null) return;
     saveBookPlace();
-    book = null;
+    _setBook(null);
+    _applySpeed(1.0);
     final m = _music;
     if (m != null) {
       queue.shuffle = m.shuffle;
@@ -381,12 +406,148 @@ class PlayerModel extends ChangeNotifier {
     final m = _music;
     if (book == null || m == null) return;
     saveBookPlace();
-    book = null;
+    _setBook(null);
+    await _applySpeed(1.0);
     _music = null;
     queue.setTracks(m.tracks, start: m.index, shuffle: false, label: m.label);
     queue.shuffle = m.shuffle;
     queue.repeat = m.repeat;
     await _openCurrent(startAt: m.position);
+  }
+
+  // ---- skipping, chapters and speed ----
+
+  /// Time from the start of the playing book to where we are.
+  @override
+  Duration get bookOffset {
+    final b = book;
+    if (b == null) return position;
+    return b.offsetOf(queue.position, position);
+  }
+
+  /// The chapter we're in (-1 for music).
+  @override
+  int get currentChapterIndex => book == null ? -1 : chapterIndexAt(_chapters, bookOffset);
+
+  /// Index of the chapter that [offset] (from the start of the book) is in.
+  static int chapterIndexAt(List<BookChapter> chapters, Duration offset) {
+    if (chapters.isEmpty) return -1;
+    var found = 0;
+    for (var i = 0; i < chapters.length; i++) {
+      if (chapters[i].offset <= offset) {
+        found = i;
+      } else {
+        break;
+      }
+    }
+    return found;
+  }
+
+  BookChapter? get currentChapter {
+    final i = currentChapterIndex;
+    return i < 0 ? null : _chapters[i];
+  }
+
+  /// Where chapter [i] ends, from the start of the book.
+  @override
+  Duration chapterEnd(int i) {
+    final b = book;
+    if (b == null || i < 0) return Duration.zero;
+    return i + 1 < _chapters.length ? _chapters[i + 1].offset : b.duration;
+  }
+
+  /// Goes to [at] in file [part] of the queue (same file: just seeks).
+  Future<void> _goTo(int part, Duration at) async {
+    if (at.isNegative) at = Duration.zero;
+    if (part == queue.position) {
+      await _player.seek(at);
+      notifyListeners();
+    } else {
+      queue.jumpTo(part);
+      await _openCurrent(startAt: at);
+    }
+    final b = book;
+    final t = queue.current;
+    if (b != null && t != null) await listening?.record(b, t.id, at);
+  }
+
+  /// Jumps back or forward by [delta]. In a book this carries on into the
+  /// previous / next file.
+  Future<void> skipBy(Duration delta) async {
+    final t = current;
+    if (t == null) return;
+    final b = book;
+    final length = duration > Duration.zero ? duration : t.duration;
+    final lengths = b == null
+        ? [length]
+        : [for (var i = 0; i < b.parts.length; i++) i == queue.position ? length : b.parts[i].duration];
+    final target = skipTarget(lengths, b == null ? 0 : queue.position, position, delta);
+    if (target == null) return next(); // past the end of a song: next song
+    await _goTo(b == null ? queue.position : target.$1, target.$2);
+  }
+
+  /// Where a skip of [delta] from [position] in file [part] lands, given the
+  /// lengths of the files (one file for a song). Crosses into the previous /
+  /// next file of a book. Returns null when a song would skip past its end.
+  static (int, Duration)? skipTarget(List<Duration> lengths, int part, Duration position, Duration delta) {
+    var target = position + delta;
+    while (target.isNegative && part > 0) {
+      part--;
+      target += lengths[part];
+    }
+    if (target.isNegative) target = Duration.zero;
+    while (part < lengths.length - 1 && lengths[part] > Duration.zero && target >= lengths[part]) {
+      target -= lengths[part];
+      part++;
+    }
+    final length = lengths[part];
+    if (length > Duration.zero && target >= length) {
+      if (lengths.length == 1) return null;
+      target = length - const Duration(seconds: 1); // the very end of the book
+    }
+    return (part, target);
+  }
+
+  Future<void> skipBack() => skipBy(-Duration(seconds: library.skipBackSeconds));
+  Future<void> skipForward() => skipBy(Duration(seconds: library.skipForwardSeconds));
+
+  /// Jumps to the start of chapter [i] of the playing book.
+  Future<void> goToChapter(int i) async {
+    if (i < 0 || i >= _chapters.length) return;
+    await _goTo(_chapters[i].part, _chapters[i].start);
+  }
+
+  Future<void> nextChapter() async {
+    final i = currentChapterIndex;
+    if (i < 0 || i + 1 >= _chapters.length) return;
+    final c = _chapters[i + 1];
+    await _goTo(c.part, c.start);
+  }
+
+  /// Back to the start of this chapter, or to the previous one if we're
+  /// within 3 seconds of the start.
+  Future<void> previousChapter() async {
+    final i = currentChapterIndex;
+    if (i < 0) return;
+    final c = _chapters[i];
+    final into = bookOffset - c.offset;
+    final target = (into > const Duration(seconds: 3) || i == 0) ? c : _chapters[i - 1];
+    await _goTo(target.part, target.start);
+  }
+
+  static const speeds = [0.75, 0.9, 1.0, 1.1, 1.2, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5];
+
+  Future<void> _applySpeed(double s) async {
+    speed = s;
+    await _player.setRate(s);
+  }
+
+  /// Changes the speed; for a book it's remembered for that book.
+  Future<void> setSpeed(double s) async {
+    await _applySpeed(s);
+    final b = book;
+    if (b != null) await listening?.setSpeed(b, s);
+    notifyListeners();
   }
 
   @override

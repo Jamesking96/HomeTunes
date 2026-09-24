@@ -195,7 +195,7 @@ class BookScreen extends StatelessWidget {
                   style: TextStyle(color: isCurrent ? accent : null, fontWeight: FontWeight.w500)),
               subtitle: Text('Starts at ${formatDuration(ch.offset)}'),
               trailing: Text(formatDuration(end - ch.offset), style: const TextStyle(color: AppColors.textDim)),
-              onTap: () => player.playBook(book, partIndex: ch.part, at: ch.start),
+              onTap: () => playingThis ? player.goToChapter(i) : player.playBook(book, partIndex: ch.part, at: ch.start),
             );
           },
         ),

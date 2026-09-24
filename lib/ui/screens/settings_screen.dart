@@ -11,8 +11,10 @@ import '../../services/tag_writer.dart';
 import '../../state/book_index.dart';
 import '../../state/library_model.dart';
 import '../../state/listening_model.dart';
+import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
 import '../theme.dart';
+import '../widgets/listening_controls.dart' show SpeedButton;
 import '../widgets/track_tile.dart' show askForName;
 
 class SettingsScreen extends StatelessWidget {
@@ -298,11 +300,108 @@ class _AudiobooksSection extends StatelessWidget {
           onSelectionChanged: (v) => lib.setBookCoversTall(v.first),
         ),
       ),
+      const SizedBox(height: 16),
+      _ChoiceTile<int>(
+        title: 'Skip back',
+        value: lib.skipBackSeconds,
+        options: const [5, 10, 15, 30, 45, 60],
+        label: (v) => '$v seconds',
+        onChanged: (v) => lib.updateListeningSettings(skipBackSeconds: v),
+      ),
+      _ChoiceTile<int>(
+        title: 'Skip forward',
+        value: lib.skipForwardSeconds,
+        options: const [5, 10, 15, 30, 45, 60],
+        label: (v) => '$v seconds',
+        onChanged: (v) => lib.updateListeningSettings(skipForwardSeconds: v),
+      ),
+      _ChoiceTile<double>(
+        title: 'Speed for new books',
+        subtitle: 'Each book remembers its own speed once you change it',
+        value: lib.defaultBookSpeed,
+        options: PlayerModel.speeds,
+        label: SpeedButton.label,
+        onChanged: (v) => lib.updateListeningSettings(defaultBookSpeed: v),
+      ),
+      SwitchListTile(
+        title: const Text('Rewind a little when resuming'),
+        subtitle: const Text('A few seconds after a short pause, up to 30 seconds after a long break'),
+        value: lib.rewindOnResume,
+        onChanged: (v) => lib.updateListeningSettings(rewindOnResume: v),
+      ),
+      const Padding(
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: Text('Sleep timer', style: TextStyle(fontWeight: FontWeight.w600)),
+      ),
+      SwitchListTile(
+        title: const Text('Show sleep timer button'),
+        subtitle: const Text('The moon beside play/pause: tap once to start the timer, again to stop it'),
+        value: lib.sleepButtonShown,
+        onChanged: (v) => lib.updateListeningSettings(sleepButtonShown: v),
+      ),
+      _ChoiceTile<int>(
+        title: 'Timer length for books',
+        value: lib.sleepBookMinutes,
+        options: const [5, 10, 15, 20, 30, 45, 60, 90, 120, LibraryModel.sleepAtEnd],
+        label: (v) => v == LibraryModel.sleepAtEnd ? 'End of chapter' : '$v minutes',
+        onChanged: (v) => lib.updateListeningSettings(sleepBookMinutes: v),
+      ),
+      _ChoiceTile<int>(
+        title: 'Timer length for music',
+        value: lib.sleepMusicMinutes,
+        options: const [5, 10, 15, 20, 30, 45, 60, 90, 120, LibraryModel.sleepAtEnd],
+        label: (v) => v == LibraryModel.sleepAtEnd ? 'End of song' : '$v minutes',
+        onChanged: (v) => lib.updateListeningSettings(sleepMusicMinutes: v),
+      ),
+      _ChoiceTile<int>(
+        title: 'Fade out before pausing',
+        value: lib.sleepFadeSeconds,
+        options: const [0, 5, 10, 30],
+        label: (v) => v == 0 ? 'Off' : '$v seconds',
+        onChanged: (v) => lib.updateListeningSettings(sleepFadeSeconds: v),
+      ),
     ]);
   }
 
   static bool _sameGenres(List<String> a, List<String> b) =>
       a.length == b.length && [for (var i = 0; i < a.length; i++) a[i] == b[i]].every((x) => x);
+}
+
+/// A setting with a few fixed choices, shown as a row with a drop-down.
+class _ChoiceTile<T> extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final T value;
+  final List<T> options;
+  final String Function(T) label;
+  final ValueChanged<T> onChanged;
+
+  const _ChoiceTile({
+    required this.title,
+    this.subtitle,
+    required this.value,
+    required this.options,
+    required this.label,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // A value saved by an older/newer version that isn't in the list still shows.
+    final items = options.contains(value) ? options : [value, ...options];
+    return ListTile(
+      title: Text(title),
+      subtitle: subtitle == null ? null : Text(subtitle!),
+      trailing: DropdownButton<T>(
+        value: value,
+        underline: const SizedBox.shrink(),
+        items: [for (final o in items) DropdownMenuItem(value: o, child: Text(label(o)))],
+        onChanged: (v) {
+          if (v != null) onChanged(v);
+        },
+      ),
+    );
+  }
 }
 
 // ---------------------------------------------------------------- server

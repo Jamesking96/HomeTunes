@@ -12,6 +12,7 @@ import 'state/listening_model.dart';
 import 'state/player_model.dart';
 import 'state/playlists_model.dart';
 import 'state/selection_model.dart';
+import 'state/sleep_timer.dart';
 import 'ui/nav.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
@@ -89,6 +90,7 @@ class HomeTunesApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: playlists),
         ChangeNotifierProvider.value(value: listening),
         ChangeNotifierProvider.value(value: player),
+        ChangeNotifierProvider(create: (_) => SleepTimer(player, library)),
         ChangeNotifierProvider(create: (_) => AppNav()),
         ChangeNotifierProvider(create: (_) => SelectionModel()),
       ],
