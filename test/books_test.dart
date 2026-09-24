@@ -111,9 +111,9 @@ void main() {
     });
 
     test('a book with no album tag takes its folder name, minus "Book 03 - "', () {
-      final b = groupBooks([file(r'F:\Series X\Book 03 - The Third\01.mp3', album: 'Book 03 - The Third')]).single;
+      final b = groupBooks([file(r'F:\The Expanse Series\Book 03 - The Third\01.mp3', album: 'Book 03 - The Third')]).single;
       expect(b.title, 'The Third');
-      expect(b.series, 'Series X');
+      expect(b.series, 'The Expanse');
       expect(b.seriesIndex, 3);
     });
 
@@ -155,7 +155,11 @@ void main() {
         file(r'F:\X\2.mp3', minutes: 30),
       ]);
     });
-    tearDown(() => dir.deleteSync(recursive: true));
+    tearDown(() async {
+      // Let saves that were started in the background finish first.
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      dir.deleteSync(recursive: true);
+    });
 
     test('progress, time left and state', () async {
       expect(l.stateOf(book), BookState.notStarted);
