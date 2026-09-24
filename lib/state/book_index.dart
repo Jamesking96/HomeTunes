@@ -250,3 +250,109 @@ List<({Book book, int chapter})> searchChapterList(Iterable<Book> books, String 
   }
   return out;
 }
+
+// ---------------------------------------------------------------- Books tab sorting & filtering
+
+enum BookSort { recentlyListened, title, author, narrator, series, recentlyAdded }
+
+/// Header for books with no narrator / not in a series (listed last).
+const noNarrator = 'Narrator not known';
+const noSeries = 'Not in a series';
+
+/// Series order: by series name (books outside a series by their title),
+/// then number in the series, then title.
+int compareBySeries(Book a, Book b) {
+  final c = naturalCompare(a.series ?? a.title, b.series ?? b.title);
+  if (c != 0) return c;
+  final n = (a.seriesIndex ?? double.infinity).compareTo(b.seriesIndex ?? double.infinity);
+  return n != 0 ? n : naturalCompare(a.title, b.title);
+}
+
+/// Books in display order, split into headed groups for the author /
+/// narrator / series sorts. Inside a group, books in a series follow their
+/// series number.
+List<(String?, List<Book>)> sortBooks(
+  List<Book> books,
+  BookSort sort, {
+  int Function(Book b)? lastListened,
+}) {
+  int byTitle(Book a, Book b) => naturalCompare(a.title, b.title);
+  switch (sort) {
+    case BookSort.title:
+      return [(null, [...books]..sort(byTitle))];
+    case BookSort.recentlyAdded:
+      return [(null, [...books]..sort((a, b) => b.addedMs.compareTo(a.addedMs)))];
+    case BookSort.recentlyListened:
+      final listened = lastListened ?? (_) => 0;
+      return [
+        (
+          null,
+          [...books]
+            ..sort((a, b) {
+              final c = listened(b).compareTo(listened(a));
+              return c != 0 ? c : compareBySeries(a, b);
+            })
+        )
+      ];
+    case BookSort.author:
+    case BookSort.narrator:
+    case BookSort.series:
+      final last = switch (sort) {
+        BookSort.narrator => noNarrator,
+        BookSort.series => noSeries,
+        _ => '',
+      };
+      String keyOf(Book b) => switch (sort) {
+            BookSort.author => b.author,
+            BookSort.narrator => b.narrator ?? noNarrator,
+            _ => b.series ?? noSeries,
+          };
+      final map = <String, List<Book>>{};
+      for (final b in books) {
+        (map[keyOf(b)] ??= []).add(b);
+      }
+      final keys = map.keys.toList()
+        ..sort((a, b) {
+          if (a == last) return 1;
+          if (b == last) return -1;
+          return naturalCompare(a, b);
+        });
+      return [for (final k in keys) (k, map[k]!..sort(compareBySeries))];
+  }
+}
+
+/// Narrowing the Books tab to one author, narrator and/or series.
+class BookFilters {
+  final String? author;
+  final String? narrator;
+  final String? series;
+  const BookFilters({this.author, this.narrator, this.series});
+
+  static const none = BookFilters();
+
+  bool get isEmpty => author == null && narrator == null && series == null;
+
+  bool matches(Book b) =>
+      (author == null || b.author == author) &&
+      (narrator == null || b.narrator == narrator) &&
+      (series == null || b.series == series);
+
+  BookFilters copyWith({String? author, String? narrator, String? series, bool clearAuthor = false,
+          bool clearNarrator = false, bool clearSeries = false}) =>
+      BookFilters(
+        author: clearAuthor ? null : (author ?? this.author),
+        narrator: clearNarrator ? null : (narrator ?? this.narrator),
+        series: clearSeries ? null : (series ?? this.series),
+      );
+
+  /// The authors / narrators / series to choose from, with how many books each has.
+  static Map<String, int> choices(Iterable<Book> books, String? Function(Book b) of) {
+    final counts = <String, int>{};
+    for (final b in books) {
+      final v = of(b);
+      if (v != null && v.isNotEmpty) counts[v] = (counts[v] ?? 0) + 1;
+    }
+    final keys = counts.keys.toList()..sort(naturalCompare);
+    return {for (final k in keys) k: counts[k]!};
+  }
+}
