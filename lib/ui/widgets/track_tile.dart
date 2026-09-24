@@ -6,7 +6,9 @@ import '../../models/track.dart';
 import '../../state/library_model.dart';
 import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
+import '../../state/selection_model.dart';
 import '../nav.dart';
+import '../screens/edit_details.dart';
 import '../theme.dart';
 import 'artwork.dart';
 
@@ -40,9 +42,16 @@ class TrackTile extends StatelessWidget {
     final currentId = context.select<PlayerModel, String?>((p) => p.current?.id);
     final isCurrent = currentId == track.id;
     final accent = Theme.of(context).colorScheme.primary;
+    final selecting = context.select<SelectionModel, bool>((s) => s.active);
+    final selected = context.select<SelectionModel, bool>((s) => s.contains(track.id));
 
     Widget leading;
-    if (showNumber) {
+    if (selecting) {
+      leading = SizedBox(
+        width: showNumber ? 28 : 44,
+        child: Checkbox(value: selected, onChanged: (_) => context.read<SelectionModel>().toggle(track.id)),
+      );
+    } else if (showNumber) {
       leading = SizedBox(
         width: 28,
         child: isCurrent
@@ -56,6 +65,8 @@ class TrackTile extends StatelessWidget {
 
     return ListTile(
       dense: false,
+      selected: selected,
+      selectedTileColor: accent.withValues(alpha: 0.12),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       leading: leading,
       title: Text(
@@ -84,9 +95,13 @@ class TrackTile extends StatelessWidget {
             padding: const EdgeInsets.only(right: 8),
             child: Text(formatDuration(track.duration), style: const TextStyle(color: AppColors.textDim)),
           ),
-        TrackMenuButton(track: track, extraAction: extraAction),
+        if (!selecting) TrackMenuButton(track: track, extraAction: extraAction),
       ]),
-      onTap: () => context.read<PlayerModel>().playTracks(list, start: index, label: contextLabel),
+      // In select mode a tap ticks/unticks; otherwise it plays. Long-press starts selecting.
+      onTap: selecting
+          ? () => context.read<SelectionModel>().toggle(track.id)
+          : () => context.read<PlayerModel>().playTracks(list, start: index, label: contextLabel),
+      onLongPress: () => context.read<SelectionModel>().toggle(track.id),
     );
   }
 }
@@ -139,6 +154,17 @@ class TrackMenuButton extends StatelessWidget {
           value: () => goto(() => nav.openArtist(track.albumArtist)),
           child: _row(Icons.person, 'Go to artist'),
         ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          // Opens on top of whatever is showing (including Now Playing).
+          value: () => showEditDetails(context, [track]),
+          child: _row(Icons.edit_outlined, 'Edit details…'),
+        ),
+        if (!closeRouteFirst) // selecting only makes sense in song lists
+          PopupMenuItem(
+            value: () => context.read<SelectionModel>().toggle(track.id),
+            child: _row(Icons.check_box_outlined, 'Select'),
+          ),
         if (extraAction != null) ...[const PopupMenuDivider(), extraAction!],
       ],
     );

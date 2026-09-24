@@ -148,6 +148,25 @@ class PlayQueue {
     _queue.insert(_pos + 1 + newIndex, t);
   }
 
+  /// Swaps in updated copies of queued songs (e.g. after the user edits a
+  /// song's details), matched by id. Order and position are unchanged.
+  /// Returns true if anything changed.
+  bool refresh(Track? Function(String id) lookup) {
+    var changed = false;
+    List<Track> swap(List<Track> list) => [
+          for (final t in list)
+            () {
+              final u = lookup(t.id);
+              if (u == null || identical(u, t)) return t;
+              changed = true;
+              return u;
+            }(),
+        ];
+    _queue = swap(_queue);
+    _original = swap(_original);
+    return changed;
+  }
+
   void clear() {
     _original = [];
     _queue = [];

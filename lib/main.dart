@@ -10,6 +10,7 @@ import 'services/storage.dart';
 import 'state/library_model.dart';
 import 'state/player_model.dart';
 import 'state/playlists_model.dart';
+import 'state/selection_model.dart';
 import 'ui/nav.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
@@ -55,6 +56,7 @@ class HomeTunesApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: playlists),
         ChangeNotifierProvider.value(value: player),
         ChangeNotifierProvider(create: (_) => AppNav()),
+        ChangeNotifierProvider(create: (_) => SelectionModel()),
       ],
       child: MaterialApp(
         title: 'HomeTunes',

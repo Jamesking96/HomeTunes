@@ -28,6 +28,7 @@ class PlayerModel extends ChangeNotifier {
   int _opening = 0;
 
   PlayerModel(this.library) {
+    library.addListener(_onLibraryChanged);
     _subs.addAll([
       _player.stream.playing.listen((v) {
         playing = v;
@@ -55,6 +56,12 @@ class PlayerModel extends ChangeNotifier {
         notifyListeners();
       }),
     ]);
+  }
+
+  /// Keeps the queue (and the now-playing display / system media controls)
+  /// showing songs' latest details after they're edited or rescanned.
+  void _onLibraryChanged() {
+    if (queue.refresh(library.byId)) notifyListeners();
   }
 
   Track? get current => queue.current;
@@ -198,6 +205,7 @@ class PlayerModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    library.removeListener(_onLibraryChanged);
     for (final s in _subs) {
       s.cancel();
     }
