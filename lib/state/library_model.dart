@@ -28,6 +28,9 @@ class LibraryModel extends ChangeNotifier {
 
   /// Offer to look up missing cover art online (MusicBrainz / Cover Art Archive).
   bool onlineCovers = true;
+
+  /// Offer to look up missing song details (year, artist, genre…) on MusicBrainz.
+  bool onlineDetails = true;
   SubsonicClient? _client;
   SubsonicClient? get client => _client;
 
@@ -66,6 +69,7 @@ class LibraryModel extends ChangeNotifier {
       }
       serverEnabled = (s['serverEnabled'] as bool?) ?? false;
       onlineCovers = (s['onlineCovers'] as bool?) ?? true;
+      onlineDetails = (s['onlineDetails'] as bool?) ?? true;
     }
     _rebuildClient();
     final edits = await storage.read('edits.json') as Map<String, dynamic>?;
@@ -88,7 +92,14 @@ class LibraryModel extends ChangeNotifier {
         'server': server.toJson(),
         'serverEnabled': serverEnabled,
         'onlineCovers': onlineCovers,
+        'onlineDetails': onlineDetails,
       });
+
+  Future<void> setOnlineDetails(bool on) async {
+    onlineDetails = on;
+    notifyListeners();
+    await _saveSettings();
+  }
 
   Future<void> setOnlineCovers(bool on) async {
     onlineCovers = on;

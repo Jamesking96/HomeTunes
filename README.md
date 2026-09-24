@@ -31,6 +31,10 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
 - **Find covers online** – for songs/albums with an artist or album name, search MusicBrainz / Cover
   Art Archive and pick a cover (from the edit dialog, or the prompt on album pages with no cover).
   Can be switched off in Settings.
+- **Find song details online** – every field in the edit screen (title, artist, album, album artist,
+  track/disc number, year, genre) has its own "find online" button, and album pages show a separate
+  prompt for each missing detail (cover, artist, year, genre, track numbers). Details come from
+  MusicBrainz; track numbers are matched to your songs by title. Own switch in Settings.
 - **System media controls** – Android: media notification, lock screen, Bluetooth/headset buttons,
   and background playback that Android won't kill. Windows: keyboard media keys and the Windows
   media overlay. Back on the Android Home screen hides the app and keeps the music playing.

@@ -11,6 +11,7 @@ import '../../state/library_model.dart';
 import '../theme.dart';
 import '../widgets/artwork.dart';
 import 'cover_search_dialog.dart';
+import 'info_lookup_dialog.dart';
 
 /// Opens the editor for one song, a whole album ([album] = true) or several
 /// selected songs. Changes are saved in HomeTunes only; music files are never
@@ -154,6 +155,33 @@ class _EditDetailsState extends State<_EditDetails> {
     });
   }
 
+  static InfoField _infoField(_Field f) => switch (f) {
+        _Field.title => InfoField.title,
+        _Field.artist => InfoField.artist,
+        _Field.album => InfoField.album,
+        _Field.albumArtist => InfoField.albumArtist,
+        _Field.trackNumber => InfoField.trackNumber,
+        _Field.discNumber => InfoField.discNumber,
+        _Field.year => InfoField.year,
+        _Field.genre => InfoField.genre,
+      };
+
+  /// Looks up one field online (by song for a single song, by album otherwise)
+  /// and puts the chosen value in the box. Nothing is saved until Save.
+  Future<void> _lookUp(_Field f) async {
+    final albumArtist = _current(_Field.albumArtist);
+    final choice = await showInfoLookup(
+      context,
+      field: _infoField(f),
+      songMode: _single,
+      title: _single ? _current(_Field.title) : null,
+      artist: _single ? _current(_Field.artist) : (albumArtist.isNotEmpty ? albumArtist : _current(_Field.artist)),
+      album: _current(_Field.album),
+    );
+    if (choice == null || !mounted) return;
+    setState(() => _ctrl[f]!.text = choice.value);
+  }
+
   Future<void> _save() async {
     final lib = context.read<LibraryModel>();
     setState(() => _saving = true);
@@ -256,6 +284,14 @@ class _EditDetailsState extends State<_EditDetails> {
             // Refresh the "In file: …" hint as you type.
             onChanged: _single ? (_) => setState(() {}) : null,
             decoration: InputDecoration(
+              // A separate "find online" button for each detail.
+              suffixIcon: context.watch<LibraryModel>().onlineDetails
+                  ? IconButton(
+                      tooltip: 'Find ${_label(f).toLowerCase()} online',
+                      icon: const Icon(Icons.travel_explore, size: 20),
+                      onPressed: _saving ? null : () => _lookUp(f),
+                    )
+                  : null,
               labelText: _label(f),
               hintText: _mixed.contains(f) ? 'Mixed – leave blank to keep each song\'s own' : null,
               helperText: _helperFor(f, lib),
