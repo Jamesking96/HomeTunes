@@ -25,6 +25,11 @@ dependencies:
   permission_handler_android: ^14.1.0
   permission_handler_platform_interface: ^4.4.1
 
+  # System media controls: Android notification / lock screen / headset buttons,
+  # and Windows media keys + media overlay (audio_service_win)
+  audio_service: ^0.18.19
+  audio_service_win: ^0.0.3
+
   # State, storage, networking
   provider: ^6.1.5
   path_provider: ^2.1.4

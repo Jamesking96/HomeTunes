@@ -21,6 +21,9 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
 - **Server streaming** – Subsonic API with token auth; server songs show a small cloud icon and can
   be switched off in Settings at any time.
 - **Responsive** – sidebar + bottom player bar on desktop, mini player + bottom tabs on phones.
+- **System media controls** – Android: media notification, lock screen, Bluetooth/headset buttons,
+  and background playback that Android won't kill. Windows: keyboard media keys and the Windows
+  media overlay. Back on the Android Home screen hides the app and keeps the music playing.
 
 ## Getting it running
 
@@ -111,10 +114,9 @@ tool/patch_platforms.dart    adds Android/macOS/iOS permissions after `flutter c
 
 ## Known limits (good next steps)
 
-- **Android background / lock-screen controls**: music keeps playing while the app is in the
-  background, but there is no media notification yet, so Android may stop it after a while.
-  Adding `audio_service` is the next step.
-- **Android Back button** on the Home screen does nothing (so music isn't stopped by accident).
+- **Server password** is stored in plain text in the app's settings file.
+- **Hot restart on Android** (debug only) disconnects the media notification until the app is
+  fully restarted; this doesn't affect installed builds.
 - **iOS**: iOS doesn't allow apps to read arbitrary folders; local playback there would need
   import through the Files app. Server streaming works.
 - **Offline copies of server songs** (download for later) aren't implemented.

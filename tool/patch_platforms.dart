@@ -22,6 +22,10 @@ void _android() {
     '<uses-permission android:name="android.permission.INTERNET"/>',
     '<uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>',
     '<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>',
+    // Background playback + media notification (audio_service).
+    '<uses-permission android:name="android.permission.WAKE_LOCK"/>',
+    '<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>',
+    '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>',
   ];
   for (final p in perms) {
     final name = RegExp(r'android:name="([^"]+)"').firstMatch(p)!.group(1)!;
@@ -36,8 +40,30 @@ void _android() {
   if (!s.contains('requestLegacyExternalStorage')) {
     s = s.replaceFirst('<application', '<application\n        android:requestLegacyExternalStorage="true"');
   }
+  // audio_service: the media playback service and the headset/media-button receiver.
+  if (!s.contains('xmlns:tools=')) {
+    s = s.replaceFirst('<manifest ', '<manifest xmlns:tools="http://schemas.android.com/tools" ');
+  }
+  if (!s.contains('com.ryanheise.audioservice.AudioService"')) {
+    s = s.replaceFirst('</application>', '''    <service android:name="com.ryanheise.audioservice.AudioService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="true" tools:ignore="Instantiatable">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <receiver android:name="com.ryanheise.audioservice.MediaButtonReceiver"
+            android:exported="true" tools:ignore="Instantiatable">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+    </application>''');
+  }
   f.writeAsStringSync(s);
-  stdout.writeln('  android: permissions added');
+  stdout.writeln('  android: manifest updated');
+
+  _mainActivity();
 
   // permission_handler_android is built against API 37, so the app must be too.
   final g = File('android/app/build.gradle.kts');
@@ -49,6 +75,48 @@ void _android() {
       stdout.writeln('  android: compileSdk set to 37');
     }
   }
+}
+
+/// MainActivity must extend AudioServiceActivity (so the media notification and
+/// the app share one Flutter engine), and provides the "move to background"
+/// hook used by the Back button on the Home screen.
+void _mainActivity() {
+  final dir = Directory('android/app/src/main/kotlin');
+  if (!dir.existsSync()) return;
+  final files = dir
+      .listSync(recursive: true)
+      .whereType<File>()
+      .where((f) => f.path.endsWith('MainActivity.kt'))
+      .toList();
+  if (files.isEmpty) return;
+  final f = files.first;
+  final old = f.readAsStringSync();
+  if (old.contains('AudioServiceActivity') && old.contains('moveToBackground')) return;
+  final pkg = RegExp(r'^package\s+([\w.]+)', multiLine: true).firstMatch(old)?.group(1);
+  if (pkg == null) return;
+  f.writeAsStringSync('''package $pkg
+
+import com.ryanheise.audioservice.AudioServiceActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
+
+class MainActivity : AudioServiceActivity() {
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        // Back on the Home screen: hide the app instead of closing it, so music keeps playing.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "hometunes/app")
+            .setMethodCallHandler { call, result ->
+                if (call.method == "moveToBackground") {
+                    moveTaskToBack(true)
+                    result.success(null)
+                } else {
+                    result.notImplemented()
+                }
+            }
+    }
+}
+''');
+  stdout.writeln('  android: MainActivity updated');
 }
 
 void _macos() {

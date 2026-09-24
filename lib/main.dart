@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
 
+import 'services/media_session.dart';
 import 'services/storage.dart';
 import 'state/library_model.dart';
 import 'state/player_model.dart';
@@ -19,7 +20,12 @@ Future<void> main() async {
   final playlists = PlaylistsModel(storage);
   await Future.wait([library.load(), playlists.load()]);
 
-  runApp(HomeTunesApp(library: library, playlists: playlists));
+  // The player lives for the whole app, and the system media controls
+  // (Android notification/lock screen, Windows media keys) are wired to it.
+  final player = PlayerModel(library);
+  await MediaSession.start(player, library);
+
+  runApp(HomeTunesApp(library: library, playlists: playlists, player: player));
 
   // Pick up new / changed files in the background after start-up.
   if (library.folders.isNotEmpty) library.scanLocal();
@@ -28,7 +34,8 @@ Future<void> main() async {
 class HomeTunesApp extends StatelessWidget {
   final LibraryModel library;
   final PlaylistsModel playlists;
-  const HomeTunesApp({super.key, required this.library, required this.playlists});
+  final PlayerModel player;
+  const HomeTunesApp({super.key, required this.library, required this.playlists, required this.player});
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +43,7 @@ class HomeTunesApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider.value(value: library),
         ChangeNotifierProvider.value(value: playlists),
-        ChangeNotifierProvider(create: (_) => PlayerModel(library)),
+        ChangeNotifierProvider.value(value: player),
         ChangeNotifierProvider(create: (_) => AppNav()),
       ],
       child: MaterialApp(
