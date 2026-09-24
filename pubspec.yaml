@@ -1,0 +1,41 @@
+name: hometunes
+description: A Spotify-style music player for your own music folder, with optional streaming from a Subsonic-compatible server.
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+  flutter: '>=3.38.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Playback on Windows, macOS, Linux, Android and iOS (local files + http streams)
+  media_kit: ^1.2.6
+  media_kit_libs_audio: ^1.0.7
+
+  # Reading tags + embedded album art (pure Dart, all platforms)
+  audio_metadata_reader: ^1.8.0
+
+  # Picking the music folder, storage permission on Android
+  file_picker: ^13.1.0
+  # Android-only permission plugin (the full permission_handler also builds a
+  # Windows part that needs NuGet, which isn't needed here)
+  permission_handler_android: ^14.1.0
+  permission_handler_platform_interface: ^4.4.1
+
+  # State, storage, networking
+  provider: ^6.1.5
+  path_provider: ^2.1.4
+  path: ^1.9.0
+  http: ^1.2.2
+  crypto: ^3.0.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

@@ -1,0 +1,182 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../models/track.dart';
+import '../../state/library_model.dart';
+import '../../state/playlists_model.dart';
+import '../theme.dart';
+import '../widgets/artwork.dart';
+import '../widgets/cards.dart';
+import '../widgets/collection_header.dart';
+import '../widgets/track_tile.dart';
+
+/// A user playlist, or Liked Songs when [playlistId] is null.
+class PlaylistScreen extends StatelessWidget {
+  final String? playlistId;
+  const PlaylistScreen({super.key, required String this.playlistId});
+  const PlaylistScreen.liked({super.key}) : playlistId = null;
+
+  @override
+  Widget build(BuildContext context) {
+    final lib = context.watch<LibraryModel>();
+    final pl = context.watch<PlaylistsModel>();
+    final accent = Theme.of(context).colorScheme.primary;
+
+    if (playlistId == null) {
+      // Liked Songs
+      final tracks = [for (final id in pl.liked) lib.byId(id)].whereType<Track>().toList();
+      return Scaffold(
+        appBar: AppBar(),
+        body: ListView(padding: const EdgeInsets.only(bottom: 24), children: [
+          CollectionHeader(
+            art: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [accent, accent.withValues(alpha: 0.3)],
+                ),
+              ),
+              child: const Icon(Icons.favorite, size: 72, color: Colors.white),
+            ),
+            kind: 'Playlist',
+            title: 'Liked Songs',
+            subtitle: '${tracks.length} songs',
+            tracks: tracks,
+            contextLabel: 'Liked Songs',
+          ),
+          if (tracks.isEmpty)
+            const EmptyState(
+              icon: Icons.favorite_border,
+              title: 'Songs you like will appear here',
+              message: 'Tap the heart on any song.',
+            ),
+          for (var i = 0; i < tracks.length; i++)
+            TrackTile(track: tracks[i], list: tracks, index: i, contextLabel: 'Liked Songs'),
+        ]),
+      );
+    }
+
+    final playlist = pl.byId(playlistId!);
+    if (playlist == null) {
+      return Scaffold(appBar: AppBar(), body: const EmptyState(icon: Icons.queue_music, title: 'Playlist not found'));
+    }
+
+    // Keep the playlist index for each visible track so removing works even if
+    // some songs are missing (e.g. server switched off).
+    final entries = <(int, Track)>[];
+    for (var i = 0; i < playlist.trackIds.length; i++) {
+      final t = lib.byId(playlist.trackIds[i]);
+      if (t != null) entries.add((i, t));
+    }
+    final tracks = [for (final e in entries) e.$2];
+    final missing = playlist.trackIds.length - tracks.length;
+    final total = tracks.fold(Duration.zero, (a, t) => a + t.duration);
+    final label = 'Playlist · ${playlist.name}';
+
+    return Scaffold(
+      appBar: AppBar(actions: [
+        PopupMenuButton<String>(
+          onSelected: (v) async {
+            if (v == 'rename') {
+              final name = await askForName(context, title: 'Rename playlist', initial: playlist.name);
+              if (name != null) pl.rename(playlist, name);
+            } else if (v == 'delete') {
+              final ok = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: Text('Delete "${playlist.name}"?'),
+                  content: const Text('Your music files are not touched.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                    FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+                  ],
+                ),
+              );
+              if (ok == true && context.mounted) {
+                Navigator.of(context).pop();
+                pl.delete(playlist);
+              }
+            }
+          },
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'rename', child: Text('Rename')),
+            PopupMenuItem(value: 'delete', child: Text('Delete playlist')),
+          ],
+        ),
+      ]),
+      body: CustomScrollView(slivers: [
+        SliverToBoxAdapter(
+          child: CollectionHeader(
+            art: ArtworkFill(track: tracks.isEmpty ? null : tracks.first, placeholder: Icons.queue_music),
+            kind: 'Playlist',
+            title: playlist.name,
+            subtitle: [
+              '${tracks.length} songs',
+              if (tracks.isNotEmpty) formatLong(total),
+              if (missing > 0) '$missing unavailable',
+            ].join(' · '),
+            tracks: tracks,
+            contextLabel: label,
+          ),
+        ),
+        if (tracks.isEmpty)
+          const SliverToBoxAdapter(
+            child: EmptyState(
+              icon: Icons.playlist_add,
+              title: 'This playlist is empty',
+              message: 'Use "Add to playlist…" from any song\'s ⋮ menu.',
+            ),
+          ),
+        SliverReorderableList(
+          itemCount: entries.length,
+          onReorderItem: (oldI, newI) {
+            // Reorder the visible songs; unavailable ones keep their place at the end.
+            final order = [for (final e in entries) e.$1];
+            order.insert(newI, order.removeAt(oldI));
+            final visible = order.toSet();
+            pl.setOrder(playlist, [
+              for (final i in order) playlist.trackIds[i],
+              for (var i = 0; i < playlist.trackIds.length; i++)
+                if (!visible.contains(i)) playlist.trackIds[i],
+            ]);
+          },
+          itemBuilder: (context, i) {
+            final (pIndex, t) = entries[i];
+            return Material(
+              key: ValueKey('${t.id}#$pIndex'),
+              color: Colors.transparent,
+              child: Row(children: [
+                ReorderableDragStartListener(
+                  index: i,
+                  child: const Padding(
+                    padding: EdgeInsets.only(left: 8),
+                    child: Icon(Icons.drag_indicator, color: AppColors.textDim),
+                  ),
+                ),
+                Expanded(
+                  child: TrackTile(
+                    track: t,
+                    list: tracks,
+                    index: i,
+                    contextLabel: label,
+                    extraAction: PopupMenuItem(
+                      value: () => pl.removeAt(playlist, pIndex),
+                      child: const Row(children: [
+                        Icon(Icons.remove_circle_outline, size: 20),
+                        SizedBox(width: 12),
+                        Text('Remove from this playlist'),
+                      ]),
+                    ),
+                  ),
+                ),
+              ]),
+            );
+          },
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+      ]),
+    );
+  }
+}
