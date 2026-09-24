@@ -119,7 +119,8 @@ Creates in `build\dist\`:
 Both include the Visual C++ runtime DLLs, so they run on a clean Windows 10/11 (64-bit) PC.
 The app isn't code-signed, so Windows SmartScreen shows "Windows protected your PC" the first
 time: **More info → Run anyway**. Bump `version:` in `pubspec.yaml` for each release so the
-installer upgrades cleanly (the installer's AppId in `installer/hometunes.iss` must never change).
+installer upgrades cleanly. Always raise the build number after the `+` too (e.g. `0.1.5+4` →
+`0.1.6+5`): Android refuses to install a build whose number is lower than the one on the phone (the installer's AppId in `installer/hometunes.iss` must never change).
 
 ### Starting from the source zip instead of this repo
 
