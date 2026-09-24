@@ -107,6 +107,18 @@ class LibraryModel extends ChangeNotifier {
 
   /// Audiobooks, sorted by title.
   List<Book> books = [];
+
+  /// Songs A–Z by title and albums newest first, worked out once per library
+  /// change rather than on every redraw.
+  List<Track> get songsByTitle => _songsByTitle ??=
+      [...tracks]..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+  List<Track>? _songsByTitle;
+
+  List<Album> get albumsByNewest => _albumsByNewest ??= [...albums]..sort((a, b) => _newest(b).compareTo(_newest(a)));
+  List<Album>? _albumsByNewest;
+
+  static int _newest(Album a) =>
+      a.tracks.fold<int>(0, (m, t) => (t.modifiedMs ?? 0) > m ? (t.modifiedMs ?? 0) : m);
   Map<String, Book> _bookById = {};
   Map<String, Book> _bookByTrackId = {};
 
@@ -139,7 +151,13 @@ class LibraryModel extends ChangeNotifier {
 
   // ---- status ----
   bool busy = false;
-  String? status; // e.g. "Scanning 120 / 900"
+  /// Progress text, e.g. "Scanning 120 / 900". Kept in its own notifier so
+  /// progress updates only redraw the places that show it, not the whole app
+  /// (with thousands of songs, redrawing everything each time was what made
+  /// big scans slow).
+  final ValueNotifier<String?> statusText = ValueNotifier(null);
+  String? get status => statusText.value;
+  set status(String? v) => statusText.value = v;
   String? error;
 
   /// Any song or audiobook file by id.
@@ -283,6 +301,9 @@ class LibraryModel extends ChangeNotifier {
     _bookByTrackId = {for (final b in books) for (final t in b.parts) t.id: b};
     albums = index.groupAlbums(tracks);
     artists = index.groupArtists(albums);
+    _songsByTitle = null;
+    _albumsByNewest = null;
+    _albumByKey = {for (final a in albums) a.key: a};
     notifyListeners();
   }
 
@@ -294,12 +315,8 @@ class LibraryModel extends ChangeNotifier {
   /// Audiobook chapters whose name contains every word of [q].
   List<({Book book, int chapter})> searchChapters(String q) => searchChapterList(books, q);
 
-  Album? albumByKey(String key) {
-    for (final a in albums) {
-      if (a.key == key) return a;
-    }
-    return null;
-  }
+  Album? albumByKey(String key) => _albumByKey[key];
+  Map<String, Album> _albumByKey = {};
 
   Artist? artistByName(String name) {
     final l = name.toLowerCase();
@@ -425,7 +442,6 @@ class LibraryModel extends ChangeNotifier {
           final previous = {for (final t in _local) t.id: t};
           _local = await _scanner.scan(_scanFolders, previous: previous, onProgress: (done, total) {
             status = 'Scanning $done / $total';
-            notifyListeners();
           });
           await _reconcile(previous);
           await _saveLibrary();
@@ -487,7 +503,6 @@ class LibraryModel extends ChangeNotifier {
         try {
           final result = await c.fetchAllTracks(onProgress: (done, total) {
             status = 'Syncing server albums $done / $total';
-            notifyListeners();
           });
           status = null;
           // The server may have been forgotten or switched off while we synced.
@@ -749,7 +764,6 @@ class LibraryModel extends ChangeNotifier {
       var done = 0;
       for (final t in tracks) {
         status = 'Writing tags ${++done} / ${tracks.length}';
-        notifyListeners();
         final edit = _edits[t.id];
         if (edit == null || t.path == null) continue;
         final r = await writeTagsToFile(t.path!, edit, backupDir: backupDir);

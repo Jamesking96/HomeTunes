@@ -142,9 +142,18 @@ class _StatusStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
-    final text = lib.status ?? lib.error;
+    // Progress text changes many times a second during a scan: only this strip
+    // redraws for it.
+    return ValueListenableBuilder<String?>(
+      valueListenable: lib.statusText,
+      builder: (context, status, _) => _strip(lib, status),
+    );
+  }
+
+  Widget _strip(LibraryModel lib, String? status) {
+    final text = status ?? lib.error;
     if (text == null) return const SizedBox.shrink();
-    final isError = lib.status == null;
+    final isError = status == null;
     return Material(
       color: isError ? const Color(0xFF5A1F1F) : AppColors.surface,
       child: Padding(

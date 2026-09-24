@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:math';
 
 import 'package:audio_metadata_reader/audio_metadata_reader.dart' hide Chapter;
 import 'package:crypto/crypto.dart';
@@ -31,23 +32,41 @@ class LocalScanner {
     void Function(int done, int total)? onProgress,
   }) async {
     final files = await findAudioFiles(folders);
-    final result = <Track>[];
-    const batchSize = 40;
     final artDir = this.artDir;
+    final batches = [
+      for (var i = 0; i < files.length; i += batchSize) files.sublist(i, (i + batchSize).clamp(0, files.length)),
+    ];
+    final results = List<List<Track>?>.filled(batches.length, null);
+    var next = 0;
+    var done = 0;
 
-    for (var i = 0; i < files.length; i += batchSize) {
-      final batch = files.sublist(i, (i + batchSize).clamp(0, files.length));
-      // Only the tracks that need (re)reading go to the isolate.
-      final prevJson = <String, Map<String, dynamic>>{
-        for (final f in batch)
-          if (previous['local:$f'] != null) f: previous['local:$f']!.toJson(),
-      };
-      final jsonList = await Isolate.run(_BatchJob(batch, prevJson, artDir).run);
-      result.addAll(jsonList.map(Track.fromJson));
-      onProgress?.call(result.length, files.length);
+    // Several background workers read batches at the same time (one per spare
+    // CPU core, up to [maxWorkers]); results are put back in folder order.
+    Future<void> worker() async {
+      while (true) {
+        final i = next++;
+        if (i >= batches.length) return;
+        final batch = batches[i];
+        // Only the tracks that need (re)reading go to the isolate.
+        final prevJson = <String, Map<String, dynamic>>{
+          for (final f in batch)
+            if (previous['local:$f'] != null) f: previous['local:$f']!.toJson(),
+        };
+        final jsonList = await Isolate.run(_BatchJob(batch, prevJson, artDir).run);
+        results[i] = [for (final j in jsonList) Track.fromJson(j)];
+        done += batch.length;
+        onProgress?.call(done, files.length);
+      }
     }
-    return result;
+
+    final workers = max(1, min(min(Platform.numberOfProcessors - 1, maxWorkers), batches.length));
+    await Future.wait([for (var w = 0; w < workers; w++) worker()]);
+    return [for (final r in results) ...?r];
   }
+
+  /// Files per background job, and how many jobs run at once.
+  static const batchSize = 60;
+  static const maxWorkers = 6;
 
   /// Deletes cached cover images that no track uses any more
   /// (album removed, or its embedded art changed).
@@ -56,7 +75,8 @@ class LocalScanner {
     final dir = Directory(artDir);
     if (!await dir.exists()) return;
     await for (final e in dir.list()) {
-      if (e is File && p.extension(e.path) == '.img' && !used.contains(p.normalize(e.path))) {
+      final leftoverTemp = e.path.endsWith('.tmp'); // from a scan that was interrupted
+      if (e is File && (leftoverTemp || (p.extension(e.path) == '.img' && !used.contains(p.normalize(e.path))))) {
         try {
           await e.delete();
         } catch (_) {
@@ -215,10 +235,17 @@ String? _saveArt(List<int>? bytes, String folder, String artDir) {
     final name = md5.convert(bytes).toString();
     final file = File(p.join(artDir, '$name.img'));
     if (!file.existsSync()) {
+      // Several workers may save the same album cover at once: write to a
+      // private temp file, then move it into place.
+      final tmp = File('${file.path}.${Isolate.current.hashCode}.${DateTime.now().microsecondsSinceEpoch}.tmp');
       try {
-        file.writeAsBytesSync(bytes);
+        tmp.writeAsBytesSync(bytes);
+        tmp.renameSync(file.path);
       } catch (_) {
-        return null;
+        try {
+          if (tmp.existsSync()) tmp.deleteSync();
+        } catch (_) {}
+        if (!file.existsSync()) return null; // another worker saved it, or it really failed
       }
     }
     return file.path;
