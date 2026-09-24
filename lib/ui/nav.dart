@@ -9,7 +9,8 @@ import 'screens/playlist_screen.dart';
 /// Keeps one Navigator per tab so album/artist pages open inside the content
 /// area while the player bar stays put.
 class AppNav extends ChangeNotifier {
-  static const tabCount = 3; // Home, Search, Library
+  static const tabCount = 4; // Home, Search, Library, Settings
+  static const settingsTab = 3;
   final List<GlobalKey<NavigatorState>> keys = List.generate(tabCount, (_) => GlobalKey<NavigatorState>());
   int tab = 0;
 

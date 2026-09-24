@@ -10,6 +10,8 @@ import '../../models/track_edit.dart';
 import '../../state/library_model.dart';
 import '../theme.dart';
 import '../widgets/artwork.dart';
+import 'cover_search_dialog.dart';
+import 'info_lookup_dialog.dart';
 
 /// Opens the editor for one song, a whole album ([album] = true) or several
 /// selected songs. Changes are saved in HomeTunes only; music files are never
@@ -56,7 +58,16 @@ class _EditDetailsState extends State<_EditDetails> {
   bool _resetCover = false;
   bool _saving = false;
 
+  /// Single song: also give the rest of its album the album-wide changes.
+  bool _updateAlbum = true;
+
+  /// Single song: the other songs on the same album (found when the editor opens).
+  late final List<Track> _albumSiblings;
+
   List<Track> get _tracks => widget.tracks;
+
+  /// Details that belong to the whole album rather than one song.
+  static const _albumFields = [_Field.album, _Field.albumArtist, _Field.year, _Field.genre];
 
   @override
   void initState() {
@@ -73,7 +84,46 @@ class _EditDetailsState extends State<_EditDetails> {
       _initial[f] = common;
       _ctrl[f] = TextEditingController(text: common);
     }
+    final first = _tracks.first;
+    _albumSiblings = _single
+        ? [
+            for (final t in context.read<LibraryModel>().tracks)
+              if (t.albumKey == first.albumKey && t.id != first.id) t
+          ]
+        : const [];
+    _strays = widget.albumMode ? _findStrays(context.read<LibraryModel>().tracks) : const [];
   }
+
+  /// Album mode: songs with this album's title that show up as a separate
+  /// album because their album artist differs (typically "A feat. B" songs).
+  late final List<Track> _strays;
+  bool _includeStrays = true;
+
+  List<Track> _findStrays(List<Track> all) {
+    final first = _tracks.first;
+    final title = first.album.toLowerCase();
+    final artist = first.albumArtist.toLowerCase();
+    if (title.isEmpty || artist.isEmpty || artist == 'unknown artist') return const [];
+    return [
+      for (final t in all)
+        if (t.album.toLowerCase() == title &&
+            t.albumKey != first.albumKey &&
+            (t.albumArtist.toLowerCase().contains(artist) || t.artist.toLowerCase().contains(artist)))
+          t
+    ];
+  }
+
+  /// Single song: the album-wide details that differ from when the editor
+  /// opened (blank boxes don't count: they mean "use this song's file").
+  List<_Field> get _changedAlbumFields => [
+        for (final f in _albumFields)
+          if (_ctrl[f]!.text.trim().isNotEmpty && _ctrl[f]!.text.trim() != _initial[f]) f
+      ];
+
+  bool get _albumCoverChanged => _newCover != null || _resetCover;
+
+  bool get _offerAlbumUpdate =>
+      _single && _albumSiblings.isNotEmpty && (_changedAlbumFields.isNotEmpty || _albumCoverChanged);
 
   @override
   void dispose() {
@@ -131,6 +181,55 @@ class _EditDetailsState extends State<_EditDetails> {
     }
   }
 
+  /// Current text of a field, falling back to the (first) song's value.
+  String _current(_Field f) {
+    final c = _ctrl[f];
+    final v = c?.text.trim() ?? '';
+    return v.isNotEmpty ? v : _valueOf(_tracks.first, f);
+  }
+
+  Future<void> _findOnline() async {
+    final albumArtist = _current(_Field.albumArtist);
+    final path = await showCoverSearch(
+      context,
+      artist: albumArtist.isNotEmpty ? albumArtist : _current(_Field.artist),
+      album: _current(_Field.album),
+      title: _single ? _current(_Field.title) : null,
+    );
+    if (path == null || !mounted) return;
+    setState(() {
+      _newCover = path;
+      _resetCover = false;
+    });
+  }
+
+  static InfoField _infoField(_Field f) => switch (f) {
+        _Field.title => InfoField.title,
+        _Field.artist => InfoField.artist,
+        _Field.album => InfoField.album,
+        _Field.albumArtist => InfoField.albumArtist,
+        _Field.trackNumber => InfoField.trackNumber,
+        _Field.discNumber => InfoField.discNumber,
+        _Field.year => InfoField.year,
+        _Field.genre => InfoField.genre,
+      };
+
+  /// Looks up one field online (by song for a single song, by album otherwise)
+  /// and puts the chosen value in the box. Nothing is saved until Save.
+  Future<void> _lookUp(_Field f) async {
+    final albumArtist = _current(_Field.albumArtist);
+    final choice = await showInfoLookup(
+      context,
+      field: _infoField(f),
+      songMode: _single,
+      title: _single ? _current(_Field.title) : null,
+      artist: _single ? _current(_Field.artist) : (albumArtist.isNotEmpty ? albumArtist : _current(_Field.artist)),
+      album: _current(_Field.album),
+    );
+    if (choice == null || !mounted) return;
+    setState(() => _ctrl[f]!.text = choice.value);
+  }
+
   Future<void> _save() async {
     final lib = context.read<LibraryModel>();
     setState(() => _saving = true);
@@ -145,6 +244,14 @@ class _EditDetailsState extends State<_EditDetails> {
     if (_single) {
       final t = _tracks.first;
       final original = lib.originalById(t.id);
+      // Work out the album-wide changes before this song's edit regroups it.
+      final alsoAlbum = _offerAlbumUpdate && _updateAlbum;
+      final albumFields = _changedAlbumFields;
+      final siblingIds = [for (final s in _albumSiblings) s.id];
+      final sharedCoverIds = [
+        for (final s in _albumSiblings)
+          if (s.art == t.art) s.id
+      ];
       // Keep an existing custom cover unless a new one was picked or it was reset.
       final keptArt = (original != null && t.art != original.art) ? t.art : null;
       await lib.setEdit(
@@ -161,6 +268,19 @@ class _EditDetailsState extends State<_EditDetails> {
           art: _resetCover ? null : (_newCover ?? keptArt),
         ),
       );
+      if (alsoAlbum) {
+        // Songs that shared this song's cover go back to their files' covers too.
+        if (_resetCover) await lib.resetCovers(sharedCoverIds);
+        String? v(_Field f) => albumFields.contains(f) ? text(f) : null;
+        final patch = TrackEdit(
+          album: v(_Field.album),
+          albumArtist: v(_Field.albumArtist),
+          year: albumFields.contains(_Field.year) ? number(_Field.year) : null,
+          genre: v(_Field.genre),
+          art: _newCover,
+        );
+        if (!patch.isEmpty) await lib.editMany(siblingIds, patch);
+      }
     } else {
       // Only fields the user actually changed are applied to every song.
       String? changedText(_Field f) {
@@ -185,6 +305,17 @@ class _EditDetailsState extends State<_EditDetails> {
         art: _newCover,
       );
       if (!patch.isEmpty) await lib.editMany(ids, patch);
+      if (_strays.isNotEmpty && _includeStrays) {
+        // Bring the stray songs into this album, with the same changes.
+        final albumArtist = _ctrl[_Field.albumArtist]!.text.trim();
+        await lib.editMany(
+          [for (final t in _strays) t.id],
+          patch.mergedWith(TrackEdit(
+            album: _ctrl[_Field.album]!.text.trim().isEmpty ? null : _ctrl[_Field.album]!.text.trim(),
+            albumArtist: albumArtist.isEmpty ? _tracks.first.albumArtist : albumArtist,
+          )),
+        );
+      }
     }
     if (mounted) Navigator.of(context).pop(true);
   }
@@ -233,6 +364,14 @@ class _EditDetailsState extends State<_EditDetails> {
             // Refresh the "In file: …" hint as you type.
             onChanged: _single ? (_) => setState(() {}) : null,
             decoration: InputDecoration(
+              // A separate "find online" button for each detail.
+              suffixIcon: context.watch<LibraryModel>().onlineDetails
+                  ? IconButton(
+                      tooltip: 'Find ${_label(f).toLowerCase()} online',
+                      icon: const Icon(Icons.travel_explore, size: 20),
+                      onPressed: _saving ? null : () => _lookUp(f),
+                    )
+                  : null,
               labelText: _label(f),
               hintText: _mixed.contains(f) ? 'Mixed – leave blank to keep each song\'s own' : null,
               helperText: _helperFor(f, lib),
@@ -240,6 +379,40 @@ class _EditDetailsState extends State<_EditDetails> {
           ),
           const SizedBox(height: 10),
         ],
+        if (_offerAlbumUpdate)
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            value: _updateAlbum,
+            onChanged: _saving ? null : (v) => setState(() => _updateAlbum = v ?? true),
+            title: Text(
+              'Also update the other ${_albumSiblings.length} '
+              'song${_albumSiblings.length == 1 ? '' : 's'} on "${_tracks.first.album}"',
+            ),
+            subtitle: Text(
+              'Changes to: ${[
+                for (final f in _changedAlbumFields) _label(f).toLowerCase(),
+                if (_albumCoverChanged) 'cover',
+              ].join(', ')}',
+              style: const TextStyle(color: AppColors.textDim, fontSize: 12),
+            ),
+          ),
+        if (_strays.isNotEmpty)
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            value: _includeStrays,
+            onChanged: _saving ? null : (v) => setState(() => _includeStrays = v ?? true),
+            title: Text(
+              'Include ${_strays.length} more song${_strays.length == 1 ? '' : 's'} from "${_tracks.first.album}"',
+            ),
+            subtitle: Text(
+              '${_strays.take(3).map((t) => t.title).join(', ')}${_strays.length > 3 ? '…' : ''} – '
+              'listed as a separate album because of a different album artist. '
+              'They\'ll join this album and get the same changes.',
+              style: const TextStyle(color: AppColors.textDim, fontSize: 12),
+            ),
+          ),
         const SizedBox(height: 6),
         Text(
           'Changes are saved in HomeTunes only – your music files aren\'t modified.'
@@ -332,11 +505,20 @@ class _EditDetailsState extends State<_EditDetails> {
               style: const TextStyle(color: AppColors.textDim, fontSize: 12),
             ),
           const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _saving ? null : _pickCover,
-            icon: const Icon(Icons.image_outlined),
-            label: const Text('Choose image…'),
-          ),
+          Wrap(spacing: 8, runSpacing: 4, children: [
+            OutlinedButton.icon(
+              onPressed: _saving ? null : _pickCover,
+              icon: const Icon(Icons.image_outlined),
+              label: const Text('Choose image…'),
+            ),
+            if (context.watch<LibraryModel>().onlineCovers &&
+                (_current(_Field.artist).isNotEmpty || _current(_Field.album).isNotEmpty))
+              OutlinedButton.icon(
+                onPressed: _saving ? null : _findOnline,
+                icon: const Icon(Icons.travel_explore),
+                label: const Text('Find online…'),
+              ),
+          ]),
           if ((anyCustomCover || _newCover != null) && !_resetCover)
             TextButton(
               onPressed: _saving

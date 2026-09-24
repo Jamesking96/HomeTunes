@@ -47,7 +47,7 @@ class _SeekBarState extends State<SeekBar> {
 
         if (widget.compact) {
           return Row(children: [
-            SizedBox(width: 44, child: Text(formatDuration(shown), textAlign: TextAlign.right, style: times)),
+            SizedBox(width: 44, child: Text(formatElapsed(shown), textAlign: TextAlign.right, style: times)),
             Expanded(child: slider),
             SizedBox(width: 44, child: Text(formatDuration(total), style: times)),
           ]);
@@ -57,7 +57,7 @@ class _SeekBarState extends State<SeekBar> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text(formatDuration(shown), style: times),
+              Text(formatElapsed(shown), style: times),
               Text(formatDuration(total), style: times),
             ]),
           ),

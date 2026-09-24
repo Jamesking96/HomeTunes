@@ -51,10 +51,14 @@ class Track {
 
   bool get isLocal => source == TrackSource.local;
 
+  /// Some files don't say how long they are; the length is then learned the
+  /// first time the song plays.
+  bool get hasDuration => duration > Duration.zero;
+
   /// Key that groups tracks into an album.
   String get albumKey => '${albumArtist.toLowerCase()}\u0000${album.toLowerCase()}';
 
-  Track copyWith({String? art}) => Track(
+  Track copyWith({String? art, Duration? duration}) => Track(
         id: id,
         source: source,
         title: title,
@@ -65,7 +69,7 @@ class Track {
         discNumber: discNumber,
         year: year,
         genre: genre,
-        duration: duration,
+        duration: duration ?? this.duration,
         path: path,
         remoteId: remoteId,
         art: art ?? this.art,

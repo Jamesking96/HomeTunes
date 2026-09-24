@@ -24,7 +24,32 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
 - **Edit song details** – title, artist, album, album artist, track/disc number, year, genre and
   cover image, for one song (⋮ → Edit details), a whole album (✎ on the album page), or several
   songs at once (long-press or ⋮ → Select, then ✎). Edits are stored by HomeTunes in `edits.json`;
-  your music files are never modified, and "Reset to file details" undoes them.
+  your music files are never modified, and "Reset to file details" undoes them. Changing a song's
+  album-wide details (album, album artist, year, genre, cover) offers to update the rest of its
+  album too, and editing an album offers to pull in songs with the same album title that show up
+  as a separate album (e.g. "feat." songs with a different album artist).
+- **Save edits into files** (Settings) – writes your HomeTunes edits into the MP3/FLAC/M4A/WAV files
+  themselves, backing each file up first by default. Fields a format can't hold (e.g. album artist
+  in M4A, covers in WAV) stay as HomeTunes edits; OGG/Opus and server songs can't be written.
+- **Find covers online** – for songs/albums with an artist or album name, search MusicBrainz / Cover
+  Art Archive and pick a cover (from the edit dialog, or the prompt on album pages with no cover).
+  Can be switched off in Settings.
+- **Find song details online** – every field in the edit screen (title, artist, album, album artist,
+  track/disc number, year, genre) has its own "find online" button, and album pages show a separate
+  prompt for each missing detail (cover, artist, year, genre, track numbers). Details come from
+  MusicBrainz; track numbers are matched to your songs by title. Own switch in Settings.
+- **Songs with no length** – files that don't say how long they are show "–:––" until they're
+  played once; the real length is then remembered. WAV lengths are read from the file header.
+- **Songs that aren't on the device** – if a song's file is deleted, moved or on a drive that's
+  unplugged, its edits and playlist / Liked Songs places are kept, and it's skipped when playing.
+  When the file comes back – even in a different folder or on another device – the next scan
+  picks it up again (matched by path, or by title/artist/album/track). Settings → Music folders
+  lists these songs and can forget them.
+- **Backup & restore** (Settings) – exports everything HomeTunes keeps (music folders, server,
+  switches, playlists, Liked Songs, edits, covers, library cache) to one `.htbackup` file, and
+  imports it on the same or another PC/phone, replacing or merging. The server password is only
+  included if you switch that on. The data from just before a restore is kept as
+  `before-restore.htbackup` in the app's data folder.
 - **System media controls** – Android: media notification, lock screen, Bluetooth/headset buttons,
   and background playback that Android won't kill. Windows: keyboard media keys and the Windows
   media overlay. Back on the Android Home screen hides the app and keeps the music playing.
@@ -108,8 +133,9 @@ you can run on a spare PC, NAS or Raspberry Pi and point at the same music folde
 
 Library cache, playlists and settings are JSON files in the app's support folder
 (on Windows, a `hometunes` folder under `%APPDATA%`). Your music files are only ever read,
-never changed. The server password is stored in that settings file in plain text, so use an
-account that only has access to music.
+never changed (unless you use *Save edits into files*, whose file backups go in the `backups`
+folder there; those aren't part of an exported HomeTunes backup). The server password is stored
+in that settings file in plain text, so use an account that only has access to music.
 
 ## Project layout
 
@@ -134,7 +160,8 @@ tool/patch_platforms.dart    adds Android/macOS/iOS permissions after `flutter c
 
 ## Known limits (good next steps)
 
-- **Server password** is stored in plain text in the app's settings file.
+- **Server password** is stored in plain text in the app's settings file (and in an exported
+  backup if you choose to include it).
 - **Hot restart on Android** (debug only) disconnects the media notification until the app is
   fully restarted; this doesn't affect installed builds.
 - **iOS**: iOS doesn't allow apps to read arbitrary folders; local playback there would need
