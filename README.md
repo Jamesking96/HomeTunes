@@ -50,6 +50,14 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
   imports it on the same or another PC/phone, replacing or merging. The server password is only
   included if you switch that on. The data from just before a restore is kept as
   `before-restore.htbackup` in the app's data folder.
+- **Audiobooks** – a separate Books tab. A file is a book when it's an `.m4b`, has an audiobook genre
+  ("Audiobook", "Audio Book", "Spoken Word"… editable), sits in a folder named like "Audiobooks", or
+  is in an audiobook folder chosen in Settings → Audiobooks; "Move to Books" / "Move to Music" fixes
+  any file by hand. Books are grouped per `.m4b` file or per folder + album; series, number and
+  narrator are read from folder names like `Harry Potter Audio Books 1-7; Read by Stephen Fry` /
+  `Book 01 - …`. HomeTunes remembers your place in every book (resuming a few seconds back), and
+  the music queue waits while a book plays. "Continue listening" is on Home.
+  `dart run tool/probe_library.dart <folder>` previews how a folder will be grouped.
 - **System media controls** – Android: media notification, lock screen, Bluetooth/headset buttons,
   and background playback that Android won't kill. Windows: keyboard media keys and the Windows
   media overlay. Back on the Android Home screen hides the app and keeps the music playing.
