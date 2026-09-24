@@ -10,6 +10,7 @@ import '../../models/track_edit.dart';
 import '../../state/library_model.dart';
 import '../theme.dart';
 import '../widgets/artwork.dart';
+import 'cover_search_dialog.dart';
 
 /// Opens the editor for one song, a whole album ([album] = true) or several
 /// selected songs. Changes are saved in HomeTunes only; music files are never
@@ -129,6 +130,28 @@ class _EditDetailsState extends State<_EditDetails> {
     } catch (e) {
       messenger?.showSnackBar(SnackBar(content: Text('Couldn\'t use that image: $e')));
     }
+  }
+
+  /// Current text of a field, falling back to the (first) song's value.
+  String _current(_Field f) {
+    final c = _ctrl[f];
+    final v = c?.text.trim() ?? '';
+    return v.isNotEmpty ? v : _valueOf(_tracks.first, f);
+  }
+
+  Future<void> _findOnline() async {
+    final albumArtist = _current(_Field.albumArtist);
+    final path = await showCoverSearch(
+      context,
+      artist: albumArtist.isNotEmpty ? albumArtist : _current(_Field.artist),
+      album: _current(_Field.album),
+      title: _single ? _current(_Field.title) : null,
+    );
+    if (path == null || !mounted) return;
+    setState(() {
+      _newCover = path;
+      _resetCover = false;
+    });
   }
 
   Future<void> _save() async {
@@ -332,11 +355,20 @@ class _EditDetailsState extends State<_EditDetails> {
               style: const TextStyle(color: AppColors.textDim, fontSize: 12),
             ),
           const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _saving ? null : _pickCover,
-            icon: const Icon(Icons.image_outlined),
-            label: const Text('Choose image…'),
-          ),
+          Wrap(spacing: 8, runSpacing: 4, children: [
+            OutlinedButton.icon(
+              onPressed: _saving ? null : _pickCover,
+              icon: const Icon(Icons.image_outlined),
+              label: const Text('Choose image…'),
+            ),
+            if (context.watch<LibraryModel>().onlineCovers &&
+                (_current(_Field.artist).isNotEmpty || _current(_Field.album).isNotEmpty))
+              OutlinedButton.icon(
+                onPressed: _saving ? null : _findOnline,
+                icon: const Icon(Icons.travel_explore),
+                label: const Text('Find online…'),
+              ),
+          ]),
           if ((anyCustomCover || _newCover != null) && !_resetCover)
             TextButton(
               onPressed: _saving

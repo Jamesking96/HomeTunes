@@ -10,6 +10,7 @@ import '../models/track_edit.dart';
 import '../services/local_scanner.dart';
 import '../services/storage.dart';
 import '../services/subsonic_client.dart';
+import '../services/tag_writer.dart';
 import 'library_index.dart' as index;
 
 /// Holds the music library: local tracks, server tracks, settings, and the
@@ -24,6 +25,9 @@ class LibraryModel extends ChangeNotifier {
   List<String> folders = [];
   ServerConfig server = const ServerConfig(url: '', username: '', password: '');
   bool serverEnabled = false;
+
+  /// Offer to look up missing cover art online (MusicBrainz / Cover Art Archive).
+  bool onlineCovers = true;
   SubsonicClient? _client;
   SubsonicClient? get client => _client;
 
@@ -61,6 +65,7 @@ class LibraryModel extends ChangeNotifier {
         server = ServerConfig.fromJson(s['server'] as Map<String, dynamic>);
       }
       serverEnabled = (s['serverEnabled'] as bool?) ?? false;
+      onlineCovers = (s['onlineCovers'] as bool?) ?? true;
     }
     _rebuildClient();
     final edits = await storage.read('edits.json') as Map<String, dynamic>?;
@@ -82,7 +87,14 @@ class LibraryModel extends ChangeNotifier {
         'folders': folders,
         'server': server.toJson(),
         'serverEnabled': serverEnabled,
+        'onlineCovers': onlineCovers,
       });
+
+  Future<void> setOnlineCovers(bool on) async {
+    onlineCovers = on;
+    notifyListeners();
+    await _saveSettings();
+  }
 
   Future<void> _saveLibrary() => storage.write('library.json', {
         'local': [for (final t in _local) t.toJson()],
@@ -319,11 +331,17 @@ class LibraryModel extends ChangeNotifier {
 
   /// Copies an image the user picked into the app's data folder (so moving or
   /// deleting the original doesn't break the cover) and returns the copy's path.
-  Future<String> importCover(String sourcePath) async {
-    final bytes = await File(sourcePath).readAsBytes();
+  Future<String> importCover(String sourcePath) async =>
+      importCoverBytes(await File(sourcePath).readAsBytes(), p.extension(sourcePath).toLowerCase());
+
+  /// Saves cover image bytes (e.g. downloaded from online) and returns the file path.
+  Future<String> importCoverBytes(List<int> bytes, [String ext = '']) async {
+    if (ext.isEmpty) {
+      final mime = imageMimeType(bytes);
+      ext = mime == 'image/png' ? '.png' : (mime == 'image/jpeg' ? '.jpg' : '.img');
+    }
     final dir = Directory(_customArtDir);
     await dir.create(recursive: true);
-    final ext = p.extension(sourcePath).toLowerCase();
     final dest = File(p.join(dir.path, '${md5.convert(bytes)}${ext.isEmpty ? '.img' : ext}'));
     if (!await dest.exists()) await dest.writeAsBytes(bytes, flush: true);
     // Make sure images show the new picture even if an old one was cached.
@@ -342,6 +360,57 @@ class LibraryModel extends ChangeNotifier {
         } catch (_) {}
       }
     }
+  }
+
+  // ---- writing edits into the music files ----
+
+  /// Local songs whose HomeTunes edits could be written into their files.
+  List<Track> get tracksWithWritableEdits => [
+        for (final t in _local)
+          if (_edits.containsKey(t.id) && t.path != null && TagSupport.forPath(t.path!).anything) t,
+      ];
+
+  /// Songs with edits that can't go into their files (server songs, OGG/Opus…).
+  int get unwritableEditCount => _edits.length - tracksWithWritableEdits.length;
+
+  String get backupRoot => p.join(storage.root.path, 'backups');
+
+  /// Writes the HomeTunes edits of [tracks] into their music files. Anything a
+  /// file type can't hold stays as a HomeTunes edit. With [backup], each file
+  /// is copied into a dated folder under [backupRoot] first.
+  Future<List<TagWriteResult>> writeEditsToFiles(List<Track> tracks, {bool backup = true}) async {
+    final results = <TagWriteResult>[];
+    final stamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
+    final backupDir = backup ? p.join(backupRoot, stamp) : null;
+    await _enqueue(() async {
+      error = null;
+      var done = 0;
+      for (final t in tracks) {
+        status = 'Writing tags ${++done} / ${tracks.length}';
+        notifyListeners();
+        final edit = _edits[t.id];
+        if (edit == null || t.path == null) continue;
+        final r = await writeTagsToFile(t.path!, edit, backupDir: backupDir);
+        results.add(r);
+        if (r.ok) {
+          if (r.leftover.isEmpty) {
+            _edits.remove(t.id);
+          } else {
+            _edits[t.id] = r.leftover;
+          }
+        }
+      }
+      await storage.write('edits.json', {for (final e in _edits.entries) e.key: e.value.toJson()});
+      // Re-read the changed files so the library shows their new tags.
+      status = 'Re-reading changed files…';
+      notifyListeners();
+      final previous = {for (final t in _local) t.id: t};
+      _local = await _scanner.scan(folders, previous: previous);
+      await _saveLibrary();
+      await _removeUnusedCustomArt();
+      status = null;
+    });
+    return results;
   }
 
   /// Local songs, and any song given a custom cover, use an image file on disk;
