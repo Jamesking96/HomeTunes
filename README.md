@@ -24,20 +24,53 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
 
 ## Getting it running
 
-1. Install Flutter (3.38 or newer): https://docs.flutter.dev/get-started/install
-   For Android also install Android Studio (it brings the Android SDK).
-2. In this folder run the one-time setup, which generates the platform folders and adds the
-   permissions the app needs:
-   - Windows: `./setup.ps1` (PowerShell)
-   - macOS / Linux: `./setup.sh`
-3. Run it:
-   - `flutter run -d windows` (or `-d macos`, `-d linux`)
-   - Android phone plugged in with USB debugging on: `flutter run -d android`
-4. Build a release: `flutter build windows` / `flutter build apk --release`.
+### One-time setup of your PC
 
-Linux also needs libmpv: `sudo apt install libmpv-dev mpv`.
+- **Flutter 3.38+**: https://docs.flutter.dev/get-started/install — then run `flutter doctor`.
+- **Windows builds**:
+  - Turn on Developer Mode (`start ms-settings:developers`); Flutter plugins need it.
+  - Visual Studio 2022 with the **Desktop development with C++** workload
+    (MSVC v143 build tools, C++ CMake tools, Windows 10/11 SDK).
+- **Android builds**:
+  - Android Studio → SDK Manager:
+    - *SDK Platforms*: **Android 37** (API 37).
+    - *SDK Tools*: **Command-line Tools**, **Platform-Tools**, and **NDK (Side by side)**.
+      Tick *Show Package Details* to pick the exact NDK version the build asks for.
+  - On the phone: Developer options → **USB debugging** on, then allow the PC when prompted.
+- **Linux builds**: `sudo apt install libmpv-dev mpv`.
 
-Run the tests with `flutter test`.
+### Running
+
+From this folder:
+
+```
+flutter pub get
+flutter run -d windows          # or: flutter devices, then flutter run -d <phone id>
+```
+
+Release builds: `flutter build windows` / `flutter build apk --release`
+(APK ends up in `build/app/outputs/flutter-apk/`).
+
+Checks: `flutter analyze` and `flutter test`.
+
+### Starting from the source zip instead of this repo
+
+The zip has no platform folders. Run `setup.ps1` (Windows) or `setup.sh` once: it runs
+`flutter create`, then `tool/patch_platforms.dart` adds the Android permissions, sets
+`compileSdk = 37`, and adds the macOS/iOS entitlements.
+
+### Troubleshooting
+
+| Message | Fix |
+|---|---|
+| `No pubspec.yaml file found` | `cd` into this folder first. |
+| `No Windows desktop project configured` | Platform folders are missing: run the setup script. |
+| `symlink support` / Developer Mode | Turn on Developer Mode (see above). |
+| NuGet / `Unable to load the service index` | Your PC's NuGet points at a feed you can't reach (e.g. a company feed off-VPN). Connect to that network or ask IT. |
+| `Package ndk not found` / `sdkmanager ... non-zero exit value` | Install the requested NDK version in Android Studio's SDK Manager. |
+| `Failed to find target ... android-37` | Install Android 37 under SDK Platforms and check `compileSdk = 37` in `android/app/build.gradle.kts`. |
+| Java `source value 8 is obsolete` warnings | Harmless; they come from plugins. |
+| `accessibility_bridge ... Failed to update ui::AXTree` | Harmless Flutter-on-Windows log message. |
 
 ## Using a server
 
@@ -79,7 +112,9 @@ tool/patch_platforms.dart    adds Android/macOS/iOS permissions after `flutter c
 ## Known limits (good next steps)
 
 - **Android background / lock-screen controls**: music keeps playing while the app is in the
-  background, but there is no media notification yet. Adding `audio_service` is the next step.
+  background, but there is no media notification yet, so Android may stop it after a while.
+  Adding `audio_service` is the next step.
+- **Android Back button** on the Home screen does nothing (so music isn't stopped by accident).
 - **iOS**: iOS doesn't allow apps to read arbitrary folders; local playback there would need
   import through the Files app. Server streaming works.
 - **Offline copies of server songs** (download for later) aren't implemented.
