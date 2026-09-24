@@ -56,6 +56,22 @@ Release builds: `flutter build windows` / `flutter build apk --release`
 
 Checks: `flutter analyze` and `flutter test`.
 
+### Sharing a Windows build
+
+```
+powershell -ExecutionPolicy Bypass -File tool\build_release.ps1
+```
+
+Creates in `build\dist\`:
+- `HomeTunes-Setup-<version>.exe` – installer (per-user, no admin needed; Start-menu shortcut,
+  optional desktop icon, uninstaller). Needs Inno Setup 6: `winget install JRSoftware.InnoSetup`.
+- `HomeTunes-<version>-windows.zip` – portable copy: unzip and run `hometunes.exe`.
+
+Both include the Visual C++ runtime DLLs, so they run on a clean Windows 10/11 (64-bit) PC.
+The app isn't code-signed, so Windows SmartScreen shows "Windows protected your PC" the first
+time: **More info → Run anyway**. Bump `version:` in `pubspec.yaml` for each release so the
+installer upgrades cleanly (the installer's AppId in `installer/hometunes.iss` must never change).
+
 ### Starting from the source zip instead of this repo
 
 The zip has no platform folders. Run `setup.ps1` (Windows) or `setup.sh` once: it runs
