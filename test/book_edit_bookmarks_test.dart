@@ -219,6 +219,48 @@ void main() {
       expect(searchChapterList(books, 'dragon'), isEmpty);
     });
   });
+
+  group('Books tab: sort and filter', () {
+    final books = [
+      _b('Chamber of Secrets', author: 'J.K. Rowling', narrator: 'Stephen Fry', series: 'Harry Potter', n: 2),
+      _b('Philosopher\'s Stone', author: 'J.K. Rowling', narrator: 'Stephen Fry', series: 'Harry Potter', n: 1),
+      _b('Casual Vacancy', author: 'J.K. Rowling', narrator: 'Tom Hollander'),
+      _b('The Hobbit', author: 'J.R.R. Tolkien', narrator: 'Andy Serkis'),
+      _b('Silmarillion', author: 'J.R.R. Tolkien'),
+    ];
+    List<String> titles(List<Book> l) => [for (final b in l) b.title];
+
+    test('series sort keeps the series in number order, books outside a series last', () {
+      final g = sortBooks(books, BookSort.series);
+      expect([for (final x in g) x.$1], ['Harry Potter', noSeries]);
+      expect(titles(g.first.$2), ['Philosopher\'s Stone', 'Chamber of Secrets']);
+    });
+
+    test('author groups follow series order inside', () {
+      final g = sortBooks(books, BookSort.author);
+      expect([for (final x in g) x.$1], ['J.K. Rowling', 'J.R.R. Tolkien']);
+      expect(titles(g.first.$2), ['Casual Vacancy', 'Philosopher\'s Stone', 'Chamber of Secrets']);
+    });
+
+    test('narrator groups, unknown narrator last', () {
+      final g = sortBooks(books, BookSort.narrator);
+      expect([for (final x in g) x.$1], ['Andy Serkis', 'Stephen Fry', 'Tom Hollander', noNarrator]);
+      expect(titles(g[1].$2), ['Philosopher\'s Stone', 'Chamber of Secrets']);
+      expect(titles(g.last.$2), ['Silmarillion']);
+    });
+
+    test('title sort is plain A–Z', () {
+      expect(titles(sortBooks(books, BookSort.title).single.$2).first, 'Casual Vacancy');
+    });
+
+    test('filters by author, narrator and series, and lists choices with counts', () {
+      const f = BookFilters(author: 'J.K. Rowling', series: 'Harry Potter');
+      expect(titles([for (final b in books) if (f.matches(b)) b]), ['Chamber of Secrets', 'Philosopher\'s Stone']);
+      expect(f.copyWith(clearSeries: true).series, isNull);
+      expect(BookFilters.none.isEmpty, isTrue);
+      expect(BookFilters.choices(books, (b) => b.narrator), {'Andy Serkis': 1, 'Stephen Fry': 2, 'Tom Hollander': 1});
+    });
+  });
 }
 
 // ---------------------------------------------------------------- search
@@ -240,5 +282,26 @@ Book _book(String title, String author, List<String> chapterTitles, {String? ser
             duration: const Duration(minutes: 20),
             path: 'F:\\$title\\$i.mp3',
           ),
+      ],
+    );
+
+Book _b(String title, {String author = 'A', String? narrator, String? series, double? n, int added = 0}) => Book(
+      id: 'book:$title',
+      title: title,
+      author: author,
+      narrator: narrator,
+      series: series,
+      seriesIndex: n,
+      parts: [
+        Track(
+          id: 'local:F:\\$title.mp3',
+          source: TrackSource.local,
+          title: title,
+          artist: author,
+          album: title,
+          albumArtist: author,
+          path: 'F:\\$title.mp3',
+          modifiedMs: added,
+        ),
       ],
     );

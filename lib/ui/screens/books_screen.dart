@@ -13,8 +13,6 @@ import '../widgets/music_access_banner.dart';
 
 enum BookFilter { all, inProgress, notStarted, finished }
 
-enum BookSort { recentlyListened, title, author, series, recentlyAdded }
-
 /// The Books tab: every audiobook as a grid of covers.
 class BooksScreen extends StatefulWidget {
   const BooksScreen({super.key});
@@ -26,6 +24,9 @@ class BooksScreen extends StatefulWidget {
 class _BooksScreenState extends State<BooksScreen> {
   BookFilter _filter = BookFilter.all;
   BookSort _sort = BookSort.recentlyListened;
+
+  /// One author / narrator / series to show (chosen with the filter button).
+  BookFilters _only = BookFilters.none;
 
   /// Search box in the app bar (title, author, narrator, series).
   bool _searching = false;
@@ -55,7 +56,8 @@ class _BooksScreenState extends State<BooksScreen> {
         BookSort.recentlyListened => 'Recently listened',
         BookSort.title => 'Title',
         BookSort.author => 'Author',
-        BookSort.series => 'Series',
+        BookSort.narrator => 'Narrator',
+        BookSort.series => 'Series (in order)',
         BookSort.recentlyAdded => 'Recently added',
       };
 
@@ -66,46 +68,17 @@ class _BooksScreenState extends State<BooksScreen> {
         BookFilter.finished => l.stateOf(b) == BookState.finished,
       };
 
-  /// Books in display order, split into headed groups for author/series sorts.
-  List<(String?, List<Book>)> _groups(List<Book> books, ListeningModel l) {
-    int byTitle(Book a, Book b) => naturalCompare(a.title, b.title);
-    int bySeries(Book a, Book b) {
-      final c = (a.seriesIndex ?? 1e9).compareTo(b.seriesIndex ?? 1e9);
-      return c != 0 ? c : byTitle(a, b);
-    }
-
-    switch (_sort) {
-      case BookSort.title:
-        return [(null, [...books]..sort(byTitle))];
-      case BookSort.recentlyAdded:
-        return [(null, [...books]..sort((a, b) => b.addedMs.compareTo(a.addedMs)))];
-      case BookSort.recentlyListened:
-        return [
-          (
-            null,
-            [...books]
-              ..sort((a, b) {
-                final c = l.lastListened(b).compareTo(l.lastListened(a));
-                return c != 0 ? c : byTitle(a, b);
-              })
-          )
-        ];
-      case BookSort.author:
-      case BookSort.series:
-        final map = <String, List<Book>>{};
-        for (final b in books) {
-          final key = _sort == BookSort.author ? b.author : (b.series ?? 'Not in a series');
-          (map[key] ??= []).add(b);
-        }
-        final keys = map.keys.toList()
-          ..sort((a, b) {
-            // "Not in a series" goes last.
-            if (a == 'Not in a series') return 1;
-            if (b == 'Not in a series') return -1;
-            return naturalCompare(a, b);
-          });
-        return [for (final k in keys) (k, map[k]!..sort(_sort == BookSort.series ? bySeries : byTitle))];
-    }
+  /// The filter sheet: pick an author, narrator and/or series to show.
+  Future<void> _chooseFilters(List<Book> books) async {
+    final picked = await showModalBottomSheet<BookFilters>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      showDragHandle: true,
+      builder: (_) => _FilterSheet(books: books, current: _only),
+    );
+    if (picked != null && mounted) setState(() => _only = picked);
   }
 
   @override
@@ -154,9 +127,9 @@ class _BooksScreenState extends State<BooksScreen> {
     final found = _query.trim().isEmpty ? null : {for (final b in searchBookList(lib.books, _query)) b.id};
     final shown = [
       for (final b in lib.books)
-        if (_matches(b, listening) && (found == null || found.contains(b.id))) b
+        if (_matches(b, listening) && _only.matches(b) && (found == null || found.contains(b.id))) b
     ];
-    final groups = _groups(shown, listening);
+    final groups = sortBooks(shown, _sort, lastListened: listening.lastListened);
 
     return Scaffold(
       appBar: AppBar(
@@ -177,6 +150,15 @@ class _BooksScreenState extends State<BooksScreen> {
             tooltip: _searching ? 'Close search' : 'Search audiobooks',
             icon: Icon(_searching ? Icons.close : Icons.search),
             onPressed: _searching ? _closeSearch : () => setState(() => _searching = true),
+          ),
+          IconButton(
+            tooltip: 'Filter by author, narrator or series',
+            icon: Badge(
+              isLabelVisible: !_only.isEmpty,
+              smallSize: 8,
+              child: const Icon(Icons.filter_list),
+            ),
+            onPressed: () => _chooseFilters(lib.books),
           ),
           PopupMenuButton<BookSort>(
             tooltip: 'Sort',
@@ -213,6 +195,22 @@ class _BooksScreenState extends State<BooksScreen> {
                         onSelected: (_) => setState(() => _filter = f),
                       ),
                     ),
+                  // Author / narrator / series filters in use: tap × to remove.
+                  for (final (label, value, clear) in [
+                    ('Author', _only.author, () => _only.copyWith(clearAuthor: true)),
+                    ('Narrator', _only.narrator, () => _only.copyWith(clearNarrator: true)),
+                    ('Series', _only.series, () => _only.copyWith(clearSeries: true)),
+                  ])
+                    if (value != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: InputChip(
+                          avatar: const Icon(Icons.filter_list, size: 16),
+                          label: Text('$label: $value'),
+                          onPressed: () => _chooseFilters(lib.books),
+                          onDeleted: () => setState(() => _only = clear()),
+                        ),
+                      ),
                 ],
               ),
             ),
@@ -244,6 +242,95 @@ class _BooksScreenState extends State<BooksScreen> {
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ]);
       }),
+    );
+  }
+}
+
+/// Pick one author, narrator and/or series to show. Returns the new filters.
+class _FilterSheet extends StatefulWidget {
+  final List<Book> books;
+  final BookFilters current;
+  const _FilterSheet({required this.books, required this.current});
+
+  @override
+  State<_FilterSheet> createState() => _FilterSheetState();
+}
+
+class _FilterSheetState extends State<_FilterSheet> {
+  late BookFilters _f = widget.current;
+
+  /// Choices narrow each other: once an author is picked, only their
+  /// narrators and series are offered.
+  List<Book> _others({bool author = true, bool narrator = true, bool series = true}) => [
+        for (final b in widget.books)
+          if ((!author || _f.author == null || b.author == _f.author) &&
+              (!narrator || _f.narrator == null || b.narrator == _f.narrator) &&
+              (!series || _f.series == null || b.series == _f.series))
+            b
+      ];
+
+  Widget _dropdown({
+    required String label,
+    required String? value,
+    required Map<String, int> options,
+    required ValueChanged<String?> onChanged,
+  }) {
+    final items = {...options};
+    if (value != null && !items.containsKey(value)) items[value] = 0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<String?>(
+        initialValue: value,
+        isExpanded: true,
+        decoration: InputDecoration(labelText: label),
+        items: [
+          const DropdownMenuItem<String?>(value: null, child: Text('All')),
+          for (final e in items.entries)
+            DropdownMenuItem<String?>(value: e.key, child: Text('${e.key}  (${e.value})', overflow: TextOverflow.ellipsis)),
+        ],
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Show only', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+          _dropdown(
+            label: 'Author',
+            value: _f.author,
+            options: BookFilters.choices(_others(author: false), (b) => b.author),
+            onChanged: (v) => setState(() => _f = v == null ? _f.copyWith(clearAuthor: true) : _f.copyWith(author: v)),
+          ),
+          _dropdown(
+            label: 'Narrator',
+            value: _f.narrator,
+            options: BookFilters.choices(_others(narrator: false), (b) => b.narrator),
+            onChanged: (v) =>
+                setState(() => _f = v == null ? _f.copyWith(clearNarrator: true) : _f.copyWith(narrator: v)),
+          ),
+          _dropdown(
+            label: 'Series',
+            value: _f.series,
+            options: BookFilters.choices(_others(series: false), (b) => b.series),
+            onChanged: (v) => setState(() => _f = v == null ? _f.copyWith(clearSeries: true) : _f.copyWith(series: v)),
+          ),
+          const SizedBox(height: 4),
+          Row(children: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, BookFilters.none),
+              child: const Text('Clear all'),
+            ),
+            const Spacer(),
+            FilledButton(onPressed: () => Navigator.pop(context, _f), child: const Text('Show books')),
+          ]),
+        ]),
+      ),
     );
   }
 }
