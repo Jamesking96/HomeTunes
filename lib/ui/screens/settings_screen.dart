@@ -276,7 +276,7 @@ class _CoversSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const _SectionTitle('Cover art'),
+      const _SectionTitle('Online lookups'),
       SwitchListTile(
         title: const Text('Find missing covers online'),
         subtitle: const Text(
@@ -285,6 +285,15 @@ class _CoversSection extends StatelessWidget {
         ),
         value: lib.onlineCovers,
         onChanged: lib.setOnlineCovers,
+      ),
+      SwitchListTile(
+        title: const Text('Find missing song details online'),
+        subtitle: const Text(
+          'Offer to look up year, artist, album, album artist, genre and track numbers on MusicBrainz, '
+          'from the edit screen and on album pages with missing details.',
+        ),
+        value: lib.onlineDetails,
+        onChanged: lib.setOnlineDetails,
       ),
     ]);
   }
