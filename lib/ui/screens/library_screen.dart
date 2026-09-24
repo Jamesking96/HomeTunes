@@ -9,7 +9,6 @@ import '../theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/cards.dart';
 import '../widgets/track_tile.dart';
-import 'settings_screen.dart';
 
 /// Tabs: Playlists · Artists · Albums · Songs.
 class LibraryScreen extends StatelessWidget {
@@ -33,11 +32,6 @@ class LibraryScreen extends StatelessWidget {
                   nav.openPlaylist(context.read<PlaylistsModel>().create(name));
                 }
               },
-            ),
-            IconButton(
-              tooltip: 'Settings',
-              icon: const Icon(Icons.settings_outlined),
-              onPressed: () => nav.push(const SettingsScreen()),
             ),
           ],
           bottom: const TabBar(

@@ -8,6 +8,8 @@ import '../widgets/artwork.dart';
 import '../widgets/cards.dart';
 import '../widgets/collection_header.dart';
 import '../widgets/track_tile.dart';
+import '../../models/track_edit.dart';
+import 'cover_search_dialog.dart';
 import 'edit_details.dart';
 
 class AlbumScreen extends StatelessWidget {
@@ -90,8 +92,60 @@ class AlbumScreen extends StatelessWidget {
             ),
           ],
         ),
+        if (lib.onlineCovers && tracks.every((t) => t.art == null)) _MissingCoverPrompt(albumKey: albumKey),
         ...children,
       ]),
+    );
+  }
+}
+
+/// "This album has no cover – find one online?" Shown on album pages without
+/// art when online covers are switched on in Settings.
+class _MissingCoverPrompt extends StatefulWidget {
+  final String albumKey;
+  const _MissingCoverPrompt({required this.albumKey});
+
+  /// Albums the user said "not now" to, for this run of the app.
+  static final Set<String> _dismissed = {};
+
+  @override
+  State<_MissingCoverPrompt> createState() => _MissingCoverPromptState();
+}
+
+class _MissingCoverPromptState extends State<_MissingCoverPrompt> {
+  bool _busy = false;
+
+  Future<void> _find() async {
+    final lib = context.read<LibraryModel>();
+    final album = lib.albumByKey(widget.albumKey);
+    if (album == null) return;
+    final path = await showCoverSearch(context, artist: album.artist, album: album.title);
+    if (path == null || !mounted) return;
+    setState(() => _busy = true);
+    await lib.editMany([for (final t in album.tracks) t.id], TrackEdit(art: path));
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_MissingCoverPrompt._dismissed.contains(widget.albumKey)) return const SizedBox.shrink();
+    return Card(
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      color: AppColors.surfaceHigh,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+        child: Row(children: [
+          const Icon(Icons.image_search, color: AppColors.textDim),
+          const SizedBox(width: 12),
+          const Expanded(child: Text('This album has no cover. Look for one online?')),
+          TextButton(onPressed: _busy ? null : _find, child: const Text('Find cover')),
+          IconButton(
+            tooltip: 'Not now',
+            icon: const Icon(Icons.close, size: 18),
+            onPressed: () => setState(() => _MissingCoverPrompt._dismissed.add(widget.albumKey)),
+          ),
+        ]),
+      ),
     );
   }
 }

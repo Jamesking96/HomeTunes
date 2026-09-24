@@ -9,7 +9,6 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/cards.dart';
-import 'settings_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -27,15 +26,9 @@ class HomeScreen extends StatelessWidget {
     final pl = context.watch<PlaylistsModel>();
     final nav = context.read<AppNav>();
 
-    final settingsButton = IconButton(
-      tooltip: 'Settings',
-      icon: const Icon(Icons.settings_outlined),
-      onPressed: () => nav.push(const SettingsScreen()),
-    );
-
     if (lib.tracks.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: Text(_greeting()), actions: [settingsButton]),
+        appBar: AppBar(title: Text(_greeting())),
         body: EmptyState(
           icon: Icons.library_music_outlined,
           title: lib.busy ? 'Scanning your music…' : 'No music yet',
@@ -47,7 +40,7 @@ class HomeScreen extends StatelessWidget {
               : FilledButton.icon(
                   icon: const Icon(Icons.folder_open),
                   label: const Text('Add music'),
-                  onPressed: () => nav.push(const SettingsScreen()),
+                  onPressed: () => nav.selectTab(AppNav.settingsTab),
                 ),
         ),
       );
@@ -58,7 +51,7 @@ class HomeScreen extends StatelessWidget {
     final likedTracks = [for (final id in pl.liked) lib.byId(id)].whereType<Track>().toList();
 
     return Scaffold(
-      appBar: AppBar(title: Text(_greeting(), style: const TextStyle(fontWeight: FontWeight.w800)), actions: [settingsButton]),
+      appBar: AppBar(title: Text(_greeting(), style: const TextStyle(fontWeight: FontWeight.w800))),
       body: ListView(padding: const EdgeInsets.only(bottom: 24), children: [
         // Quick tiles
         Padding(

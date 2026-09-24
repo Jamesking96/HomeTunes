@@ -14,6 +14,7 @@ import 'screens/home_screen.dart';
 import 'screens/library_screen.dart';
 import 'screens/edit_details.dart';
 import 'screens/search_screen.dart';
+import 'screens/settings_screen.dart';
 import 'theme.dart';
 import 'widgets/player_controls.dart';
 import 'widgets/track_tile.dart';
@@ -36,6 +37,7 @@ class Shell extends StatelessWidget {
         _TabNavigator(navKey: nav.keys[0], root: const HomeScreen()),
         _TabNavigator(navKey: nav.keys[1], root: const SearchScreen()),
         _TabNavigator(navKey: nav.keys[2], root: const LibraryScreen()),
+        _TabNavigator(navKey: nav.keys[3], root: const SettingsScreen()),
       ],
     );
 
@@ -91,6 +93,8 @@ class Shell extends StatelessWidget {
             NavigationDestination(icon: Icon(Icons.search), label: 'Search'),
             NavigationDestination(
                 icon: Icon(Icons.library_music_outlined), selectedIcon: Icon(Icons.library_music), label: 'Library'),
+            NavigationDestination(
+                icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),
           ],
         ),
       ]),
@@ -198,6 +202,7 @@ class _Sidebar extends StatelessWidget {
         item(0, Icons.home, 'Home'),
         item(1, Icons.search, 'Search'),
         item(2, Icons.library_music, 'Your Library'),
+        item(AppNav.settingsTab, Icons.settings, 'Settings'),
         const Divider(height: 24),
         ListTile(
           dense: true,

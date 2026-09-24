@@ -25,6 +25,12 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
   cover image, for one song (⋮ → Edit details), a whole album (✎ on the album page), or several
   songs at once (long-press or ⋮ → Select, then ✎). Edits are stored by HomeTunes in `edits.json`;
   your music files are never modified, and "Reset to file details" undoes them.
+- **Save edits into files** (Settings) – writes your HomeTunes edits into the MP3/FLAC/M4A/WAV files
+  themselves, backing each file up first by default. Fields a format can't hold (e.g. album artist
+  in M4A, covers in WAV) stay as HomeTunes edits; OGG/Opus and server songs can't be written.
+- **Find covers online** – for songs/albums with an artist or album name, search MusicBrainz / Cover
+  Art Archive and pick a cover (from the edit dialog, or the prompt on album pages with no cover).
+  Can be switched off in Settings.
 - **System media controls** – Android: media notification, lock screen, Bluetooth/headset buttons,
   and background playback that Android won't kill. Windows: keyboard media keys and the Windows
   media overlay. Back on the Android Home screen hides the app and keeps the music playing.
