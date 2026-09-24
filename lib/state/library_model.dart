@@ -10,6 +10,7 @@ import '../models/track.dart';
 import '../models/track_edit.dart';
 import '../services/app_backup.dart';
 import '../services/local_scanner.dart';
+import '../services/music_permission.dart';
 import '../services/storage.dart';
 import '../services/subsonic_client.dart';
 import '../services/tag_writer.dart';
@@ -108,6 +109,33 @@ class LibraryModel extends ChangeNotifier {
   List<Book> books = [];
   Map<String, Book> _bookById = {};
   Map<String, Book> _bookByTrackId = {};
+
+  /// Whether the phone lets HomeTunes read audio files (always allowed off Android).
+  MusicAccess musicAccess = MusicAccess.allowed;
+
+  /// For tests: how to check access.
+  Future<MusicAccess> Function() checkAccess = MusicPermission.check;
+
+  /// Music or audiobook folders are set up but the files can't be read.
+  bool get needsMusicAccess =>
+      musicAccess != MusicAccess.allowed && (folders.isNotEmpty || audiobookFolders.isNotEmpty);
+
+  /// Re-checks access (at start-up and when coming back from the phone's
+  /// Settings). Rescans when access has just been given.
+  Future<void> refreshMusicAccess({bool rescanIfNewlyAllowed = true}) async {
+    final before = musicAccess;
+    musicAccess = await checkAccess();
+    if (musicAccess != before) {
+      if (musicAccess == MusicAccess.allowed && error == _noAccessMessage) error = null;
+      notifyListeners();
+      if (rescanIfNewlyAllowed && musicAccess == MusicAccess.allowed && before != MusicAccess.allowed) {
+        await scanLocal();
+      }
+    }
+  }
+
+  static const _noAccessMessage =
+      'HomeTunes isn\'t allowed to read your music files. Tap "Allow access" in Settings.';
 
   // ---- status ----
   bool busy = false;
@@ -377,6 +405,13 @@ class LibraryModel extends ChangeNotifier {
   }
 
   Future<void> scanLocal() => _enqueue(() async {
+        // Without access the scan would find nothing and wrongly drop every
+        // song from the library, so don't scan at all.
+        musicAccess = await checkAccess();
+        if (musicAccess != MusicAccess.allowed && _scanFolders.isNotEmpty) {
+          error = _noAccessMessage;
+          return;
+        }
         error = null;
         status = 'Looking for music…';
         notifyListeners();

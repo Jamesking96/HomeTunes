@@ -55,6 +55,9 @@ Future<void> main() async {
 
   runApp(HomeTunesApp(library: library, playlists: playlists, listening: listening, player: player));
 
+  // Android: can we read the music files? (Shows a banner with a fix if not.)
+  await library.refreshMusicAccess(rescanIfNewlyAllowed: false);
+
   // Pick up new / changed files in the background after start-up.
   if (library.folders.isNotEmpty) library.scanLocal();
 }
@@ -65,7 +68,12 @@ class _SaveOnBackground with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) player.saveBookPlace();
+    if (state == AppLifecycleState.resumed) {
+      // Back from the phone's Settings: music access may have been turned on.
+      player.library.refreshMusicAccess();
+    } else {
+      player.saveBookPlace();
+    }
   }
 }
 

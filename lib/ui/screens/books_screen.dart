@@ -9,6 +9,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/book_card.dart';
 import '../widgets/cards.dart';
+import '../widgets/music_access_banner.dart';
 
 enum BookFilter { all, inProgress, notStarted, finished }
 
@@ -99,7 +100,10 @@ class _BooksScreenState extends State<BooksScreen> {
     if (lib.books.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: const Text('Audiobooks', style: TextStyle(fontWeight: FontWeight.w800))),
-        body: EmptyState(
+        body: Column(children: [
+          const MusicAccessBanner(),
+          Expanded(
+            child: EmptyState(
           icon: Icons.menu_book_outlined,
           title: lib.busy ? 'Looking for audiobooks…' : 'No audiobooks yet',
           message: lib.busy
@@ -113,7 +117,9 @@ class _BooksScreenState extends State<BooksScreen> {
                   label: const Text('Add audiobooks'),
                   onPressed: () => context.read<AppNav>().selectTab(AppNav.settingsTab),
                 ),
-        ),
+            ),
+          ),
+        ]),
       );
     }
 

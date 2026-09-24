@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:permission_handler_platform_interface/permission_handler_platform_interface.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/app_backup.dart';
+import '../../services/music_permission.dart';
 import '../../services/subsonic_client.dart';
 import '../../services/tag_writer.dart';
 import '../../state/book_index.dart';
@@ -15,6 +15,7 @@ import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
 import '../theme.dart';
 import '../widgets/listening_controls.dart' show SpeedButton;
+import '../widgets/music_access_banner.dart';
 import '../widgets/track_tile.dart' show askForName;
 
 class SettingsScreen extends StatelessWidget {
@@ -27,6 +28,7 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 32),
         children: const [
+          MusicAccessBanner(),
           _FoldersSection(),
           Divider(height: 32),
           _AudiobooksSection(),
@@ -67,18 +69,16 @@ class _SectionTitle extends StatelessWidget {
 /// Asks for permission to read audio files (Android), then lets the user pick a folder.
 Future<String?> pickFolderWithPermission(BuildContext context, String title) async {
   final messenger = ScaffoldMessenger.of(context);
-  if (Platform.isAndroid) {
-    // Android 13+ uses "Music and audio"; older versions use storage.
-    final perms = PermissionHandlerPlatform.instance;
-    final statuses = await perms.requestPermissions([Permission.audio, Permission.storage]);
-    final ok = statuses.values.any((s) => s.isGranted || s.isLimited);
-    if (!ok) {
-      messenger.showSnackBar(SnackBar(
-        content: const Text('HomeTunes needs permission to read your music and audiobooks.'),
-        action: SnackBarAction(label: 'Open settings', onPressed: perms.openAppSettings),
-      ));
-      return null;
-    }
+  final lib = context.read<LibraryModel>();
+  final access = await MusicPermission.request();
+  await lib.refreshMusicAccess(rescanIfNewlyAllowed: false);
+  if (access != MusicAccess.allowed) {
+    messenger.showSnackBar(const SnackBar(
+      content: Text('HomeTunes needs "Music and audio" access to read your music and audiobooks.'),
+      action: SnackBarAction(label: 'Open settings', onPressed: MusicPermission.openSettings),
+      duration: Duration(seconds: 8),
+    ));
+    return null;
   }
   return FilePicker.getDirectoryPath(dialogTitle: title);
 }

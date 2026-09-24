@@ -75,6 +75,19 @@ void _android() {
       stdout.writeln('  android: compileSdk set to 37');
     }
   }
+
+  // Release builds strip images they think are unused; audio_service finds its
+  // notification button icons by name, so without this the lock-screen
+  // controls break (and Android stops playback when the screen locks).
+  final keep = File('android/app/src/main/res/raw/keep.xml');
+  if (!keep.existsSync()) {
+    keep.parent.createSync(recursive: true);
+    keep.writeAsStringSync('''<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/audio_service_*" />
+''');
+    stdout.writeln('  android: keep.xml added for media control icons');
+  }
 }
 
 /// MainActivity must extend AudioServiceActivity (so the media notification and
@@ -91,7 +104,7 @@ void _mainActivity() {
   if (files.isEmpty) return;
   final f = files.first;
   final old = f.readAsStringSync();
-  if (old.contains('AudioServiceActivity') && old.contains('moveToBackground')) return;
+  if (old.contains('AudioServiceActivity') && old.contains('sdkInt')) return;
   final pkg = RegExp(r'^package\s+([\w.]+)', multiLine: true).firstMatch(old)?.group(1);
   if (pkg == null) return;
   f.writeAsStringSync('''package $pkg
@@ -106,11 +119,14 @@ class MainActivity : AudioServiceActivity() {
         // Back on the Home screen: hide the app instead of closing it, so music keeps playing.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "hometunes/app")
             .setMethodCallHandler { call, result ->
-                if (call.method == "moveToBackground") {
-                    moveTaskToBack(true)
-                    result.success(null)
-                } else {
-                    result.notImplemented()
+                when (call.method) {
+                    "moveToBackground" -> {
+                        moveTaskToBack(true)
+                        result.success(null)
+                    }
+                    // Which permission reads music files depends on the Android version.
+                    "sdkInt" -> result.success(android.os.Build.VERSION.SDK_INT)
+                    else -> result.notImplemented()
                 }
             }
     }
