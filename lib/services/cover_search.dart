@@ -102,12 +102,14 @@ class CoverSearch {
 
   /// Searches and returns only matches that actually have a cover image.
   Future<List<CoverCandidate>> search({String? artist, String? album, String? title}) async {
-    final res = await _http
-        .get(buildQuery(artist: artist, album: album, title: title), headers: {
-          'User-Agent': _userAgent,
-          'Accept': 'application/json',
-        })
-        .timeout(const Duration(seconds: 15));
+    final uri = buildQuery(artist: artist, album: album, title: title);
+    const headers = {'User-Agent': _userAgent, 'Accept': 'application/json'};
+    var res = await _http.get(uri, headers: headers).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 503) {
+      // MusicBrainz answers 503 when asked too often (about 1 request/second): wait and retry once.
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      res = await _http.get(uri, headers: headers).timeout(const Duration(seconds: 15));
+    }
     if (res.statusCode != 200) {
       throw Exception('MusicBrainz replied ${res.statusCode}');
     }
