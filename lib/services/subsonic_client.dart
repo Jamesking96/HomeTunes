@@ -26,6 +26,15 @@ class ServerConfig {
       );
 }
 
+/// Result of a full library download.
+class SyncResult {
+  final List<Track> tracks;
+
+  /// Albums that couldn't be fetched (skipped rather than failing the sync).
+  final int failedAlbums;
+  const SyncResult(this.tracks, this.failedAlbums);
+}
+
 class SubsonicException implements Exception {
   final String message;
   SubsonicException(this.message);
@@ -118,7 +127,8 @@ class SubsonicClient {
   Future<void> ping() => _get('ping');
 
   /// Downloads the whole song list: every album via getAlbumList2, then each album's songs.
-  Future<List<Track>> fetchAllTracks({void Function(int albumsDone, int albumsTotal)? onProgress}) async {
+  /// An album that fails to load is skipped and counted in [SyncResult.failedAlbums].
+  Future<SyncResult> fetchAllTracks({void Function(int albumsDone, int albumsTotal)? onProgress}) async {
     final albumIds = <String>[];
     const page = 500;
     for (var offset = 0;; offset += page) {
@@ -134,18 +144,31 @@ class SubsonicClient {
 
     final tracks = <Track>[];
     var done = 0;
+    var failed = 0;
     // A few requests at a time: fast, without hammering a home server.
     const parallel = 6;
     for (var i = 0; i < albumIds.length; i += parallel) {
       final chunk = albumIds.sublist(i, min(i + parallel, albumIds.length));
-      final results = await Future.wait(chunk.map(_albumSongs));
+      final results = await Future.wait(chunk.map((id) async {
+        try {
+          return await _albumSongs(id);
+        } catch (_) {
+          // Bad reply for this album (network blip, odd data): skip it.
+          failed++;
+          return const <Track>[];
+        }
+      }));
       for (final r in results) {
         tracks.addAll(r);
       }
       done += chunk.length;
       onProgress?.call(done, albumIds.length);
     }
-    return tracks;
+    // Every album failing means something bigger is wrong (e.g. server went down).
+    if (albumIds.isNotEmpty && failed == albumIds.length) {
+      throw SubsonicException('The server stopped responding while syncing.');
+    }
+    return SyncResult(tracks, failed);
   }
 
   Future<List<Track>> _albumSongs(String albumId) async {
