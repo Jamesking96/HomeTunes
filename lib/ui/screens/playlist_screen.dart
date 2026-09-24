@@ -44,7 +44,11 @@ class PlaylistScreen extends StatelessWidget {
             ),
             kind: 'Playlist',
             title: 'Liked Songs',
-            subtitle: '${tracks.length} songs',
+            subtitle: [
+              '${tracks.length} songs',
+              // Liked songs that aren't on this device are kept for when they come back.
+              if (pl.liked.length > tracks.length) '${pl.liked.length - tracks.length} unavailable',
+            ].join(' · '),
             tracks: tracks,
             contextLabel: 'Liked Songs',
             ),
@@ -123,6 +127,7 @@ class PlaylistScreen extends StatelessWidget {
             subtitle: [
               '${tracks.length} songs',
               if (tracks.isNotEmpty) formatLong(total),
+              // Kept for when they're back (files missing, or server switched off).
               if (missing > 0) '$missing unavailable',
             ].join(' · '),
             tracks: tracks,

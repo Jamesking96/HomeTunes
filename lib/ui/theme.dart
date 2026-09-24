@@ -43,12 +43,17 @@ ThemeData buildTheme() {
   );
 }
 
+/// "3:07", or "–:––" when the length isn't known yet.
 String formatDuration(Duration d) {
+  if (d <= Duration.zero) return '–:––';
   final h = d.inHours;
   final m = d.inMinutes.remainder(60);
   final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
   return h > 0 ? '$h:${m.toString().padLeft(2, '0')}:$s' : '$m:$s';
 }
+
+/// Playback position: always a time, starting at "0:00".
+String formatElapsed(Duration d) => d <= Duration.zero ? '0:00' : formatDuration(d);
 
 /// "1 hr 12 min" style.
 String formatLong(Duration d) {

@@ -154,6 +154,11 @@ Track readTrack(String path, int modifiedMs, String artDir) {
     // Unsupported or damaged tags.
   }
 
+  // No length in the tags: WAV files can be measured from their header.
+  if (duration == Duration.zero && p.extension(path).toLowerCase() == '.wav') {
+    duration = wavDuration(File(path)) ?? Duration.zero;
+  }
+
   final folder = p.dirname(path);
   final fallback = fallbackFromFileName(p.basenameWithoutExtension(path));
   title ??= fallback.title;
@@ -218,4 +223,37 @@ String? _saveArt(List<int>? bytes, String folder, String artDir) {
     if (f.existsSync()) return f.path;
   }
   return null;
+}
+
+/// Length of a WAV file from its `fmt ` (bytes per second) and `data` chunks.
+Duration? wavDuration(File file) {
+  RandomAccessFile? raf;
+  try {
+    raf = file.openSync();
+    final length = raf.lengthSync();
+    final header = raf.readSync(12);
+    if (header.length < 12 || String.fromCharCodes(header.sublist(0, 4)) != 'RIFF') return null;
+    int? byteRate;
+    int? dataSize;
+    var pos = 12;
+    while (pos + 8 <= length && (byteRate == null || dataSize == null)) {
+      raf.setPositionSync(pos);
+      final h = raf.readSync(8);
+      final id = String.fromCharCodes(h.sublist(0, 4));
+      final size = h[4] | (h[5] << 8) | (h[6] << 16) | (h[7] << 24);
+      if (id == 'fmt ') {
+        final fmt = raf.readSync(12);
+        if (fmt.length >= 12) byteRate = fmt[8] | (fmt[9] << 8) | (fmt[10] << 16) | (fmt[11] << 24);
+      } else if (id == 'data') {
+        dataSize = size;
+      }
+      pos += 8 + size + (size.isOdd ? 1 : 0);
+    }
+    if (byteRate == null || byteRate == 0 || dataSize == null) return null;
+    return Duration(microseconds: (dataSize * 1000000 / byteRate).round());
+  } catch (_) {
+    return null;
+  } finally {
+    raf?.closeSync();
+  }
 }

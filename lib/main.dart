@@ -23,6 +23,12 @@ Future<void> main() async {
   final library = LibraryModel(storage);
   final playlists = PlaylistsModel(storage);
   await Future.wait([library.load(), playlists.load()]);
+  // Songs in playlists / Liked Songs are kept track of even when their files
+  // are missing, and follow them if they move.
+  library
+    ..otherReferencedIds = (() => playlists.referencedIds)
+    ..onIdsRemapped = playlists.remapIds
+    ..onIdsForgotten = playlists.removeIds;
 
   // The player lives for the whole app, and the system media controls
   // (Android notification/lock screen, Windows media keys) are wired to it.

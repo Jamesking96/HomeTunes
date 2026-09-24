@@ -40,6 +40,7 @@ class PlayerModel extends ChangeNotifier {
       }),
       _player.stream.duration.listen((v) {
         duration = v;
+        _learnDuration(v);
         notifyListeners();
       }),
       _player.stream.volume.listen((v) {
@@ -64,6 +65,16 @@ class PlayerModel extends ChangeNotifier {
     if (queue.refresh(library.byId)) notifyListeners();
   }
 
+  /// When a song's file didn't say how long it is (or said something wrong),
+  /// remember the real length the player found, so lists and totals show it.
+  void _learnDuration(Duration d) {
+    final t = queue.current;
+    if (t == null || d <= Duration.zero) return;
+    if (!t.hasDuration || (d - t.duration).abs() > const Duration(seconds: 2)) {
+      library.learnDuration(t.id, d);
+    }
+  }
+
   Track? get current => queue.current;
   Stream<Duration> get positionStream => _player.stream.position;
   Duration get position => _player.state.position;
@@ -84,7 +95,9 @@ class PlayerModel extends ChangeNotifier {
     return playTracks(tracks, start: start, shuffle: true, label: label);
   }
 
-  Future<void> _openCurrent({int skipsLeft = 20}) async {
+  Future<void> _openCurrent({int? skipsLeft}) async {
+    // Skip at most once round the whole queue (all songs unavailable).
+    skipsLeft ??= queue.tracks.length - 1;
     final t = queue.current;
     if (t == null) {
       await _player.stop();
@@ -93,8 +106,11 @@ class PlayerModel extends ChangeNotifier {
     }
     final uri = library.playableUri(t);
     if (uri == null) {
-      // e.g. a server song while the server is switched off: skip it.
-      lastError = 'Can\'t play "${t.title}" right now';
+      // A song whose file isn't on this device (any more), or a server song
+      // while the server is switched off: skip it. Its details are kept.
+      lastError = t.isLocal
+          ? '"${t.title}" isn\'t on this device – skipped'
+          : 'Can\'t play "${t.title}" right now';
       if (skipsLeft > 0 && queue.next() != null) {
         return _openCurrent(skipsLeft: skipsLeft - 1);
       }
