@@ -190,6 +190,7 @@ class MiniPlayer extends StatelessWidget {
               ),
               const LikeButton(),
               IconButton(
+                tooltip: p.playing ? 'Pause' : 'Play',
                 icon: Icon(p.playing ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 32),
                 onPressed: p.togglePlay,
               ),

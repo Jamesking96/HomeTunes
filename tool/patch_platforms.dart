@@ -38,6 +38,17 @@ void _android() {
   }
   f.writeAsStringSync(s);
   stdout.writeln('  android: permissions added');
+
+  // permission_handler_android is built against API 37, so the app must be too.
+  final g = File('android/app/build.gradle.kts');
+  if (g.existsSync()) {
+    final gs = g.readAsStringSync();
+    final fixed = gs.replaceFirst(RegExp(r'compileSdk\s*=\s*[^\n]+'), 'compileSdk = 37');
+    if (fixed != gs) {
+      g.writeAsStringSync(fixed);
+      stdout.writeln('  android: compileSdk set to 37');
+    }
+  }
 }
 
 void _macos() {

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 
@@ -48,6 +47,23 @@ class LocalScanner {
       onProgress?.call(result.length, files.length);
     }
     return result;
+  }
+
+  /// Deletes cached cover images that no track uses any more
+  /// (album removed, or its embedded art changed).
+  Future<void> removeUnusedArt(List<Track> tracks) async {
+    final used = {for (final t in tracks) if (t.art != null) p.normalize(t.art!)};
+    final dir = Directory(artDir);
+    if (!await dir.exists()) return;
+    await for (final e in dir.list()) {
+      if (e is File && p.extension(e.path) == '.img' && !used.contains(p.normalize(e.path))) {
+        try {
+          await e.delete();
+        } catch (_) {
+          // In use or already gone: try again next scan.
+        }
+      }
+    }
   }
 }
 
@@ -146,8 +162,7 @@ Track readTrack(String path, int modifiedMs, String artDir) {
   albumArtist ??= artist;
   album ??= p.basename(folder);
 
-  final albumKey = '${albumArtist.toLowerCase()}|${album.toLowerCase()}';
-  final art = _saveArt(pictureBytes, albumKey, folder, artDir);
+  final art = _saveArt(pictureBytes, folder, artDir);
 
   return Track(
     id: 'local:$path',
@@ -182,10 +197,12 @@ String? _clean(String? s) {
   return t.isEmpty ? null : t;
 }
 
-/// Writes embedded art once per album; falls back to cover.jpg etc. in the folder.
-String? _saveArt(List<int>? bytes, String albumKey, String folder, String artDir) {
+/// Caches embedded art, named by its content so identical covers (a whole
+/// album) share one file and changed art gets a new file. Falls back to
+/// cover.jpg etc. in the folder.
+String? _saveArt(List<int>? bytes, String folder, String artDir) {
   if (bytes != null && bytes.isNotEmpty) {
-    final name = md5.convert(utf8.encode(albumKey)).toString();
+    final name = md5.convert(bytes).toString();
     final file = File(p.join(artDir, '$name.img'));
     if (!file.existsSync()) {
       try {

@@ -151,6 +151,7 @@ class LibraryModel extends ChangeNotifier {
             notifyListeners();
           });
           await _saveLibrary();
+          await _scanner.removeUnusedArt(_local);
           status = null;
         } catch (e) {
           status = null;
@@ -167,6 +168,9 @@ class LibraryModel extends ChangeNotifier {
       await test.ping();
     } on SubsonicException catch (e) {
       return e.message;
+    } catch (e) {
+      // e.g. an address that isn't a valid URL at all.
+      return 'That server address doesn\'t look right ($e)';
     } finally {
       test.close();
     }
@@ -203,14 +207,22 @@ class LibraryModel extends ChangeNotifier {
         status = 'Connecting to server…';
         notifyListeners();
         try {
-          _remote = await c.fetchAllTracks(onProgress: (done, total) {
+          final result = await c.fetchAllTracks(onProgress: (done, total) {
             status = 'Syncing server albums $done / $total';
             notifyListeners();
           });
-          await _saveLibrary();
           status = null;
+          // The server may have been forgotten or switched off while we synced.
+          if (!identical(c, _client)) return;
+          _remote = result.tracks;
+          await _saveLibrary();
+          if (result.failedAlbums > 0) {
+            error = 'Synced, but ${result.failedAlbums} album(s) could not be read from the server.';
+          }
         } catch (e) {
           status = null;
+          // Cancelled by "Forget server" / switching it off: not an error.
+          if (!identical(c, _client)) return;
           error = 'Server sync failed: $e';
         }
       });

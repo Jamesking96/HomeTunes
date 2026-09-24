@@ -35,8 +35,10 @@ class TrackTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final player = context.watch<PlayerModel>();
-    final isCurrent = player.current?.id == track.id;
+    // Only rebuild this row when the current song changes, not on every
+    // buffering/volume/play-state update.
+    final currentId = context.select<PlayerModel, String?>((p) => p.current?.id);
+    final isCurrent = currentId == track.id;
     final accent = Theme.of(context).colorScheme.primary;
 
     Widget leading;
@@ -181,26 +183,51 @@ Future<void> showAddToPlaylist(BuildContext context, List<Track> tracks) async {
   ));
 }
 
-/// Simple text prompt dialog.
+/// Simple text prompt dialog. Returns the trimmed name, or null if cancelled/empty.
 Future<String?> askForName(BuildContext context, {required String title, String initial = ''}) {
-  final ctrl = TextEditingController(text: initial);
   return showDialog<String>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(title),
+    builder: (_) => _NameDialog(title: title, initial: initial),
+  );
+}
+
+class _NameDialog extends StatefulWidget {
+  final String title;
+  final String initial;
+  const _NameDialog({required this.title, required this.initial});
+
+  @override
+  State<_NameDialog> createState() => _NameDialogState();
+}
+
+class _NameDialogState extends State<_NameDialog> {
+  late final TextEditingController _ctrl = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final v = _ctrl.text.trim();
+    Navigator.pop(context, v.isEmpty ? null : v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
       content: TextField(
-        controller: ctrl,
+        controller: _ctrl,
         autofocus: true,
         decoration: const InputDecoration(hintText: 'Name'),
-        onSubmitted: (v) => Navigator.pop(ctx, v.trim().isEmpty ? null : v.trim()),
+        onSubmitted: (_) => _submit(),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: () => Navigator.pop(ctx, ctrl.text.trim().isEmpty ? null : ctrl.text.trim()),
-          child: const Text('Save'),
-        ),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(onPressed: _submit, child: const Text('Save')),
       ],
-    ),
-  );
+    );
+  }
 }
