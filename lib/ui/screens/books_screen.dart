@@ -27,6 +27,23 @@ class _BooksScreenState extends State<BooksScreen> {
   BookFilter _filter = BookFilter.all;
   BookSort _sort = BookSort.recentlyListened;
 
+  /// Search box in the app bar (title, author, narrator, series).
+  bool _searching = false;
+  final _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _closeSearch() => setState(() {
+        _searching = false;
+        _search.clear();
+        _query = '';
+      });
+
   static String _filterLabel(BookFilter f) => switch (f) {
         BookFilter.all => 'All',
         BookFilter.inProgress => 'In progress',
@@ -134,13 +151,33 @@ class _BooksScreenState extends State<BooksScreen> {
       };
       counts[f] = counts[f]! + 1;
     }
-    final shown = [for (final b in lib.books) if (_matches(b, listening)) b];
+    final found = _query.trim().isEmpty ? null : {for (final b in searchBookList(lib.books, _query)) b.id};
+    final shown = [
+      for (final b in lib.books)
+        if (_matches(b, listening) && (found == null || found.contains(b.id))) b
+    ];
     final groups = _groups(shown, listening);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Audiobooks', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: _searching
+            ? TextField(
+                controller: _search,
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                onChanged: (v) => setState(() => _query = v),
+                decoration: const InputDecoration(
+                  hintText: 'Title, author, narrator or series',
+                  border: InputBorder.none,
+                ),
+              )
+            : const Text('Audiobooks', style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [
+          IconButton(
+            tooltip: _searching ? 'Close search' : 'Search audiobooks',
+            icon: Icon(_searching ? Icons.close : Icons.search),
+            onPressed: _searching ? _closeSearch : () => setState(() => _searching = true),
+          ),
           PopupMenuButton<BookSort>(
             tooltip: 'Sort',
             icon: const Icon(Icons.sort),
@@ -184,7 +221,7 @@ class _BooksScreenState extends State<BooksScreen> {
             const SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.all(32),
-                child: Text('No books here.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)),
+                child: Text('No books match.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)),
               ),
             ),
           for (final (header, books) in groups) ...[

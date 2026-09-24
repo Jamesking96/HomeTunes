@@ -205,3 +205,48 @@ List<Book> groupBooks(Iterable<Track> tracks) {
   books.sort((a, b) => naturalCompare(a.title, b.title));
   return books;
 }
+
+List<String> _searchWords(String q) =>
+    q.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+
+/// Books whose title, author, narrator or series contain every word of [q].
+/// Titles that start with the search come first.
+List<Book> searchBookList(Iterable<Book> books, String q) {
+  final words = _searchWords(q);
+  if (words.isEmpty) return const [];
+  final query = words.join(' ');
+  final hits = [
+    for (final b in books)
+      if (words.every('${b.title} ${b.author} ${b.narrator ?? ''} ${b.series ?? ''}'.toLowerCase().contains)) b
+  ];
+  int rank(Book b) {
+    final t = b.title.toLowerCase();
+    if (t.startsWith(query)) return 0;
+    if (t.contains(query)) return 1;
+    return 2;
+  }
+
+  hits.sort((a, b) {
+    final c = rank(a).compareTo(rank(b));
+    return c != 0 ? c : naturalCompare(a.title, b.title);
+  });
+  return hits;
+}
+
+/// Chapters whose name contains every word of [q] (e.g. "diagon alley").
+List<({Book book, int chapter})> searchChapterList(Iterable<Book> books, String q, {int limit = 40}) {
+  final words = _searchWords(q);
+  if (words.isEmpty) return const [];
+  final out = <({Book book, int chapter})>[];
+  for (final b in books) {
+    final chapters = b.chapters;
+    for (var i = 0; i < chapters.length; i++) {
+      final title = chapters[i].title.toLowerCase();
+      if (words.every(title.contains)) {
+        out.add((book: b, chapter: i));
+        if (out.length >= limit) return out;
+      }
+    }
+  }
+  return out;
+}
