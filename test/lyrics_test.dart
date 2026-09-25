@@ -279,9 +279,11 @@ void main() {
     File copy(String name) =>
         File(p.join('test', 'fixtures', name)).copySync(p.join(dir.path, name));
 
-    bool has(File f, String text) {
+    // Text frames may be UTF-8, Latin-1 or UTF-16 (little endian).
+    bool has(File f, String text) => _has(f, utf8.encode(text)) || _has(f, [for (final c in text.codeUnits) ...[c, 0]]);
+
+    bool _has(File f, List<int> needle) {
       final bytes = f.readAsBytesSync();
-      final needle = utf8.encode(text);
       outer:
       for (var i = 0; i + needle.length <= bytes.length; i++) {
         for (var j = 0; j < needle.length; j++) {
@@ -307,6 +309,9 @@ void main() {
         expect(has(f, 'Some Composer'), isTrue);
         expect(has(f, '-6.50 dB'), isTrue);
         expect(has(f, 'Album Person'), isTrue);
+        // To check the written files with another tag reader: set HT_KEEP_TAGGED to a folder.
+        final keep = Platform.environment['HT_KEEP_TAGGED'];
+        if (keep != null) f.copySync(p.join(keep, 'renamed_$name'));
       });
 
       test('$name: new lyrics are written into the file', () async {
