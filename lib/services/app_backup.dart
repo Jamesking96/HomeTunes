@@ -34,6 +34,7 @@ class AppBackup {
     'listening.json',
     'bookmarks.json',
     'lyrics.json',
+    'equalizer.json',
   ];
 
   /// Marks a path inside the app's folder in a backup.
@@ -281,6 +282,27 @@ class AppBackup {
       await storage.write('lyrics.json', bly);
     }
 
+    // ---- equaliser: merging keeps this device's choices and adds the backup's own presets ----
+    final beq = backupFile('equalizer.json');
+    if (merge) {
+      final ceq = await currentFile('equalizer.json');
+      if (ceq.isEmpty) {
+        if (beq.isNotEmpty) await storage.write('equalizer.json', beq);
+      } else {
+        final here = (ceq['custom'] as List? ?? const []);
+        final ids = {for (final c in here) if (c is Map) c['id']};
+        await storage.write('equalizer.json', {
+          ...ceq,
+          'custom': [
+            ...here,
+            for (final c in (beq['custom'] as List? ?? const [])) if (c is Map && !ids.contains(c['id'])) c
+          ],
+        });
+      }
+    } else if (beq.isNotEmpty) {
+      await storage.write('equalizer.json', beq);
+    }
+
     return RestoreResult(missingFolders: missingFolders, needsPassword: needsPassword);
   }
 
@@ -307,7 +329,17 @@ class AppBackup {
     for (final id in (incoming['liked'] as List? ?? const [])) {
       if (!liked.contains(id)) liked.add(id);
     }
-    return {'playlists': lists, 'liked': liked};
+    // Favourite albums and books: everything that's a favourite in either.
+    List<Object?> both(String key) => {
+          ...(current[key] as List? ?? const []),
+          ...(incoming[key] as List? ?? const []),
+        }.toList();
+    return {
+      'playlists': lists,
+      'liked': liked,
+      'favouriteAlbums': both('favouriteAlbums'),
+      'favouriteBooks': both('favouriteBooks'),
+    };
   }
 
   /// Combines two listening.json "books" maps, keeping the latest place per book.

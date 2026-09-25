@@ -129,25 +129,69 @@ class _ArtistsTab extends StatelessWidget {
   }
 }
 
-/// A grid of every album's cover card.
-class _AlbumsTab extends StatelessWidget {
+/// A grid of every album's cover card, with All / Favourites chips at the top.
+class _AlbumsTab extends StatefulWidget {
   const _AlbumsTab();
+
+  @override
+  State<_AlbumsTab> createState() => _AlbumsTabState();
+}
+
+class _AlbumsTabState extends State<_AlbumsTab> {
+  bool _favouritesOnly = false;
 
   @override
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
+    final playlists = context.watch<PlaylistsModel>();
     if (lib.albums.isEmpty) return const EmptyState(icon: Icons.album_outlined, title: 'No albums yet');
-    return LayoutBuilder(builder: (context, c) {
-      return GridView.builder(
-        padding: const EdgeInsets.all(8),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: gridColumns(c.maxWidth),
-          childAspectRatio: 0.78,
+    final favourites = [for (final a in lib.albums) if (playlists.isFavouriteAlbum(a)) a];
+    final shown = _favouritesOnly ? favourites : lib.albums;
+    final keys = [for (final a in shown) a.key];
+    return Column(children: [
+      SizedBox(
+        height: 48,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          children: [
+            ChoiceChip(
+              label: Text('All (${lib.albums.length})'),
+              selected: !_favouritesOnly,
+              onSelected: (_) => setState(() => _favouritesOnly = false),
+            ),
+            const SizedBox(width: 8),
+            ChoiceChip(
+              key: const ValueKey('albums-favourites'),
+              avatar: const Icon(Icons.favorite, size: 16),
+              label: Text('Favourites (${favourites.length})'),
+              selected: _favouritesOnly,
+              onSelected: (_) => setState(() => _favouritesOnly = true),
+            ),
+          ],
         ),
-        itemCount: lib.albums.length,
-        itemBuilder: (_, i) => AlbumCard(album: lib.albums[i]),
-      );
-    });
+      ),
+      Expanded(
+        child: shown.isEmpty
+            ? const EmptyState(
+                icon: Icons.favorite_border,
+                title: 'No favourite albums yet',
+                message: 'Tap the heart on an album\'s page, or right-click (press and hold on a phone) an album '
+                    'and choose Add to favourites.',
+              )
+            : LayoutBuilder(builder: (context, c) {
+                return GridView.builder(
+                  padding: const EdgeInsets.all(8),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: gridColumns(c.maxWidth),
+                    childAspectRatio: 0.78,
+                  ),
+                  itemCount: shown.length,
+                  itemBuilder: (_, i) => AlbumCard(album: shown[i], scope: keys),
+                );
+              }),
+      ),
+    ]);
   }
 }
 

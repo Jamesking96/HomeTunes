@@ -5,7 +5,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../state/equalizer_model.dart';
 import '../../../state/library_model.dart';
+import '../equalizer_screen.dart';
 import '../../theme.dart';
 import 'settings_widgets.dart';
 
@@ -16,8 +18,23 @@ class PlaybackSettings extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
+    final eq = context.watch<EqualizerModel>();
     return SettingsPageList(children: [
       const SettingsGroupTitle('Sound'),
+      SettingTarget(
+        'equaliser',
+        child: ListTile(
+          leading: const Icon(Icons.equalizer),
+          title: const Text('Equaliser'),
+          subtitle: Text(!eq.enabled
+              ? 'Off'
+              : eq.separateBooks
+                  ? 'Music: ${eq.musicPreset.name} · Audiobooks: ${eq.bookPreset.name}'
+                  : eq.musicPreset.name),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => openEqualizer(context),
+        ),
+      ),
       SettingTarget(
         'gapless',
         child: SwitchListTile(

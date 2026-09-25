@@ -39,24 +39,31 @@ class BookRules {
 
   /// True if [t] belongs on the Books tab. The checks run in order and the first that
   /// applies decides (see 03_FEATURES_AND_DESIGN_NOTES.md, "Which files are books").
-  bool isBook(Track t) {
+  bool isBook(Track t) => why(t).$1;
+
+  /// Whether [t] is a book, and the rule that decided it, in plain words (for the Details page).
+  (bool, String) why(Track t) {
     // 1. The user's own "Move to Books/Music" choice always wins.
     final o = overrides[t.id];
-    if (o != null) return o;
-    if (t.hasBookInfo) return true; // e.g. Libation's .metadata.json beside it
+    if (o != null) return (o, o ? 'You moved it to Books' : 'You moved it to Music');
+    // 2. A book details file beside it, e.g. Libation's .metadata.json.
+    if (t.hasBookInfo) return (true, 'It has a book details file beside it');
     // 3. A book genre, compared loosely (see normalizeGenre).
     final g = t.genre;
-    if (g != null && _genres.contains(normalizeGenre(g))) return true;
+    if (g != null && _genres.contains(normalizeGenre(g))) return (true, 'Its genre is "$g"');
     // The remaining checks need a file path, so server songs stop here.
     final path = t.path;
-    if (path == null) return false;
+    if (path == null) return (false, 'It\'s music from the server');
     // 4. .m4b is an audiobook-only format.
-    if (path.toLowerCase().endsWith('.m4b')) return true;
+    if (path.toLowerCase().endsWith('.m4b')) return (true, 'It\'s an .m4b file (an audiobook format)');
     // 5. Any folder in the path named like "Audio Books" (the file name itself is left out).
     final dirs = splitPath(path)..removeLast();
-    if (dirs.any(_bookFolderName.hasMatch)) return true;
+    final named = dirs.where(_bookFolderName.hasMatch).firstOrNull;
+    if (named != null) return (true, 'It\'s inside a folder called "$named"');
     // 6. Inside one of the folders the user marked as audiobook folders.
-    return bookFolders.any((f) => isInside(path, f));
+    final folder = bookFolders.where((f) => isInside(path, f)).firstOrNull;
+    if (folder != null) return (true, 'It\'s in your audiobook folder $folder');
+    return (false, 'None of the audiobook rules apply');
   }
 }
 

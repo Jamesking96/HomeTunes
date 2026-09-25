@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 /// The pages Settings is split into, in the order they're listed.
 enum SettingsPage {
   library('Library', 'Music folders and rescanning', Icons.library_music_outlined),
-  playback('Playback', 'Gapless playback and even volume', Icons.graphic_eq),
+  playback('Playback', 'Equaliser, gapless playback and even volume', Icons.graphic_eq),
   sleepTimer('Sleep timer', 'Timer lengths and fading out', Icons.bedtime_outlined),
   audiobooks('Audiobooks', 'Book folders, skipping, speed and covers', Icons.menu_book_outlined),
   onlineLookups('Online lookups', 'Covers, song details and lyrics', Icons.travel_explore),
@@ -52,6 +52,7 @@ class SettingInfo {
 const settingsCatalog = <SettingInfo>[
   SettingInfo('music-folders', SettingsPage.library, 'Music folders', 'add folder rescan scan location library'),
   SettingInfo('gapless', SettingsPage.playback, 'Gapless playback', 'gap silence live album mix'),
+  SettingInfo('equaliser', SettingsPage.playback, 'Equaliser', 'equalizer eq bass treble presets sound tone'),
   SettingInfo('replaygain', SettingsPage.playback, 'Even out volume (ReplayGain)', 'loudness loud quiet level normalise normalize'),
   SettingInfo('sleep-button', SettingsPage.sleepTimer, 'Show sleep timer button', 'moon'),
   SettingInfo('sleep-music', SettingsPage.sleepTimer, 'Timer length for music', 'sleep minutes end of song'),
@@ -63,6 +64,7 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('skip-forward', SettingsPage.audiobooks, 'Skip forward', 'fast forward seconds'),
   SettingInfo('book-speed', SettingsPage.audiobooks, 'Speed for new books', 'playback speed faster slower'),
   SettingInfo('rewind-resume', SettingsPage.audiobooks, 'Rewind a little when resuming', 'resume pause'),
+  SettingInfo('book-eq', SettingsPage.audiobooks, 'Separate equaliser for audiobooks', 'equalizer eq spoken word sound'),
   SettingInfo('book-covers', SettingsPage.audiobooks, 'Book cover shape', 'square tall portrait'),
   SettingInfo('online-covers', SettingsPage.onlineLookups, 'Find missing covers online', 'album art artwork musicbrainz cover art archive'),
   SettingInfo('online-details', SettingsPage.onlineLookups, 'Find missing song details online', 'year genre track number musicbrainz tags'),

@@ -12,6 +12,7 @@ import '../../models/book.dart';
 import '../../state/book_index.dart';
 import '../../state/library_model.dart';
 import '../../state/listening_model.dart';
+import '../../state/playlists_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/book_card.dart';
@@ -19,7 +20,7 @@ import '../widgets/cards.dart';
 import '../widgets/music_access_banner.dart';
 
 /// The quick "state" chips along the top of the Books tab.
-enum BookFilter { all, inProgress, notStarted, finished }
+enum BookFilter { all, favourites, inProgress, notStarted, finished }
 
 /// The Books tab: every audiobook as a grid of covers.
 class BooksScreen extends StatefulWidget {
@@ -59,6 +60,7 @@ class _BooksScreenState extends State<BooksScreen> {
   /// The words shown on each state chip.
   static String _filterLabel(BookFilter f) => switch (f) {
         BookFilter.all => 'All',
+        BookFilter.favourites => 'Favourites',
         BookFilter.inProgress => 'In progress',
         BookFilter.notStarted => 'Not started',
         BookFilter.finished => 'Finished',
@@ -75,8 +77,9 @@ class _BooksScreenState extends State<BooksScreen> {
       };
 
   /// Whether book [b] passes the selected state chip.
-  bool _matches(Book b, ListeningModel l) => switch (_filter) {
+  bool _matches(Book b, ListeningModel l, PlaylistsModel p) => switch (_filter) {
         BookFilter.all => true,
+        BookFilter.favourites => p.isFavouriteBook(b),
         BookFilter.inProgress => l.stateOf(b) == BookState.inProgress,
         BookFilter.notStarted => l.stateOf(b) == BookState.notStarted,
         BookFilter.finished => l.stateOf(b) == BookState.finished,
@@ -100,6 +103,7 @@ class _BooksScreenState extends State<BooksScreen> {
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
     final listening = context.watch<ListeningModel>();
+    final playlists = context.watch<PlaylistsModel>();
     final ratio = bookCoverRatio(context);
 
     // No books at all yet: a helpful message and a button straight to Settings > Audiobooks.
@@ -140,16 +144,19 @@ class _BooksScreenState extends State<BooksScreen> {
         BookState.finished => BookFilter.finished,
       };
       counts[f] = counts[f]! + 1;
+      if (playlists.isFavouriteBook(b)) counts[BookFilter.favourites] = counts[BookFilter.favourites]! + 1;
     }
     // 2. Work out what to show: the state chip, the author/narrator/series filter and the search
     //    box must all agree. Search results are turned into a set of ids for quick checks.
     final found = _query.trim().isEmpty ? null : {for (final b in searchBookList(lib.books, _query)) b.id};
     final shown = [
       for (final b in lib.books)
-        if (_matches(b, listening) && _only.matches(b) && (found == null || found.contains(b.id))) b
+        if (_matches(b, listening, playlists) && _only.matches(b) && (found == null || found.contains(b.id))) b
     ];
     // 3. Sort, and split into groups with headings where the sort calls for it.
     final groups = sortBooks(shown, _sort, lastListened: listening.lastListened);
+    // Everything shown, in the order shown: what "Select all" ticks.
+    final shownIds = [for (final (_, g) in groups) for (final b in g) b.id];
 
     return Scaffold(
       // App bar: the title turns into a search box while searching.
@@ -260,7 +267,7 @@ class _BooksScreenState extends State<BooksScreen> {
               sliver: SliverGrid.builder(
                 gridDelegate: grid,
                 itemCount: books.length,
-                itemBuilder: (_, i) => BookCard(book: books[i]),
+                itemBuilder: (_, i) => BookCard(book: books[i], scope: shownIds),
               ),
             ),
           ],

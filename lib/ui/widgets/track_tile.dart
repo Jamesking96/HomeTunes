@@ -14,6 +14,7 @@ import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
 import '../../state/selection_model.dart';
 import '../nav.dart';
+import '../screens/details_screen.dart';
 import '../screens/edit_details.dart';
 import '../screens/lyrics_dialogs.dart';
 import '../theme.dart';
@@ -52,7 +53,7 @@ class TrackTile extends StatelessWidget {
     final currentId = context.select<PlayerModel, String?>((p) => p.current?.id);
     final isCurrent = currentId == track.id;
     final accent = Theme.of(context).colorScheme.primary;
-    final selecting = context.select<SelectionModel, bool>((s) => s.active);
+    final selecting = context.select<SelectionModel, bool>((s) => s.selecting(SelectKind.songs));
     final selected = context.select<SelectionModel, bool>((s) => s.contains(track.id));
 
     // Left side: a tick box in select mode, else the track number (album pages; a sound-wave
@@ -75,7 +76,7 @@ class TrackTile extends StatelessWidget {
       leading = Artwork(track: track, size: 44);
     }
 
-    return ListTile(
+    final tile = ListTile(
       dense: false,
       selected: selected,
       selectedTileColor: accent.withValues(alpha: 0.12),
@@ -118,6 +119,21 @@ class TrackTile extends StatelessWidget {
           : () => context.read<PlayerModel>().playTracks(list, start: index, label: contextLabel),
       onLongPress: () => context.read<SelectionModel>().toggle(track.id),
     );
+    if (selecting) return tile;
+    // Right-click: the same menu as the ⋮ button, where the mouse is.
+    return GestureDetector(
+      onSecondaryTapDown: (d) async {
+        final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+        final menu = TrackMenuButton(track: track, extraAction: extraAction);
+        final run = await showMenu<VoidCallback>(
+          context: context,
+          position: RelativeRect.fromRect(d.globalPosition & const Size(1, 1), Offset.zero & overlay.size),
+          items: menu.items(context),
+        );
+        run?.call();
+      },
+      child: tile,
+    );
   }
 }
 
@@ -133,11 +149,25 @@ class TrackMenuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Redraw when likes change, so the menu says Like or Remove from Liked Songs correctly.
+    context.watch<PlaylistsModel>();
+    // Each item's value is the action to run, so onSelected just calls it.
+    return PopupMenuButton<VoidCallback>(
+      icon: const Icon(Icons.more_vert),
+      tooltip: 'More',
+      onSelected: (f) => f(),
+      itemBuilder: (_) => items(context),
+    );
+  }
+
+  /// The menu's items (also shown when a song row is right-clicked).
+  /// Sections: like / queue / playlists; go to album / artist; edit, lyrics, details, Books, select.
+  List<PopupMenuEntry<VoidCallback>> items(BuildContext context) {
     final playlists = context.read<PlaylistsModel>();
     final player = context.read<PlayerModel>();
     final nav = context.read<AppNav>();
     final lib = context.read<LibraryModel>();
-    final liked = context.watch<PlaylistsModel>().isLiked(track);
+    final liked = playlists.isLiked(track);
 
     // Runs a "go to" action, closing the covering page first if needed.
     void goto(VoidCallback f) {
@@ -145,13 +175,7 @@ class TrackMenuButton extends StatelessWidget {
       f();
     }
 
-    // Each item's value is the action to run, so onSelected just calls it.
-    // Sections: like / queue / playlists; go to album / artist; edit, lyrics, Books, select.
-    return PopupMenuButton<VoidCallback>(
-      icon: const Icon(Icons.more_vert),
-      tooltip: 'More',
-      onSelected: (f) => f(),
-      itemBuilder: (_) => [
+    return [
         PopupMenuItem(
           value: () => playlists.toggleLike(track),
           child: _row(liked ? Icons.favorite : Icons.favorite_border, liked ? 'Remove from Liked Songs' : 'Like'),
@@ -189,6 +213,10 @@ class TrackMenuButton extends StatelessWidget {
           child: _row(Icons.travel_explore, 'Find lyrics on LRCLIB…'),
         ),
         PopupMenuItem(
+          value: () => openDetails(context, kind: 'Song', title: track.title, tracks: [track]),
+          child: _row(Icons.info_outline, 'Details…'),
+        ),
+        PopupMenuItem(
           value: () async {
             final messenger = ScaffoldMessenger.maybeOf(context);
             // Sets the user's override; Undo puts it back to automatic (null), not "music".
@@ -206,8 +234,7 @@ class TrackMenuButton extends StatelessWidget {
             child: _row(Icons.check_box_outlined, 'Select'),
           ),
         if (extraAction != null) ...[const PopupMenuDivider(), extraAction!],
-      ],
-    );
+      ];
   }
 
   /// Icon + text for a menu item.

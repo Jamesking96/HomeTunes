@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../../../services/app_backup.dart';
 import '../../../state/bookmarks_model.dart';
+import '../../../state/equalizer_model.dart';
 import '../../../state/library_model.dart';
 import '../../../state/listening_model.dart';
 import '../../../state/lyrics_model.dart';
@@ -75,6 +76,7 @@ class BackupSettingsState extends State<BackupSettings> {
     final listening = context.read<ListeningModel>();
     final bookmarks = context.read<BookmarksModel>();
     final lyrics = context.read<LyricsModel>();
+    final equalizer = context.read<EqualizerModel>();
     final messenger = ScaffoldMessenger.of(context);
 
     // 1. Pick and read the file. A file that isn't a backup (or is from a newer HomeTunes)
@@ -138,6 +140,7 @@ class BackupSettingsState extends State<BackupSettings> {
         await listening.load();
         await bookmarks.load();
         await lyrics.load();
+        await equalizer.load();
       });
       if (!mounted) return;
       await showDialog<void>(
@@ -193,7 +196,7 @@ class BackupSettingsState extends State<BackupSettings> {
     final busy = _working || lib.busy;
     return SettingsPageList(
       intro: 'Save everything HomeTunes keeps – music and audiobook folders, server, playlists, Liked Songs, song and '
-            'book edits, covers, your place in each audiobook, bookmarks, settings and the library – to one file, '
+            'book edits, covers, your place in each audiobook, bookmarks, equaliser presets, settings and the library – to one file, '
             'to restore later or move to another PC or phone.',
       children: [
       SettingTarget('backup-covers', child: SwitchListTile(

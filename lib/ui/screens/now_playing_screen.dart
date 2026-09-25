@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../../state/player_model.dart';
+import 'equalizer_screen.dart';
 import '../widgets/artwork.dart';
 import '../widgets/bookmark_widgets.dart';
 import '../widgets/listening_controls.dart';
@@ -180,6 +181,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                         )
                       else
                         const Spacer(),
+                      IconButton(
+                        tooltip: 'Equaliser',
+                        icon: const Icon(Icons.equalizer),
+                        onPressed: () => openEqualizer(context, forBooks: book != null),
+                      ),
                       if (book != null) ...[
                         const SpeedButton(),
                         IconButton(
