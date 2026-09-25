@@ -32,6 +32,7 @@ class BookRules {
   bool isBook(Track t) {
     final o = overrides[t.id];
     if (o != null) return o;
+    if (t.hasBookInfo) return true; // e.g. Libation's .metadata.json beside it
     final g = t.genre;
     if (g != null && _genres.contains(normalizeGenre(g))) return true;
     final path = t.path;
@@ -189,6 +190,8 @@ Book buildBook(String key, List<Track> parts) {
     series: series,
     seriesIndex: series == null ? null : index,
     year: years.isEmpty ? null : years.reduce((a, b) => a < b ? a : b),
+    description: fromEdits((t) => t.description),
+    companions: {for (final t in parts) ...t.companions}.toList(),
     parts: parts,
   );
 }

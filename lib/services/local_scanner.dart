@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/track.dart';
+import 'book_sidecar.dart';
 
 /// Extensions the scanner picks up.
 const audioExtensions = {'.mp3', '.flac', '.m4a', '.m4b', '.mp4', '.aac', '.ogg', '.opus', '.wav'};
@@ -134,15 +135,19 @@ List<Map<String, dynamic>> _scanBatch(
   String artDir,
 ) {
   final out = <Map<String, dynamic>>[];
+  final folders = FolderCache();
   for (final path in files) {
     try {
       final modified = File(path).statSync().modified.millisecondsSinceEpoch;
+      final sidecars = findSidecars(path, folders);
+      final stamp = sidecars.stamp == 0 ? null : sidecars.stamp;
       final prev = previous[path];
-      if (prev != null && prev['modifiedMs'] == modified) {
+      // Unchanged file, and no extra files added, removed or changed beside it.
+      if (prev != null && prev['modifiedMs'] == modified && prev['sidecarStamp'] == stamp) {
         out.add(prev);
         continue;
       }
-      out.add(readTrack(path, modified, artDir).toJson());
+      out.add(readTrack(path, modified, artDir, sidecars: sidecars).toJson());
     } catch (_) {
       // File vanished mid-scan: ignore it.
     }
@@ -152,7 +157,7 @@ List<Map<String, dynamic>> _scanBatch(
 
 /// Reads one file's tags. Never throws on bad tags: falls back to the file
 /// and folder names so every file still shows up.
-Track readTrack(String path, int modifiedMs, String artDir) {
+Track readTrack(String path, int modifiedMs, String artDir, {Sidecars sidecars = Sidecars.none}) {
   String? title, artist, albumArtist, album, genre;
   int? trackNo, discNo, year;
   Duration duration = Duration.zero;
@@ -183,6 +188,29 @@ Track readTrack(String path, int modifiedMs, String artDir) {
     duration = wavDuration(File(path)) ?? Duration.zero;
   }
 
+  // Extra files beside it (audiobooks): a metadata file's details beat the
+  // tags, which are often messy ("Author, Translator - translator").
+  final info = sidecars.metadataFile == null ? null : BookInfo.parse(readSmallText(sidecars.metadataFile!, maxBytes: 4 << 20) ?? '');
+  String? narrator, series, description;
+  double? seriesIndex;
+  if (info != null) {
+    if (sidecars.metadataIsOwn && info.title != null) title = info.title;
+    album = info.title ?? album;
+    artist = info.author ?? artist;
+    albumArtist = info.author ?? albumArtist;
+    year = info.year ?? year;
+    if (genre == null && info.genres.isNotEmpty) genre = info.genres.first;
+    narrator = info.narrator;
+    series = info.series;
+    seriesIndex = info.seriesIndex;
+    description = info.description;
+    // Chapters in the file itself line up exactly; otherwise use the metadata's.
+    if (chapters.isEmpty && sidecars.metadataIsOwn) chapters = info.chaptersFor(duration);
+  }
+  if (description == null && sidecars.descriptionFile != null) {
+    description = readSmallText(sidecars.descriptionFile!, maxBytes: 64 << 10);
+  }
+
   final folder = p.dirname(path);
   final fallback = fallbackFromFileName(p.basenameWithoutExtension(path));
   title ??= fallback.title;
@@ -191,7 +219,9 @@ Track readTrack(String path, int modifiedMs, String artDir) {
   albumArtist ??= artist;
   album ??= p.basename(folder);
 
-  final art = _saveArt(pictureBytes, folder, artDir);
+  // A picture named after the file wins; otherwise the file's own art, then
+  // a cover picture in the folder.
+  final art = sidecars.imageIsOwn ? sidecars.image : (_saveArt(pictureBytes, folder, artDir) ?? sidecars.image);
 
   return Track(
     id: 'local:$path',
@@ -209,6 +239,13 @@ Track readTrack(String path, int modifiedMs, String artDir) {
     art: art,
     modifiedMs: modifiedMs,
     chapters: chapters,
+    narrator: narrator,
+    series: series,
+    seriesIndex: seriesIndex,
+    description: description,
+    companions: sidecars.companions,
+    hasBookInfo: info != null,
+    sidecarStamp: sidecars.stamp == 0 ? null : sidecars.stamp,
   );
 }
 
