@@ -742,7 +742,8 @@ class _WriteTagsSectionState extends State<_WriteTagsSection> {
       const _SectionTitle(
         'Save edits into music files',
         'Edits you make in HomeTunes are normally kept in the app only. This writes them into the files '
-            '(MP3, FLAC, M4A, WAV) so every player sees them.',
+            '(MP3, FLAC, M4A, WAV) so every player sees them, including lyrics you added (not WAV). '
+            'Other tags in the files (ReplayGain, comments…) are kept.',
       ),
       SwitchListTile(
         title: const Text('Back up each file first'),
