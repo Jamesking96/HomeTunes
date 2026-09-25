@@ -69,16 +69,18 @@ void main() {
     final folder = Directory(p.join(dir.path, 'Kettle'))..createSync();
     final path = p.join(folder.path, 'The Last Kettle.wav');
     File(path).writeAsBytesSync(silentWav());
+    // Shaped like Libation's file (Audible's details): the "asin" ids mark it as Audible's.
     File(p.join(folder.path, 'The Last Kettle.metadata.json')).writeAsStringSync(jsonEncode({
+      'asin': 'B000000001',
       'title': 'The Last Kettle',
       'authors': [
-        {'name': 'Jane Brewer'}
+        {'asin': 'A1', 'name': 'Jane Brewer'}
       ],
       'narrators': [
         {'name': 'Peter Pour'}
       ],
       'series': [
-        {'sequence': '1', 'title': 'The Tea Saga'}
+        {'asin': 'S1', 'sequence': '1', 'title': 'The Tea Saga'}
       ],
       'release_date': '2014-02-27',
     }));
