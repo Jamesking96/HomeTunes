@@ -102,7 +102,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Expanded(
             child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               SizedBox(
-                width: 280,
+                width: 300,
                 child: ListView(padding: const EdgeInsets.only(bottom: 24), children: [_searchField(), ..._entries()]),
               ),
               const VerticalDivider(width: 1),
@@ -110,13 +110,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    // Lines up with the page's own padding.
                     child: Text(_page.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
                   ),
                   Expanded(
-                    child: SettingsHighlight(
-                      key: ValueKey('${_page.name}/$_opened'),
-                      id: _highlight,
-                      child: settingsPageBody(_page),
+                    // Keeps switches and drop-downs close to their labels on big screens.
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 820),
+                        child: SettingsHighlight(
+                          key: ValueKey('${_page.name}/$_opened'),
+                          id: _highlight,
+                          child: settingsPageBody(_page),
+                        ),
+                      ),
                     ),
                   ),
                 ]),
@@ -179,7 +187,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ListTile(
           leading: Icon(p.icon),
           title: Text(p.title, style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: Text(p.summary, maxLines: 2, overflow: TextOverflow.ellipsis),
+          subtitle: Text(p.summary, maxLines: _wide ? 1 : 2, overflow: TextOverflow.ellipsis),
+          dense: _wide,
           selected: _wide && p == _page,
           selectedTileColor: AppColors.surface,
           trailing: _wide ? null : const Icon(Icons.chevron_right),
