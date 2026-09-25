@@ -83,7 +83,10 @@ class BookCard extends StatelessWidget {
       favourite: favourite,
       actionsFor: (ids) {
         final lib = context.read<LibraryModel>();
-        return bookActions(context, [for (final id in ids) lib.bookById(id)].whereType<Book>().toList());
+        final books = ids.length == 1 && ids.first == book.id
+            ? [book]
+            : [for (final id in ids) lib.bookById(id)].whereType<Book>().toList();
+        return bookActions(context, books);
       },
       onOpen: () => context.read<AppNav>().openBook(book),
       child: Padding(
