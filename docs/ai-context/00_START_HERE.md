@@ -33,7 +33,7 @@ Read the files in this order:
   - Settings tidy-up (pages, search, Sleep timer page, Servers page, About)
 - These notes are also in the repo under `docs/ai-context/`. Update them when things change.
 - **In progress:** B equaliser, built on branch `equaliser` (0.1.10+10) and waiting for a listen on
-  the phone and approval to merge. After that: → C multi-album and
+  the phone and approval to merge. After that: C multi-album and
   multi-book edit → D offline. See `04_ROADMAP_AND_OPEN_ITEMS.md`.
 
 ## Rules the user cares about (follow these)
