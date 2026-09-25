@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/track.dart';
 import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/library_model.dart';
+import 'package:hometunes/state/playlists_model.dart';
 import 'package:hometunes/state/selection_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/edit_book.dart';
@@ -186,6 +187,7 @@ void main() {
           ChangeNotifierProvider.value(value: lib),
           ChangeNotifierProvider.value(value: sel),
           ChangeNotifierProvider(create: (_) => AppNav()),
+          ChangeNotifierProvider(create: (_) => PlaylistsModel(Storage.at(dir))),
         ],
         child: MaterialApp(
           home: Scaffold(

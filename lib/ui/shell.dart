@@ -378,6 +378,14 @@ class _GroupSelectionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
     final albums = sel.kind == SelectKind.albums;
+    final lib = context.read<LibraryModel>();
+    final playlists = context.watch<PlaylistsModel>();
+    final pickedAlbums = albums ? [for (final k in sel.ids) lib.albumByKey(k)].whereType<Album>().toList() : <Album>[];
+    final pickedBooks = albums ? <Book>[] : [for (final id in sel.ids) lib.bookById(id)].whereType<Book>().toList();
+    // The heart removes them from favourites only when every one is already a favourite.
+    final allFavourite = albums
+        ? pickedAlbums.isNotEmpty && pickedAlbums.every(playlists.isFavouriteAlbum)
+        : pickedBooks.isNotEmpty && pickedBooks.every(playlists.isFavouriteBook);
     final n = sel.count;
     final noun = albums ? (n == 1 ? 'album' : 'albums') : (n == 1 ? 'book' : 'books');
     return Material(
@@ -394,6 +402,19 @@ class _GroupSelectionBar extends StatelessWidget {
                   maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
             if (sel.canSelectAll) TextButton(onPressed: sel.selectScope, child: const Text('Select all')),
+            IconButton(
+              key: const ValueKey('favourite-selected'),
+              tooltip: allFavourite ? 'Remove from favourites' : 'Add to favourites',
+              icon: Icon(allFavourite ? Icons.favorite : Icons.favorite_border, color: allFavourite ? accent : null),
+              onPressed: () {
+                if (albums) {
+                  playlists.setFavouriteAlbums(pickedAlbums, !allFavourite);
+                } else {
+                  playlists.setFavouriteBooks(pickedBooks, !allFavourite);
+                }
+                sel.clear();
+              },
+            ),
             const SizedBox(width: 4),
             FilledButton.icon(
               key: const ValueKey('edit-selected'),
