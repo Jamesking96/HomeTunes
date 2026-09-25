@@ -2,7 +2,7 @@
 
 ## The agreed plan: "HomeTunes Sound & Offline Plan"
 The plan is published as an artifact (https://claude.ai/artifact/QsNhvBvSRx69PNvz3ULyjp), updated
-25 Sep 2026 (version 4) with the user's answers and two new pieces of work. Agreed order:
+25 Sep 2026 (version 5) with the user's answers and two new pieces of work. Agreed order:
 **A settings tidy-up → B equaliser → C multi-album (and book) edit → D offline server songs.**
 
 | Phase | Status |
@@ -15,6 +15,7 @@ The plan is published as an artifact (https://claude.ai/artifact/QsNhvBvSRx69PNv
 | B: equaliser (was phase 3) | Decided, see below. Next after A |
 | C: multi-album + multi-book edit (new, asked for 25 Sep) | Planned, own branch, after the equaliser |
 | D: offline copies of server songs (was phase 4) | After the server review |
+| E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to C and D isn't decided |
 
 ### A: Settings tidy-up (asked for 25 Sep)
 The user wants Settings cleaner and easy to find things in. It used to be one long ListView
@@ -25,6 +26,13 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
 - **Layout:** two panes on wide windows (sections on the left, the open page on the right). On
   phones it's a list, and each section opens its own page.
 - **Search box:** type a word, see the matching settings, and tap one to jump to it.
+- **Servers (asked for 25 Sep):** "Music server" was renamed **Servers**. It has two groups:
+  - **Music server:** the Subsonic connection as before.
+  - **Audiobooks:**
+    - a new **"Audiobooks from the music server"** switch (`LibraryModel.serverBooks`, default on).
+      When it's off, server tracks classed as books are dropped in `_rebuild`, and server music is
+      unaffected.
+    - a disabled "Audiobook server" tile saying Audiobookshelf is coming later.
 - **No behaviour changes.** Keep the user's placement rule: book settings go in Audiobooks,
   playback settings in Playback, online look-ups in Online lookups. The sleep timer is the
   exception and has its own page.
@@ -67,6 +75,18 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
   - Song multi-edit switches from "Mixed" to `--:--` too.
   - The Books page gets the same select-and-edit: author, narrator, series, year, genre and cover.
 
+### E: Audiobook server (asked for 25 Sep)
+- **User's answer:** books should come from **both** the music server and, optionally, a separate
+  audiobook server.
+- **Server software the user runs or plans to run:** Navidrome, Audiobookshelf, and Jellyfin/Plex.
+- **Plan needed:**
+  - An Audiobookshelf client (API-token login, libraries, items, chapters, covers, streaming, and
+    maybe syncing listening progress with ABS).
+  - Where it sits in Settings › Servers (the "Audiobook server" tile is the placeholder).
+  - How ABS books join `groupBooks`.
+  - Jellyfin/Plex later.
+- **Still open for D:** whether the Navidrome server can transcode.
+
 ### D: Offline server songs
 - **Needs first:** the server review.
 - **Downloading:** download a song, album, playlist or Liked Songs. A "Keep offline" option
@@ -90,8 +110,8 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
     has no Flutter.
 
 ## Needs reviewing with the user (when needed)
-- **Server review:**
-  - Which server software the user runs.
+- **Server review (partly answered 25 Sep):**
+  - The user runs or plans Navidrome, Audiobookshelf, and Jellyfin/Plex.
   - How audiobooks on the server should work: `bookKey` for server files uses album + author.
   - Whether the server can transcode.
 - **Android and sidecar files:** the media permission hides jpg/json/txt/pdf. Options are an

@@ -124,7 +124,7 @@ before changing that area.
 - Lyrics can be written into MP3 (USLT), FLAC (LYRICS) and M4A (©lyr), but not WAV.
 
 ## Settings (`settings-tidy` branch, 0.1.9)
-- **Pages:** Library, Playback, Sleep timer, Audiobooks, Online lookups, Music server, Your edits,
+- **Pages:** Library, Playback, Sleep timer, Audiobooks, Online lookups, Servers, Your edits,
   Backup & restore and About, in that order (`SettingsPage` in `settings_catalog.dart`).
 - **Layout:**
   - Wide (≥760 px of content): the list sits on the left and the open page on the right. Pages are
@@ -139,6 +139,8 @@ before changing that area.
     the catalog.
 - **Links from other screens:** Home "Add music" and Books "Add audiobooks" use
   `AppNav.openSettings(...)` to go straight to the right page.
+- **Servers:** the music server, then an Audiobooks group. That group has the "Audiobooks from the
+  music server" switch (`serverBooks`) and a placeholder for a separate audiobook server (phase E).
 - **About** shows the version (package_info_plus) and the data folder, with "Open folder" on Windows.
 
 ## Android fixes worth remembering
