@@ -65,6 +65,8 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   // The equaliser filter last sent to the engine, and the volume scale for its overall level.
   String? _appliedEq;
   double _eqLevel = 1.0;
+  // The playing file's sample rate: equaliser bands above half of it are left out.
+  int? _sampleRate;
   // A message about the last thing that went wrong (a skipped song, an engine error), or null.
   String? lastError;
 
@@ -151,6 +153,13 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         // The engine moved on to the song loaded ahead, by itself.
         if (_opening == 0 && _engineEdits == 0 && pl.index == 1 && _engineIds.length > 1) {
           _onEngineAdvanced();
+        }
+      }),
+      _player.stream.audioParams.listen((a) {
+        final r = a.sampleRate;
+        if (r != null && r > 0 && r != _sampleRate) {
+          _sampleRate = r;
+          _applyEqualizer();
         }
       }),
       _player.stream.error.listen((e) {
@@ -494,7 +503,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         debugPrint('HomeTunes: couldn\'t set the equaliser level: $e');
       }
     }
-    final filter = eqFilter(preset);
+    final filter = eqFilter(preset, sampleRate: _sampleRate);
     if (filter == _appliedEq) return;
     final engine = _player.platform;
     if (engine is! NativePlayer) return;
