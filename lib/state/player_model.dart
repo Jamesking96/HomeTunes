@@ -109,10 +109,12 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         notifyListeners();
       }),
       _player.stream.completed.listen((done) {
-        // Only fires at the end of the engine's list: the queue ended, or
-        // nothing was loaded ahead. Opening a new file can briefly report the
-        // old one as "completed"; ignore that so we don't skip an extra song.
-        if (done && _opening == 0) _advance(auto: true);
+        // The engine reports "finished" at the end of every song, a moment
+        // before it moves on to one loaded ahead (checked with
+        // tool/bench/engine_test.dart). Only act when nothing was loaded
+        // ahead: the queue ended, or gapless is off. Opening a new file can
+        // also briefly report the old one as finished; ignore that too.
+        if (done && _opening == 0 && _engineEdits == 0 && _engineIds.length < 2) _advance(auto: true);
       }),
       _player.stream.playlist.listen((pl) {
         // The engine moved on to the song loaded ahead, by itself.
@@ -260,6 +262,9 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
       await _openCurrent();
       return;
     }
+    // The engine briefly counts itself as stopped at the end of each song;
+    // make sure it carries on.
+    if (!_player.state.playing) await _player.play();
     notifyListeners();
     await _syncLoadedAhead();
   }
