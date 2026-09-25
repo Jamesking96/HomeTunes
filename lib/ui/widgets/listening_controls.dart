@@ -8,7 +8,7 @@ import '../theme.dart';
 
 /// The moon button beside play/pause: one tap starts the sleep timer with the
 /// length from Settings, another tap stops it. Shows the time left while on.
-/// Hidden when turned off in Settings > Audiobooks.
+/// Hidden when turned off in Settings > Sleep timer.
 class SleepTimerButton extends StatelessWidget {
   final double iconSize;
   const SleepTimerButton({super.key, this.iconSize = 24});

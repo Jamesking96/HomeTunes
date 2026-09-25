@@ -46,7 +46,7 @@ class HomeScreen extends StatelessWidget {
               : FilledButton.icon(
                   icon: const Icon(Icons.folder_open),
                   label: const Text('Add music'),
-                  onPressed: () => nav.selectTab(AppNav.settingsTab),
+                  onPressed: () => nav.openSettings('library', setting: 'music-folders'),
                 ),
         ),
       );
