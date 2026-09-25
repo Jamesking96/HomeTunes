@@ -78,7 +78,10 @@ class HomeScreen extends StatelessWidget {
           Shelf(
             title: 'Continue listening',
             height: bookCardHeight(150, ratio),
-            children: [for (final b in continueBooks.take(12)) BookCard(book: b, width: 150)],
+            children: [
+              for (final b in continueBooks.take(12))
+                BookCard(book: b, width: 150, scope: [for (final x in continueBooks.take(12)) x.id]),
+            ],
           ),
         // Quick tiles
         Padding(
@@ -116,13 +119,17 @@ class HomeScreen extends StatelessWidget {
         ),
         Shelf(
           title: 'Recently added',
-          children: [for (final a in recent.take(15)) AlbumCard(album: a, width: 170)],
+          children: [
+            for (final a in recent.take(15))
+              AlbumCard(album: a, width: 170, scope: [for (final x in recent.take(15)) x.key]),
+          ],
         ),
         if (likedTracks.isNotEmpty)
           Shelf(
             title: 'From your Liked Songs',
             children: [
-              for (final a in _albumsOf(likedTracks, lib).take(15)) AlbumCard(album: a, width: 170),
+              for (final a in _albumsOf(likedTracks, lib).take(15))
+                AlbumCard(album: a, width: 170, scope: [for (final x in _albumsOf(likedTracks, lib).take(15)) x.key]),
             ],
           ),
         Shelf(

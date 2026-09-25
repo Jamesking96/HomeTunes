@@ -137,6 +137,7 @@ class _AlbumsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
     if (lib.albums.isEmpty) return const EmptyState(icon: Icons.album_outlined, title: 'No albums yet');
+    final keys = [for (final a in lib.albums) a.key];
     return LayoutBuilder(builder: (context, c) {
       return GridView.builder(
         padding: const EdgeInsets.all(8),
@@ -145,7 +146,7 @@ class _AlbumsTab extends StatelessWidget {
           childAspectRatio: 0.78,
         ),
         itemCount: lib.albums.length,
-        itemBuilder: (_, i) => AlbumCard(album: lib.albums[i]),
+        itemBuilder: (_, i) => AlbumCard(album: lib.albums[i], scope: keys),
       );
     });
   }

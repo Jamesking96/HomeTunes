@@ -9,8 +9,10 @@ import 'package:provider/provider.dart';
 import '../../models/book.dart';
 import '../../state/library_model.dart';
 import '../../state/listening_model.dart';
+import '../../state/selection_model.dart';
 import '../nav.dart';
 import '../theme.dart';
+import 'cards.dart' show SelectableCard;
 
 /// Height ÷ width of book covers: square like music, or tall like a book
 /// (Settings > Audiobooks).
@@ -60,7 +62,9 @@ class BookCover extends StatelessWidget {
 class BookCard extends StatelessWidget {
   final Book book;
   final double? width;
-  const BookCard({super.key, required this.book, this.width});
+  /// The ids of all the books shown alongside this one, for "Select all".
+  final List<String> scope;
+  const BookCard({super.key, required this.book, this.width, this.scope = const []});
 
   @override
   Widget build(BuildContext context) {
@@ -69,9 +73,11 @@ class BookCard extends StatelessWidget {
     final state = listening.stateOf(book); // not started / in progress / finished
     final accent = Theme.of(context).colorScheme.primary;
 
-    final card = InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: () => context.read<AppNav>().openBook(book),
+    final card = SelectableCard(
+      id: book.id,
+      kind: SelectKind.books,
+      scope: scope,
+      onOpen: () => context.read<AppNav>().openBook(book),
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: LayoutBuilder(builder: (context, c) {

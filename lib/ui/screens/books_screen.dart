@@ -150,6 +150,8 @@ class _BooksScreenState extends State<BooksScreen> {
     ];
     // 3. Sort, and split into groups with headings where the sort calls for it.
     final groups = sortBooks(shown, _sort, lastListened: listening.lastListened);
+    // Everything shown, in the order shown: what "Select all" ticks.
+    final shownIds = [for (final (_, g) in groups) for (final b in g) b.id];
 
     return Scaffold(
       // App bar: the title turns into a search box while searching.
@@ -260,7 +262,7 @@ class _BooksScreenState extends State<BooksScreen> {
               sliver: SliverGrid.builder(
                 gridDelegate: grid,
                 itemCount: books.length,
-                itemBuilder: (_, i) => BookCard(book: books[i]),
+                itemBuilder: (_, i) => BookCard(book: books[i], scope: shownIds),
               ),
             ),
           ],

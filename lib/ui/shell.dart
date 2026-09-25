@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../state/library_model.dart';
+import '../models/book.dart';
 import '../models/track.dart';
 import '../state/player_model.dart';
 import '../state/playlists_model.dart';
@@ -20,6 +21,7 @@ import 'nav.dart';
 import 'screens/books_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/library_screen.dart';
+import 'screens/edit_book.dart';
 import 'screens/edit_details.dart';
 import 'screens/search_screen.dart';
 import 'screens/settings/settings_screen.dart';
@@ -277,6 +279,7 @@ class _SelectionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final sel = context.watch<SelectionModel>();
     if (!sel.active) return const SizedBox.shrink();
+    if (sel.kind != SelectKind.songs) return _GroupSelectionBar(sel: sel);
     final lib = context.read<LibraryModel>();
     final accent = Theme.of(context).colorScheme.primary;
     // The ticked songs as Track objects (ids that no longer exist are skipped). Worked out
@@ -338,6 +341,65 @@ class _SelectionBar extends StatelessWidget {
                 }
                 sel.clear();
               },
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown while albums or audiobooks are ticked: tick them all, or edit them together.
+class _GroupSelectionBar extends StatelessWidget {
+  final SelectionModel sel;
+  const _GroupSelectionBar({required this.sel});
+
+  Future<void> _edit(BuildContext context) async {
+    final lib = context.read<LibraryModel>();
+    bool saved;
+    if (sel.kind == SelectKind.albums) {
+      final albums = [for (final k in sel.ids) lib.albumByKey(k)].whereType<Album>().toList();
+      if (albums.isEmpty) return;
+      saved = await showEditDetails(
+        context,
+        [for (final a in albums) ...a.tracks],
+        album: albums.length == 1,
+        albumCount: albums.length,
+      );
+    } else {
+      final books = [for (final id in sel.ids) lib.bookById(id)].whereType<Book>().toList();
+      if (books.isEmpty) return;
+      saved = await showEditBooks(context, books);
+    }
+    if (saved) sel.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    final albums = sel.kind == SelectKind.albums;
+    final n = sel.count;
+    final noun = albums ? (n == 1 ? 'album' : 'albums') : (n == 1 ? 'book' : 'books');
+    return Material(
+      color: accent.withValues(alpha: 0.18),
+      child: SafeArea(
+        top: false,
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(children: [
+            IconButton(tooltip: 'Clear selection', icon: const Icon(Icons.close), onPressed: sel.clear),
+            Expanded(
+              child: Text('$n $noun selected',
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+            ),
+            if (sel.canSelectAll) TextButton(onPressed: sel.selectScope, child: const Text('Select all')),
+            const SizedBox(width: 4),
+            FilledButton.icon(
+              key: const ValueKey('edit-selected'),
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: Text('Edit $noun'),
+              onPressed: () => _edit(context),
             ),
           ]),
         ),

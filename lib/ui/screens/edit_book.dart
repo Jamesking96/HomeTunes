@@ -1,5 +1,7 @@
 // The "Edit book" dialog: change an audiobook's title, author, narrator, series and number,
-// year, genre and cover, all at once for every file in the book.
+// year, genre and cover, all at once for every file in the book. With several books selected
+// (Books tab, right-click / press and hold → Select) it edits them together: title and number in
+// series are left out, and details that differ show --:-- and are kept unless changed.
 //
 // Opened from the book page (book_screen.dart). Nothing is written into the files here: the
 // changes are saved as TrackEdits in LibraryModel (edits.json), the same way song and album edits
@@ -19,17 +21,22 @@ import '../../state/library_model.dart';
 import '../theme.dart';
 import '../widgets/book_card.dart';
 import 'book_lookup_dialog.dart';
+import 'edit_details.dart' show differentMarker;
 
 /// Edits an audiobook's details and cover. Like album edits, the changes are
 /// kept by HomeTunes and applied to every file of the book. Returns true if
 /// anything was saved.
-Future<bool> showEditBook(BuildContext context, Book book) async {
+Future<bool> showEditBook(BuildContext context, Book book) => showEditBooks(context, [book]);
+
+/// Edits several books together (or one, like [showEditBook]). Returns true if anything was saved.
+Future<bool> showEditBooks(BuildContext context, List<Book> books) async {
+  if (books.isEmpty) return false;
   final wide = MediaQuery.sizeOf(context).width >= 700;
   final saved = await showDialog<bool>(
     context: context,
     useRootNavigator: true,
     builder: (_) {
-      final editor = _EditBook(book: book, fullScreen: !wide);
+      final editor = _EditBook(books: books, fullScreen: !wide);
       return wide
           ? Dialog(
               backgroundColor: AppColors.surface,
@@ -46,9 +53,9 @@ enum _F { title, author, narrator, series, seriesIndex, year, genre }
 
 /// The editor itself. [fullScreen] picks the phone layout (app bar with Save) over the dialog.
 class _EditBook extends StatefulWidget {
-  final Book book;
+  final List<Book> books;
   final bool fullScreen;
-  const _EditBook({required this.book, required this.fullScreen});
+  const _EditBook({required this.books, required this.fullScreen});
 
   @override
   State<_EditBook> createState() => _EditBookState();
@@ -66,28 +73,41 @@ class _EditBookState extends State<_EditBook> {
   /// True while saving; disables the buttons so it can't be pressed twice.
   bool _saving = false;
 
-  Book get _book => widget.book;
-  /// The ids of every file in the book, which all get the same edit.
-  List<String> get _ids => [for (final t in _book.parts) t.id];
+  /// The first book (the only one, unless several are being edited).
+  Book get _book => widget.books.first;
+  /// Several books at once: no title or number in series, and --:-- where they differ.
+  bool get _many => widget.books.length > 1;
+  /// The ids of every file in the book(s), which all get the same edit.
+  List<String> get _ids => [for (final b in widget.books) for (final t in b.parts) t.id];
+  /// Fields where the books differ: the box starts empty and shows --:--.
+  final Set<_F> _mixed = {};
+
+  /// A field's value for one book, as text for its box.
+  static String _valueOf(Book b, _F f) {
+    final idx = b.seriesIndex;
+    return switch (f) {
+      _F.title => b.title,
+      _F.author => b.author,
+      _F.narrator => b.narrator ?? '',
+      _F.series => b.series ?? '',
+      // Show "3" rather than "3.0", but keep real decimals like "2.5" (novellas between books).
+      _F.seriesIndex => idx == null ? '' : (idx == idx.roundToDouble() ? '${idx.round()}' : '$idx'),
+      _F.year => b.year?.toString() ?? '',
+      // Genre isn't part of Book, so take it from the first file.
+      _F.genre => b.parts.first.genre ?? '',
+    };
+  }
 
   @override
   void initState() {
     super.initState();
-    final idx = _book.seriesIndex;
-    final values = {
-      _F.title: _book.title,
-      _F.author: _book.author,
-      _F.narrator: _book.narrator ?? '',
-      _F.series: _book.series ?? '',
-      // Show "3" rather than "3.0", but keep real decimals like "2.5" (novellas between books).
-      _F.seriesIndex: idx == null ? '' : (idx == idx.roundToDouble() ? '${idx.round()}' : '$idx'),
-      _F.year: _book.year?.toString() ?? '',
-      // Genre isn't part of Book, so take it from the first file.
-      _F.genre: _book.parts.first.genre ?? '',
-    };
-    for (final e in values.entries) {
-      _initial[e.key] = e.value;
-      _ctrl[e.key] = TextEditingController(text: e.value);
+    for (final f in _F.values) {
+      if (_many && (f == _F.title || f == _F.seriesIndex)) continue;
+      final values = {for (final b in widget.books) _valueOf(b, f)};
+      final common = values.length == 1 ? values.first : '';
+      if (values.length > 1) _mixed.add(f);
+      _initial[f] = common;
+      _ctrl[f] = TextEditingController(text: common);
     }
   }
 
@@ -109,10 +129,16 @@ class _EditBookState extends State<_EditBook> {
         _F.genre => 'Genre',
       };
 
-  /// A field's text, trimmed.
-  String _text(_F f) => _ctrl[f]!.text.trim();
-  /// Whether a field differs from what it held when the dialog opened.
-  bool _changed(_F f) => _text(f) != _initial[f];
+  String get _heading => _many ? 'Edit ${widget.books.length} books' : 'Edit book';
+
+  /// A field's text, trimmed ('' for a field that isn't shown).
+  String _text(_F f) => _ctrl[f]?.text.trim() ?? '';
+  /// Whether a field should be saved: a --:-- box once something is typed in it,
+  /// any other box once it differs from what it held when the dialog opened.
+  bool _changed(_F f) {
+    if (!_ctrl.containsKey(f)) return false;
+    return _mixed.contains(f) ? _text(f).isNotEmpty : _text(f) != _initial[f];
+  }
 
   /// "Choose image…": pick a picture file and copy it into the app's own cover folder
   /// (so the cover still works if the original picture is moved).
@@ -205,8 +231,11 @@ class _EditBookState extends State<_EditBook> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Reset to file details?'),
-        content: const Text('Your changes to this book will be removed and it will show the details from its files '
-            '(and folder names) again.'),
+        content: Text(_many
+            ? 'Your changes to these ${widget.books.length} books will be removed and they will show the details from '
+                'their files (and folder names) again.'
+            : 'Your changes to this book will be removed and it will show the details from its files '
+                '(and folder names) again.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Reset')),
@@ -222,8 +251,10 @@ class _EditBookState extends State<_EditBook> {
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
     // Used to decide whether to offer "Reset to file details" and "Use the files' own cover".
-    final anyEdited = _book.parts.any((t) => lib.isEdited(t.id));
-    final anyCustomCover = _book.parts.any((t) {
+    final parts = [for (final b in widget.books) ...b.parts];
+    final anyEdited = parts.any((t) => lib.isEdited(t.id));
+    final coversDiffer = _many && {for (final b in widget.books) b.artTrack?.art}.length > 1;
+    final anyCustomCover = parts.any((t) {
       final o = lib.originalById(t.id);
       return o != null && t.art != o.art;
     });
@@ -237,20 +268,37 @@ class _EditBookState extends State<_EditBook> {
             keyboardType: number ? TextInputType.numberWithOptions(decimal: decimal) : TextInputType.text,
             inputFormatters: number ? [FilteringTextInputFormatter.allow(RegExp(decimal ? r'[0-9.,]' : r'[0-9]'))] : null,
             textCapitalization: number ? TextCapitalization.none : TextCapitalization.words,
+            onChanged: _mixed.contains(f) ? (_) => setState(() {}) : null,
             decoration: InputDecoration(
               labelText: _label(f),
-              helperText: switch (f) {
-                _F.narrator => 'Leave empty for none',
-                _F.series => 'Leave empty if it isn\'t part of a series',
-                _ => null,
-              },
-              suffixIcon: online && lib.onlineDetails
-                  ? IconButton(
-                      tooltip: 'Find ${_label(f).toLowerCase()} online',
-                      icon: const Icon(Icons.travel_explore, size: 20),
-                      onPressed: _saving ? null : () => _lookUp(f),
-                    )
+              // Where the books differ: --:--, kept unless something is typed.
+              floatingLabelBehavior: _mixed.contains(f) ? FloatingLabelBehavior.always : null,
+              hintText: _mixed.contains(f) ? differentMarker : null,
+              hintStyle: _mixed.contains(f)
+                  ? const TextStyle(color: AppColors.textDim, letterSpacing: 2, fontWeight: FontWeight.w600)
                   : null,
+              helperText: _mixed.contains(f)
+                  ? (_text(f).isEmpty
+                      ? 'Different for each book – leave as $differentMarker to keep them'
+                      : 'Every book gets this ${_label(f).toLowerCase()}')
+                  : switch (f) {
+                      _F.narrator => 'Leave empty for none',
+                      _F.series => 'Leave empty if it isn\'t part of a series',
+                      _ => null,
+                    },
+              suffixIcon: _mixed.contains(f) && _text(f).isNotEmpty
+                  ? IconButton(
+                      tooltip: 'Keep each book\'s own ${_label(f).toLowerCase()}',
+                      icon: const Icon(Icons.undo, size: 20),
+                      onPressed: _saving ? null : () => setState(() => _ctrl[f]!.clear()),
+                    )
+                  : online && !_many && lib.onlineDetails
+                      ? IconButton(
+                          tooltip: 'Find ${_label(f).toLowerCase()} online',
+                          icon: const Icon(Icons.travel_explore, size: 20),
+                          onPressed: _saving ? null : () => _lookUp(f),
+                        )
+                      : null,
             ),
           ),
         );
@@ -278,7 +326,12 @@ class _EditBookState extends State<_EditBook> {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('Cover', style: TextStyle(fontWeight: FontWeight.w600)),
-              Text('Applies to all ${_book.parts.length} files',
+              Text(
+                  _many
+                      ? (coversDiffer && _newCover == null && !_resetCover
+                          ? '$differentMarker  Different for each book – choose one to give them all the same cover'
+                          : 'Applies to all ${widget.books.length} books')
+                      : 'Applies to all ${_book.parts.length} files',
                   style: const TextStyle(color: AppColors.textDim, fontSize: 12)),
               const SizedBox(height: 8),
               Wrap(spacing: 8, runSpacing: 4, children: [
@@ -287,7 +340,7 @@ class _EditBookState extends State<_EditBook> {
                   icon: const Icon(Icons.image_outlined),
                   label: const Text('Choose image…'),
                 ),
-                if (lib.onlineCovers)
+                if (lib.onlineCovers && !_many)
                   OutlinedButton.icon(
                     onPressed: _saving ? null : _findCover,
                     icon: const Icon(Icons.travel_explore),
@@ -311,14 +364,17 @@ class _EditBookState extends State<_EditBook> {
         ]),
         // Then the text fields, with series + number and year + genre sharing a row.
         const SizedBox(height: 16),
-        field(_F.title, online: true),
+        if (!_many) field(_F.title, online: true),
         field(_F.author, online: true),
         field(_F.narrator),
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(flex: 3, child: field(_F.series)),
-          const SizedBox(width: 12),
-          Expanded(flex: 2, child: field(_F.seriesIndex, number: true, decimal: true)),
-        ]),
+        if (_many)
+          field(_F.series)
+        else
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(flex: 3, child: field(_F.series)),
+            const SizedBox(width: 12),
+            Expanded(flex: 2, child: field(_F.seriesIndex, number: true, decimal: true)),
+          ]),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(child: field(_F.year, number: true, online: true)),
           const SizedBox(width: 12),
@@ -356,7 +412,7 @@ class _EditBookState extends State<_EditBook> {
       return Scaffold(
         appBar: AppBar(
           leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context, false)),
-          title: const Text('Edit book'),
+          title: Text(_heading),
           actions: [Padding(padding: const EdgeInsets.only(right: 12), child: saveButton)],
         ),
         body: form,
@@ -367,7 +423,7 @@ class _EditBookState extends State<_EditBook> {
       Padding(
         padding: const EdgeInsets.fromLTRB(20, 18, 12, 4),
         child: Row(children: [
-          const Expanded(child: Text('Edit book', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700))),
+          Expanded(child: Text(_heading, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700))),
           IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context, false)),
         ]),
       ),

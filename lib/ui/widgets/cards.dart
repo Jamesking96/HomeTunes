@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/track.dart';
+import '../../state/selection_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import 'artwork.dart';
@@ -18,13 +19,17 @@ class AlbumCard extends StatelessWidget {
   final double? width;
   /// Second line shows the artist; if false, the year instead (used on an artist's own page).
   final bool showArtist;
-  const AlbumCard({super.key, required this.album, this.width, this.showArtist = true});
+  /// The keys of all the albums shown alongside this one, for "Select all".
+  final List<String> scope;
+  const AlbumCard({super.key, required this.album, this.width, this.showArtist = true, this.scope = const []});
 
   @override
   Widget build(BuildContext context) {
-    final card = InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: () => context.read<AppNav>().openAlbum(album),
+    final card = SelectableCard(
+      id: album.key,
+      kind: SelectKind.albums,
+      scope: scope,
+      onOpen: () => context.read<AppNav>().openAlbum(album),
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -42,6 +47,100 @@ class AlbumCard extends StatelessWidget {
       ),
     );
     return width == null ? card : SizedBox(width: width, child: card);
+  }
+}
+
+/// An album or book tile that can be selected. Tapping opens it. Right-click
+/// (or press and hold on a phone) offers Select and Select all; while
+/// selecting, a tap ticks or unticks it instead of opening it.
+class SelectableCard extends StatefulWidget {
+  final String id;
+  final SelectKind kind;
+  /// Everything shown alongside it, for "Select all".
+  final List<String> scope;
+  final VoidCallback onOpen;
+  final Widget child;
+  const SelectableCard({
+    super.key,
+    required this.id,
+    required this.kind,
+    required this.scope,
+    required this.onOpen,
+    required this.child,
+  });
+
+  @override
+  State<SelectableCard> createState() => _SelectableCardState();
+}
+
+class _SelectableCardState extends State<SelectableCard> {
+  // Where the finger or mouse last went down, so the menu opens there.
+  Offset? _at;
+
+  Future<void> _menu() async {
+    final sel = context.read<SelectionModel>();
+    if (sel.selecting(widget.kind)) {
+      sel.toggle(widget.id, kind: widget.kind);
+      return;
+    }
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final box = context.findRenderObject() as RenderBox;
+    final at = _at ?? box.localToGlobal(box.size.center(Offset.zero));
+    final others = widget.scope.length;
+    final choice = await showMenu<bool>(
+      context: context,
+      position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
+      items: [
+        const PopupMenuItem(value: false, child: Text('Select')),
+        if (others > 1) PopupMenuItem(value: true, child: Text('Select all ($others)')),
+      ],
+    );
+    if (choice == null || !mounted) return;
+    sel.start(widget.id, kind: widget.kind, scope: widget.scope, all: choice);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final (selecting, selected) = context.select<SelectionModel, (bool, bool)>(
+        (s) => (s.selecting(widget.kind), s.contains(widget.id, kind: widget.kind)));
+    final accent = Theme.of(context).colorScheme.primary;
+    return Stack(children: [
+      Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: selected ? accent : Colors.transparent, width: 2),
+          color: selected ? accent.withValues(alpha: 0.12) : null,
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTapDown: (d) => _at = d.globalPosition,
+          onTap: selecting ? () => context.read<SelectionModel>().toggle(widget.id, kind: widget.kind) : widget.onOpen,
+          onLongPress: _menu,
+          onSecondaryTapDown: (d) {
+            _at = d.globalPosition;
+            _menu();
+          },
+          child: widget.child,
+        ),
+      ),
+      if (selecting)
+        Positioned(
+          left: 12,
+          top: 12,
+          child: IgnorePointer(
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: selected ? accent : Colors.black54,
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(color: selected ? accent : Colors.white, width: 2),
+              ),
+              child: selected ? const Icon(Icons.check, size: 16, color: Colors.black) : null,
+            ),
+          ),
+        ),
+    ]);
   }
 }
 
