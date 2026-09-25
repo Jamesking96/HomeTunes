@@ -14,6 +14,7 @@ The plan is published as an artifact (https://claude.ai/artifact/QsNhvBvSRx69PNv
 | A: settings tidy-up | **Done, merged (0.1.9+9).** The phone has build 8, which lacks only the greyed-out Audiobookshelf boxes |
 | **B: equaliser** (was phase 3) | **Built on `equaliser` (0.1.10+10).** Checked on Windows, including with the real engine. Waiting for a listen on the phone (ask before installing) and approval to merge |
 | **C: multi-album + multi-book edit** | **Built on `multi-edit` (0.1.11+11), branched from `equaliser`** (the user asked to move on without merging the equaliser). Waiting for approval; merging `multi-edit` brings both in |
+| **Favourite albums & books** (asked for 25 Sep) | **Built on `favourites` (0.1.12+12), branched from `multi-edit`.** Waiting for approval; merging `favourites` brings in B, C and this |
 | D: offline copies of server songs (was phase 4) | After the server review |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to C and D isn't decided |
 

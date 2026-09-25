@@ -209,6 +209,25 @@ before changing that area.
   cover. There's no title or number in series, and no online look-ups.
 - **Tests:** `test/multi_edit_test.dart`.
 
+## Favourite albums and audiobooks (`favourites` branch, 0.1.12)
+- **Storage:** favourites are saved in `playlists.json` as `favouriteAlbums` and `favouriteBooks`.
+  - **Both hold song/file ids, not album keys or book ids.** An album or book counts as a favourite
+    when any of its songs is in the set.
+  - That way they survive edits that regroup an album (album keys change), moved files (`remapIds`)
+    and forgetting missing songs (`removeIds`). They also count in `referencedIds`, like playlists.
+  - A backup merge keeps favourites from both sides.
+- **Marking favourites:**
+  - The heart button on the album page (`_FavouriteAlbumButton`) and on the book page.
+  - "Add to / Remove from favourites" in the tile menu (right-click, or press and hold on a phone).
+  - The heart in the selection bar. It removes them only when every selected one is already a
+    favourite.
+- **Seeing them:**
+  - A small heart in the top-right of a favourite album or book cover.
+  - The book "finished" tick moved to the cover's bottom-right corner to make room.
+  - A Favourites filter: All / Favourites chips on Library › Albums, and a Favourites chip among the
+    Books tab's state chips. The user chose filters only: no Home shelves and no separate page.
+- **Tests:** `test/favourites_test.dart`.
+
 ## Android fixes worth remembering
 - **Lock screen empty and playback stopping.** The cause was "You must specify an icon resource id
   to build a CustomAction". It's fixed by `res/raw/keep.xml`.

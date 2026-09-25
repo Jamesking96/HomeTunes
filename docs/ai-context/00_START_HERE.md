@@ -36,7 +36,10 @@ Read the files in this order:
   - B equaliser, on branch `equaliser` (0.1.10+10).
   - C: editing several albums and books, on branch `multi-edit` (0.1.11+11), built on top of
     `equaliser`, so merging `multi-edit` brings both in.
-  - The user asked to move on without merging the equaliser. Both are waiting for the go-ahead.
+  - Favourite albums and books, on branch `favourites` (0.1.12+12), built on top of `multi-edit`.
+    Merging `favourites` into `main` brings all three in.
+  - The user asked to move on without merging. All three are waiting for the go-ahead. The phone has
+    0.1.11 (equaliser + multi-edit). The equaliser was confirmed working on the phone in logcat.
   - After them: D offline (after the server review) and E audiobook server. See `04_ROADMAP_AND_OPEN_ITEMS.md`.
 
 ## Rules the user cares about (follow these)

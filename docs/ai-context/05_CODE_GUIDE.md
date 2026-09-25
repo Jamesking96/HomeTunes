@@ -76,7 +76,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `equalizer_model.dart` | The equaliser (`equalizer.json`): on/off, the preset for music and for audiobooks, your changes to built-in presets and your own presets. The player listens and applies it live. |
 | `listening_model.dart` | Each book's saved place, finished state and speed (`listening.json`), plus percent done, time left and "Continue listening". |
 | `bookmarks_model.dart` | Audiobook bookmarks with notes (`bookmarks.json`). |
-| `playlists_model.dart` | Playlists and Liked Songs (`playlists.json`). |
+| `playlists_model.dart` | Playlists, Liked Songs and favourite albums and books (`playlists.json`). |
 | `lyrics_model.dart` | Picks a song's lyrics from five sources in order: your edit, the file or `.lrc`, saved online finds, the server, LRCLIB. Caches finds and "nothing found" in `lyrics.json`. |
 | `sleep_timer.dart` | The sleep timer: minutes, or end of chapter or song. Fades the volume out, then pauses and saves the book's place. |
 | `selection_model.dart` | What's ticked in select mode: songs, albums or audiobooks (one kind at a time), plus what "Select all" covers. |
@@ -238,6 +238,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `keep_and_backup_test.dart` | Following moved songs, keeping edits for missing songs, backup round trip and merging |
 | `listening_controls_test.dart` | Skipping across book files, speed, volume wheel, the sleep timer |
 | `settings_test.dart` | Settings search and every Settings page on phone and wide layouts |
+| `favourites_test.dart` | Favourite albums and books: saving, surviving moves and backups, the tile menu and heart |
 | `multi_edit_test.dart` | Selecting albums and books, the tiles' Select menu, and editing several albums, books or songs with `--:--` |
 | `equalizer_test.dart` | Preset filter text (including bands left out for low sample rates), editing and restoring presets, your own presets, music vs audiobook presets, saving, and the Equaliser screen |
 
