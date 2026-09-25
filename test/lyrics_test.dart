@@ -279,10 +279,7 @@ void main() {
     File copy(String name) =>
         File(p.join('test', 'fixtures', name)).copySync(p.join(dir.path, name));
 
-    // Text frames may be UTF-8, Latin-1 or UTF-16 (little endian).
-    bool has(File f, String text) => _has(f, utf8.encode(text)) || _has(f, [for (final c in text.codeUnits) ...[c, 0]]);
-
-    bool _has(File f, List<int> needle) {
+    bool contains(File f, List<int> needle) {
       final bytes = f.readAsBytesSync();
       outer:
       for (var i = 0; i + needle.length <= bytes.length; i++) {
@@ -293,6 +290,10 @@ void main() {
       }
       return false;
     }
+
+    // Text frames may be UTF-8, Latin-1 or UTF-16 (little endian).
+    bool has(File f, String text) =>
+        contains(f, utf8.encode(text)) || contains(f, [for (final c in text.codeUnits) ...[c, 0]]);
 
     for (final name in ['tagged.mp3', 'tagged_v24.mp3', 'tagged.flac', 'tagged.m4a']) {
       test('$name: lyrics read, new title written, ReplayGain/comment/composer kept', () async {
