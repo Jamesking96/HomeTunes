@@ -1,34 +1,73 @@
 # Roadmap and open items
 
 ## The agreed plan: "HomeTunes Sound & Offline Plan"
-The plan is published as an artifact (https://claude.ai/artifact/QsNhvBvSRx69PNvz3ULyjp). The
-order is: 1 gapless (+ReplayGain) → 2 lyrics → 3 equaliser → 4 offline server songs.
+The plan is published as an artifact (https://claude.ai/artifact/QsNhvBvSRx69PNvz3ULyjp), updated
+25 Sep 2026 (version 4) with the user's answers and two new pieces of work. Agreed order:
+**A settings tidy-up → B equaliser → C multi-album (and book) edit → D offline server songs.**
 
 | Phase | Status |
 |---|---|
-| 0: engine check | Done on Windows: libmpv has `equalizer`/`superequalizer`, `replaygain` and gapless. **Android's libmpv filters are not verified yet**, so check them before phase 3. |
+| 0: engine check | Done on Windows. **Android (25 Sep):** static check of the arm64 `libmpv.so` shows ffmpeg built with `--enable-filter=equalizer` (and `scaletempo2`). No `superequalizer`/`anequalizer`/`firequalizer`, no rubberband. Use lavfi `equalizer` only. A listening test on the phone is still needed with the first EQ build. |
 | 1: gapless + ReplayGain | Done, in `main` |
-| 2: lyrics (incl. "Find lyrics on LRCLIB" any time) | Done, merged |
-| Book sidecar files (asked for by the user between phases) | Done, merged |
-| **3: equaliser** | **Next** |
-| 4: offline copies of server songs | After the server review |
+| 2: lyrics | Done, in `main` |
+| Book sidecar files | Done, in `main` |
+| **A: settings tidy-up** | **Built on `settings-tidy` (0.1.9+8)**, checked on the PC. Waiting for the user to try it and approve the merge. Phone install only after asking. |
+| B: equaliser (was phase 3) | Decided, see below. Next after A |
+| C: multi-album + multi-book edit (new, asked for 25 Sep) | Planned, own branch, after the equaliser |
+| D: offline copies of server songs (was phase 4) | After the server review |
 
-### Phase 3: equaliser (from the plan)
-- **Controls:** ten bands (31 Hz–16 kHz, ±12 dB) plus a pre-amp, and an on/off switch to compare.
-- **Presets:** Flat, Bass boost, Treble boost, Vocal, Rock, Pop, Classical, Spoken word and
-  Headphones, plus the user's own saved presets.
-- **Behaviour:**
-  - Changes are heard live, without restarting the song. Use media_kit's free `af` property with
-    lavfi `equalizer` filters through `NativePlayer.setProperty`. media_kit only uses `af` for
-    pitch, which HomeTunes doesn't use.
-  - It must still work when the speed changes.
-  - An optional separate setting for audiobooks (e.g. "Spoken word"), switched automatically.
-- **Where it lives:** its own screen, reached from Settings and from a Now Playing button.
-  Presets go into backups.
-- **Open questions to ask first:** ten bands with presets, or presets only? A separate
-  audiobook setting, yes or no?
+### A: Settings tidy-up (asked for 25 Sep)
+The user wants Settings cleaner and easy to find things in. It used to be one long ListView
+(975 lines). It's now built on `settings-tidy`; see `03_…` → Settings.
+- **Section list:** Library, Playback, **Sleep timer** (its own page, as the user asked), Audiobooks,
+  Online lookups, Music server, Your edits (save edits into files), Backup & restore, About (new:
+  version and data folder).
+- **Layout:** two panes on wide windows (sections on the left, the open page on the right). On
+  phones it's a list, and each section opens its own page.
+- **Search box:** type a word, see the matching settings, and tap one to jump to it.
+- **No behaviour changes.** Keep the user's placement rule: book settings go in Audiobooks,
+  playback settings in Playback, online look-ups in Online lookups. The sleep timer is the
+  exception and has its own page.
 
-### Phase 4: offline server songs
+### B: Equaliser (decided 25 Sep)
+- **Presets UI:** the user picks from presets, not raw sliders on the main view. Built-ins: Flat,
+  Bass boost, Treble boost, Vocal, Rock, Pop, Classical, Spoken word, Headphones.
+- **Editing a preset:** Edit opens ten bands (31 Hz–16 kHz, ±12 dB) plus an overall level.
+- **Restore defaults** (the user asked for this): an edited built-in shows "edited".
+  "Restore default" works per preset, and there's a "Restore all presets" option.
+- **Your own presets:** users can add their own (+ New), rename and delete them. Built-ins can only
+  be restored.
+- **Audiobooks:** books switch automatically to their own preset (default Spoken word, and the user
+  can choose another). A switch in **Settings → Audiobooks** turns this off.
+- **Implementation:**
+  - Use lavfi `equalizer` via media_kit's `af` property (`NativePlayer.setProperty`). Changes are
+    live and work alongside `scaletempo2` speed changes.
+  - For the overall level (pre-amp), check whether the `volume` lavfi filter exists on Android. If
+    not, scale the player volume.
+- **Where it lives:** Settings → Playback and a Now Playing button. Presets go into backups. Add
+  `SettingTarget`s and catalog entries for search.
+
+### C: Multi-album and multi-book edit (asked for 25 Sep, own branch, a new phase after current work)
+- **Selecting:**
+  - Right-click an album (desktop) or long-press it (phone) → Select. Tapping other albums ticks
+    them, and there's a Select all option.
+  - Works on the Albums tab, artist pages and search.
+  - Today `SelectionModel` holds only song ids and `AlbumCard` has no menu or long-press. It needs
+    album selection.
+- **Edit albums** appears in the selection bar. It opens one form covering album artist, artist,
+  year, genre and cover.
+- **Differing values:** when the selected albums differ, the field shows **`--:--`** and is left
+  as it is unless changed. Each field has an undo button to go back to `--:--`. Only changed fields
+  are saved, as TrackEdits on every track of those albums.
+- **Album title is excluded**, because the same title would merge albums. The user was told this
+  and didn't object.
+- `edit_details.dart` already has a `_mixed` set and a "Mixed - leave blank…" hint for
+  multi-song edit. Reuse it.
+- **Decided (25 Sep):**
+  - Song multi-edit switches from "Mixed" to `--:--` too.
+  - The Books page gets the same select-and-edit: author, narrator, series, year, genre and cover.
+
+### D: Offline server songs
 - **Needs first:** the server review.
 - **Downloading:** download a song, album, playlist or Liked Songs. A "Keep offline" option
   follows albums and playlists. The quality is either the original or a server-converted copy.
@@ -37,17 +76,26 @@ order is: 1 gapless (+ReplayGain) → 2 lyrics → 3 equaliser → 4 offline ser
   can't be reached.
 - **Phone:** Wi-Fi-only, a storage limit, and downloads that continue in the background.
 - **Backups:** list what's kept offline, but not the files themselves.
-- **Open questions:** the quality choice, and whether to add crossfade (it would need two players).
+- **Open questions (ask when we get there):** the quality choice, and whether to add crossfade
+  (it would need two players).
 
-## Needs reviewing with the user
+## Working agreements added 25 Sep
+- **Ask before every phone install.** The phone is normally plugged in, but may have been removed.
+- **Server questions and "All files access" on Android:** ask when they're needed, not before.
+- Flutter is back on the PC at `C:\Users\James.Miller\flutter`.
+- **Editing code:**
+  - This session edited code in a cloud clone and pushed the branch. The PC then pulled it to
+    analyze, test and build.
+  - Dependency changes (`flutter pub add`) were made and committed on the PC, because the cloud
+    has no Flutter.
+
+## Needs reviewing with the user (when needed)
 - **Server review:**
   - Which server software the user runs.
   - How audiobooks on the server should work: `bookKey` for server files uses album + author.
   - Whether the server can transcode.
-  - Noted since the audiobooks plan.
 - **Android and sidecar files:** the media permission hides jpg/json/txt/pdf. Options are an
   opt-in "All files access" (MANAGE_EXTERNAL_STORAGE, fine for sideloading) or leaving it as is.
-  Ask before adding.
 
 ## Known issues / small things
 - **Dune collection tags are poor.** Many books show as "The New Dune Chronicles", with series
@@ -68,6 +116,7 @@ order is: 1 gapless (+ReplayGain) → 2 lyrics → 3 equaliser → 4 offline ser
 - A sleep-timer button in the Android notification.
 
 ## Source control
-All work is committed and pushed to GitHub (`main`). There are no uncommitted changes and no
-other branches. Builds (`build\dist`) are not in git; they are rebuilt from source with the
-commands in `02_…`.
+`main` is at 0966569 (0.1.8). The `settings-tidy` branch (0.1.9+8) is pushed and waiting for the
+user's approval to merge. Builds (`build\dist`) are not in git; they are rebuilt from source with
+the commands in `02_…`. The repo copy of these notes (`docs/ai-context/`) is kept the same as the
+project copy.
