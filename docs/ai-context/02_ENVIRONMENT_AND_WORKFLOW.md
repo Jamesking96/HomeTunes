@@ -33,8 +33,8 @@ Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'flutter_to
 If they are, don't build the Windows app (`LNK1168`), and don't switch branches under them.
 
 ## Verify a branch (the usual loop)
-1. `git pull` on the PC (the PC's clone has harmless local line-ending changes in
-   `windows/flutter/generated_*` and `macos/Flutter/GeneratedPluginRegistrant.swift`; leave them).
+1. `git pull` on the PC. Git may show the generated plugin registrant files as changed; that's
+   only line endings (`git add` clears it). Commit `pubspec.lock` whenever dependencies change.
 2. `flutter pub get` (after pubspec changes), then `flutter analyze` (must be clean), then
    `flutter test` (all must pass).
 3. Windows release: `powershell -ExecutionPolicy Bypass -File tool\build_release.ps1`. This makes
