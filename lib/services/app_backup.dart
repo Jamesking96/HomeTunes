@@ -26,6 +26,7 @@ class AppBackup {
     'library.json',
     'listening.json',
     'bookmarks.json',
+    'lyrics.json',
   ];
 
   /// Marks a path inside the app's folder in a backup.
@@ -240,6 +241,20 @@ class AppBackup {
       });
     } else if (bm.isNotEmpty) {
       await storage.write('bookmarks.json', bm);
+    }
+
+    // ---- lyrics found online: merging keeps both (the backup's win) ----
+    final bly = backupFile('lyrics.json');
+    if (merge) {
+      final cly = await currentFile('lyrics.json');
+      Map<String, dynamic> part(Map<String, dynamic> m, String key) =>
+          m[key] is Map ? Map<String, dynamic>.from(m[key] as Map) : <String, dynamic>{};
+      await storage.write('lyrics.json', {
+        'found': {...part(cly, 'found'), ...part(bly, 'found')},
+        'none': {...part(cly, 'none'), ...part(bly, 'none')},
+      });
+    } else if (bly.isNotEmpty) {
+      await storage.write('lyrics.json', bly);
     }
 
     return RestoreResult(missingFolders: missingFolders, needsPassword: needsPassword);

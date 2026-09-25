@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import '../../models/book.dart';
@@ -178,6 +181,8 @@ class BookScreen extends StatelessWidget {
       appBar: AppBar(),
       body: CustomScrollView(slivers: [
         SliverToBoxAdapter(child: header),
+        if (book.description != null || _openableCompanions(book).isNotEmpty)
+          SliverToBoxAdapter(child: _About(book: book, companions: _openableCompanions(book))),
         if (bookmarks.isNotEmpty) ...[
           SliverToBoxAdapter(
             child: Padding(
@@ -225,6 +230,11 @@ class BookScreen extends StatelessWidget {
       ]),
     );
   }
+
+  /// Companion files (PDFs) that can be opened here: on computers, where
+  /// they open in the usual app. (Android doesn't let apps see them.)
+  static List<String> _openableCompanions(Book book) =>
+      Platform.isWindows || Platform.isMacOS || Platform.isLinux ? book.companions : const [];
 
   /// Index of the chapter the listener is in (by the saved place), or -1.
   static int _currentChapter(Book book, List<BookChapter> chapters, BookProgress? progress) {
@@ -276,5 +286,82 @@ class BookScreen extends StatelessWidget {
       content: Text('"${book.title}" moved to Music'),
       action: SnackBarAction(label: 'Undo', onPressed: () => lib.setIsBook(ids, null)),
     ));
+  }
+}
+
+/// The book's description (folded to a few lines until opened) and the
+/// files that come with it.
+class _About extends StatefulWidget {
+  final Book book;
+  final List<String> companions;
+  const _About({required this.book, required this.companions});
+
+  @override
+  State<_About> createState() => _AboutState();
+}
+
+class _AboutState extends State<_About> {
+  bool _open = false;
+
+  Future<void> _openFile(String path) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      if (Platform.isWindows) {
+        await Process.start('explorer.exe', [path]);
+      } else if (Platform.isMacOS) {
+        await Process.start('open', [path]);
+      } else {
+        await Process.start('xdg-open', [path]);
+      }
+    } catch (e) {
+      messenger?.showSnackBar(SnackBar(content: Text('Couldn\'t open ${p.basename(path)}: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = widget.book.description;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (text != null) ...[
+          const Text('About this book', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            alignment: Alignment.topCenter,
+            child: _open
+                ? SelectableText(text, style: const TextStyle(color: AppColors.textDim, height: 1.45))
+                : Text(text,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: AppColors.textDim, height: 1.45)),
+          ),
+          if (text.length > 240 || '\n'.allMatches(text).length > 3)
+            TextButton(
+              style: TextButton.styleFrom(padding: EdgeInsets.zero),
+              onPressed: () => setState(() => _open = !_open),
+              child: Text(_open ? 'Show less' : 'Show more'),
+            ),
+        ],
+        if (widget.companions.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final f in widget.companions)
+              OutlinedButton.icon(
+                icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                label: Text(_label(f, widget.companions.length)),
+                onPressed: () => _openFile(f),
+              ),
+          ]),
+        ],
+      ]),
+    );
+  }
+
+  /// "Book PDF" when there's one, else its file name.
+  static String _label(String path, int count) {
+    final ext = p.extension(path).replaceFirst('.', '').toUpperCase();
+    return count == 1 ? 'Open the book\'s $ext' : p.basename(path);
   }
 }

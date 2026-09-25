@@ -9,6 +9,7 @@ import '../../state/playlists_model.dart';
 import '../../state/selection_model.dart';
 import '../nav.dart';
 import '../screens/edit_details.dart';
+import '../screens/lyrics_dialogs.dart';
 import '../theme.dart';
 import 'artwork.dart';
 
@@ -159,6 +160,14 @@ class TrackMenuButton extends StatelessWidget {
           // Opens on top of whatever is showing (including Now Playing).
           value: () => showEditDetails(context, [track]),
           child: _row(Icons.edit_outlined, 'Edit details…'),
+        ),
+        PopupMenuItem(
+          value: () => showLyricsDialog(context, track),
+          child: _row(Icons.lyrics_outlined, 'Lyrics'),
+        ),
+        PopupMenuItem(
+          value: () => findLyricsOnline(context, track),
+          child: _row(Icons.travel_explore, 'Find lyrics on LRCLIB…'),
         ),
         PopupMenuItem(
           value: () async {
