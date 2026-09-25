@@ -42,6 +42,15 @@ void main() {
       );
     });
 
+    test('bands a low-quality file can\'t carry are left out', () {
+      final rock = builtInEqPreset('rock')!;
+      expect(eqFilter(rock, sampleRate: 44100), contains('f=16000'));
+      expect(eqFilter(rock, sampleRate: 22050), isNot(contains('f=16000')));
+      expect(eqFilter(rock, sampleRate: 22050), contains('f=8000'));
+      expect(eqFilter(rock, sampleRate: 16000), isNot(contains('f=8000')));
+      expect(eqFilter(rock, sampleRate: 16000), contains('f=4000'));
+    });
+
     test('the overall level scales the volume', () {
       expect(eqLevelFactor(null), 1.0);
       expect(eqLevelFactor(builtInEqPresets.first), 1.0);

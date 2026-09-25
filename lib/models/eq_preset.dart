@@ -101,11 +101,17 @@ EqPreset? builtInEqPreset(String id) {
 /// The audio-engine filter for [p]: one peaking filter an octave wide per band
 /// that isn't at 0. Empty when nothing needs changing. The overall level isn't
 /// part of it; the player turns its volume down instead (see [eqLevelFactor]).
-String eqFilter(EqPreset? p) {
+///
+/// A file can only carry sounds up to half its [sampleRate], and the engine
+/// rejects the whole equaliser if any band is above that (for example the
+/// 16k band on a 22 kHz audiobook). So those bands are left out.
+String eqFilter(EqPreset? p, {int? sampleRate}) {
   if (p == null) return '';
+  final limit = sampleRate == null || sampleRate <= 0 ? null : sampleRate / 2;
   final parts = [
     for (var i = 0; i < eqBands.length; i++)
-      if (p.gains[i] != 0) 'equalizer=f=${eqBands[i]}:t=o:w=1:g=${p.gains[i].toStringAsFixed(1)}',
+      if (p.gains[i] != 0 && (limit == null || eqBands[i] < limit))
+        'equalizer=f=${eqBands[i]}:t=o:w=1:g=${p.gains[i].toStringAsFixed(1)}',
   ];
   return parts.isEmpty ? '' : 'lavfi=[${parts.join(',')}]';
 }
