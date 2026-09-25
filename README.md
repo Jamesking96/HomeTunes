@@ -65,6 +65,18 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
   the book at once; title, author and year have "find online" buttons too. Bookmarks (with notes)
   are added from Now Playing and listed on the book's page. Books show up in search, and backups
   include bookmarks and your place in every book.
+- **Files beside a book** – HomeTunes uses the extras that often come with audiobooks:
+  - `<book>.metadata.json` from Libation / audible-cli (Audible's details) or an Audiobookshelf
+    `metadata.json`. It gives the title, author (translators left out), narrators, series and
+    number, year, genre and description, and chapters when the file has none of its own (as with
+    Libation's M4B files, lined up even when Audible's intro was cut). A metadata file also marks
+    MP3s as a book.
+  - the cover: `<book>.jpg`, `cover.jpg` / `folder.jpg`, a picture named after the folder, or
+    the only picture in the folder.
+  - a description: `<book>.txt`, `desc.txt`, `description.txt`, `summary.txt`, `info.txt` or
+    `readme.txt`, also one in a collection folder above the books.
+  - PDFs that come with a book: an "Open the book's PDF" button on its page (Windows, Mac, Linux).
+  Your own edits still win. `dart run tool/probe_book_extras.dart <folder>` shows what's picked up.
 - **Sleep timer** – the moon button beside play/pause: one tap starts it, another stops it. Books
   and music have their own length (minutes, or end of chapter / end of song), and the volume
   fades out before it pauses. All of these are in Settings → Audiobooks, where the button can

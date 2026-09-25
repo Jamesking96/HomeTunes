@@ -23,7 +23,7 @@ Future<void> main(List<String> args) async {
       final cover = first.art == null
           ? 'none'
           : (p.isWithin(art.path, first.art!) ? 'inside the file' : 'file ${p.basename(first.art!)}');
-      stdout.writeln('${b.title}');
+      stdout.writeln(b.title);
       stdout.writeln('   by ${b.author}${b.narrator == null ? '' : ' · read by ${b.narrator}'}'
           '${b.seriesLabel == null ? '' : ' · ${b.seriesLabel}'}${b.year == null ? '' : ' · ${b.year}'}');
       stdout.writeln('   ${b.parts.length} file(s), ${b.chapters.length} chapters · cover: $cover'
