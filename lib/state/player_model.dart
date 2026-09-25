@@ -1,3 +1,13 @@
+// The player: joins HomeTunes' own play queue to the audio engine (media_kit, which uses mpv).
+//
+// Screens call methods here (play, next, skipBy, playBook…) and watch it to redraw the player
+// bar and Now Playing. The play order lives in PlayQueue; this class tells the engine what to
+// play. Main ideas:
+// - Gapless: the engine only ever holds the current song plus the next one loaded ahead, and we
+//   catch our queue up when the engine moves on by itself (see _engineIds / _onEngineAdvanced).
+// - Book mode: while an audiobook plays, the queue holds the book's files, the place is saved
+//   regularly (ListeningModel), and any music queue waits in _music until "Back to music".
+// - It implements SleepTarget so the sleep timer can read the position and pause it.
 import 'dart:async';
 import 'dart:math';
 
@@ -12,6 +22,7 @@ import 'play_queue.dart';
 import 'sleep_timer.dart';
 
 /// The music queue, kept aside while an audiobook plays.
+// A snapshot of the queue (songs, place, shuffle/repeat, label) so it can be put back exactly.
 class _MusicQueue {
   final List<Track> tracks;
   final int index;
@@ -31,17 +42,22 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   /// Remembers the place in audiobooks (null in tests that don't need it).
   final ListeningModel? listening;
+  // The media_kit engine. There's only ever one.
   final Player _player = Player();
   final PlayQueue queue = PlayQueue();
+  // Our listeners on the engine's event streams, cancelled in dispose().
   final List<StreamSubscription> _subs = [];
 
   @override
   bool playing = false;
+  // True while the engine is waiting for data (e.g. a slow server stream).
   bool buffering = false;
+  // Length of the current song/file as the engine reports it.
   @override
   Duration duration = Duration.zero;
   @override
   double volume = 100; // 0–100
+  // A message about the last thing that went wrong (a skipped song, an engine error), or null.
   String? lastError;
 
   /// How many opens are in flight (see the `completed` listener).
@@ -70,6 +86,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   List<BookChapter> get chapters => _chapters;
   List<BookChapter> _chapters = const [];
 
+  // Sets the book and caches its chapter list (worked out once, not on every redraw).
   void _setBook(Book? b) {
     _book = b;
     _chapters = b?.chapters ?? const [];
@@ -80,6 +97,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   /// The music queue waiting while a book plays.
   _MusicQueue? _music;
+  // Saves the book place every 10 seconds (see the constructor).
   Timer? _saveTimer;
 
   PlayerModel(this.library, {this.listening}) {
@@ -89,8 +107,10 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     _saveTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (book != null && playing) saveBookPlace();
     });
+    // Listen to the engine's events and copy them into our own fields for the UI.
     _subs.addAll([
       _player.stream.playing.listen((v) {
+        // Going from playing to paused is a good moment to save the book place.
         final paused = playing && !v;
         playing = v;
         if (paused) saveBookPlace();
@@ -101,6 +121,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         notifyListeners();
       }),
       _player.stream.duration.listen((v) {
+        // The engine knows the real length once a file opens; remember it if the tags were wrong.
         duration = v;
         _learnDuration(v);
         notifyListeners();
@@ -133,6 +154,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// Keeps the queue (and the now-playing display / system media controls)
   /// showing songs' latest details after they're edited or rescanned.
   void _onLibraryChanged() {
+    // Settings live in LibraryModel too, so a change there may be a gapless/ReplayGain change.
     _applyEngineSettings();
     var changed = queue.refresh(library.byId);
     // Keep the playing book's details (and parts) current after a rescan.
@@ -153,6 +175,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   void _learnDuration(Duration d) {
     final t = queue.current;
     if (t == null || d <= Duration.zero) return;
+    // Ignore tiny differences (under 2 s) so we don't rewrite the library for nothing.
     if (!t.hasDuration || (d - t.duration).abs() > const Duration(seconds: 2)) {
       library.learnDuration(t.id, d);
     }
@@ -160,6 +183,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   @override
   Track? get current => queue.current;
+  // The seek bar listens to this directly, so position updates don't redraw everything.
   Stream<Duration> get positionStream => _player.stream.position;
   @override
   Duration get position => _player.state.position;
@@ -169,6 +193,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// Starts playing [tracks] from [start].
   Future<void> playTracks(List<Track> tracks, {int start = 0, bool? shuffle, String? label}) async {
     if (tracks.isEmpty) return;
+    // Choosing music while a book plays leaves book mode (the book's place is saved).
     _leaveBook();
     queue.setTracks(tracks, start: start, shuffle: shuffle, label: label);
     await _openCurrent();
@@ -181,10 +206,13 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     return playTracks(tracks, start: start, shuffle: true, label: label);
   }
 
+  /// Opens the queue's current song in the engine (with the next one loaded ahead) and plays it.
+  /// Songs that can't be played are skipped. [startAt] starts part-way in (used for books).
   Future<void> _openCurrent({int? skipsLeft, Duration? startAt}) async {
     // Skip at most once round the whole queue (all songs unavailable).
     skipsLeft ??= queue.tracks.length - 1;
     final t = queue.current;
+    // Nothing left to play: stop the engine and empty it.
     if (t == null) {
       await _player.stop();
       _engineIds = [];
@@ -205,15 +233,20 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
       return;
     }
     lastError = null;
+    // Show the tagged length straight away; the engine's real length arrives a moment later.
     duration = t.duration;
     notifyListeners();
+    // While this is above 0 the engine's events are ignored, as opening a file fires some
+    // misleading ones (see the `completed` listener). try/finally makes sure it comes back down.
     _opening++;
     try {
+      // A start of zero is left out, so the engine opens the file normally.
       final start = startAt != null && startAt > Duration.zero ? startAt : null;
       // Load the song after this one too, so it follows without a gap.
       await _syncLoopOne();
       final ahead = _songToLoadAhead();
       _engineIds = [t.id, if (ahead != null) ahead.$1.id];
+      // Replace the engine's whole list with [this song, next song] and start at the first.
       await _player.open(
         Playlist([Media(uri, start: start), if (ahead != null) Media(ahead.$2)], index: 0),
         play: true,
@@ -231,6 +264,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     // Repeat-one uses the engine's own "loop this file" instead (loading the
     // same song ahead of itself stalls the engine – see player_gapless_test).
     if (!library.gaplessPlayback || queue.repeat == RepeatSetting.one) return null;
+    // Null when the queue ends here, or when shuffle + repeat-all will reshuffle at the end.
     final next = queue.peekNextAuto();
     if (next == null) return null;
     final uri = library.playableUri(next);
@@ -245,23 +279,27 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     _engineEdits++;
     Track? next;
     try {
+      // Move our queue forward and check it agrees with the song the engine went to.
       final expected = _engineIds[1];
       next = queue.next(auto: true);
       if (next == null || next.id != expected) {
         next = null; // out of step (shouldn't happen): reopened below
       } else {
         duration = next.duration;
+        // Drop the finished song from the engine, so the new one is at the front of its list.
         try {
           await _player.remove(0);
           _engineIds.removeAt(0);
         } catch (_) {
           // The engine's list changed underneath us; the sync below repairs it.
         }
+        // In a book, save that we've reached the start of the next file.
         if (book != null) await listening?.record(book!, next.id, Duration.zero);
       }
     } finally {
       _engineEdits--;
     }
+    // Out of step: reopen from our queue, which is always the one in charge.
     if (next == null) {
       await _openCurrent();
       return;
@@ -277,11 +315,15 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// sure the song loaded ahead in the engine is still the right one.
   Future<void> _syncLoadedAhead() async {
     await _syncLoopOne();
+    // Leave it alone while a song is opening (_openCurrent loads the next one itself).
     if (_opening > 0 || _engineIds.isEmpty || queue.current == null) return;
     if (_engineIds.first != queue.current!.id) return; // a new song is being opened
     final want = _songToLoadAhead();
     final have = _engineIds.length > 1 ? _engineIds[1] : null;
+    // Already right: nothing to do.
     if (want?.$1.id == have) return;
+    // Swap the preloaded song: remove everything after the current one, then add the right one.
+    // _engineEdits makes our own listeners ignore the engine events these edits cause.
     _engineEdits++;
     try {
       while (_engineIds.length > 1) {
@@ -301,6 +343,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   /// Repeat-one: the engine loops the song by itself, with no gap.
   Future<void> _syncLoopOne() async {
+    // Books never loop. Only talk to the engine when the setting actually changes.
     final loop = queue.repeat == RepeatSetting.one && book == null;
     if (_appliedLoopOne == loop) return;
     _appliedLoopOne = loop;
@@ -313,6 +356,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   /// Sends the gapless and ReplayGain settings to the audio engine.
   Future<void> _applyEngineSettings() async {
+    // These are mpv settings, so they only exist on the native (libmpv) engine.
     final engine = _player.platform;
     if (engine is! NativePlayer) return;
     try {
@@ -334,6 +378,8 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     }
   }
 
+  /// Moves to the next song. [auto] is true when the song ended by itself, false when the
+  /// user pressed Next. Also handles the end of the queue and the end of a book.
   Future<void> _advance({required bool auto}) async {
     final prev = queue.current;
     final next = queue.next(auto: auto);
@@ -355,6 +401,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
       // Moving on to the next file of the book: remember that.
       await listening?.record(book!, next.id, Duration.zero);
     }
+    // Repeat-one with the song ending by itself: just rewind and play, no need to reopen.
     if (auto && identical(next, prev) && queue.repeat == RepeatSetting.one) {
       await _player.seek(Duration.zero);
       await _player.play();
@@ -363,6 +410,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     await _openCurrent();
   }
 
+  /// The play/pause button.
   Future<void> togglePlay() async {
     if (queue.current == null) return;
     await _player.playOrPause();
@@ -377,6 +425,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   @override
   Future<void> pause() => _player.pause();
 
+  /// The Next button (also media keys and headset buttons).
   Future<void> next() => _advance(auto: false);
 
   /// Restarts the song if we're more than 3 seconds in, otherwise goes back.
@@ -389,12 +438,13 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     await _openCurrent();
   }
 
+  /// Moves to [d] in the current song or file.
   Future<void> seek(Duration d) async {
     await _player.seek(d);
     notifyListeners(); // lets the system media controls pick up the new position
   }
   @override
-  Future<void> setVolume(double v) => _player.setVolume(v.clamp(0.0, 100.0));
+  Future<void> setVolume(double v) => _player.setVolume(v.clamp(0.0, 100.0)); // engine uses 0–100
 
   void toggleShuffle() {
     if (book != null) return; // books always play in order
@@ -403,6 +453,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     _syncLoadedAhead();
   }
 
+  /// Off → all → one → off. Books don't repeat, so it does nothing during a book.
   void cycleRepeat() {
     if (book != null) return;
     queue.cycleRepeat();
@@ -410,11 +461,13 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     _syncLoadedAhead();
   }
 
+  /// Plays the song at [queueIndex] (tapping a song in the queue list).
   Future<void> jumpTo(int queueIndex) async {
     queue.jumpTo(queueIndex);
     await _openCurrent();
   }
 
+  /// "Play next": puts [t] straight after the current song. If nothing was playing, it starts.
   Future<void> playNext(Track t) async {
     if (book != null) {
       // Goes into the waiting music queue; the book keeps playing.
@@ -425,9 +478,11 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     queue.playNext(t);
     if (wasEmpty) await _openCurrent();
     notifyListeners();
+    // The song loaded ahead in the engine is now probably wrong, so fix it up.
     await _syncLoadedAhead();
   }
 
+  /// "Add to queue": puts [t] at the end. If nothing was playing, it starts.
   Future<void> addToQueue(Track t) async {
     if (book != null) {
       _addToWaitingMusic(t, next: false);
@@ -440,12 +495,14 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     await _syncLoadedAhead();
   }
 
+  /// Removes song [i] from "Up next" (after that, the engine's preloaded song is re-checked).
   void removeUpcoming(int i) {
     queue.removeUpcoming(i);
     notifyListeners();
     _syncLoadedAhead();
   }
 
+  /// Drag-to-reorder in "Up next".
   void moveUpcoming(int from, int to) {
     queue.moveUpcoming(from, to);
     notifyListeners();
@@ -473,6 +530,8 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// given (e.g. a chapter), or from the start with [fromStart].
   Future<void> playBook(Book b, {bool fromStart = false, int? partIndex, Duration? at}) async {
     if (b.parts.isEmpty) return;
+    // 1. Put away what was playing: save the old book's place, or park the music queue
+    //    (songs, place, shuffle, repeat) so "Back to music" can bring it back.
     if (book != null) {
       saveBookPlace();
     } else if (!queue.isEmpty) {
@@ -486,6 +545,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
       );
     }
 
+    // 2. Work out where to start: a chosen file/position, or the saved place, or the start.
     var index = 0;
     var position = Duration.zero;
     if (partIndex != null) {
@@ -497,6 +557,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         final i = b.indexOfPart(saved.partId);
         if (i >= 0) {
           index = i;
+          // Go back a little when resuming (if that setting is on), more after a longer break.
           final since = Duration(milliseconds: DateTime.now().millisecondsSinceEpoch - saved.updatedMs);
           position = library.rewindOnResume ? saved.position - resumeRewind(since) : saved.position;
           if (position.isNegative) position = Duration.zero;
@@ -504,9 +565,11 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
       }
     }
 
+    // 3. Switch into book mode: the queue becomes the book's files, in order, with no repeat.
     _setBook(b);
     queue.setTracks(b.parts, start: index, shuffle: false, label: 'Book · ${b.title}');
     queue.repeat = RepeatSetting.off;
+    // 4. Save the starting place, set the book's own speed, and start playing.
     await listening?.record(b, b.parts[index].id, position);
     await _applySpeed(listening?.speedFor(b) ?? library.defaultBookSpeed);
     await _openCurrent(startAt: position);
@@ -518,6 +581,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   void saveBookPlace() {
     final b = book;
     final t = queue.current;
+    // Not while a file is opening: the engine's position would still belong to the old file.
     if (b == null || t == null || _opening > 0) return;
     listening?.record(b, t.id, _player.state.position);
   }
@@ -537,6 +601,8 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     _music = null;
   }
 
+  /// "Play next" / "Add to queue" while a book plays: the song joins the waiting music queue
+  /// instead of interrupting the book. [next] puts it after the song that was playing.
   void _addToWaitingMusic(Track t, {required bool next}) {
     final m = _music;
     if (m == null || m.tracks.isEmpty) {
@@ -557,6 +623,8 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     _setBook(null);
     await _applySpeed(1.0);
     _music = null;
+    // The saved list is already in play order (shuffled or not), so load it as it is and then
+    // just put the shuffle/repeat settings back.
     queue.setTracks(m.tracks, start: m.index, shuffle: false, label: m.label);
     queue.shuffle = m.shuffle;
     queue.repeat = m.repeat;
@@ -579,6 +647,8 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   /// Index of the chapter that [offset] (from the start of the book) is in.
   static int chapterIndexAt(List<BookChapter> chapters, Duration offset) {
+    // Chapters are in order, so walk forward until one starts after [offset]. Before the first
+    // chapter starts counts as the first chapter.
     if (chapters.isEmpty) return -1;
     var found = 0;
     for (var i = 0; i < chapters.length; i++) {
@@ -591,6 +661,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     return found;
   }
 
+  /// The chapter playing now, or null for music.
   BookChapter? get currentChapter {
     final i = currentChapterIndex;
     return i < 0 ? null : _chapters[i];
@@ -607,6 +678,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// Goes to [at] in file [part] of the queue (same file: just seeks).
   Future<void> _goTo(int part, Duration at) async {
     if (at.isNegative) at = Duration.zero;
+    // Same file: a plain seek. Another file: open that file at the right spot.
     if (part == queue.position) {
       await _player.seek(at);
       notifyListeners();
@@ -614,6 +686,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
       queue.jumpTo(part);
       await _openCurrent(startAt: at);
     }
+    // Save the new place straight away, so a jump isn't lost if the app closes.
     final b = book;
     final t = queue.current;
     if (b != null && t != null) await listening?.record(b, t.id, at);
@@ -625,6 +698,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     final t = current;
     if (t == null) return;
     final b = book;
+    // The engine's length is best for the file that's open; the others use their tagged length.
     final length = duration > Duration.zero ? duration : t.duration;
     final lengths = b == null
         ? [length]
@@ -639,15 +713,20 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// next file of a book. Returns null when a song would skip past its end.
   static (int, Duration)? skipTarget(List<Duration> lengths, int part, Duration position, Duration delta) {
     var target = position + delta;
+    // Going back past the start of a file: step into the previous file(s).
     while (target.isNegative && part > 0) {
       part--;
       target += lengths[part];
     }
+    // Before the start of the first file: stop at the very start.
     if (target.isNegative) target = Duration.zero;
+    // Going forward past the end of a file: step into the next file(s). A file whose length
+    // isn't known (zero) stops the walk, since we can't tell where it ends.
     while (part < lengths.length - 1 && lengths[part] > Duration.zero && target >= lengths[part]) {
       target -= lengths[part];
       part++;
     }
+    // Still past the end of the last file.
     final length = lengths[part];
     if (length > Duration.zero && target >= length) {
       if (lengths.length == 1) return null;
@@ -656,6 +735,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     return (part, target);
   }
 
+  // The skip amounts come from Settings → Audiobooks (15 s back and 30 s forward by default).
   Future<void> skipBack() => skipBy(-Duration(seconds: library.skipBackSeconds));
   Future<void> skipForward() => skipBy(Duration(seconds: library.skipForwardSeconds));
 
@@ -668,6 +748,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     await _goTo(_chapters[i].part, _chapters[i].start);
   }
 
+  /// Jumps to the start of the next chapter (does nothing in the last one).
   Future<void> nextChapter() async {
     final i = currentChapterIndex;
     if (i < 0 || i + 1 >= _chapters.length) return;
@@ -686,8 +767,10 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     await _goTo(target.part, target.start);
   }
 
+  /// The speeds offered in the speed menu.
   static const speeds = [0.75, 0.9, 1.0, 1.1, 1.2, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5];
 
+  // Sets the engine's speed without remembering it for the book.
   Future<void> _applySpeed(double s) async {
     speed = s;
     await _player.setRate(s);
@@ -703,6 +786,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   @override
   void dispose() {
+    // Save the book place one last time before shutting the engine down.
     _saveTimer?.cancel();
     saveBookPlace();
     library.removeListener(_onLibraryChanged);

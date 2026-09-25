@@ -1,3 +1,9 @@
+// Tests for keeping the user's work safe when files come and go, and for backups:
+// reading WAV lengths and "unknown length" songs, matching songs that moved or were renamed
+// (services/track_matching.dart), keeping edits, likes and playlist places for songs that are
+// temporarily missing or have moved (LibraryModel + PlaylistsModel on a real temp folder),
+// forgetting missing songs, and backup files (services/app_backup.dart): full round trip,
+// portable paths, leaving out the server password, and merging playlists.
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -14,6 +20,7 @@ import 'package:path/path.dart' as p;
 
 import 'metadata_features_test.dart' show silentWav;
 
+/// A made-up local song at [path]; [ms] is its length (0 = unknown).
 Track local(String path, {String title = 'T', String artist = 'A', String album = 'Al', int? n, int ms = 0}) =>
     Track(
       id: 'local:$path',
@@ -49,6 +56,8 @@ void main() {
   });
 
   group('Finding songs that moved', () {
+    // Same "Artist/Album/file" ending on a phone as on a Windows drive counts as the same song;
+    // a file that only shares the file name doesn't.
     test('by the end of the path, even on another drive or device', () {
       final gone = [local(r'D:\Music\Radiohead\OK Computer\01 Airbag.mp3')];
       final added = [
@@ -58,6 +67,8 @@ void main() {
       expect(matchMovedTracks(gone, added), {gone.single.id: added.first.id});
     });
 
+    // A renamed file is matched by title, track number and a similar length (within a couple of
+    // seconds). "Dupe" could be either new file, so it isn't matched at all rather than guessing.
     test('by details when the file was renamed; ambiguous matches are left alone', () {
       final gone = [
         local('/m/x/old name.mp3', title: 'Song', n: 1, ms: 200000),
@@ -80,6 +91,8 @@ void main() {
     });
   });
 
+  // A real temp library with two tiny WAVs, wired to PlaylistsModel the same way main.dart does:
+  // the library asks which songs playlists use, and tells playlists when ids move or are dropped.
   group('Songs that aren\'t on the device', () {
     late Directory dir;
     late Storage storage;
@@ -106,6 +119,8 @@ void main() {
 
     String id(String name) => 'local:${p.join(music.path, name)}';
 
+    // Move a file out of the music folder and rescan: it becomes "missing" (still listed with its
+    // edit and like, but not playable); put it back and it returns with everything intact.
     test('edits and likes are kept while a file is gone, and come back with it', () async {
       expect(lib.tracks.length, 2);
       await lib.editMany([id('one.wav')], const TrackEdit(title: 'Kept title'));
@@ -125,6 +140,8 @@ void main() {
       expect(lib.byId(id('one.wav'))!.title, 'Kept title');
     });
 
+    // Moved within the music folder: the rescan spots it and moves its edits and playlist entry
+    // over to the new id, so nothing shows as missing.
     test('a moved file keeps its edits and playlist places', () async {
       await lib.editMany([id('two.wav')], const TrackEdit(title: 'Mine'));
       final list = pl.create('Mix');
@@ -151,6 +168,8 @@ void main() {
       expect(pl.liked, isEmpty);
     });
 
+    // Make an edit, a custom cover and a playlist, back up, wipe it all, then restore in
+    // "replace" mode (merge: false). A safety copy of the data before the restore is also kept.
     test('backup round trip: replace restores everything', () async {
       await lib.editMany([id('one.wav')], const TrackEdit(title: 'Backed up'));
       final cover = await lib.importCoverBytes(Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3]));
@@ -180,6 +199,8 @@ void main() {
   });
 
   group('Backup file', () {
+    // App-folder paths become "@app/..." so a backup can be restored on another computer or
+    // phone where the app folder is somewhere else. Song ids are left as they are.
     test('paths in the app folder are stored relative to it', () {
       final root = p.join(Directory.systemTemp.path, 'ht');
       final json = {
@@ -211,6 +232,7 @@ void main() {
       expect(AppBackup.read(await AppBackup.create(storage, includePassword: true)).hasPassword, isTrue);
     });
 
+    // The same playlist in both: songs are combined without repeats; new playlists are added.
     test('merging playlists combines songs and likes', () {
       final merged = AppBackup.mergePlaylists(
         {

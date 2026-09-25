@@ -1,3 +1,10 @@
+// The "Find cover online" dialog for songs and albums.
+//
+// It searches MusicBrainz for matching releases and shows their covers from the Cover Art Archive
+// (the web side is in services/cover_search.dart). Tapping a cover downloads the full image and
+// saves a copy in the app's own cover folder through LibraryModel.importCoverBytes; the dialog
+// then returns that file's path. Callers (edit_details.dart, the album page's "no cover" prompt)
+// store the path as a TrackEdit, so nothing is written into the music files.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -15,6 +22,7 @@ Future<String?> showCoverSearch(BuildContext context, {String? artist, String? a
   );
 }
 
+/// The dialog itself. [title] (a song title) is optional and only helps the search.
 class _CoverSearchDialog extends StatefulWidget {
   final String artist, album, title;
   const _CoverSearchDialog({required this.artist, required this.album, required this.title});
@@ -24,18 +32,24 @@ class _CoverSearchDialog extends StatefulWidget {
 }
 
 class _CoverSearchDialogState extends State<_CoverSearchDialog> {
+  /// Does the web requests; closed when the dialog goes away.
   final _search = CoverSearch();
   late final _artist = TextEditingController(text: widget.artist);
   late final _album = TextEditingController(text: widget.album);
 
+  /// Search results, or null before the first search has finished.
   List<CoverCandidate>? _results;
+  /// True while searching.
   bool _loading = false;
+  /// True while the chosen cover is downloading and being saved.
   bool _saving = false;
+  /// A message to show in place of results (nothing typed, no internet, download failed).
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    // Start searching straight away with the names we were given.
     _run();
   }
 
@@ -47,6 +61,7 @@ class _CoverSearchDialogState extends State<_CoverSearchDialog> {
     super.dispose();
   }
 
+  /// Runs the search with whatever's in the Artist and Album boxes.
   Future<void> _run() async {
     final artist = _artist.text.trim();
     final album = _album.text.trim();
@@ -60,6 +75,7 @@ class _CoverSearchDialogState extends State<_CoverSearchDialog> {
     });
     try {
       final r = await _search.search(artist: artist, album: album, title: widget.title);
+      // The dialog may have been closed while we were waiting on the internet.
       if (!mounted) return;
       setState(() {
         _results = r;
@@ -74,6 +90,8 @@ class _CoverSearchDialogState extends State<_CoverSearchDialog> {
     }
   }
 
+  /// Downloads the full-size cover, stores a copy in the app's cover folder and closes the
+  /// dialog with that file's path.
   Future<void> _choose(CoverCandidate c) async {
     final lib = context.read<LibraryModel>();
     setState(() => _saving = true);
@@ -93,6 +111,7 @@ class _CoverSearchDialogState extends State<_CoverSearchDialog> {
   @override
   Widget build(BuildContext context) {
     final results = _results;
+    // Pick what the middle of the dialog shows: spinner, error, "nothing found", or the grid.
     Widget body;
     if (_loading || _saving) {
       body = Center(
@@ -110,6 +129,7 @@ class _CoverSearchDialogState extends State<_CoverSearchDialog> {
             textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)),
       );
     } else {
+      // A grid of square covers with the release title and artist/year under each.
       body = GridView.builder(
         padding: const EdgeInsets.all(4),
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -144,6 +164,7 @@ class _CoverSearchDialogState extends State<_CoverSearchDialog> {
       );
     }
 
+    // The dialog frame: title + close, the two search boxes, the results, and a credit line.
     return Dialog(
       backgroundColor: AppColors.surface,
       insetPadding: const EdgeInsets.all(16),

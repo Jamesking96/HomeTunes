@@ -1,3 +1,9 @@
+// The page for one playlist, or for Liked Songs (the same page in a special mode).
+//
+// Playlists only store song ids (PlaylistsModel, playlists.json). This page looks each id up in
+// LibraryModel; songs that can't be found right now (file gone, server off) are counted as
+// "unavailable" but kept in the playlist so they come back when the song does.
+// Songs can be dragged to reorder, removed from the ⋮ menu, and the playlist renamed or deleted.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -12,8 +18,11 @@ import '../widgets/track_tile.dart';
 
 /// A user playlist, or Liked Songs when [playlistId] is null.
 class PlaylistScreen extends StatelessWidget {
+  /// The playlist's id, or null for Liked Songs.
   final String? playlistId;
+  /// Opens a normal playlist.
   const PlaylistScreen({super.key, required String this.playlistId});
+  /// Opens Liked Songs.
   const PlaylistScreen.liked({super.key}) : playlistId = null;
 
   @override
@@ -70,6 +79,7 @@ class PlaylistScreen extends StatelessWidget {
       );
     }
 
+    // ---- A normal playlist ----
     final playlist = pl.byId(playlistId!);
     if (playlist == null) {
       return Scaffold(appBar: AppBar(), body: const EmptyState(icon: Icons.queue_music, title: 'Playlist not found'));
@@ -87,6 +97,7 @@ class PlaylistScreen extends StatelessWidget {
     final total = tracks.fold(Duration.zero, (a, t) => a + t.duration);
     final label = 'Playlist · ${playlist.name}';
 
+    // App bar with a ⋮ menu for Rename and Delete.
     return Scaffold(
       appBar: AppBar(actions: [
         PopupMenuButton<String>(
@@ -106,6 +117,7 @@ class PlaylistScreen extends StatelessWidget {
                   ],
                 ),
               );
+              // Leave the page first, then delete, so we're not showing a playlist that's gone.
               if (ok == true && context.mounted) {
                 Navigator.of(context).pop();
                 pl.delete(playlist);
@@ -118,6 +130,7 @@ class PlaylistScreen extends StatelessWidget {
           ],
         ),
       ]),
+      // Header, an "empty" hint if needed, then the draggable song list.
       body: CustomScrollView(slivers: [
         SliverToBoxAdapter(
           child: CollectionHeader(
@@ -155,6 +168,7 @@ class PlaylistScreen extends StatelessWidget {
                 if (!visible.contains(i)) playlist.trackIds[i],
             ]);
           },
+          // pIndex is the song's real position in the playlist (used for removing it).
           itemBuilder: (context, i) {
             final (pIndex, t) = entries[i];
             return Material(
@@ -174,6 +188,8 @@ class PlaylistScreen extends StatelessWidget {
                     list: tracks,
                     index: i,
                     contextLabel: label,
+                    // An extra item in the song's ⋮ menu. Its value is the action to run
+                    // when it's picked.
                     extraAction: PopupMenuItem(
                       value: () => pl.removeAt(playlist, pIndex),
                       child: const Row(children: [

@@ -1,3 +1,9 @@
+// The Library tab ("Your Library"): four swipeable tabs listing playlists, artists, albums
+// and every song. There's also a + button to create a new playlist.
+//
+// Each tab is its own small widget that watches LibraryModel / PlaylistsModel, so only the
+// visible tab's list is built. Tapping an item opens its page through AppNav, which pushes it
+// on this tab's own navigator (so the bottom bar stays in place).
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -26,6 +32,7 @@ class LibraryScreen extends StatelessWidget {
             IconButton(
               tooltip: 'New playlist',
               icon: const Icon(Icons.add),
+              // Ask for a name, create the playlist, then open it straight away.
               onPressed: () async {
                 final name = await askForName(context, title: 'New playlist');
                 if (name != null && context.mounted) {
@@ -46,6 +53,7 @@ class LibraryScreen extends StatelessWidget {
   }
 }
 
+/// Liked Songs (always first) followed by the user's playlists.
 class _PlaylistsTab extends StatelessWidget {
   const _PlaylistsTab();
 
@@ -56,6 +64,7 @@ class _PlaylistsTab extends StatelessWidget {
     final nav = context.read<AppNav>();
     final accent = Theme.of(context).colorScheme.primary;
     return ListView(children: [
+      // Liked Songs gets a gradient tile in the accent colour instead of a cover.
       ListTile(
         leading: Container(
           width: 52,
@@ -90,6 +99,7 @@ class _PlaylistsTab extends StatelessWidget {
   }
 }
 
+/// Every artist (grouped by album artist), with a round picture from their first album.
 class _ArtistsTab extends StatelessWidget {
   const _ArtistsTab();
 
@@ -98,6 +108,7 @@ class _ArtistsTab extends StatelessWidget {
     final lib = context.watch<LibraryModel>();
     final nav = context.read<AppNav>();
     if (lib.artists.isEmpty) return const EmptyState(icon: Icons.person_outline, title: 'No artists yet');
+    // .builder only builds the rows on screen, which keeps big libraries smooth.
     return ListView.builder(
       itemCount: lib.artists.length,
       itemBuilder: (_, i) {
@@ -118,6 +129,7 @@ class _ArtistsTab extends StatelessWidget {
   }
 }
 
+/// A grid of every album's cover card.
 class _AlbumsTab extends StatelessWidget {
   const _AlbumsTab();
 
@@ -139,6 +151,7 @@ class _AlbumsTab extends StatelessWidget {
   }
 }
 
+/// Every song, sorted by title, with a Shuffle button at the top.
 class _SongsTab extends StatelessWidget {
   const _SongsTab();
 
@@ -148,6 +161,7 @@ class _SongsTab extends StatelessWidget {
     final songs = lib.songsByTitle;
     if (songs.isEmpty) return const EmptyState(icon: Icons.music_note_outlined, title: 'No songs yet');
     return ListView.builder(
+      // One extra row at the top for the song count and Shuffle button, so rows are shifted by one.
       itemCount: songs.length + 1,
       itemBuilder: (_, i) {
         if (i == 0) {

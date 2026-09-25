@@ -1,3 +1,8 @@
+// Android's "may this app read your music?" permission, in one place.
+// LibraryModel uses check() at start-up and when the app comes back to the front; the banner
+// (ui/widgets/music_access_banner.dart) and Settings -> Library call request() / openSettings().
+// Which permission to ask for depends on the Android version, which is read from the app's
+// own `hometunes/app` MethodChannel (MainActivity.kt). On Windows everything is "allowed".
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -5,7 +10,7 @@ import 'package:permission_handler_platform_interface/permission_handler_platfor
 
 /// Whether HomeTunes may read the music (and audiobook) files on this device.
 enum MusicAccess {
-  allowed,
+  allowed,  // files can be read
 
   /// Not granted (yet); asking again can show the system prompt.
   denied,
@@ -19,6 +24,7 @@ enum MusicAccess {
 /// platforms don't.
 class MusicPermission {
   static const _channel = MethodChannel('hometunes/app');
+  // The Android version number (API level), asked for once and then remembered.
   static int? _sdk;
 
   static Future<int> _sdkInt() async {
@@ -37,12 +43,14 @@ class MusicPermission {
   static Future<Permission> _permission() async =>
       (await _sdkInt()) >= 33 ? Permission.audio : Permission.storage;
 
+  /// Turns the plugin's many statuses into our three. "Limited" still lets us read files.
   static MusicAccess _from(PermissionStatus s) {
     if (s.isGranted || s.isLimited) return MusicAccess.allowed;
     if (s.isPermanentlyDenied || s.isRestricted) return MusicAccess.blocked;
     return MusicAccess.denied;
   }
 
+  /// Looks at the current state without showing any prompt.
   static Future<MusicAccess> check() async {
     if (!Platform.isAndroid) return MusicAccess.allowed;
     try {

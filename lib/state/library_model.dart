@@ -1,3 +1,12 @@
+// The heart of the app: the library, the user's edits and (almost) all the settings.
+//
+// LibraryModel loads and saves settings.json, library.json and edits.json. It runs folder scans
+// and server syncs (one at a time, see _enqueue), then `_rebuild()` works out everything the
+// screens show: edits applied on top of the files' own details, each file sorted into music or
+// audiobook (BookRules), and the albums, artists and books built from them. Almost every screen
+// watches it. The other models (playlists, listening, bookmarks) are told through callbacks set
+// in main.dart when files move or are forgotten, so they can follow. It also holds helpers for
+// covers, backups, writing edits into the files, and turning a song into something playable.
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -30,8 +39,12 @@ class LibraryModel extends ChangeNotifier {
   LibraryModel(this.storage) : _scanner = LocalScanner(storage.artDir);
 
   // ---- settings ----
+  // (Every setting here is saved in settings.json by _saveSettings, and read back in load.)
+  /// The music folders the user picked.
   List<String> folders = [];
+  /// The Subsonic server's address and login.
   ServerConfig server = const ServerConfig(url: '', username: '', password: '');
+  /// The server switch in Settings → Servers. Its songs are kept while off, just hidden.
   bool serverEnabled = false;
 
   /// Offer to look up missing cover art online (MusicBrainz / Cover Art Archive).
@@ -82,6 +95,7 @@ class LibraryModel extends ChangeNotifier {
   /// or "end of song" (music).
   int sleepBookMinutes = 30;
   int sleepMusicMinutes = 30;
+  // (The sleep timer treats any length of 0 or less the same way.)
   static const sleepAtEnd = -1;
 
   /// Fade the volume out over this many seconds before the timer pauses (0 = off).
@@ -89,12 +103,15 @@ class LibraryModel extends ChangeNotifier {
 
   /// "Move to Books" (true) / "Move to Music" (false), by track id.
   Map<String, bool> _kindOverrides = {};
+  // The connection to the server, or null when there's no server or it's switched off.
   SubsonicClient? _client;
   SubsonicClient? get client => _client;
 
   // ---- data ----
+  // Songs from the scanned folders and from the server, as read (edits not applied yet).
   List<Track> _local = [];
   List<Track> _remote = [];
+  // Every visible song and book file with edits applied, for quick look-up by id.
   Map<String, Track> _byId = {};
 
   /// Tracks exactly as read from the files / server, before the user's edits.
@@ -134,8 +151,10 @@ class LibraryModel extends ChangeNotifier {
   List<Album> get albumsByNewest => _albumsByNewest ??= [...albums]..sort((a, b) => _newest(b).compareTo(_newest(a)));
   List<Album>? _albumsByNewest;
 
+  // "Newest" means the most recently changed file in the album (a stand-in for "recently added").
   static int _newest(Album a) =>
       a.tracks.fold<int>(0, (m, t) => (t.modifiedMs ?? 0) > m ? (t.modifiedMs ?? 0) : m);
+  // Quick look-ups built by _rebuild: books by id, and which book each book file belongs to.
   Map<String, Book> _bookById = {};
   Map<String, Book> _bookByTrackId = {};
 
@@ -154,6 +173,8 @@ class LibraryModel extends ChangeNotifier {
   Future<void> refreshMusicAccess({bool rescanIfNewlyAllowed = true}) async {
     final before = musicAccess;
     musicAccess = await checkAccess();
+    // Only react when the answer changed (e.g. the user just allowed access in the phone's
+    // Settings): clear the "not allowed" message and scan straight away.
     if (musicAccess != before) {
       if (musicAccess == MusicAccess.allowed && error == _noAccessMessage) error = null;
       notifyListeners();
@@ -167,6 +188,7 @@ class LibraryModel extends ChangeNotifier {
       'HomeTunes isn\'t allowed to read your music files. Tap "Allow access" in Settings.';
 
   // ---- status ----
+  /// True while a scan, sync, restore or tag write is running.
   bool busy = false;
   /// Progress text, e.g. "Scanning 120 / 900". Kept in its own notifier so
   /// progress updates only redraw the places that show it, not the whole app
@@ -175,6 +197,7 @@ class LibraryModel extends ChangeNotifier {
   final ValueNotifier<String?> statusText = ValueNotifier(null);
   String? get status => statusText.value;
   set status(String? v) => statusText.value = v;
+  /// A message for the user when something went wrong (shown as a banner), or null.
   String? error;
 
   /// Any song or audiobook file by id.
@@ -196,6 +219,8 @@ class LibraryModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reads settings, edits and the saved library from disk, then builds everything.
+  /// Called at start-up and again after a backup is restored.
   Future<void> load() async {
     // Start from defaults, so re-loading after a restore doesn't keep old values.
     folders = [];
@@ -223,6 +248,8 @@ class LibraryModel extends ChangeNotifier {
     _local = [];
     _remote = [];
     _missing = [];
+    // 1. Settings. Each value falls back to its default if it's missing (e.g. a setting added
+    //    in a newer version than the one that wrote the file).
     final s = await storage.read('settings.json') as Map<String, dynamic>?;
     if (s != null) {
       folders = (s['folders'] as List? ?? const []).cast<String>().toList();
@@ -251,6 +278,7 @@ class LibraryModel extends ChangeNotifier {
       if (o is Map) _kindOverrides = {for (final e in o.entries) e.key as String: e.value == true};
     }
     _rebuildClient();
+    // 2. The user's edits.
     final edits = await storage.read('edits.json') as Map<String, dynamic>?;
     if (edits != null) {
       _edits = {
@@ -258,6 +286,7 @@ class LibraryModel extends ChangeNotifier {
           if (e.value is Map<String, dynamic>) e.key: TrackEdit.fromJson(e.value as Map<String, dynamic>),
       };
     }
+    // 3. The library as last scanned/synced, so the app opens instantly without rescanning.
     final lib = await storage.read('library.json') as Map<String, dynamic>?;
     if (lib != null) {
       _local = [for (final j in (lib['local'] as List? ?? const [])) Track.fromJson(j as Map<String, dynamic>)];
@@ -267,6 +296,7 @@ class LibraryModel extends ChangeNotifier {
     _rebuild();
   }
 
+  /// Writes every setting to settings.json.
   Future<void> _saveSettings() => storage.write('settings.json', {
         'folders': folders,
         'server': server.toJson(),
@@ -291,6 +321,7 @@ class LibraryModel extends ChangeNotifier {
         'bookOverrides': _kindOverrides,
       });
 
+  // The simple on/off settings below redraw first (so the switch moves at once), then save.
   Future<void> setOnlineDetails(bool on) async {
     onlineDetails = on;
     notifyListeners();
@@ -306,6 +337,7 @@ class LibraryModel extends ChangeNotifier {
   /// Shows or leaves out the audiobooks found on the music server.
   Future<void> setServerBooks(bool on) async {
     serverBooks = on;
+    // Changes which files go on the Books tab, so everything has to be rebuilt.
     _rebuild();
     notifyListeners();
     await _saveSettings();
@@ -317,22 +349,31 @@ class LibraryModel extends ChangeNotifier {
     await _saveSettings();
   }
 
+  /// Writes the scanned/synced songs (and the missing ones being kept) to library.json.
   Future<void> _saveLibrary() => storage.write('library.json', {
         'local': [for (final t in _local) t.toJson()],
         'remote': [for (final t in _remote) t.toJson()],
         'missing': [for (final t in _missing) t.toJson()],
       });
 
+  /// Makes a fresh server connection from the current settings (or none).
+  /// Syncs check `identical(c, _client)` to notice the connection was replaced mid-sync.
   void _rebuildClient() {
     _client?.close();
     _client = serverEnabled && server.isComplete ? SubsonicClient(server) : null;
   }
 
+  /// Works out everything the screens show from the raw songs, the edits and the settings.
+  /// Called after anything changes. It's the slow part of a scan, so scans only call it a few
+  /// times rather than once per batch of files.
   void _rebuild() {
+    // 1. All songs (server ones only while the server is on), then the user's edits on top.
     final raw = [..._local, if (serverEnabled) ..._remote];
     _rawById = {for (final t in raw) t.id: t};
     final all = [for (final t in raw) _edits[t.id]?.applyTo(t) ?? t];
     _byId = {for (final t in all) t.id: t};
+    // 2. Sort each file into music or audiobook. Server book files are left out entirely
+    //    when "Audiobooks from the music server" is off.
     final rules = BookRules(genres: bookGenres, bookFolders: audiobookFolders, overrides: _kindOverrides);
     final bookFiles = <Track>[];
     tracks = [];
@@ -343,17 +384,20 @@ class LibraryModel extends ChangeNotifier {
         bookFiles.add(t);
       }
     }
+    // 3. Group into books, albums and artists, and refresh the look-up tables.
     books = groupBooks(bookFiles);
     _bookById = {for (final b in books) b.id: b};
     _bookByTrackId = {for (final b in books) for (final t in b.parts) t.id: b};
     albums = index.groupAlbums(tracks);
     artists = index.groupArtists(albums);
+    // Throw away the cached sorted lists; they're rebuilt the next time they're asked for.
     _songsByTitle = null;
     _albumsByNewest = null;
     _albumByKey = {for (final a in albums) a.key: a};
     notifyListeners();
   }
 
+  /// Searches songs, albums and artists (see library_index.dart).
   index.SearchResults search(String q) => index.search(q, tracks, albums, artists);
 
   /// Audiobooks whose title, author, narrator or series contain every word of [q].
@@ -362,9 +406,11 @@ class LibraryModel extends ChangeNotifier {
   /// Audiobook chapters whose name contains every word of [q].
   List<({Book book, int chapter})> searchChapters(String q) => searchChapterList(books, q);
 
+  /// An album by its key (album artist + album name).
   Album? albumByKey(String key) => _albumByKey[key];
   Map<String, Album> _albumByKey = {};
 
+  /// An artist by name, ignoring case.
   Artist? artistByName(String name) {
     final l = name.toLowerCase();
     for (final a in artists) {
@@ -375,6 +421,7 @@ class LibraryModel extends ChangeNotifier {
 
   // ---- audiobooks ----
 
+  /// Adds a folder where everything is an audiobook, and scans it.
   Future<void> addAudiobookFolder(String path) async {
     if (audiobookFolders.contains(path)) return;
     audiobookFolders = [...audiobookFolders, path];
@@ -383,12 +430,14 @@ class LibraryModel extends ChangeNotifier {
     await scanLocal();
   }
 
+  /// Stops scanning an audiobook folder. The rescan drops its files from the library.
   Future<void> removeAudiobookFolder(String path) async {
     audiobookFolders = audiobookFolders.where((f) => f != path).toList();
     await _saveSettings();
     await scanLocal();
   }
 
+  /// Sets which genres count as audiobooks (blank entries are dropped).
   Future<void> setBookGenres(List<String> genres) async {
     bookGenres = [for (final g in genres) if (g.trim().isNotEmpty) g.trim()];
     await _saveSettings();
@@ -447,6 +496,7 @@ class LibraryModel extends ChangeNotifier {
 
   // ---- folders ----
 
+  /// Adds a music folder and scans it.
   Future<void> addFolder(String path) async {
     if (folders.contains(path)) return;
     folders = [...folders, path];
@@ -455,6 +505,8 @@ class LibraryModel extends ChangeNotifier {
     await scanLocal();
   }
 
+  /// Stops scanning a music folder. The rescan drops its songs (or keeps them as "missing" if
+  /// they're in a playlist or have edits).
   Future<void> removeFolder(String path) async {
     folders = folders.where((f) => f != path).toList();
     await _saveSettings();
@@ -465,6 +517,8 @@ class LibraryModel extends ChangeNotifier {
   Future<void> _jobs = Future.value();
   int _queued = 0;
 
+  /// Runs [work] after any job already running or waiting. Each job is chained onto the
+  /// previous one, so they queue up. The library is rebuilt once each job finishes.
   Future<void> _enqueue(Future<void> Function() work) {
     _queued++;
     final next = _jobs.then((_) async {
@@ -478,6 +532,8 @@ class LibraryModel extends ChangeNotifier {
         _rebuild();
       }
     });
+    // The chain swallows errors so one failed job doesn't block the ones after it, but the
+    // caller still gets the error through `next`.
     _jobs = next.catchError((_) {});
     return next;
   }
@@ -494,10 +550,13 @@ class LibraryModel extends ChangeNotifier {
         status = 'Looking for music…';
         notifyListeners();
         try {
+          // Give the scanner what we already know, so unchanged files are reused, not re-read.
           final previous = {for (final t in _local) t.id: t};
+          // Progress goes into statusText only (no notifyListeners), so the app isn't redrawn.
           _local = await _scanner.scan(_scanFolders, previous: previous, onProgress: (done, total) {
             status = 'Scanning $done / $total';
           });
+          // Follow moved files and keep gone ones that matter, save, then tidy unused covers.
           await _reconcile(previous);
           await _saveLibrary();
           await _scanner.removeUnusedArt(_local);
@@ -512,6 +571,7 @@ class LibraryModel extends ChangeNotifier {
 
   /// Saves server details after checking they work. Returns an error message or null.
   Future<String?> connectServer(ServerConfig config) async {
+    // Try the details with a throwaway connection first, so bad details never get saved.
     final test = SubsonicClient(config);
     try {
       await test.ping();
@@ -531,6 +591,7 @@ class LibraryModel extends ChangeNotifier {
     return null;
   }
 
+  /// The server on/off switch. Turning it on syncs, if we don't have its songs yet.
   Future<void> setServerEnabled(bool on) async {
     serverEnabled = on;
     _rebuildClient();
@@ -539,6 +600,7 @@ class LibraryModel extends ChangeNotifier {
     if (on && _remote.isEmpty) await syncServer();
   }
 
+  /// Removes the server's details and its songs.
   Future<void> forgetServer() async {
     server = const ServerConfig(url: '', username: '', password: '');
     serverEnabled = false;
@@ -549,6 +611,7 @@ class LibraryModel extends ChangeNotifier {
     _rebuild();
   }
 
+  /// Fetches the server's whole song list (album by album) and replaces the server songs.
   Future<void> syncServer() => _enqueue(() async {
         final c = _client;
         if (c == null) return;
@@ -579,6 +642,7 @@ class LibraryModel extends ChangeNotifier {
   /// details of songs that have gone (if anything refers to them) so they
   /// come back as they were if the file returns.
   Future<void> _reconcile(Map<String, Track> previous) async {
+    // Everything we knew of before the scan: last scan's songs plus ones already missing.
     final known = {for (final t in _missing) t.id: t, ...previous};
     final found = {for (final t in _local) t.id};
     final gone = [for (final t in known.values) if (!found.contains(t.id)) t];
@@ -586,9 +650,12 @@ class LibraryModel extends ChangeNotifier {
       _missing = [];
       return;
     }
+    // Songs that vanished and songs that are new may be the same files in a new place
+    // (track_matching.dart pairs them up). Their edits, playlists etc. move to the new id.
     final added = [for (final t in _local) if (!known.containsKey(t.id)) t];
     final moved = matchMovedTracks(gone, added);
     if (moved.isNotEmpty) await _remapIds(moved);
+    // Of the rest, keep only the ones something still refers to; the others are simply gone.
     final referenced = referencedIds;
     _missing = [
       for (final t in gone)
@@ -599,6 +666,7 @@ class LibraryModel extends ChangeNotifier {
   /// Ids anything refers to: edits, playlists, Liked Songs.
   Set<String> get referencedIds => {..._edits.keys, ...?otherReferencedIds?.call()};
 
+  /// Moves edits and Books/Music choices from old ids to new ids, then tells the other models.
   Future<void> _remapIds(Map<String, String> moved) async {
     var editsChanged = false;
     for (final e in moved.entries) {
@@ -619,6 +687,7 @@ class LibraryModel extends ChangeNotifier {
       _kindOverrides.putIfAbsent(e.value, () => o);
     }
     if (overridesChanged) await _saveSettings();
+    // Playlists, book places and bookmarks follow too (wired up in main.dart).
     onIdsRemapped?.call(moved);
   }
 
@@ -640,6 +709,7 @@ class LibraryModel extends ChangeNotifier {
   /// Records a song's real length (found while playing it) and saves it.
   Future<void> learnDuration(String id, Duration d) async {
     var changed = false;
+    // Copies the list, swapping in an updated copy of the song (Tracks are never changed in place).
     List<Track> update(List<Track> list) => [
           for (final t in list)
             if (t.id == id && t.duration != d) (() {
@@ -659,6 +729,7 @@ class LibraryModel extends ChangeNotifier {
   /// The song as read from the file/server, ignoring the user's edits.
   Track? originalById(String id) => _rawById[id];
 
+  /// True if the user has changed anything about this song in HomeTunes.
   bool isEdited(String id) => _edits.containsKey(id);
 
   /// Applies [changes] (by track id). Fields left null in a change keep their
@@ -667,6 +738,7 @@ class LibraryModel extends ChangeNotifier {
     for (final entry in changes.entries) {
       final original = _rawById[entry.key];
       if (original == null) continue;
+      // Combine with any earlier edit, then drop fields that just repeat what the file says.
       final merged = (_edits[entry.key] ?? TrackEdit.empty).mergedWith(entry.value).normalizedAgainst(original);
       if (merged.isEmpty) {
         _edits.remove(entry.key);
@@ -716,6 +788,7 @@ class LibraryModel extends ChangeNotifier {
   /// Lyrics the user added are kept (they have their own "remove").
   Future<void> resetEdits(Iterable<String> ids) async {
     for (final id in ids) {
+      // Remove the whole edit, then put back a lyrics-only edit if there were lyrics.
       final lyrics = _edits.remove(id)?.lyrics;
       if (lyrics != null) _edits[id] = TrackEdit(lyrics: lyrics);
     }
@@ -730,6 +803,7 @@ class LibraryModel extends ChangeNotifier {
 
   /// Sets (or with null, removes) the user's lyrics for a song.
   Future<void> setLyrics(String id, String? lyrics) async {
+    // Other edits on the song are kept; only the lyrics change.
     final e = (_edits[id] ?? TrackEdit.empty).withLyrics(lyrics);
     if (e.isEmpty) {
       _edits.remove(id);
@@ -739,12 +813,14 @@ class LibraryModel extends ChangeNotifier {
     await _saveEdits();
   }
 
+  /// Saves edits.json, rebuilds so the change shows, and deletes custom covers no longer used.
   Future<void> _saveEdits() async {
     await storage.write('edits.json', {for (final e in _edits.entries) e.key: e.value.toJson()});
     _rebuild();
     await _removeUnusedCustomArt();
   }
 
+  // Covers the user picked or downloaded live here, apart from the scanner's cached covers.
   String get _customArtDir => p.join(storage.artDir, 'custom');
 
   /// Copies an image the user picked into the app's data folder (so moving or
@@ -754,12 +830,14 @@ class LibraryModel extends ChangeNotifier {
 
   /// Saves cover image bytes (e.g. downloaded from online) and returns the file path.
   Future<String> importCoverBytes(List<int> bytes, [String ext = '']) async {
+    // No file extension given: work it out from the image data itself.
     if (ext.isEmpty) {
       final mime = imageMimeType(bytes);
       ext = mime == 'image/png' ? '.png' : (mime == 'image/jpeg' ? '.jpg' : '.img');
     }
     final dir = Directory(_customArtDir);
     await dir.create(recursive: true);
+    // Name the file after a fingerprint (md5) of its contents: the same picture is stored once.
     final dest = File(p.join(dir.path, '${md5.convert(bytes)}${ext.isEmpty ? '.img' : ext}'));
     if (!await dest.exists()) await dest.writeAsBytes(bytes, flush: true);
     // Make sure images show the new picture even if an old one was cached.
@@ -767,12 +845,14 @@ class LibraryModel extends ChangeNotifier {
     return dest.path;
   }
 
+  /// Deletes custom covers that no edit points at any more.
   Future<void> _removeUnusedCustomArt() async {
     final dir = Directory(_customArtDir);
     if (!await dir.exists()) return;
     final used = {for (final e in _edits.values) if (e.art != null) p.normalize(e.art!)};
     await for (final f in dir.list()) {
       if (f is File && !used.contains(p.normalize(f.path))) {
+        // A file that can't be deleted right now (e.g. in use) is left for next time.
         try {
           await f.delete();
         } catch (_) {}
@@ -802,13 +882,16 @@ class LibraryModel extends ChangeNotifier {
       error = null;
       status = 'Restoring backup…';
       notifyListeners();
+      // 1. Save everything as it is now, so a bad restore can be undone.
       final undo = await AppBackup.create(storage, includePassword: true);
       await File(beforeRestorePath).writeAsBytes(undo, flush: true);
+      // 2. Write the backup's files, then reload this model and the others from them.
       result = await AppBackup.restore(storage, backup, merge: merge);
       await load();
       await reloadOthers();
       status = null;
     });
+    // 3. Rescan (a backup from another computer has different paths) and sync if needed.
     await scanLocal();
     if (_client != null && _remote.isEmpty) await syncServer();
     return result;
@@ -826,6 +909,7 @@ class LibraryModel extends ChangeNotifier {
   int get unwritableEditCount =>
       _edits.keys.where(_rawById.containsKey).length - tracksWithWritableEdits.length;
 
+  /// Where copies of files are kept before tags are written into them.
   String get backupRoot => p.join(storage.root.path, 'backups');
 
   /// Writes the HomeTunes edits of [tracks] into their music files. Anything a
@@ -833,6 +917,7 @@ class LibraryModel extends ChangeNotifier {
   /// is copied into a dated folder under [backupRoot] first.
   Future<List<TagWriteResult>> writeEditsToFiles(List<Track> tracks, {bool backup = true}) async {
     final results = <TagWriteResult>[];
+    // A folder name like 2026-09-25T14-03-11 (":" isn't allowed in Windows file names).
     final stamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
     final backupDir = backup ? p.join(backupRoot, stamp) : null;
     await _enqueue(() async {
@@ -844,6 +929,8 @@ class LibraryModel extends ChangeNotifier {
         if (edit == null || t.path == null) continue;
         final r = await writeTagsToFile(t.path!, edit, backupDir: backupDir);
         results.add(r);
+        // Written: whatever the file now holds is no longer needed as an edit; anything the
+        // format couldn't hold (the leftover) stays as an edit. A failed write changes nothing.
         if (r.ok) {
           if (r.leftover.isEmpty) {
             _edits.remove(t.id);
@@ -874,6 +961,7 @@ class LibraryModel extends ChangeNotifier {
 
   /// What the player should open for this track: a file path or a stream URL.
   String? playableUri(Track t) {
+    // Null means "can't play this right now"; the player then skips the song.
     if (t.isLocal) {
       // The file may have gone since the last scan (deleted, drive unplugged).
       final path = t.path;
@@ -893,6 +981,7 @@ class LibraryModel extends ChangeNotifier {
     return c == null ? null : Uri.parse(c.coverArtUrl(art, size: size));
   }
 
+  /// The cover image to show in the app: a file on disk, or the server's cover picture.
   ImageProvider? artFor(Track? t, {int size = 512}) {
     if (t == null || t.art == null) return null;
     if (_artIsFile(t)) return FileImage(File(t.art!));

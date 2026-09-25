@@ -1,3 +1,6 @@
+// Settings › About: shows the app version and the folder where HomeTunes keeps its own files
+// (library.json, settings.json, covers, etc. — see Storage). On Windows there's a button to open
+// that folder in Explorer. Shown by settings_screen.dart.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -12,6 +15,8 @@ import 'settings_widgets.dart';
 class AboutSettings extends StatelessWidget {
   const AboutSettings({super.key});
 
+  // Read the version once for the whole app run (static), and turn a failure into null so
+  // the page shows "Unknown" instead of an error.
   static final Future<PackageInfo?> _info = PackageInfo.fromPlatform().then<PackageInfo?>((i) => i, onError: (_) => null);
 
   @override
@@ -24,6 +29,7 @@ class AboutSettings extends StatelessWidget {
           future: _info,
           builder: (context, snap) {
             final i = snap.data;
+            // "…" while still loading, "Unknown" if it couldn't be read.
             final text = i == null
                 ? (snap.connectionState == ConnectionState.done ? 'Unknown' : '…')
                 : '${i.version} (build ${i.buildNumber})';

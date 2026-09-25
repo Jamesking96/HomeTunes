@@ -1,3 +1,12 @@
+// Tests for lyrics, from end to end:
+// - reading lyrics text: plain, and timed LRC with tags, offsets and word timings (models/lyrics)
+// - the LRCLIB online service: ranking results and the exact-then-search lookup (faked replies)
+// - lyrics from a Subsonic server turned into LRC
+// - LyricsModel deciding where lyrics come from (your own, .lrc file, file tags, online), saving
+//   online finds, not asking again too soon, and backups including lyrics
+// - finding a .lrc file next to a song, and writing lyrics/titles into real MP3/FLAC/M4A files
+//   (test/fixtures) without losing other tags such as ReplayGain, comment and composer.
+// The song and its lyrics are made up.
 import 'dart:convert';
 import 'dart:io';
 
@@ -18,6 +27,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:path/path.dart' as p;
 
+/// A made-up local song at [path], used by the "Where lyrics come from" tests.
 Track song(String path, {int seconds = 200}) => Track(
       id: 'local:$path',
       source: TrackSource.local,
@@ -39,6 +49,8 @@ void main() {
       expect(l.lines.map((x) => x.text), ['Line one', 'Line two', '', 'Line three']);
     });
 
+    // Info tags like [ar:] are dropped, a line with two times appears twice, lines are sorted by
+    // time and an untimed line in an LRC file is ignored.
     test('LRC: times, tags dropped, several times per line, sorted', () {
       final l = Lyrics(
         '[ar:Someone]\n[ti:Song]\n[00:12.50]Second\n[00:05.00][00:20.1]Chorus\n[00:02]First\nnot timed',
@@ -53,11 +65,13 @@ void main() {
       ]);
     });
 
+    // [offset:+500] shows every line 0.5 s earlier; <mm:ss> word timings are removed from the text.
     test('LRC offset and word timings', () {
       final l = Lyrics('[offset:+500]\n[00:10.00]<00:10.00>Hello <00:10.40>there', LyricsSource.lrclib);
       expect(l.lines.single, const LyricLine('Hello there', Duration(milliseconds: 9500)));
     });
 
+    // -1 means "before the first line".
     test('which line is being sung', () {
       final l = Lyrics('[00:01.00]a\n[00:03.00]b\n[00:05.00]c', LyricsSource.file);
       expect(l.lineAt(Duration.zero), -1);
@@ -72,6 +86,7 @@ void main() {
   });
 
   group('LRCLIB', () {
+    /// A fake LRCLIB result for the same made-up song, with or without lyrics.
     LrclibMatch m(int id, {int secs = 200, String? synced, String? plain, String album = ''}) => LrclibMatch(
           id: id,
           title: 'Kettle Song',
@@ -99,6 +114,8 @@ void main() {
       expect(LrclibClient.sameText('', 'x'), isFalse);
     });
 
+    // The exact lookup (/api/get) finds nothing, so it falls back to /api/search and picks the
+    // result whose length is close to the song's (200 s), not the 320 s one.
     test('find: exact lookup first, else a search checked against the length', () async {
       final asked = <String>[];
       final client = LrclibClient(httpClient: MockClient((req) async {
@@ -120,6 +137,7 @@ void main() {
     });
   });
 
+  // Given both plain and timed versions, the timed one wins; the 100 ms offset is taken off.
   test('server lyrics: timed OpenSubsonic lyrics become LRC (offset applied)', () {
     final text = SubsonicClient.structuredLyricsToText({
       'structuredLyrics': [
@@ -137,6 +155,9 @@ void main() {
     expect(text, '[00:01.00]one\n[01:01.90]two');
   });
 
+  // Each test gets a fresh temp library with one song. Local lyrics (file tags and .lrc) come
+  // from the `local` map instead of real files, and the LRCLIB service is faked: it answers
+  // with `lrclibAnswer` (or nothing when null) and counts calls in `lrclibCalls`.
   group('Where lyrics come from', () {
     late Directory dir;
     late LibraryModel library;
@@ -178,6 +199,7 @@ void main() {
       );
       await lyrics.load();
     });
+    // Short wait so any save still in progress finishes before the folder is deleted.
     tearDown(() async {
       await Future<void>.delayed(const Duration(milliseconds: 100));
       dir.deleteSync(recursive: true);
@@ -195,6 +217,7 @@ void main() {
       expect(lrclibCalls, 0);
     });
 
+    // A second LyricsModel with no network at all must still find the saved online lyrics.
     test('found online once, then saved (works offline, survives a restart)', () async {
       lrclibAnswer = '[00:01.00]from the web';
       final first = await lyrics.lyricsFor(t());
@@ -207,6 +230,7 @@ void main() {
       expect((await again.lyricsFor(t()))!.lines.single.text, 'from the web');
     });
 
+    // A "nothing found" answer is remembered; moving the clock past `retryAfter` allows a new try.
     test('nothing online: not asked again for a while', () async {
       expect(await lyrics.lyricsFor(t()), isNull);
       final calls = lrclibCalls;
@@ -224,6 +248,7 @@ void main() {
       expect(lrclibCalls, 0);
     });
 
+    // "Yours" = lyrics the user typed in; they're stored with the song's edits.
     test('your lyrics win, can be hidden, and removing them brings the file\'s back', () async {
       local[t().path!] = (tags: 'file words', lrc: null);
       await lyrics.setYours(t(), 'my words');
@@ -249,6 +274,7 @@ void main() {
       expect(library.lyricsEdit(t().id), 'my words');
     });
 
+    // A backup is gzipped JSON holding copies of the app's data files.
     test('backups carry your lyrics and the ones found online', () async {
       lrclibAnswer = '[00:01.00]from the web';
       await lyrics.lyricsFor(t());
@@ -260,6 +286,7 @@ void main() {
     });
   });
 
+  // The .LRC file also starts with an invisible "byte order mark", which must be removed.
   test('a .lrc file next to the song is found whatever the case of its extension', () {
     final dir = Directory.systemTemp.createTempSync('hometunes_lrc');
     addTearDown(() => dir.deleteSync(recursive: true));
@@ -271,6 +298,7 @@ void main() {
     expect(r.tags, isNull);
   });
 
+  // Uses the small real audio files in test/fixtures, copied to a temp folder for each test.
   group('Saving edits into files keeps what HomeTunes doesn\'t change', () {
     late Directory dir;
     setUp(() => dir = Directory.systemTemp.createTempSync('hometunes_tags'));
@@ -279,6 +307,7 @@ void main() {
     File copy(String name) =>
         File(p.join('test', 'fixtures', name)).copySync(p.join(dir.path, name));
 
+    /// Whether the raw bytes of [f] contain [needle] anywhere (a simple byte search).
     bool contains(File f, List<int> needle) {
       final bytes = f.readAsBytesSync();
       outer:
@@ -295,6 +324,7 @@ void main() {
     bool has(File f, String text) =>
         contains(f, utf8.encode(text)) || contains(f, [for (final c in text.codeUnits) ...[c, 0]]);
 
+    // The same two tests for each file type (MP3 with ID3 v2.3 and v2.4, FLAC, M4A).
     for (final name in ['tagged.mp3', 'tagged_v24.mp3', 'tagged.flac', 'tagged.m4a']) {
       test('$name: lyrics read, new title written, ReplayGain/comment/composer kept', () async {
         final f = copy(name);
@@ -325,6 +355,7 @@ void main() {
       });
     }
 
+    // FLAC can store lyrics, so nothing is left over there.
     test('WAV files can\'t hold lyrics: they stay as a HomeTunes edit', () {
       expect(TagSupport.forPath('a.wav').leftover(const TrackEdit(lyrics: 'x', title: 'y')).lyrics, 'x');
       expect(TagSupport.forPath('a.flac').leftover(const TrackEdit(lyrics: 'x')).isEmpty, isTrue);

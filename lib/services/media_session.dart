@@ -1,3 +1,8 @@
+// The bridge between the player and the phone's / PC's own media controls.
+// main() calls MediaSession.start once, after the PlayerModel exists. From then on the session
+// listens to the player and copies its state out (what's playing, playing/paused, position),
+// and turns button presses from the notification, lock screen, headset or keyboard media keys
+// into player calls. For audiobooks the buttons skip back/forward by seconds instead.
 import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
@@ -20,6 +25,7 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
   final PlayerModel player;
   final LibraryModel library;
 
+  /// What the system is currently showing, so we only send changes.
   MediaItem? _shownItem;
 
   /// Set when the system asked us to stop (e.g. the notification was swiped
@@ -32,6 +38,8 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
   MediaSession(this.player, this.library) {
     player.addListener(_sync);
     // Lives as long as the app, like the session itself.
+    // The player doesn't notify on every position change, so watch the position too, just to
+    // spot a new chapter starting in a book and update the title shown.
     player.positionStream.listen((_) {
       if (player.inBook && player.currentChapterIndex != _shownChapter) _sync();
     });
@@ -41,7 +49,7 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
   /// Starts the media session on platforms that support it. Returns null (and
   /// the app carries on without system controls) if it isn't available.
   static Future<MediaSession?> start(PlayerModel player, LibraryModel library) async {
-    if (!(Platform.isAndroid || Platform.isWindows)) return null;
+    if (!(Platform.isAndroid || Platform.isWindows)) return null;  // e.g. Linux while developing
     try {
       return await AudioService.init(
         builder: () => MediaSession(player, library),
@@ -62,10 +70,12 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
 
   // ---------------------------------------------------------------- app → system
 
+  /// Sends the player's current state to the system controls.
   void _sync() {
     final t = player.current;
     if (player.playing) _stopped = false;
 
+    // Nothing to show (or told to stop): show an idle, paused session.
     if (t == null || _stopped) {
       if (t == null && _shownItem != null) {
         _shownItem = null;
@@ -78,7 +88,7 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
       return;
     }
 
-    final duration = player.duration > Duration.zero ? player.duration : t.duration;
+    final duration = player.duration > Duration.zero ? player.duration : t.duration;  // engine first
     final book = player.book;
     _shownChapter = player.currentChapterIndex;
     final item = MediaItem(
@@ -116,7 +126,7 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
               player.playing ? MediaControl.pause : MediaControl.play,
               MediaControl.skipToNext,
             ],
-      androidCompactActionIndices: const [0, 1, 2],
+      androidCompactActionIndices: const [0, 1, 2],  // all three in the small notification
       systemActions: const {MediaAction.seek, MediaAction.seekForward, MediaAction.seekBackward},
       processingState: player.buffering ? AudioProcessingState.buffering : AudioProcessingState.ready,
       playing: player.playing,

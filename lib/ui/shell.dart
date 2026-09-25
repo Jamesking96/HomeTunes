@@ -1,3 +1,10 @@
+// The app's outer frame: everything that stays on screen around the pages.
+//
+// main.dart shows [Shell] as the MaterialApp's home. It lays out the five tabs (each with its
+// own Navigator from AppNav), plus the status strip (scan progress / errors), the multi-select
+// bar and the player. Wide windows (desktop) get a left sidebar and a full player bar along the
+// bottom; phones get a mini player above a bottom navigation bar. It also decides what the
+// Android Back button does.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -25,6 +32,7 @@ import 'widgets/track_tile.dart';
 class Shell extends StatelessWidget {
   const Shell({super.key});
 
+  /// Window width (in logical pixels) at which the desktop layout takes over.
   static const wideBreakpoint = 840.0;
 
   @override
@@ -32,6 +40,8 @@ class Shell extends StatelessWidget {
     final nav = context.watch<AppNav>();
     final wide = MediaQuery.sizeOf(context).width >= wideBreakpoint;
 
+    // All five tabs stay alive in an IndexedStack (only the chosen one is shown), so each tab
+    // keeps its scroll position and open pages while you're on another tab.
     final tabs = IndexedStack(
       index: nav.tab,
       children: [
@@ -43,6 +53,9 @@ class Shell extends StatelessWidget {
       ],
     );
 
+    // The Back button / gesture. We never let the system close the app; instead, in order:
+    // leave select mode, go back a page in this tab, jump to the Home tab, then (on Home)
+    // hide the app so music keeps playing.
     final body = PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
@@ -64,6 +77,7 @@ class Shell extends StatelessWidget {
       child: tabs,
     );
 
+    // Desktop layout: sidebar | pages, with the strips and the player bar underneath.
     if (wide) {
       return Scaffold(
         body: Column(children: [
@@ -81,6 +95,8 @@ class Shell extends StatelessWidget {
       );
     }
 
+    // Phone layout: pages fill the screen; the strips, mini player and tab bar stack at the
+    // bottom. (The tab order here must match the tab numbers in AppNav.)
     return Scaffold(
       body: SafeArea(bottom: false, child: body),
       bottomNavigationBar: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -110,6 +126,8 @@ class Shell extends StatelessWidget {
 /// so the music keeps playing (closing the app would stop it).
 const _appChannel = MethodChannel('hometunes/app');
 
+// Asks the Android side (MainActivity.kt) to move the app to the background. Does nothing on
+// Windows, where there's no Back button to handle.
 Future<void> _sendToBackground() async {
   if (!Platform.isAndroid) return;
   try {
@@ -121,6 +139,8 @@ Future<void> _sendToBackground() async {
   }
 }
 
+/// One tab's own page stack. It starts with [root] (e.g. HomeScreen) and AppNav pushes album,
+/// artist, book pages etc. on top using [navKey].
 class _TabNavigator extends StatelessWidget {
   final GlobalKey<NavigatorState> navKey;
   final Widget root;
@@ -151,6 +171,7 @@ class _StatusStrip extends StatelessWidget {
   }
 
   Widget _strip(LibraryModel lib, String? status) {
+    // Progress wins over an old error; with neither, the strip takes no space at all.
     final text = status ?? lib.error;
     if (text == null) return const SizedBox.shrink();
     final isError = status == null;
@@ -187,6 +208,7 @@ class _Sidebar extends StatelessWidget {
     final pl = context.watch<PlaylistsModel>();
     final accent = Theme.of(context).colorScheme.primary;
 
+    // One sidebar entry; the selected tab is shown in white, the rest dimmed.
     Widget item(int i, IconData icon, String label) => ListTile(
           leading: Icon(icon, color: nav.tab == i ? Colors.white : null),
           title: Text(label,
@@ -218,6 +240,7 @@ class _Sidebar extends StatelessWidget {
         item(AppNav.booksTab, Icons.menu_book, 'Audiobooks'),
         item(AppNav.settingsTab, Icons.settings, 'Settings'),
         const Divider(height: 24),
+        // Liked Songs and the playlists open on the Library tab.
         ListTile(
           dense: true,
           leading: Icon(Icons.favorite, color: accent),
@@ -256,6 +279,8 @@ class _SelectionBar extends StatelessWidget {
     if (!sel.active) return const SizedBox.shrink();
     final lib = context.read<LibraryModel>();
     final accent = Theme.of(context).colorScheme.primary;
+    // The ticked songs as Track objects (ids that no longer exist are skipped). Worked out
+    // fresh at each button press so it's never stale.
     List<Track> picked() => [for (final id in sel.ids) lib.byId(id)].whereType<Track>().toList();
 
     return Material(
@@ -293,6 +318,7 @@ class _SelectionBar extends StatelessWidget {
                 final ids = [for (final t in picked()) t.id];
                 await lib.setIsBook(ids, true);
                 sel.clear();
+                // Undo sets the override back to null ("decide automatically"), not to false.
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     content: Text('Moved ${ids.length} to Books'),
@@ -306,6 +332,7 @@ class _SelectionBar extends StatelessWidget {
               icon: const Icon(Icons.queue_music),
               onPressed: () async {
                 final player = context.read<PlayerModel>();
+                // One at a time, in the order they appear in the selection.
                 for (final t in picked()) {
                   await player.addToQueue(t);
                 }

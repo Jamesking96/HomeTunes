@@ -1,3 +1,7 @@
+// Tests for scanning a music folder (services/local_scanner.dart and LibraryModel.scanLocal).
+// They write lots of tiny silent WAV files into a temp folder, so they run without any real
+// music. Covered: the parallel background workers find every file exactly once and keep folder
+// order, and scan progress is reported separately so the whole app doesn't redraw per batch.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +13,8 @@ import 'package:path/path.dart' as p;
 import 'metadata_features_test.dart' show silentWav;
 
 void main() {
+  // The scanner reads tags in batches spread over several isolates (workers); results must still
+  // come back complete, without duplicates and sorted by path, and progress must reach the total.
   test('several workers at once: every file found once, in folder order', () async {
     final dir = Directory.systemTemp.createTempSync('hometunes_scan');
     addTearDown(() => dir.deleteSync(recursive: true));
@@ -30,6 +36,8 @@ void main() {
     expect(paths.toSet().length, n);
   });
 
+  // Progress goes through the separate `statusText` notifier; the main library notifier (which
+  // makes every screen rebuild) should only fire a handful of times for the whole scan.
   test('scan progress doesn\'t redraw the whole app', () async {
     final dir = Directory.systemTemp.createTempSync('hometunes_scan2');
     addTearDown(() => dir.deleteSync(recursive: true));

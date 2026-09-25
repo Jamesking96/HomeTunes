@@ -1,3 +1,9 @@
+// Backup and restore of all HomeTunes data as a single .htbackup file.
+// Used from Settings (backup page) through LibraryModel. create() gathers the JSON data files
+// and cover images into one gzip'd JSON; read() opens one and checks it; restore() writes it
+// back, either replacing what's here or merging the two. The models then reload their files.
+// Paths inside the app's own folder are stored as "@app/..." so a backup made on Windows
+// can be restored on a phone (and the other way round).
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -14,6 +20,7 @@ import 'storage.dart';
 /// The file is gzip-compressed JSON. Paths inside the app's own folder are
 /// stored relative to it, so a backup works on another PC or phone.
 class AppBackup {
+  // Written into every backup so we can recognise our own files and their age.
   static const format = 'hometunes-backup';
   static const version = 1;
   static const fileExtension = 'htbackup';
@@ -45,17 +52,21 @@ class AppBackup {
     bool includeCoverCache = true,
   }) async {
     final root = storage.root.path;
+    // 1. The data files, with app paths made portable.
     final files = <String, dynamic>{};
     for (final name in dataFiles) {
       final j = await storage.read(name);
       if (j == null) continue;
       files[name] = toPortable(j, root);
     }
+    // 2. Leave the server password out unless the user ticked the box.
     final settings = files['settings.json'];
     if (!includePassword && settings is Map && settings['server'] is Map) {
       (settings['server'] as Map).remove('password');
     }
 
+    // 3. Cover images, stored as text (base64) keyed by their path under the app folder.
+    //    art/custom/ holds covers the user chose, which can't be recreated, so they always go in.
     final art = <String, String>{};
     final artDir = Directory(storage.artDir);
     if (await artDir.exists()) {
@@ -68,6 +79,7 @@ class AppBackup {
       }
     }
 
+    // 4. Wrap it all up with a label and version, then compress.
     final json = {
       'format': format,
       'version': version,
@@ -91,7 +103,7 @@ class AppBackup {
       throw const FormatException('This isn\'t a HomeTunes backup file.');
     }
     final v = json['version'];
-    if (v is! int || v > version) {
+    if (v is! int || v > version) {  // older versions are fine
       throw const FormatException('This backup was made by a newer HomeTunes. Update the app first.');
     }
     return BackupContents(
@@ -115,13 +127,17 @@ class AppBackup {
     // Cover images first, so the data never points at a picture that isn't there.
     for (final e in backup.art.entries) {
       final parts = e.key.split('/');
+      // Safety: only write inside art/, and refuse ".." so a crafted backup can't write
+      // files elsewhere on the device.
       if (parts.isEmpty || parts.first != 'art' || parts.any((s) => s == '..' || s.isEmpty)) continue;
       final dest = File(p.joinAll([root, ...parts]));
-      if (await dest.exists()) continue;
+      if (await dest.exists()) continue;  // files are named by content
       await dest.parent.create(recursive: true);
       await dest.writeAsBytes(base64Decode(e.value), flush: true);
     }
 
+    // Helpers: one data file from the backup (with paths made local again), and the
+    // same file as it is on this device now. Both give an empty map if missing.
     Map<String, dynamic> backupFile(String name) {
       final j = backup.files[name];
       return j is Map ? Map<String, dynamic>.from(fromPortable(j, root) as Map) : <String, dynamic>{};
@@ -137,6 +153,7 @@ class AppBackup {
     final cs = await currentFile('settings.json');
     final backupFolders = (bs['folders'] as List? ?? const []).cast<String>();
     final backupBookFolders = (bs['audiobookFolders'] as List? ?? const []).cast<String>();
+    // Folders from another device usually don't exist here; they're dropped and reported.
     final missingFolders = [
       for (final f in [...backupFolders, ...backupBookFolders]) if (!Directory(f).existsSync()) f
     ];
@@ -144,7 +161,7 @@ class AppBackup {
     final usableBookFolders = [for (final f in backupBookFolders) if (Directory(f).existsSync()) f];
     final Map<String, dynamic> settings;
     if (merge) {
-      settings = {...bs, ...cs};
+      settings = {...bs, ...cs};  // this device's settings win
       final current = (cs['folders'] as List? ?? const []).cast<String>();
       settings['folders'] = [...current, for (final f in usableFolders) if (!current.contains(f)) f];
       final currentBooks = (cs['audiobookFolders'] as List? ?? const []).cast<String>();
@@ -154,6 +171,7 @@ class AppBackup {
       ];
       final overrides = {...?(bs['bookOverrides'] as Map?), ...?(cs['bookOverrides'] as Map?)};
       if (overrides.isNotEmpty) settings['bookOverrides'] = overrides;
+      // Only take the backup's server if this device has none set up.
       final currentServer = cs['server'];
       if (currentServer is! Map || ((currentServer['url'] as String?) ?? '').isEmpty) {
         settings['server'] = bs['server'];
@@ -171,13 +189,14 @@ class AppBackup {
       }
     }
     final s = settings['server'];
+    // Tell the user if they'll need to type the server password in again.
     final needsPassword = s is Map &&
         ((s['url'] as String?) ?? '').isNotEmpty &&
         ((s['password'] as String?) ?? '').isEmpty;
 
     // ---- edits ----
     final be = backupFile('edits.json');
-    final edits = merge ? {...await currentFile('edits.json'), ...be} : be;
+    final edits = merge ? {...await currentFile('edits.json'), ...be} : be;  // backup's edits win
 
     // ---- playlists ----
     final bp = backupFile('playlists.json');
@@ -194,6 +213,9 @@ class AppBackup {
     final Map<String, dynamic> library;
     if (merge) {
       final cl = await currentFile('library.json');
+      // Keep this device's scan as it is. The backup's songs go into the "missing" list, so
+      // their edits and playlist places are kept and get matched up if the files turn up
+      // later (see track_matching.dart). Duplicates are skipped.
       final here = {for (final t in (cl['local'] as List? ?? const [])) (t as Map)['id']};
       final seen = <Object?>{...here};
       final missing = [
@@ -214,6 +236,8 @@ class AppBackup {
       library = bl;
     }
 
+    // Save the four main files. The optional files below are only replaced if the backup
+    // has them (older backups didn't), so a replace never wipes them for no reason.
     await storage.write('settings.json', settings);
     await storage.write('edits.json', edits);
     await storage.write('playlists.json', playlists);
@@ -268,7 +292,7 @@ class AppBackup {
     ];
     for (final pl in (incoming['playlists'] as List? ?? const [])) {
       final m = Map<String, dynamic>.from(pl as Map);
-      final same = lists.where((x) => x['id'] == m['id']).firstOrNull;
+      final same = lists.where((x) => x['id'] == m['id']).firstOrNull;  // e.g. restored twice
       if (same == null) {
         lists.add(m);
       } else {
@@ -292,7 +316,7 @@ class AppBackup {
     for (final e in ((incoming as Map?) ?? const {}).entries) {
       final mine = out[e.key];
       final theirs = e.value;
-      int updated(Object? v) => v is Map ? ((v['updated'] as int?) ?? 0) : -1;
+      int updated(Object? v) => v is Map ? ((v['updated'] as int?) ?? 0) : -1;  // last-saved time
       if (mine == null || updated(theirs) > updated(mine)) out[e.key as String] = theirs;
     }
     return out;
@@ -310,6 +334,7 @@ class AppBackup {
         return p.joinAll([root, ...s.substring(appPrefix.length).split('/')]);
       });
 
+  /// Runs [f] on every string anywhere in a JSON tree (values only, not keys).
   static Object? _mapStrings(Object? json, String Function(String) f) {
     if (json is String) return f(json);
     if (json is List) return [for (final v in json) _mapStrings(v, f)];
@@ -320,8 +345,11 @@ class AppBackup {
 
 /// What's in a backup file.
 class BackupContents {
+  /// Data file name -> its JSON content, as stored (paths still portable).
   final Map<String, dynamic> files;
+  /// Cover image path ("art/...") -> the picture as base64 text.
   final Map<String, String> art;
+  /// When the backup was made.
   final DateTime? created;
 
   /// Operating system it was made on ("windows", "android"…).
@@ -332,6 +360,7 @@ class BackupContents {
   Map<String, dynamic> _file(String name) =>
       files[name] is Map ? Map<String, dynamic>.from(files[name] as Map) : const {};
 
+  // Counts shown in the restore dialog so the user can see what's inside before restoring.
   int get playlistCount => (_file('playlists.json')['playlists'] as List? ?? const []).length;
   int get likedCount => (_file('playlists.json')['liked'] as List? ?? const []).length;
   int get editCount => _file('edits.json').length;
@@ -350,6 +379,7 @@ class BackupContents {
   }
 }
 
+/// What the restore screen should tell the user afterwards.
 class RestoreResult {
   /// Music folders from the backup that don't exist on this device.
   final List<String> missingFolders;

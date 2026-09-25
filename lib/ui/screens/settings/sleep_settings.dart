@@ -1,3 +1,6 @@
+// Settings › Sleep timer: whether the moon button shows, how long the timer runs for music and
+// for books, and how long the fade-out lasts. Kept on its own page (not under Audiobooks)
+// because it applies to music too. The timer itself is SleepTimer in the state folder.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -8,6 +11,8 @@ import 'settings_widgets.dart';
 class SleepTimerSettings extends StatelessWidget {
   const SleepTimerSettings({super.key});
 
+  // Choices in minutes. The last one, sleepAtEnd, is a special value meaning "end of the song"
+  // for music or "end of the chapter" for books.
   static const _lengths = [5, 10, 15, 20, 30, 45, 60, 90, 120, LibraryModel.sleepAtEnd];
 
   @override

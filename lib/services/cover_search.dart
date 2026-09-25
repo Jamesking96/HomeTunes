@@ -1,3 +1,8 @@
+// Finds album covers online for the "find cover online" option when editing songs/albums.
+// Step 1 asks MusicBrainz (a free music encyclopedia) which albums match; step 2 fetches a small
+// preview of each from the Cover Art Archive, dropping albums that have no picture. When the user
+// picks one, download() gets the bigger version, which the editor saves as the custom cover.
+// Both services are free and ask apps to send a User-Agent that names them.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -6,6 +11,7 @@ import 'package:http/http.dart' as http;
 
 /// One possible cover found online.
 class CoverCandidate {
+  /// MusicBrainz's id for the album (all its editions together).
   final String releaseGroupId;
   final String title;
   final String artist;
@@ -35,6 +41,7 @@ class CoverSearch {
   /// album (by that artist if known); with only a song title + artist it
   /// looks for albums containing that song.
   static Uri buildQuery({String? artist, String? album, String? title, int limit = 12}) {
+    // Wrap each value in quotes for the search, removing quotes/backslashes that would break it.
     String q(String s) => '"${s.replaceAll(RegExp(r'["\\]'), ' ').trim()}"';
     final a = artist?.trim() ?? '';
     final al = album?.trim() ?? '';
@@ -84,6 +91,7 @@ class CoverSearch {
     for (final rg in (json['release-groups'] as List? ?? const [])) {
       add(rg as Map<String, dynamic>, '');
     }
+    // A song search returns recordings; each lists the releases (albums) it's on.
     for (final rec in (json['recordings'] as List? ?? const [])) {
       final r = rec as Map<String, dynamic>;
       final recArtist = artistOf(r);
@@ -95,6 +103,7 @@ class CoverSearch {
     return out;
   }
 
+  // Cover Art Archive addresses: 250 px preview and 500 px full picture of the front cover.
   static Uri thumbnailUrl(String releaseGroupId) =>
       Uri.parse('https://coverartarchive.org/release-group/$releaseGroupId/front-250');
   static Uri fullImageUrl(String releaseGroupId) =>
@@ -151,5 +160,6 @@ class CoverSearch {
     return r.bodyBytes;
   }
 
+  /// Frees the network connection.
   void close() => _http.close();
 }

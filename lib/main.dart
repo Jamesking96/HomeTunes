@@ -1,3 +1,10 @@
+// The app's starting point.
+// main() opens the storage folder, creates every shared "model" (library, playlists, listening
+// places, bookmarks, lyrics, player), loads their saved JSON files, links them together, starts
+// the system media controls and then hands everything to Flutter through a MultiProvider.
+// Screens further down the tree reach these models with context.watch / select / read.
+// Order matters here: the models must be loaded before the UI appears, and the player must exist
+// before the media controls (notification, lock screen, Windows media keys) can be connected.
 import 'dart:io';
 
 import 'package:audio_service_win/audio_service_win.dart';
@@ -20,26 +27,33 @@ import 'ui/nav.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
 
+/// Starts HomeTunes: sets up storage and the models, then shows the app.
 Future<void> main() async {
+  // Both of these must run before any plugin or media_kit Player is used.
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
 
+  // 1. Open the data folder and create the models (nothing is read from disk yet).
   final storage = await Storage.open();
   final library = LibraryModel(storage);
   final playlists = PlaylistsModel(storage);
   final listening = ListeningModel(storage);
   final bookmarks = BookmarksModel(storage);
   final lyrics = LyricsModel(library, storage);
+  // 2. Load all the saved JSON files at the same time, to keep start-up quick.
   await Future.wait([library.load(), playlists.load(), listening.load(), bookmarks.load(), lyrics.load()]);
   // Songs in playlists / Liked Songs are kept track of even when their files
   // are missing, and follow them if they move.
   library
+    // Asked during a scan: which song ids do other parts of the app still point at?
     ..otherReferencedIds = (() => {...playlists.referencedIds, ...listening.referencedIds, ...bookmarks.referencedIds})
+    // A file moved: update the old id to the new one everywhere it's stored.
     ..onIdsRemapped = ((moved) {
       playlists.remapIds(moved);
       listening.remapIds(moved);
       bookmarks.remapIds(moved);
     })
+    // The user chose to forget missing songs: drop them from everything else too.
     ..onIdsForgotten = ((ids) {
       playlists.removeIds(ids);
       listening.removeIds(ids);
@@ -55,11 +69,14 @@ Future<void> main() async {
     // Make sure the Windows media-controls plugin is the one audio_service uses.
     AudioServiceWin.registerWith();
   }
+  // Can come back null (e.g. the platform refused); the app still works, just without
+  // the system controls.
   final session = await MediaSession.start(player, library);
   debugPrint(session == null
       ? 'HomeTunes: system media controls are off'
       : 'HomeTunes: system media controls connected');
 
+  // 3. Show the app. Everything below runs after the first screen is up.
   runApp(HomeTunesApp(
     library: library,
     playlists: playlists,
@@ -73,9 +90,10 @@ Future<void> main() async {
   await library.refreshMusicAccess(rescanIfNewlyAllowed: false);
 
   // Pick up new / changed files in the background after start-up.
-  if (library.folders.isNotEmpty) library.scanLocal();
+  if (library.folders.isNotEmpty) library.scanLocal(); // not awaited on purpose
 }
 
+/// Watches the app going into / coming out of the background (a Flutter lifecycle observer).
 class _SaveOnBackground with WidgetsBindingObserver {
   final PlayerModel player;
   _SaveOnBackground(this.player);
@@ -86,11 +104,15 @@ class _SaveOnBackground with WidgetsBindingObserver {
       // Back from the phone's Settings: music access may have been turned on.
       player.library.refreshMusicAccess();
     } else {
+      // Any other state (inactive, paused, hidden, detached) may be the last chance
+      // before the app is closed, so save the book place now.
       player.saveBookPlace();
     }
   }
 }
 
+/// The root widget. Makes every model available to the screens below it and
+/// starts the [Shell] (the sidebar / bottom-bar frame that holds all the pages).
 class HomeTunesApp extends StatelessWidget {
   final LibraryModel library;
   final PlaylistsModel playlists;
@@ -112,12 +134,14 @@ class HomeTunesApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // Models made in main() are passed in with `.value`, so Provider won't dispose them.
         ChangeNotifierProvider.value(value: library),
         ChangeNotifierProvider.value(value: playlists),
         ChangeNotifierProvider.value(value: listening),
         ChangeNotifierProvider.value(value: bookmarks),
         ChangeNotifierProvider.value(value: lyrics),
         ChangeNotifierProvider.value(value: player),
+        // These only matter to the UI, so Provider creates (and owns) them itself.
         ChangeNotifierProvider(create: (_) => SleepTimer(player, library)),
         ChangeNotifierProvider(create: (_) => AppNav()),
         ChangeNotifierProvider(create: (_) => SelectionModel()),
