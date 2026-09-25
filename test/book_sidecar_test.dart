@@ -155,9 +155,9 @@ void main() {
       touch('Other/whatever.png');
       expect(p.basename(findSidecars(b.path, FolderCache()).image!), 'whatever.png');
 
-      final c = touch('Two/track.mp3');
-      touch('Two/one.jpg');
-      touch('Two/two.jpg');
+      final c = touch('Pair/track.mp3');
+      touch('Pair/one.jpg');
+      touch('Pair/two.jpg');
       expect(findSidecars(c.path, FolderCache()).image, isNull);
     });
 
@@ -178,7 +178,7 @@ void main() {
 
     test('scanning reads the details and chapters, and picks up files added later', () async {
       final folder = Directory(p.join(dir.path, 'Kettle'))..createSync();
-      final book = File(p.join('test', 'fixtures', 'tagged.m4a')).copySync(p.join(folder.path, 'The Last Kettle.m4b'));
+      File(p.join('test', 'fixtures', 'tagged.m4a')).copySync(p.join(folder.path, 'The Last Kettle.m4b'));
       final artDir = Directory(p.join(dir.path, 'art'))..createSync();
       final scanner = LocalScanner(artDir.path);
 

@@ -1,6 +1,8 @@
 // Checks the LRCLIB look-up against the real service (needs internet):
 //   dart run tool/probe_lyrics.dart "Title" "Artist" [seconds]
 // Prints what was found (not the lyrics themselves).
+import 'dart:io';
+
 import 'package:hometunes/services/lrclib_client.dart';
 
 Future<void> main(List<String> args) async {
@@ -11,14 +13,14 @@ Future<void> main(List<String> args) async {
   try {
     final m = await c.find(title: title, artist: artist, duration: secs == null ? null : Duration(seconds: secs));
     if (m == null) {
-      print('find: nothing');
+      stdout.writeln('find: nothing');
     } else {
       final lines = (m.bestLyrics ?? '').split('\n').length;
-      print('find: #${m.id} "${m.title}" by ${m.artist}, ${m.duration.inSeconds}s, '
+      stdout.writeln('find: #${m.id} "${m.title}" by ${m.artist}, ${m.duration.inSeconds}s, '
           '${m.timed ? 'timed' : 'plain'}, $lines lines');
     }
     final all = await c.search(title: title, artist: artist, duration: secs == null ? null : Duration(seconds: secs));
-    print('search: ${all.length} results; first 3: '
+    stdout.writeln('search: ${all.length} results; first 3: '
         '${all.take(3).map((x) => '${x.duration.inSeconds}s ${x.timed ? 'timed' : 'plain'}').join(', ')}');
   } finally {
     c.close();
