@@ -27,6 +27,7 @@ import 'screens/search_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'theme.dart';
 import 'widgets/player_controls.dart';
+import 'widgets/quick_actions.dart';
 import 'widgets/track_tile.dart';
 
 /// Wide screens get a sidebar + bottom player bar; phones get a mini player
@@ -414,6 +415,17 @@ class _GroupSelectionBar extends StatelessWidget {
                 }
                 sel.clear();
               },
+            ),
+            Builder(
+              builder: (context) => IconButton(
+                tooltip: 'More',
+                icon: const Icon(Icons.more_vert),
+                onPressed: () {
+                  final box = context.findRenderObject() as RenderBox;
+                  final actions = albums ? albumActions(context, pickedAlbums) : bookActions(context, pickedBooks);
+                  showQuickActions(context, box.localToGlobal(box.size.center(Offset.zero)), actions);
+                },
+              ),
             ),
             const SizedBox(width: 4),
             FilledButton.icon(

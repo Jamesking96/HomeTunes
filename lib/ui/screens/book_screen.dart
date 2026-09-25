@@ -21,6 +21,7 @@ import '../theme.dart';
 import '../widgets/book_card.dart';
 import '../widgets/bookmark_widgets.dart';
 import '../widgets/cards.dart';
+import 'details_screen.dart';
 import 'edit_book.dart';
 
 /// One audiobook: details, Resume / Play, and its chapters.
@@ -169,6 +170,10 @@ class BookScreen extends StatelessWidget {
                 value: () => listening.setFinished(book, false),
                 child: Text(state == BookState.finished ? 'Mark as not finished' : 'Start over (clear progress)'),
               ),
+            PopupMenuItem(
+              value: () => openDetails(context, kind: 'Audiobook', title: book.title, tracks: book.parts, book: book),
+              child: const Text('Details: where it comes from'),
+            ),
             PopupMenuItem(
               value: () => _moveToMusic(context, book),
               child: const Text('Move to Music…'),

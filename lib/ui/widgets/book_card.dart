@@ -14,6 +14,7 @@ import '../../state/selection_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import 'cards.dart' show SelectableCard;
+import 'quick_actions.dart';
 
 /// Height ÷ width of book covers: square like music, or tall like a book
 /// (Settings > Audiobooks).
@@ -80,7 +81,10 @@ class BookCard extends StatelessWidget {
       kind: SelectKind.books,
       scope: scope,
       favourite: favourite,
-      onFavourite: (on) => context.read<PlaylistsModel>().setFavouriteBooks([book], on),
+      actionsFor: (ids) {
+        final lib = context.read<LibraryModel>();
+        return bookActions(context, [for (final id in ids) lib.bookById(id)].whereType<Book>().toList());
+      },
       onOpen: () => context.read<AppNav>().openBook(book),
       child: Padding(
         padding: const EdgeInsets.all(8),

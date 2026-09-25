@@ -374,7 +374,7 @@ class LibraryModel extends ChangeNotifier {
     _byId = {for (final t in all) t.id: t};
     // 2. Sort each file into music or audiobook. Server book files are left out entirely
     //    when "Audiobooks from the music server" is off.
-    final rules = BookRules(genres: bookGenres, bookFolders: audiobookFolders, overrides: _kindOverrides);
+    final rules = bookRules = BookRules(genres: bookGenres, bookFolders: audiobookFolders, overrides: _kindOverrides);
     final bookFiles = <Track>[];
     tracks = [];
     for (final t in all) {
@@ -728,6 +728,9 @@ class LibraryModel extends ChangeNotifier {
 
   /// The song as read from the file/server, ignoring the user's edits.
   Track? originalById(String id) => _rawById[id];
+
+  /// The rules that decide what's an audiobook (as last applied), for "why is this a book?".
+  BookRules bookRules = BookRules();
 
   /// True if the user has changed anything about this song in HomeTunes.
   bool isEdited(String id) => _edits.containsKey(id);
