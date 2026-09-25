@@ -97,7 +97,7 @@ void main() {
   });
 
   testWidgets('an album tile\'s menu adds it to favourites, and it shows a heart', (tester) async {
-    tester.view.physicalSize = const Size(600, 400);
+    tester.view.physicalSize = const Size(900, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final playlists = PlaylistsModel(Storage.at(dir));
