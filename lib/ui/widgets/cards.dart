@@ -36,7 +36,11 @@ class AlbumCard extends StatelessWidget {
       favourite: favourite,
       actionsFor: (keys) {
         final lib = context.read<LibraryModel>();
-        return albumActions(context, [for (final k in keys) lib.albumByKey(k)].whereType<Album>().toList());
+        // Just this one: use it as shown. Several: look each one up.
+        final albums = keys.length == 1 && keys.first == album.key
+            ? [album]
+            : [for (final k in keys) lib.albumByKey(k)].whereType<Album>().toList();
+        return albumActions(context, albums);
       },
       onOpen: () => context.read<AppNav>().openAlbum(album),
       child: Padding(
