@@ -22,6 +22,7 @@ enum DetailSource {
   picture('Picture beside it'),
   embedded('Built into the file'),
   folderName('Folder name'),
+  sameAsArtist('Same as the artist'),
   fileName('File name'),
   measured('Measured when played'),
   edit('Your edit'),
@@ -128,13 +129,14 @@ FileDetails inspectTrackNow({required Track shown, required Track scanned, requi
   // Works out a text detail's source by checking, in the scanner's own order, which
   // place gives the value the scan saved.
   DetailRow text(String label, String? scannedValue, String? shownValue,
-      {String? tag, String? fromInfo, String? folderValue, String? fileValue, String? standIn}) {
+      {String? tag, String? fromInfo, String? folderValue, String? fileValue, String? standIn, String? copied}) {
     final s = scannedValue ?? '';
     final v = shownValue ?? '';
     if (v != s) return DetailRow(label, v.isEmpty ? '–' : v, DetailSource.edit, inFile: s.isEmpty ? '–' : s);
     if (v.isEmpty) return DetailRow(label, '–', DetailSource.notSet);
     if (fromInfo != null && fromInfo == s) return DetailRow(label, v, DetailSource.bookFile, from: infoName);
     if (tag != null && tag == s) return DetailRow(label, v, DetailSource.tags);
+    if (copied != null && copied == s) return DetailRow(label, v, DetailSource.sameAsArtist);
     if (folderValue != null && folderValue == s) return DetailRow(label, v, DetailSource.folderName);
     if (fileValue != null && fileValue == s) return DetailRow(label, v, DetailSource.fileName);
     if (standIn != null && standIn == s) return DetailRow(label, v, DetailSource.standIn);
@@ -149,7 +151,8 @@ FileDetails inspectTrackNow({required Track shown, required Track scanned, requi
     text('Album', scanned.album, shown.album, tag: tagAlbum, fromInfo: info?.title, folderValue: p.basename(folder)),
     // With no album artist in the tags, the scan uses the artist.
     text('Album artist', scanned.albumArtist, shown.albumArtist,
-        tag: tagAlbumArtist ?? tagArtist, fromInfo: info?.author, standIn: 'Unknown Artist'),
+        tag: tagAlbumArtist, fromInfo: info?.author, copied: tagAlbumArtist == null ? scanned.artist : null,
+        standIn: 'Unknown Artist'),
     text('Track number', str(scanned.trackNumber), str(shown.trackNumber),
         tag: str(m?.trackNumber), fileValue: str(fallback.trackNumber)),
     text('Disc number', str(scanned.discNumber), str(shown.discNumber), tag: str(m?.discNumber)),
@@ -222,9 +225,12 @@ FileDetails inspectTrackNow({required Track shown, required Track scanned, requi
     ],
   ];
 
+  // A picture beside a file that has its own cover is only a fallback.
+  final pictureUsed = sidecars.image != null && scanned.art != null && p.equals(scanned.art!, sidecars.image!);
   final beside = <(String, String)>[
     if (sidecars.metadataFile != null) (p.basename(sidecars.metadataFile!), 'Book details'),
-    if (sidecars.image != null) (p.basename(sidecars.image!), 'Cover picture'),
+    if (sidecars.image != null)
+      (p.basename(sidecars.image!), pictureUsed ? 'Cover picture' : 'Cover picture (not used: the file has its own)'),
     if (sidecars.descriptionFile != null) (_relative(sidecars.descriptionFile!, folder), 'Description'),
     for (final c in sidecars.companions) (p.basename(c), 'Book PDF / EPUB'),
   ];
