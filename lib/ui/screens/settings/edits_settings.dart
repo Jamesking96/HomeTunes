@@ -1,3 +1,9 @@
+// Settings › Your edits: saves the changes made in HomeTunes (details, covers, lyrics) into
+// the music files themselves, optionally backing up each file first.
+//
+// Until this is used, edits live only in edits.json and the files are untouched. The writing
+// is done by LibraryModel.writeEditsToFiles, which uses services/tag_writer.dart in an
+// isolate. Anything a format can't hold stays as a HomeTunes edit.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -15,11 +21,13 @@ class EditsSettings extends StatefulWidget {
 }
 
 class EditsSettingsState extends State<EditsSettings> {
-  bool _backup = true;
-  bool _running = false;
+  bool _backup = true; // "Back up each file first"
+  bool _running = false; // true while files are being written
 
+  /// Confirms, writes the edits into the files, then shows a summary of what worked.
   Future<void> _write() async {
     final lib = context.read<LibraryModel>();
+    // Only local files in a format we can write (not server songs, not OGG/Opus).
     final tracks = lib.tracksWithWritableEdits;
     if (tracks.isEmpty) return;
 
@@ -43,6 +51,8 @@ class EditsSettingsState extends State<EditsSettings> {
     if (ok != true || !mounted) return;
 
     setState(() => _running = true);
+    // One result per file; a whole-job failure is shown as a snackbar and treated as "nothing
+    // written".
     List<TagWriteResult> results;
     try {
       results = await lib.writeEditsToFiles(tracks, backup: _backup);
@@ -55,6 +65,8 @@ class EditsSettingsState extends State<EditsSettings> {
     if (!mounted) return;
     setState(() => _running = false);
 
+    // Summary dialog: how many worked, the first few failures (by file name only), and where
+    // the backups went.
     final failed = results.where((r) => !r.ok).toList();
     final written = results.length - failed.length;
     await showDialog<void>(

@@ -1,3 +1,7 @@
+// Looks books up on Open Library (openlibrary.org) for the book editor: search() fills in
+// details like author and year, searchCovers() shows cover choices with previews, and
+// downloadCover() fetches the big version of the chosen one. Covers from Open Library are
+// often tall rather than square, which suits audiobooks.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -6,6 +10,7 @@ import 'package:http/http.dart' as http;
 
 /// A book found on Open Library.
 class BookMatch {
+  /// Open Library's id for the book, like "/works/OL12345W".
   final String key;
   final String title;
   final String author;
@@ -26,6 +31,7 @@ class BookMatch {
     this.thumbnail,
   });
 
+  /// The same match with its preview picture attached.
   BookMatch withThumbnail(Uint8List t) =>
       BookMatch(key: key, title: title, author: author, year: year, coverId: coverId, thumbnail: t);
 }
@@ -40,6 +46,7 @@ class BookInfoSearch {
 
   void close() => _http.close();
 
+  /// Search address. Only the fields we use are asked for, which keeps the reply small.
   static Uri buildQuery({String? title, String? author, int limit = 16}) {
     final params = <String, String>{
       'fields': 'key,title,author_name,first_publish_year,cover_i',
@@ -52,6 +59,7 @@ class BookInfoSearch {
     return Uri.https('openlibrary.org', '/search.json', params);
   }
 
+  /// Book matches from a search reply, each book once. Only the first author is kept.
   static List<BookMatch> parse(Map<String, dynamic> json) {
     final out = <BookMatch>[];
     final seen = <String>{};
@@ -71,9 +79,12 @@ class BookInfoSearch {
     return out;
   }
 
+  /// Cover picture address, medium (M) or large (L). "default=false" makes Open Library
+  /// reply "not found" instead of sending a blank placeholder image.
   static Uri coverUrl(int coverId, {bool large = false}) =>
       Uri.https('covers.openlibrary.org', '/b/id/$coverId-${large ? 'L' : 'M'}.jpg', {'default': 'false'});
 
+  /// Books matching the title and/or author.
   Future<List<BookMatch>> search({String? title, String? author}) async {
     final r = await _http.get(buildQuery(title: title, author: author), headers: _headers).timeout(
           const Duration(seconds: 20),
@@ -88,6 +99,7 @@ class BookInfoSearch {
     final withThumbs = await Future.wait(found.map((b) async {
       try {
         final r = await _http.get(coverUrl(b.coverId!), headers: _headers).timeout(const Duration(seconds: 15));
+        // A very small reply is a blank placeholder rather than a real cover.
         if (r.statusCode == 200 && r.bodyBytes.length > 1000) return b.withThumbnail(r.bodyBytes);
       } catch (_) {}
       return null;
@@ -97,6 +109,7 @@ class BookInfoSearch {
     return [for (final b in withThumbs) if (b != null && seen.add(b.coverId!)) b];
   }
 
+  /// The large version of a chosen book's cover.
   Future<Uint8List> downloadCover(BookMatch b) async {
     final r = await _http.get(coverUrl(b.coverId!, large: true), headers: _headers).timeout(const Duration(seconds: 30));
     if (r.statusCode != 200) throw Exception('Open Library answered ${r.statusCode}');

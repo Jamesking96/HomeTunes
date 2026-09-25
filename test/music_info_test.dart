@@ -1,3 +1,8 @@
+// Tests for the "look up song / album details online" feature (services/music_info.dart), which
+// asks MusicBrainz for things like year, track numbers and genres. Everything is tested from
+// hand-written fake replies, so no internet is needed: building the search addresses, ranking
+// the matches, reading artist credits, genres and track lists, and matching the user's song
+// titles to an album's track list.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/services/music_info.dart';
 
@@ -15,6 +20,8 @@ void main() {
     expect(u.queryParameters['query'], 'releasegroup:"Kid A" AND artist:"Radiohead"');
   });
 
+  // A fake reply with one song on two releases: a live bootleg (listed first) and the official
+  // studio album. The official album should be ranked first and marked as preferred.
   test('song matches: official studio albums first, with track + disc numbers', () {
     final matches = MusicInfoSearch.parseSongMatches({
       'recordings': [
@@ -73,6 +80,7 @@ void main() {
     expect(matches.last.year, 1997); // falls back to the recording's first release
   });
 
+  // MusicBrainz splits credits into parts joined by phrases like " feat. "; they're glued back.
   test('artist credits keep "feat." join phrases', () {
     final m = MusicInfoSearch.parseAlbumMatches({
       'release-groups': [
@@ -91,6 +99,7 @@ void main() {
     expect(m.single.year, 2020);
   });
 
+  // MusicBrainz genres come with vote counts; the most voted come first.
   test('genres: most votes first, capitalised', () {
     final g = MusicInfoSearch.parseGenres({
       'genres': [
@@ -102,6 +111,8 @@ void main() {
     expect(g, ['Alternative Rock', 'Rock', 'Britpop']);
   });
 
+  // When an album has several releases, pick the official one whose track count matches the
+  // number of songs the user has (3 here), not simply the first or biggest one.
   test('track list: prefers the official release with the same number of tracks', () {
     Map<String, dynamic> release(String status, int n) => {
           'status': status,
@@ -122,6 +133,8 @@ void main() {
     expect(list.last.disc, 1);
   });
 
+  // Each of the user's titles is matched to an album track (or null if none fits): case,
+  // "&" vs "and" and extras in brackets are ignored.
   test('titles match despite case, punctuation and "(Remastered)"', () {
     final tracks = const [
       TrackInfo(1, 1, 'Airbag'),

@@ -1,3 +1,10 @@
+// Works out which lyrics to show for a song, and remembers lyrics found online (lyrics.json).
+//
+// The lyrics view in Now Playing and the desktop player bar call `lyricsFor`. The answer can
+// come from several places (see the list on the class below); the user's own lyrics live in
+// LibraryModel as an edit, while lyrics found online are cached here so they still work
+// offline. A "nothing found" answer from LRCLIB is remembered for 14 days so we don't keep
+// asking. The "Find lyrics on LRCLIB…" dialog uses `search` to list every match by hand.
 import 'package:flutter/foundation.dart';
 
 import '../models/lyrics.dart';
@@ -49,19 +56,24 @@ class LyricsModel extends ChangeNotifier {
   final Map<String, LocalLyrics> _local = {};
 
   /// Look-ups in progress, so asking twice doesn't search twice.
+  // Keyed by "track id|online", since an offline-only look-up can give a different answer.
   final Map<String, Future<Lyrics?>> _pending = {};
 
+  /// The clock, swappable in tests.
   DateTime Function() now = DateTime.now;
 
   /// Goes up whenever lyrics may have changed, so views look again.
   int revision = 0;
 
+  // Every redraw bumps [revision]. Views that cache a lyrics future can compare the number
+  // to know when to ask again.
   @override
   void notifyListeners() {
     revision++;
     super.notifyListeners();
   }
 
+  /// Reads lyrics.json (at start-up and after a backup is restored).
   Future<void> load() async {
     _found = {};
     _none = {};
@@ -72,7 +84,8 @@ class LyricsModel extends ChangeNotifier {
       if (f is Map) {
         for (final e in f.entries) {
           final v = e.value;
-          if (v is! Map || v['text'] is! String) continue;
+          if (v is! Map || v['text'] is! String) continue; // skip damaged entries
+          // Older files may not say where the lyrics came from; assume LRCLIB.
           final source = LyricsSource.values.asNameMap()[v['source']] ?? LyricsSource.lrclib;
           _found[e.key as String] = (text: v['text'] as String, source: source);
         }
@@ -87,6 +100,7 @@ class LyricsModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Writes the online finds and the "nothing found" times back to lyrics.json.
   Future<void> _save() => storage.write('lyrics.json', {
         'found': {
           for (final e in _found.entries) e.key: {'text': e.value.text, 'source': e.value.source.name},
@@ -104,17 +118,22 @@ class LyricsModel extends ChangeNotifier {
     });
   }
 
+  /// Does the actual look-up, trying each source in turn (see the list on the class).
   Future<Lyrics?> _resolve(Track t, bool online) async {
+    // 1. The user's own lyrics. An empty edit means "hide lyrics for this song".
     final yours = library.lyricsEdit(t.id);
     if (yours != null) return yours.trim().isEmpty ? null : Lyrics(yours, LyricsSource.yours);
 
+    // 2. The file's own lyrics (tags or a .lrc file beside it).
     final own = await _ownLyrics(t);
     if (own != null) return own;
 
+    // 3. Lyrics found online on an earlier look-up. After this we'd need the internet.
     final saved = _found[t.id];
     if (saved != null) return Lyrics(saved.text, saved.source);
     if (!online) return null;
 
+    // 4. For server songs, ask the Subsonic server (if one is set up).
     final client = library.client;
     if (!t.isLocal && client != null) {
       final text = await client.fetchLyrics(t);
@@ -124,7 +143,9 @@ class LyricsModel extends ChangeNotifier {
       }
     }
 
+    // 5. LRCLIB, but only if the user turned on online lyrics, and never for audiobooks.
     if (!library.onlineLyrics || library.bookOfTrack(t.id) != null) return null;
+    // Don't ask again if LRCLIB had nothing for this song within the last 14 days.
     final triedAt = _none[t.id];
     if (triedAt != null && now().difference(DateTime.fromMillisecondsSinceEpoch(triedAt)) < retryAfter) return null;
     final lrclib = makeLrclib();
@@ -136,6 +157,7 @@ class LyricsModel extends ChangeNotifier {
         duration: t.hasDuration ? t.duration : null,
       );
       final text = m?.bestLyrics;
+      // Nothing found: remember when, so we wait before asking again.
       if (text == null) {
         _none[t.id] = now().millisecondsSinceEpoch;
         await _save();
@@ -146,6 +168,7 @@ class LyricsModel extends ChangeNotifier {
     } on LrclibException {
       return null; // offline: try again next time
     } finally {
+      // Always close the HTTP client, whatever happened.
       lrclib.close();
     }
   }
@@ -155,6 +178,8 @@ class LyricsModel extends ChangeNotifier {
     final path = t.path;
     if (!t.isLocal || path == null) return null;
     final LocalLyrics local;
+    // Reading the file happens once per song per run (cached in _local). A file we can't read
+    // (moved, locked, damaged) simply has no lyrics of its own.
     try {
       local = _local[t.id] ??= await readLocal(path);
     } catch (_) {
@@ -162,12 +187,14 @@ class LyricsModel extends ChangeNotifier {
     }
     final tags = local.tags == null ? null : Lyrics(local.tags!, LyricsSource.file);
     final lrc = local.lrc == null ? null : Lyrics(local.lrc!, LyricsSource.lrcFile);
+    // A timed .lrc beats untimed tag lyrics; otherwise the tags come first, then the .lrc.
     if (lrc != null && lrc.timed && (tags == null || !tags.timed)) return lrc;
     if (tags != null && !tags.isEmpty) return tags;
     if (lrc != null && !lrc.isEmpty) return lrc;
     return null;
   }
 
+  /// Saves lyrics found online, and clears any earlier "nothing found" note for the song.
   Future<void> _remember(String id, String text, LyricsSource source) async {
     _found[id] = (text: text, source: source);
     _none.remove(id);
@@ -208,11 +235,13 @@ class LyricsModel extends ChangeNotifier {
   bool hasYours(Track t) => (library.lyricsEdit(t.id) ?? '').trim().isNotEmpty;
 
   /// The user said the song has no lyrics.
+  // (Only an exactly empty edit counts here; lyricsFor also treats blank-space-only as hidden.)
   bool isHidden(Track t) => library.lyricsEdit(t.id) == '';
 
   // ---- searching LRCLIB by hand ----
 
   /// Everything LRCLIB has for this song, best first.
+  /// [title] and [artist] let the user change the search words in the dialog.
   Future<List<LrclibMatch>> search(Track t, {String? title, String? artist}) async {
     final c = makeLrclib();
     try {

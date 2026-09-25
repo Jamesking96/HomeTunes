@@ -1,3 +1,8 @@
+// The list of Settings pages, and the index that Settings search looks through.
+//
+// SettingsScreen uses [SettingsPage] to draw its list of pages, and [searchSettings] for the
+// search box. Each [SettingInfo] id must match a SettingTarget on that page so a search result
+// can scroll to it; test/settings_test.dart checks this. When you add a setting, add it here.
 import 'package:flutter/material.dart';
 
 /// The pages Settings is split into, in the order they're listed.
@@ -12,11 +17,15 @@ enum SettingsPage {
   backup('Backup & restore', 'Move everything to another PC or phone', Icons.settings_backup_restore),
   about('About', 'Version and where your data is kept', Icons.info_outline);
 
+  /// Name shown in the list and as the page heading.
   final String title;
+  /// One-line description under the title in the list.
   final String summary;
   final IconData icon;
   const SettingsPage(this.title, this.summary, this.icon);
 
+  /// Looks a page up by its code name (e.g. 'library'), as sent by AppNav.openSettings.
+  /// Null if there's no such page.
   static SettingsPage? byName(String name) {
     for (final p in values) {
       if (p.name == name) return p;
@@ -28,7 +37,9 @@ enum SettingsPage {
 /// One setting that search can find. [id] matches a [SettingTarget] on its page.
 class SettingInfo {
   final String id;
+  /// The page the setting lives on.
   final SettingsPage page;
+  /// The setting's name as shown in the search results.
   final String title;
 
   /// Other words people might type to find it.
@@ -70,9 +81,12 @@ const settingsCatalog = <SettingInfo>[
 
 /// Settings whose name, page or extra words contain every word typed.
 List<SettingInfo> searchSettings(String query) {
+  // Split what was typed into lower-case words; an empty box gives no results (not all of them).
   final words = query.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
   if (words.isEmpty) return const [];
   return [
+    // Every word must appear somewhere (in any order), and part-words count: "gap" finds
+    // "Gapless".
     for (final s in settingsCatalog)
       if (words.every('${s.title} ${s.page.title} ${s.words}'.toLowerCase().contains)) s,
   ];

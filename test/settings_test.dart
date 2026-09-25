@@ -1,3 +1,7 @@
+// Tests for Settings: the settings search (ui/screens/settings/settings_catalog.dart), the
+// "audiobooks from the music server" option in LibraryModel, and widget tests that build the
+// real Settings screens to check every setting in the catalogue actually appears on its page,
+// and that search results open the right page on both phone-sized and wide windows.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -13,11 +17,14 @@ import 'package:provider/provider.dart';
 
 void main() {
   group('Settings search', () {
+    // Ids are used as widget keys and for jumping to a setting, so duplicates would break that.
     test('every setting has its own id', () {
       final ids = [for (final s in settingsCatalog) s.id];
       expect(ids.toSet().length, ids.length);
     });
 
+    // Search matches the setting's name, its page name and extra keywords ("moon" -> the sleep
+    // timer button, "navidrome" -> the server setting), ignoring upper/lower case.
     test('finds settings by name, page and other words', () {
       List<String> ids(String q) => [for (final s in searchSettings(q)) s.id];
       expect(ids('lyrics'), ['online-lyrics']);
@@ -33,11 +40,13 @@ void main() {
   group('Audiobooks from the music server', () {
     late Directory dir;
     setUp(() => dir = Directory.systemTemp.createTempSync('hometunes_serverbooks'));
+    // Short wait so any save still in progress finishes before the folder is deleted.
     tearDown(() async {
       await Future<void>.delayed(const Duration(milliseconds: 100));
       dir.deleteSync(recursive: true);
     });
 
+    /// A song from the server; the "Audiobook" genre is what makes a server song count as a book.
     Track remote(String id, {String? genre}) => Track(
           id: 'server:$id',
           source: TrackSource.server,
@@ -50,6 +59,8 @@ void main() {
           remoteId: id,
         );
 
+    // Start from saved files containing one server song and one server book, then turn the
+    // option off: the book disappears, the song stays, and the choice is remembered after reload.
     test('can be left out of the Books tab without touching server music', () async {
       final storage = Storage.at(dir);
       await storage.write('settings.json', {
@@ -81,6 +92,7 @@ void main() {
     late LibraryModel lib;
     late AppNav nav;
 
+    // The About page shows the app version, which normally comes from the platform; fake it.
     setUp(() {
       PackageInfo.setMockInitialValues(
         appName: 'HomeTunes',
@@ -89,10 +101,13 @@ void main() {
         buildNumber: '99',
         buildSignature: '',
       );
+      // Note: this library points at the system temp folder itself, not a fresh sub-folder.
       lib = LibraryModel(Storage.at(Directory(Directory.systemTemp.path)));
       nav = AppNav();
     });
 
+    /// Builds [child] with the providers the Settings screens need, in a window of [size]
+    /// (default: very tall, so every setting is laid out without scrolling).
     Future<void> pump(WidgetTester tester, Widget child, {Size size = const Size(1400, 4000)}) async {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
@@ -107,6 +122,7 @@ void main() {
       await tester.pump();
     }
 
+    // One test per Settings page: each setting listed for that page in the catalogue must be on it.
     for (final page in SettingsPage.values) {
       testWidgets('${page.title} shows all of its settings', (tester) async {
         await pump(tester, Scaffold(body: settingsPageBody(page)));
@@ -123,6 +139,7 @@ void main() {
       }
     });
 
+    // 400 px wide = phone layout: tapping a result opens that page on its own, scrolled to it.
     testWidgets('on a phone, a search result opens its page at that setting', (tester) async {
       await pump(tester, const SettingsScreen(), size: const Size(400, 900));
       await tester.enterText(find.byKey(const ValueKey('settings-search')), 'moon');
@@ -134,6 +151,7 @@ void main() {
       await tester.pump(const Duration(seconds: 2)); // let the highlight fade
     });
 
+    // 1200 px wide = two-pane layout: the page opens next to the list, so there's no Back button.
     testWidgets('on a wide window, a search result shows beside the list', (tester) async {
       await pump(tester, const SettingsScreen(), size: const Size(1200, 900));
       await tester.enterText(find.byKey(const ValueKey('settings-search')), 'lyrics');
@@ -145,6 +163,7 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
     });
 
+    // e.g. a "Set up book folders" link elsewhere in the app uses AppNav.openSettings.
     testWidgets('other screens can open a particular page', (tester) async {
       await pump(tester, const SettingsScreen(), size: const Size(1200, 900));
       nav.openSettings('audiobooks', setting: 'book-folders');

@@ -1,3 +1,9 @@
+// Looks up lyrics on LRCLIB (lrclib.net), a free, open lyrics database.
+// LyricsModel calls find() automatically when a song has no lyrics of its own (only if the
+// user turned on online lyrics, and never for audiobooks), and its search() uses search() /
+// searchText() for the dialog where the user picks lyrics by hand. Since the same song exists
+// in many versions, results are checked and ranked by length (within 3 seconds) as well as
+// by title and artist.
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -9,9 +15,10 @@ class LrclibMatch {
   final String artist;
   final String album;
   final Duration duration;
+  /// LRCLIB marks songs with no words as instrumental.
   final bool instrumental;
   final String? plainLyrics;
-  final String? syncedLyrics;
+  final String? syncedLyrics;  // LRC text
 
   const LrclibMatch({
     required this.id,
@@ -24,12 +31,15 @@ class LrclibMatch {
     this.syncedLyrics,
   });
 
+  /// Has timed (LRC) lyrics.
   bool get timed => (syncedLyrics ?? '').trim().isNotEmpty;
+  /// Has any words at all, timed or plain.
   bool get hasLyrics => timed || (plainLyrics ?? '').trim().isNotEmpty;
 
   /// Timed lyrics if there are any, otherwise plain.
   String? get bestLyrics => timed ? syncedLyrics : ((plainLyrics ?? '').trim().isEmpty ? null : plainLyrics);
 
+  /// From one LRCLIB reply entry. Length arrives in seconds (sometimes with decimals).
   factory LrclibMatch.fromJson(Map<String, dynamic> j) => LrclibMatch(
         id: (j['id'] as num?)?.toInt() ?? 0,
         title: (j['trackName'] as String?) ?? '',
@@ -42,6 +52,7 @@ class LrclibMatch {
       );
 }
 
+/// A network or server problem, worded for the user.
 class LrclibException implements Exception {
   final String message;
   LrclibException(this.message);
@@ -53,11 +64,13 @@ class LrclibException implements Exception {
 /// Only the song's title, artist, album and length are sent.
 class LrclibClient {
   static const host = 'lrclib.net';
+  // LRCLIB asks apps to name themselves, so they know who is using the service.
   static const userAgent = 'HomeTunes (https://github.com/Jamesking96/HomeTunes)';
 
   final http.Client _http;
   LrclibClient({http.Client? httpClient}) : _http = httpClient ?? http.Client();
 
+  /// One request. "Not found" (404) is a normal answer and returns null.
   Future<dynamic> _get(String path, Map<String, String> params) async {
     final uri = Uri.https(host, path, params);
     final http.Response res;
@@ -83,6 +96,7 @@ class LrclibClient {
     String? album,
     Duration? duration,
   }) async {
+    // 1. The exact lookup needs a length, so it's skipped when we don't know it.
     if (duration != null && duration > Duration.zero) {
       final j = await _get('/api/get', {
         'track_name': title,
@@ -95,6 +109,7 @@ class LrclibClient {
         if (m.hasLyrics) return m;
       }
     }
+    // 2. Fall back to a search, and only accept a result that really looks like this song.
     final found = await search(title: title, artist: artist, album: album, duration: duration);
     for (final m in found) {
       if (!m.hasLyrics) continue;
@@ -146,6 +161,7 @@ class LrclibClient {
       return diff <= 3 ? 0 : diff;
     }
 
+    // Remember each result's original position, so equal results keep LRCLIB's order.
     final indexed = [for (var i = 0; i < list.length; i++) (i, list[i])];
     indexed.sort((a, b) {
       final x = a.$2, y = b.$2;
@@ -172,6 +188,8 @@ class LrclibClient {
     return x == y || x.contains(y) || y.contains(x);
   }
 
+  // Lower case, drop "(feat. X)" / "[with X]" / "feat. X" at the end, then keep only letters
+  // and digits (any alphabet).
   static String _norm(String s) => s
       .toLowerCase()
       .replaceAll(RegExp(r'\s*[\(\[](feat|ft|with)\.?[^\)\]]*[\)\]]'), '')

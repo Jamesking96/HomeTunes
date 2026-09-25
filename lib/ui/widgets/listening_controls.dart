@@ -1,3 +1,9 @@
+// Extra player controls, mostly for audiobooks: the sleep timer (moon) button, the "−15 / +30"
+// skip icons, the speed button and speed chooser, and the chapter list.
+//
+// Used by the player bar, mini player and Now Playing (player_controls.dart and the Now
+// Playing screen). The work itself happens in PlayerModel and SleepTimer; these widgets only
+// show the state and pass on taps.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -13,6 +19,7 @@ class SleepTimerButton extends StatelessWidget {
   final double iconSize;
   const SleepTimerButton({super.key, this.iconSize = 24});
 
+  /// Timer length in words for the tooltip, e.g. "30 min" or "end of chapter".
   static String describe(int minutes, {required bool book}) {
     if (minutes == LibraryModel.sleepAtEnd) return book ? 'end of chapter' : 'end of song';
     return '$minutes min';
@@ -20,15 +27,18 @@ class SleepTimerButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // select: rebuild only when these particular values change, not on every position tick.
     final shown = context.select<LibraryModel, bool>((l) => l.sleepButtonShown);
     final hasTrack = context.select<PlayerModel, bool>((p) => p.current != null);
     final inBook = context.select<PlayerModel, bool>((p) => p.inBook);
     final timer = context.watch<SleepTimer>();
+    // Even with the button hidden in Settings, a running timer stays visible so it can be stopped.
     if (!shown && !timer.active) return const SizedBox.shrink();
     final accent = Theme.of(context).colorScheme.primary;
     final lib = context.read<LibraryModel>();
     final length = describe(inBook ? lib.sleepBookMinutes : lib.sleepMusicMinutes, book: inBook);
 
+    // Off: a plain moon icon (disabled when nothing is loaded).
     if (!timer.active) {
       return IconButton(
         tooltip: 'Sleep timer ($length)',
@@ -37,6 +47,8 @@ class SleepTimerButton extends StatelessWidget {
         onPressed: hasTrack ? timer.start : null,
       );
     }
+    // On: an outlined pill with a filled moon and the time left; tapping it cancels.
+    // (For "end of song/chapter" this is the time left in the song or chapter.)
     final left = timer.remaining ?? Duration.zero;
     return Tooltip(
       message: 'Sleep timer on – tap to turn off',
@@ -64,6 +76,7 @@ class SkipIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The "replay" arrow points backwards; mirrored it makes a forward arrow.
     final arrow = Icon(Icons.replay, size: size);
     return SizedBox(
       width: size,
@@ -83,7 +96,9 @@ class SkipIcon extends StatelessWidget {
 class SpeedButton extends StatelessWidget {
   const SpeedButton({super.key});
 
+  /// 1.25 -> "1.25×", 1.5 -> "1.5×", 1.0 -> "1.0×". Also used by Settings › Audiobooks.
   static String label(double s) {
+    // Two decimals, then drop trailing zeros, but keep one zero after a bare point.
     final t = s.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '.0');
     return '$t×';
   }
@@ -99,6 +114,7 @@ class SpeedButton extends StatelessWidget {
   }
 }
 
+/// The speed chooser: a sheet of chips, one per speed in [PlayerModel.speeds].
 Future<void> showSpeedSheet(BuildContext context) {
   final player = context.read<PlayerModel>();
   return showModalBottomSheet<void>(
@@ -121,6 +137,7 @@ Future<void> showSpeedSheet(BuildContext context) {
             for (final s in PlayerModel.speeds)
               ChoiceChip(
                 label: Text(SpeedButton.label(s)),
+                // Compare with a small tolerance, as decimals aren't stored exactly.
                 selected: (player.speed - s).abs() < 0.001,
                 onSelected: (_) {
                   player.setSpeed(s);
@@ -137,6 +154,7 @@ Future<void> showSpeedSheet(BuildContext context) {
 /// Chapter list in a sheet (Now Playing, while a book plays).
 Future<void> showChaptersSheet(BuildContext context) {
   final player = context.read<PlayerModel>();
+  // A snapshot taken when the sheet opens; it doesn't follow along while it's open.
   final chapters = player.chapters;
   final current = player.currentChapterIndex;
   final accent = Theme.of(context).colorScheme.primary;
@@ -166,6 +184,7 @@ Future<void> showChaptersSheet(BuildContext context) {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: i == current ? accent : null)),
+            // The chapter's length.
             trailing: Text(formatDuration(player.chapterEnd(i) - c.offset),
                 style: const TextStyle(color: AppColors.textDim)),
             onTap: () {

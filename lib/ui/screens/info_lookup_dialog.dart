@@ -1,3 +1,11 @@
+// The "Find <detail> online" dialog: look up one song or album detail on MusicBrainz and let
+// the user pick a value (title, artist, album, album artist, year, genre, track/disc number).
+//
+// Used by the "Edit details" dialog's little globe buttons and by the album page's "missing
+// info" prompts. It has two modes: song mode searches for a recording (needs a title) and is
+// used when editing one song; album mode searches for releases and is used for albums and
+// multi-selections. The web requests live in services/music_info.dart (MusicInfoSearch).
+// Nothing is saved here: the chosen InfoChoice is handed back and the caller decides.
 import 'package:flutter/material.dart';
 
 import '../../services/music_info.dart';
@@ -6,6 +14,7 @@ import '../theme.dart';
 /// Song/album details that can be looked up online.
 enum InfoField { title, artist, album, albumArtist, year, genre, trackNumber, discNumber }
 
+/// Lower-case names of each field, used in the dialog's title ("Find year online").
 extension InfoFieldLabel on InfoField {
   String get label => switch (this) {
         InfoField.title => 'title',
@@ -21,7 +30,9 @@ extension InfoFieldLabel on InfoField {
 
 /// One value found online, with where it came from.
 class InfoChoice {
+  /// The value itself, e.g. "1997" or "Rock".
   final String value;
+  /// Where the value came from, shown under it (album · artist · year).
   final String detail;
 
   /// The album it came from (album searches only), e.g. for track lists.
@@ -55,6 +66,7 @@ Future<InfoChoice?> showInfoLookup(
   );
 }
 
+/// The dialog behind [showInfoLookup].
 class _InfoLookupDialog extends StatefulWidget {
   final InfoField field;
   final bool songMode;
@@ -72,11 +84,13 @@ class _InfoLookupDialog extends StatefulWidget {
 }
 
 class _InfoLookupDialogState extends State<_InfoLookupDialog> {
+  /// Does the web requests; closed when the dialog goes away.
   final _search = MusicInfoSearch();
   late final _title = TextEditingController(text: widget.title);
   late final _artist = TextEditingController(text: widget.artist);
   late final _album = TextEditingController(text: widget.album);
 
+  /// The values found, or null before the first search has finished.
   List<InfoChoice>? _choices;
   bool _loading = false;
   String? _error;
@@ -96,6 +110,7 @@ class _InfoLookupDialogState extends State<_InfoLookupDialog> {
     super.dispose();
   }
 
+  /// "Album · Artist · Year", skipping any part that's missing.
   String _where(String album, String artist, int? year) =>
       [if (album.isNotEmpty) album, if (artist.isNotEmpty) artist, if (year != null) '$year'].join(' · ');
 
@@ -106,6 +121,8 @@ class _InfoLookupDialogState extends State<_InfoLookupDialog> {
     out.add(InfoChoice(v, detail, album: album));
   }
 
+  /// Song mode: search for recordings matching the typed title/artist/album and pull out the
+  /// chosen field from each match.
   Future<List<InfoChoice>> _songChoices() async {
     final matches = await _search.searchSongs(
       title: _title.text.trim(),
@@ -117,6 +134,8 @@ class _InfoLookupDialogState extends State<_InfoLookupDialog> {
     if (widget.field == InfoField.genre) {
       // Genres come from the album; check the best few albums the song is on.
       final ids = <String>{};
+      // One album at a time: MusicBrainz allows about one request a second anyway,
+      // and MusicInfoSearch queues them up. Skip repeats of the same album.
       for (final m in matches) {
         if (m.releaseGroupId.isEmpty || !ids.add(m.releaseGroupId)) continue;
         for (final g in await _search.genresFor(m.releaseGroupId)) {
@@ -151,11 +170,14 @@ class _InfoLookupDialogState extends State<_InfoLookupDialog> {
     return out;
   }
 
+  /// Album mode: search for releases matching the typed artist/album and pull out the chosen
+  /// field from each one.
   Future<List<InfoChoice>> _albumChoices() async {
     final albums = await _search.searchAlbums(artist: _artist.text.trim(), album: _album.text.trim());
     final out = <InfoChoice>[];
     final seen = <String>{};
     if (widget.field == InfoField.genre) {
+      // Genres from the top three albums only, to keep the number of (slow) requests down.
       for (final a in albums.take(3)) {
         for (final g in await _search.genresFor(a.id)) {
           _add(out, seen, g, 'from ${_where(a.title, a.artist, a.year)}', album: a);
@@ -170,6 +192,7 @@ class _InfoLookupDialogState extends State<_InfoLookupDialog> {
           InfoChoice(a.title, _where('', a.artist, a.year) + (a.type != null ? ' · ${a.type}' : ''), album: a),
       ];
     }
+    // Other fields: one value per album, with duplicates (same value, any case) dropped.
     for (final a in albums) {
       final value = switch (widget.field) {
         InfoField.album => a.title,
@@ -182,6 +205,7 @@ class _InfoLookupDialogState extends State<_InfoLookupDialog> {
     return out;
   }
 
+  /// Checks there's enough to search with, then runs the song or album search.
   Future<void> _run() async {
     if (widget.songMode && _title.text.trim().isEmpty) {
       setState(() => _error = 'Enter the song title to search.');
@@ -214,9 +238,11 @@ class _InfoLookupDialogState extends State<_InfoLookupDialog> {
   @override
   Widget build(BuildContext context) {
     final choices = _choices;
+    // In album mode, "track number" really means "pick the album whose track list to use".
     final what = widget.field == InfoField.trackNumber && !widget.songMode ? 'track numbers' : widget.field.label;
 
     Widget body;
+    // Pick what the middle of the dialog shows: spinner, error, "nothing found", or the choices.
     if (_loading) {
       body = const Center(child: CircularProgressIndicator());
     } else if (_error != null) {
@@ -242,6 +268,7 @@ class _InfoLookupDialogState extends State<_InfoLookupDialog> {
       );
     }
 
+    // The dialog frame: title + close, the search boxes, the choices, and a hint/credit line.
     return Dialog(
       backgroundColor: AppColors.surface,
       insetPadding: const EdgeInsets.all(16),
@@ -258,6 +285,7 @@ class _InfoLookupDialogState extends State<_InfoLookupDialog> {
               IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
             ]),
             Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.end, children: [
+              // The song title box only matters in song mode.
               if (widget.songMode) _box(_title, 'Song title'),
               _box(_artist, 'Artist'),
               _box(_album, 'Album'),
@@ -278,6 +306,7 @@ class _InfoLookupDialogState extends State<_InfoLookupDialog> {
     );
   }
 
+  /// One fixed-width search box; pressing Enter runs the search again.
   Widget _box(TextEditingController c, String label) => SizedBox(
         width: 160,
         child: TextField(

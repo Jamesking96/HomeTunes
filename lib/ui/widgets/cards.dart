@@ -1,3 +1,6 @@
+// Small building blocks for the browse screens (Home, Library, Search, artist pages):
+// album and artist tiles, the horizontal "Shelf" carousel, the grid column helper and the
+// friendly "nothing here yet" message. Tapping a tile opens its page through AppNav.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -11,7 +14,9 @@ import 'artwork.dart';
 /// Album tile for grids and carousels.
 class AlbumCard extends StatelessWidget {
   final Album album;
+  /// Fixed width for shelves; null lets a grid decide.
   final double? width;
+  /// Second line shows the artist; if false, the year instead (used on an artist's own page).
   final bool showArtist;
   const AlbumCard({super.key, required this.album, this.width, this.showArtist = true});
 
@@ -48,6 +53,7 @@ class ArtistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Artists have no picture of their own, so borrow the first album's cover (cut to a circle).
     final art = artist.albums.isEmpty ? null : artist.albums.first.artTrack;
     final card = InkWell(
       borderRadius: BorderRadius.circular(8),
@@ -78,7 +84,9 @@ class ArtistCard extends StatelessWidget {
 /// scrolled with Shift + mouse wheel.
 class Shelf extends StatefulWidget {
   final String title;
+  /// The cards, usually AlbumCard / ArtistCard / BookCard with a fixed width.
   final List<Widget> children;
+  /// Height of the card row (not counting the title).
   final double height;
   const Shelf({super.key, required this.title, required this.children, this.height = 230});
 
@@ -88,18 +96,21 @@ class Shelf extends StatefulWidget {
 
 class _ShelfState extends State<Shelf> {
   final _scroll = ScrollController();
-  bool _canBack = false;
-  bool _canForward = false;
+  bool _canBack = false; // is there anything off to the left?
+  bool _canForward = false; // …or to the right?
 
+  // Arrows and a permanent scroll bar only on computers; phones just swipe.
   static final _desktop = Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
   @override
   void initState() {
     super.initState();
     _scroll.addListener(_update);
+    // The list's length isn't known until it has been laid out, so check after the first frame.
     WidgetsBinding.instance.addPostFrameCallback((_) => _update());
   }
 
+  // The cards may have changed (e.g. after a rescan), so the arrows may need updating too.
   @override
   void didUpdateWidget(Shelf old) {
     super.didUpdateWidget(old);
@@ -116,6 +127,7 @@ class _ShelfState extends State<Shelf> {
   void _update() {
     if (!mounted || !_scroll.hasClients) return;
     final pos = _scroll.position;
+    // The 1 px of slack stops rounding errors from leaving an arrow lit at either end.
     final back = pos.pixels > pos.minScrollExtent + 1;
     final forward = pos.pixels < pos.maxScrollExtent - 1;
     if (back != _canBack || forward != _canForward) {
@@ -137,12 +149,14 @@ class _ShelfState extends State<Shelf> {
   @override
   Widget build(BuildContext context) {
     if (widget.children.isEmpty) return const SizedBox.shrink();
+    // On desktop, 10 px extra at the bottom makes room for the scroll bar under the cards.
     final list = ListView(
       controller: _scroll,
       scrollDirection: Axis.horizontal,
       padding: EdgeInsets.fromLTRB(8, 0, 8, _desktop ? 10 : 0),
       children: widget.children,
     );
+    // Title row (with the ‹ › buttons when there's something to page to), then the cards.
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 20, 8, 4),
@@ -180,9 +194,11 @@ class _ShelfState extends State<Shelf> {
 }
 
 /// Responsive grid column count for album grids.
+/// About one column per 190 px, but never fewer than 2 or more than 8.
 int gridColumns(double width) => (width / 190).floor().clamp(2, 8);
 
 /// Friendly empty message.
+/// A big dim icon, a title, an optional explanation and an optional button (e.g. "Add music").
 class EmptyState extends StatelessWidget {
   final IconData icon;
   final String title;

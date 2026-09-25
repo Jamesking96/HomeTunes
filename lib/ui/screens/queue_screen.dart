@@ -1,3 +1,8 @@
+// The Queue page: the song playing now, then everything waiting to play next.
+//
+// It's a thin view over PlayerModel's PlayQueue. Dragging a song's handle reorders it
+// (moveUpcoming), swiping it left removes it (removeUpcoming) and tapping it jumps there
+// (jumpTo). The player then re-syncs what the audio engine has preloaded for gapless playback.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -12,15 +17,19 @@ class QueueScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.watch<PlayerModel>();
+    // "up" is the list after the current song; "base" is the queue position of its first entry,
+    // used to turn a row number back into a real queue position.
     final cur = p.current;
     final up = p.queue.upcoming;
     final base = p.queue.position + 1;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Queue')),
+      // Nothing loaded at all: just show a friendly message.
       body: cur == null
           ? const Center(child: Text('The queue is empty', style: TextStyle(color: AppColors.textDim)))
           : CustomScrollView(slivers: [
+              // 1. The song playing now, in the accent colour.
               const SliverToBoxAdapter(child: _Heading('Now playing')),
               SliverToBoxAdapter(
                 child: ListTile(
@@ -30,17 +39,22 @@ class QueueScreen extends StatelessWidget {
                   subtitle: Text(cur.artist),
                 ),
               ),
+              // 2. The heading says where the upcoming songs came from (e.g. "Album · …").
               SliverToBoxAdapter(
                 child: _Heading(
                   up.isEmpty ? 'Nothing up next' : 'Next from: ${p.queue.contextLabel ?? 'your queue'}',
                 ),
               ),
+              // 3. The upcoming songs: drag the handle to reorder, swipe left to remove,
+              // tap to jump.
               SliverReorderableList(
                 itemCount: up.length,
                 onReorderItem: p.moveUpcoming,
                 itemBuilder: (context, i) {
                   final t = up[i];
                   return Dismissible(
+                    // The key includes the position, so the same song queued twice still gets
+                    // unique keys.
                     key: ValueKey('${t.id}@${base + i}'),
                     direction: DismissDirection.endToStart,
                     background: Container(
@@ -69,6 +83,7 @@ class QueueScreen extends StatelessWidget {
   }
 }
 
+/// A small bold section heading used on this page.
 class _Heading extends StatelessWidget {
   final String text;
   const _Heading(this.text);

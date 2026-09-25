@@ -1,3 +1,9 @@
+// The Book model: plain data describing one audiobook.
+// Books aren't stored anywhere; they're rebuilt from the library's tracks by `groupBooks` in
+// state/book_index.dart every time the library changes. The player's book mode, the Books tab
+// and the book pages all read these. A book can be one big file (like an .m4b with chapters
+// inside) or many files; the helpers below turn "file + position" into "time in the whole book"
+// and list the chapters across all its files.
 import 'track.dart';
 
 /// An audiobook: one or more audio files ("parts") played in order.
@@ -41,11 +47,13 @@ class Book {
     return parts.isEmpty ? null : parts.first;
   }
 
+  /// Total length of all the parts added together.
   Duration get duration => parts.fold(Duration.zero, (a, t) => a + t.duration);
 
   /// Newest file's modified time (for "recently added").
   int get addedMs => parts.fold<int>(0, (m, t) => (t.modifiedMs ?? 0) > m ? (t.modifiedMs ?? 0) : m);
 
+  /// Which part (file) a track is, or -1 if it isn't part of this book.
   int indexOfPart(String trackId) => parts.indexWhere((t) => t.id == trackId);
 
   /// Time from the start of the book to [position] in part [partIndex].
@@ -63,9 +71,11 @@ class Book {
     var offset = Duration.zero;
     for (var i = 0; i < parts.length; i++) {
       final part = parts[i];
+      // A file with no chapter markers counts as one chapter, named after the file's title.
       if (part.chapters.isEmpty) {
         out.add(BookChapter(part: i, start: Duration.zero, offset: offset, title: part.title));
       } else {
+        // Chapters without a name get a number (counted across the whole book).
         for (final c in part.chapters) {
           out.add(BookChapter(
             part: i,
@@ -85,9 +95,11 @@ class Book {
     if (series == null) return null;
     if (seriesIndex == null) return series;
     final i = seriesIndex!;
+    // Show "2" rather than "2.0", but keep in-between numbers like "2.5".
     return '$series ${i == i.roundToDouble() ? i.round() : i}';
   }
 
+  // Two books are "the same" when their ids match, even if details were edited since.
   @override
   bool operator ==(Object other) => other is Book && other.id == id;
 

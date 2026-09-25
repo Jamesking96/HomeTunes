@@ -1,3 +1,9 @@
+// Settings › Audiobooks: skip lengths, starting speed, rewind-on-resume, audiobook folders,
+// the genres that mark a file as a book, and the cover shape on the Books tab.
+//
+// Everything is read from and saved through LibraryModel (settings.json). Changing folders or
+// genres makes LibraryModel re-sort which files are books (see BookRules in the state folder).
+// The sleep timer for books has its own page (sleep_settings.dart), as the owner asked.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -14,8 +20,10 @@ import 'settings_widgets.dart';
 class AudiobookSettings extends StatelessWidget {
   const AudiobookSettings({super.key});
 
+  /// Asks for an audiobook folder, adds it (which scans it) and says how many books there are now.
   Future<void> _addFolder(BuildContext context) async {
     final lib = context.read<LibraryModel>();
+    // Grab the messenger before the awaits, as this page may have been rebuilt by then.
     final messenger = ScaffoldMessenger.of(context);
     final path = await pickFolderWithPermission(context, 'Choose your audiobooks folder');
     if (path == null) return;
@@ -23,6 +31,7 @@ class AudiobookSettings extends StatelessWidget {
     messenger.showSnackBar(SnackBar(content: Text('${lib.books.length} audiobooks found')));
   }
 
+  /// Asks for a genre name and adds it to the "means audiobook" list.
   Future<void> _addGenre(BuildContext context) async {
     final lib = context.read<LibraryModel>();
     final name = await askForName(context, title: 'Genre that means "audiobook"');
@@ -37,6 +46,7 @@ class AudiobookSettings extends StatelessWidget {
       intro: 'Audiobooks have their own tab and never show up with your music. Everything in an audiobook folder '
           'is a book; so are .m4b files and files with an audiobook genre in your music folders.',
       children: [
+        // --- Listening: skip amounts, speed, rewind on resume ---
         const SettingsGroupTitle('Listening'),
         SettingTarget(
           'skip-back',
@@ -78,6 +88,7 @@ class AudiobookSettings extends StatelessWidget {
             onChanged: (v) => lib.updateListeningSettings(rewindOnResume: v),
           ),
         ),
+        // --- Where your audiobooks are: folders and genres ---
         const SettingsGroupTitle('Where your audiobooks are'),
         SettingTarget(
           'book-folders',
@@ -93,6 +104,7 @@ class AudiobookSettings extends StatelessWidget {
                 trailing: IconButton(
                   tooltip: 'Remove folder',
                   icon: const Icon(Icons.close),
+                  // Folder buttons are disabled while a scan/sync is running.
                   onPressed: lib.busy ? null : () => lib.removeAudiobookFolder(f),
                 ),
               ),
@@ -130,6 +142,7 @@ class AudiobookSettings extends StatelessWidget {
                   label: const Text('Add'),
                   onPressed: () => _addGenre(context),
                 ),
+                // "Reset" only appears once the list differs from the built-in one.
                 if (!_sameGenres(lib.bookGenres, defaultBookGenres))
                   TextButton(
                     onPressed: () => lib.setBookGenres(List.of(defaultBookGenres)),
@@ -139,6 +152,7 @@ class AudiobookSettings extends StatelessWidget {
             ),
           ]),
         ),
+        // --- Look: square or tall covers on the Books tab ---
         const SettingsGroupTitle('Look'),
         SettingTarget(
           'book-covers',
@@ -169,6 +183,7 @@ class AudiobookSettings extends StatelessWidget {
     );
   }
 
+  /// True when both lists hold the same genres in the same order.
   static bool _sameGenres(List<String> a, List<String> b) =>
       a.length == b.length && [for (var i = 0; i < a.length; i++) a[i] == b[i]].every((x) => x);
 }

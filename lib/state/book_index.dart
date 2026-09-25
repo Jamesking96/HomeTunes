@@ -1,3 +1,11 @@
+// Audiobook rules and grouping: which files count as books, and how files become Books.
+//
+// Plain functions with no Flutter in them, so they're easy to unit test. LibraryModel builds a
+// `BookRules` from the user's settings and calls `isBook` on every song while rebuilding the
+// library; the book files are then handed to `groupBooks`, which turns them into Book objects
+// (one per .m4b file, or one per folder + album otherwise). Series, number and narrator are
+// guessed from folder names, but anything the user edited (or a sidecar file supplied) wins.
+// The bottom of the file has the sorting, grouping and filtering used by the Books tab.
 import '../models/book.dart';
 import '../models/track.dart';
 
@@ -29,17 +37,25 @@ class BookRules {
     this.overrides = const {},
   }) : _genres = {for (final g in genres) normalizeGenre(g)}..remove('');
 
+  /// True if [t] belongs on the Books tab. The checks run in order and the first that
+  /// applies decides (see 03_FEATURES_AND_DESIGN_NOTES.md, "Which files are books").
   bool isBook(Track t) {
+    // 1. The user's own "Move to Books/Music" choice always wins.
     final o = overrides[t.id];
     if (o != null) return o;
     if (t.hasBookInfo) return true; // e.g. Libation's .metadata.json beside it
+    // 3. A book genre, compared loosely (see normalizeGenre).
     final g = t.genre;
     if (g != null && _genres.contains(normalizeGenre(g))) return true;
+    // The remaining checks need a file path, so server songs stop here.
     final path = t.path;
     if (path == null) return false;
+    // 4. .m4b is an audiobook-only format.
     if (path.toLowerCase().endsWith('.m4b')) return true;
+    // 5. Any folder in the path named like "Audio Books" (the file name itself is left out).
     final dirs = splitPath(path)..removeLast();
     if (dirs.any(_bookFolderName.hasMatch)) return true;
+    // 6. Inside one of the folders the user marked as audiobook folders.
     return bookFolders.any((f) => isInside(path, f));
   }
 }
@@ -51,6 +67,8 @@ List<String> splitPath(String path) => path.split(RegExp(r'[\\/]+')).where((s) =
 bool isInside(String path, String folder) {
   final a = splitPath(path.toLowerCase());
   final b = splitPath(folder.toLowerCase());
+  // The path must be longer than the folder (a file inside it), and start with the same parts.
+  // Comparing whole parts means "C:/Books2/x.mp3" doesn't count as inside "C:/Books".
   if (b.isEmpty || a.length <= b.length) return false;
   for (var i = 0; i < b.length; i++) {
     if (a[i] != b[i]) return false;
@@ -60,6 +78,8 @@ bool isInside(String path, String folder) {
 
 /// Compares file names so "Part 2" comes before "Part 10".
 int naturalCompare(String a, String b) {
+  // Split both names into runs of digits and runs of non-digits, then compare run by run:
+  // number runs as numbers, text runs as text (ignoring case).
   final re = RegExp(r'(\d+)|(\D+)');
   final x = re.allMatches(a.toLowerCase()).toList();
   final y = re.allMatches(b.toLowerCase()).toList();
@@ -69,9 +89,12 @@ int naturalCompare(String a, String b) {
     final c = (pn != null && qn != null) ? pn.compareTo(qn) : p.compareTo(q);
     if (c != 0) return c;
   }
+  // All shared runs are equal: the shorter name comes first.
   return x.length.compareTo(y.length);
 }
 
+/// Orders a book's files: by disc, then track number, then file name (naturally).
+/// Files without a track number go after those with one.
 int comparePartsInBook(Track a, Track b) {
   final d = (a.discNumber ?? 1).compareTo(b.discNumber ?? 1);
   if (d != 0) return d;
@@ -80,6 +103,7 @@ int comparePartsInBook(Track a, Track b) {
   return naturalCompare(_fileName(a), _fileName(b));
 }
 
+/// The file name (or the title for server files, which have no path).
 String _fileName(Track t) => t.path == null ? t.title : splitPath(t.path!).last;
 
 /// Which book a file belongs to. Each .m4b file is a book of its own; other
@@ -89,6 +113,7 @@ String _fileName(Track t) => t.path == null ? t.title : splitPath(t.path!).last;
 /// the author is used instead.
 String bookKey(Track t) {
   final path = t.path;
+  // The \u0000 character separates the parts, as it can't appear in a name.
   if (path != null && path.toLowerCase().endsWith('.m4b')) return 'file:${t.id}';
   final album = t.album.toLowerCase();
   if (path == null) return 'server\u0000$album\u0000${bookAuthor(t).toLowerCase()}';
@@ -96,6 +121,8 @@ String bookKey(Track t) {
   return '$dir\u0000$album';
 }
 
+/// A file's author: the album artist, unless it's blank or the "Unknown Artist" placeholder,
+/// in which case the (track) artist.
 String bookAuthor(Track t) {
   if (t.albumArtist.isNotEmpty && t.albumArtist != 'Unknown Artist') return t.albumArtist;
   return t.artist;
@@ -109,10 +136,14 @@ final _narrator = RegExp(r'\b(?:read|narrated|performed)\s+by\s+([^;\[\](){},]+)
 
 /// Series name from a folder like "Harry Potter Audio Books 1-7; Read by Stephen Fry [MP3]".
 String? seriesFromFolder(String name) {
+  // Keep only what comes before any ";", "[" or "(" (these usually hold the narrator/format).
   var s = name.split(RegExp(r'[;\[(]')).first;
+  // Drop filler words like "Complete", "Unabridged", "Audio Books", "Box Set"…
   s = s.replaceAll(
       RegExp(r'\b(complete|unabridged|audio[\s_-]?books?|collection|series|box\s?set)\b', caseSensitive: false), ' ');
+  // …number ranges like "1-7"…
   s = s.replaceAll(RegExp(r'\b\d+\s*[-–]\s*\d+\b'), ' ');
+  // …then tidy up the spaces and any stray punctuation left at either end.
   s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
   s = s.replaceAll(RegExp(r'^[-–,:.\s]+|[-–,:.\s]+$'), '');
   return s.isEmpty ? null : s;
@@ -120,6 +151,8 @@ String? seriesFromFolder(String name) {
 
 /// Builds the book from its files (already in order).
 Book buildBook(String key, List<Track> parts) {
+  // 1. Find the names that describe this book: its own name (the .m4b file or the folder the
+  //    files are in) and the one above it (often a series folder).
   final first = parts.first;
   final path = first.path;
   final segments = path == null ? const <String>[] : splitPath(path);
@@ -132,6 +165,8 @@ Book buildBook(String key, List<Track> parts) {
     parent = isFileBook ? segments[segments.length - 2] : (segments.length >= 3 ? segments[segments.length - 3] : null);
   }
 
+  // 2. Guess the series number and name. A name like "Book 01 - Title" gives the number,
+  //    and then the folder above is taken as the series name.
   double? index;
   String? series;
   var title = first.album;
@@ -156,10 +191,12 @@ Book buildBook(String key, List<Track> parts) {
     return null;
   }
 
+  // 3. Series details from edits or sidecars replace the guesses.
   final editedSeries = fromEdits((t) => t.series);
   if (editedSeries != null) series = editedSeries.isEmpty ? null : editedSeries; // "" = not in a series
   index = fromEdits((t) => t.seriesIndex) ?? index;
 
+  // 4. The narrator: from edits/sidecars if set, else "Read by …" in the book's folder names.
   final editedNarrator = fromEdits((t) => t.narrator);
   String? narrator;
   if (editedNarrator != null) {
@@ -174,6 +211,7 @@ Book buildBook(String key, List<Track> parts) {
     }
   }
 
+  // 5. The year is the earliest one found on any file.
   final years = parts.map((t) => t.year).whereType<int>().where((y) => y > 0);
   // The author most of the files agree on.
   final votes = <String, int>{};
@@ -181,6 +219,7 @@ Book buildBook(String key, List<Track> parts) {
     final a = bookAuthor(t);
     votes[a] = (votes[a] ?? 0) + 1;
   }
+  // On a tie, the author seen first wins.
   final author = votes.entries.reduce((a, b) => b.value > a.value ? b : a).key;
   return Book(
     id: 'book:$key',
@@ -188,9 +227,11 @@ Book buildBook(String key, List<Track> parts) {
     author: author,
     narrator: narrator,
     series: series,
+    // A number without a series name makes no sense on its own, so it's dropped.
     seriesIndex: series == null ? null : index,
     year: years.isEmpty ? null : years.reduce((a, b) => a < b ? a : b),
     description: fromEdits((t) => t.description),
+    // PDFs etc. from every file, without duplicates.
     companions: {for (final t in parts) ...t.companions}.toList(),
     parts: parts,
   );
@@ -198,6 +239,7 @@ Book buildBook(String key, List<Track> parts) {
 
 /// Groups audiobook files into books, sorted by title.
 List<Book> groupBooks(Iterable<Track> tracks) {
+  // Bucket the files by book key, put each bucket's files in order, then build the books.
   final map = <String, List<Track>>{};
   for (final t in tracks) {
     (map[bookKey(t)] ??= []).add(t);
@@ -209,6 +251,7 @@ List<Book> groupBooks(Iterable<Track> tracks) {
   return books;
 }
 
+/// Splits a search into lower-case words.
 List<String> _searchWords(String q) =>
     q.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
 
@@ -222,6 +265,7 @@ List<Book> searchBookList(Iterable<Book> books, String q) {
     for (final b in books)
       if (words.every('${b.title} ${b.author} ${b.narrator ?? ''} ${b.series ?? ''}'.toLowerCase().contains)) b
   ];
+  // 0 = title starts with the search, 1 = title contains it, 2 = matched elsewhere.
   int rank(Book b) {
     final t = b.title.toLowerCase();
     if (t.startsWith(query)) return 0;
@@ -243,6 +287,7 @@ List<({Book book, int chapter})> searchChapterList(Iterable<Book> books, String 
   final out = <({Book book, int chapter})>[];
   for (final b in books) {
     final chapters = b.chapters;
+    // Stop as soon as we have enough, so a short query over a big library stays quick.
     for (var i = 0; i < chapters.length; i++) {
       final title = chapters[i].title.toLowerCase();
       if (words.every(title.contains)) {
@@ -256,6 +301,7 @@ List<({Book book, int chapter})> searchChapterList(Iterable<Book> books, String 
 
 // ---------------------------------------------------------------- Books tab sorting & filtering
 
+/// The sort choices on the Books page.
 enum BookSort { recentlyListened, title, author, narrator, series, recentlyAdded }
 
 /// Header for books with no narrator / not in a series (listed last).
@@ -280,12 +326,15 @@ List<(String?, List<Book>)> sortBooks(
   int Function(Book b)? lastListened,
 }) {
   int byTitle(Book a, Book b) => naturalCompare(a.title, b.title);
+  // Title, recently added and recently listened give one list with no headings (null);
+  // author, narrator and series give one headed group per name.
   switch (sort) {
     case BookSort.title:
       return [(null, [...books]..sort(byTitle))];
     case BookSort.recentlyAdded:
       return [(null, [...books]..sort((a, b) => b.addedMs.compareTo(a.addedMs)))];
     case BookSort.recentlyListened:
+      // Most recently listened first; books never listened to fall back to series order.
       final listened = lastListened ?? (_) => 0;
       return [
         (
@@ -300,6 +349,7 @@ List<(String?, List<Book>)> sortBooks(
     case BookSort.author:
     case BookSort.narrator:
     case BookSort.series:
+      // The "not known" group always goes at the end of the list.
       final last = switch (sort) {
         BookSort.narrator => noNarrator,
         BookSort.series => noSeries,
@@ -310,6 +360,7 @@ List<(String?, List<Book>)> sortBooks(
             BookSort.narrator => b.narrator ?? noNarrator,
             _ => b.series ?? noSeries,
           };
+      // Bucket the books by name, then sort the headings, keeping the "not known" one last.
       final map = <String, List<Book>>{};
       for (final b in books) {
         (map[keyOf(b)] ??= []).add(b);
@@ -331,15 +382,18 @@ class BookFilters {
   final String? series;
   const BookFilters({this.author, this.narrator, this.series});
 
+  /// No filters: every book shows.
   static const none = BookFilters();
 
   bool get isEmpty => author == null && narrator == null && series == null;
 
+  /// True if [b] passes every filter that is set (unset filters let everything through).
   bool matches(Book b) =>
       (author == null || b.author == author) &&
       (narrator == null || b.narrator == narrator) &&
       (series == null || b.series == series);
 
+  // null means "keep as is", so the clear… flags are how a filter gets removed.
   BookFilters copyWith({String? author, String? narrator, String? series, bool clearAuthor = false,
           bool clearNarrator = false, bool clearSeries = false}) =>
       BookFilters(

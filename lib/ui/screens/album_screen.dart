@@ -1,3 +1,10 @@
+// The page for one album: a big header (cover, title, play/shuffle buttons), then every song on
+// the album in order, split into "Disc 1 / Disc 2…" sections when the album has more than one disc.
+//
+// Opened from the Library tab, search results and song menus through AppNav.openAlbum. It reads
+// everything from LibraryModel, so any edit (new cover, renamed album) redraws it straight away.
+// Below the header sit the optional "look it up online?" boxes (_MissingInfoPrompts) that offer
+// to fill in a missing cover, artist, year, genre or track numbers.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -14,6 +21,8 @@ import 'cover_search_dialog.dart';
 import 'info_lookup_dialog.dart';
 import 'edit_details.dart';
 
+/// Shows one album. [albumKey] is the album's grouping key (album artist + album name), which
+/// is looked up fresh on every build so the page always shows the latest edits.
 class AlbumScreen extends StatelessWidget {
   final String albumKey;
   const AlbumScreen({super.key, required this.albumKey});
@@ -21,14 +30,17 @@ class AlbumScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
+    // The album can vanish (e.g. its songs were renamed into another album), so handle "not found".
     final album = lib.albumByKey(albumKey);
     if (album == null) {
       return Scaffold(appBar: AppBar(), body: const EmptyState(icon: Icons.album, title: 'Album not found'));
     }
     final tracks = album.tracks;
+    // Only show disc headings when the songs really span more than one disc.
     final multiDisc = tracks.map((t) => t.discNumber ?? 1).toSet().length > 1;
     final label = 'Album · ${album.title}';
 
+    // 1. Build the song list, dropping in a "Disc N" heading each time the disc number changes.
     final children = <Widget>[];
     int? disc;
     for (var i = 0; i < tracks.length; i++) {
@@ -47,6 +59,7 @@ class AlbumScreen extends StatelessWidget {
       children.add(TrackTile(track: tracks[i], list: tracks, index: i, showNumber: true, contextLabel: label));
     }
 
+    // 2. The page itself: the header card, the missing-info prompts, then the songs.
     return Scaffold(
       appBar: AppBar(),
       body: ListView(padding: const EdgeInsets.only(bottom: 24), children: [
@@ -61,6 +74,7 @@ class AlbumScreen extends StatelessWidget {
           ].join(' · '),
           tracks: tracks,
           contextLabel: label,
+          // Extra buttons in the header: edit details, add to playlist, and a link to the artist.
           extraActions: [
             IconButton(
               tooltip: 'Edit album details',
@@ -94,6 +108,7 @@ class AlbumScreen extends StatelessWidget {
             ),
           ],
         ),
+        // The "look it up online?" boxes (only shown when something is missing and lookups are on).
         _MissingInfoPrompts(albumKey: albumKey),
         ...children,
       ]),
@@ -119,24 +134,33 @@ class _MissingInfoPrompts extends StatefulWidget {
 }
 
 class _MissingInfoPromptsState extends State<_MissingInfoPrompts> {
+  /// Which prompt is currently fetching (shows a spinner in place of its button), or null.
   _Missing? _busy;
 
+  /// The key used to remember a dismissed prompt: album + which thing was missing.
   String _key(_Missing m) => '${widget.albumKey}#${m.name}';
 
+  /// Runs the online lookup for one missing thing [m] and saves the result as an edit on
+  /// every song in the album. Each kind uses a different dialog or search.
   Future<void> _find(_Missing m) async {
+    // Grab these before any await: the page may rebuild (or disappear) while dialogs are open.
     final lib = context.read<LibraryModel>();
     final messenger = ScaffoldMessenger.maybeOf(context);
     final navigator = Navigator.of(context);
     final album = lib.albumByKey(widget.albumKey);
     if (album == null) return;
     final ids = [for (final t in album.tracks) t.id];
+    // "Unknown Artist" is the placeholder name, so don't feed it to the search.
     final artist = album.artist == 'Unknown Artist' ? '' : album.artist;
 
+    // Cover: let the user pick one from the online cover search, then set it on every song.
     if (m == _Missing.cover) {
       final path = await showCoverSearch(context, artist: artist, album: album.title);
       if (path == null || !mounted) return;
       setState(() => _busy = m);
       await lib.editMany(ids, TrackEdit(art: path));
+    // Track numbers: the user picks the matching release, then we fetch its track list and match
+    // our songs to it by title. Songs that don't match are left alone.
     } else if (m == _Missing.trackNumbers) {
       final choice = await showInfoLookup(context,
           field: InfoField.trackNumber, songMode: false, artist: artist, album: album.title);
@@ -162,6 +186,7 @@ class _MissingInfoPromptsState extends State<_MissingInfoPrompts> {
       } finally {
         search.close();
       }
+    // Artist / year / genre: one picked value applied to the whole album.
     } else {
       final field = switch (m) {
         _Missing.artist => InfoField.artist,
@@ -171,6 +196,7 @@ class _MissingInfoPromptsState extends State<_MissingInfoPrompts> {
       final choice = await showInfoLookup(context, field: field, songMode: false, artist: artist, album: album.title);
       if (choice == null || !mounted) return;
       setState(() => _busy = m);
+      // Artist edits set the album artist too, since that's what albums are grouped by.
       await lib.editMany(ids, switch (m) {
         _Missing.artist => TrackEdit(artist: choice.value, albumArtist: choice.value),
         _Missing.year => TrackEdit(year: int.tryParse(choice.value)),
@@ -183,6 +209,7 @@ class _MissingInfoPromptsState extends State<_MissingInfoPrompts> {
         return;
       }
     }
+    // Clear the spinner (if the page is still showing).
     if (mounted) setState(() => _busy = null);
   }
 
@@ -192,8 +219,11 @@ class _MissingInfoPromptsState extends State<_MissingInfoPrompts> {
     final album = lib.albumByKey(widget.albumKey);
     if (album == null) return const SizedBox.shrink();
     final tracks = album.tracks;
+    // Count the songs without a track number, so the prompt can say "3 songs have no…".
     final noTrackNumbers = tracks.where((t) => t.trackNumber == null).length;
 
+    // Each entry is (what's missing, icon, message, button label). Cover lookups and detail lookups
+    // have their own on/off switches in Settings > Online lookups.
     final missing = <(_Missing, IconData, String, String)>[
       if (lib.onlineCovers && tracks.every((t) => t.art == null))
         (_Missing.cover, Icons.image_search, 'This album has no cover. Look for one online?', 'Find cover'),
@@ -212,9 +242,11 @@ class _MissingInfoPromptsState extends State<_MissingInfoPrompts> {
               : '$noTrackNumbers song${noTrackNumbers == 1 ? '' : 's'} have no track number. Look them up online?',
           'Find track numbers',
         ),
+    // Hide any the user has already said "not now" to this session.
     ].where((x) => !_MissingInfoPrompts._dismissed.contains(_key(x.$1))).toList();
 
     if (missing.isEmpty) return const SizedBox.shrink();
+    // One small card per missing thing: icon, message, action button (or spinner), close button.
     return Column(children: [
       for (final (kind, icon, text, action) in missing)
         Card(

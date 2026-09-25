@@ -1,18 +1,28 @@
 name: hometunes
 description: A Spotify-style music player for your own music folder, with optional streaming from a Subsonic-compatible server.
+# 'none' stops the app being accidentally published to pub.dev (it's an app, not a package).
 publish_to: 'none'
+# Version shown on the About page and used in the release file names.
+# Format is <version>+<build number>: "0.1.9" is the human version (major.minor.patch);
+# "+9" is the build number, which Android uses to tell newer installs from older ones, so it
+# must go up with every release. tool/build_release.ps1 reads this line.
 version: 0.1.9+9
 
+# Minimum Dart and Flutter versions needed to build HomeTunes.
 environment:
   sdk: '>=3.10.0 <4.0.0'
   flutter: '>=3.38.0'
 
+# Packages the app uses. "^1.2.6" means "1.2.6 or any newer version before 2.0.0".
+# "path:" entries are patched copies kept inside this repo (packages/) instead of downloaded.
 dependencies:
   flutter:
+    # The Flutter framework itself (widgets, Material design).
     sdk: flutter
 
   # Playback on Windows, macOS, Linux, Android and iOS (local files + http streams)
   media_kit: ^1.2.6
+  # The native audio engine (libmpv) for each platform, audio-only build (no video parts).
   media_kit_libs_audio: ^1.0.7
 
   # Reading tags + embedded album art (pure Dart, all platforms).
@@ -23,9 +33,11 @@ dependencies:
 
   # Picking the music folder, storage permission on Android
   file_picker: ^13.1.0
+  # (Also used to choose cover images and to save / open backup files.)
   # Android-only permission plugin (the full permission_handler also builds a
   # Windows part that needs NuGet, which isn't needed here)
   permission_handler_android: ^14.1.0
+  # The shared interface the Android permission plugin plugs into; the app asks through this.
   permission_handler_platform_interface: ^4.4.1
 
   # System media controls: Android notification / lock screen / headset buttons,
@@ -36,17 +48,25 @@ dependencies:
     path: packages/audio_service_win
 
   # State, storage, networking
+  # provider: shares the app's state objects (library, player, playlists...) with the screens.
   provider: ^6.1.5
+  # path_provider: finds the app-support folder where settings and the library are saved.
   path_provider: ^2.1.4
+  # path: joins and splits file paths the right way on each platform.
   path: ^1.9.0
+  # http: talks to the Subsonic server and the online lookups (lyrics, covers, book/music info).
   http: ^1.2.2
+  # crypto: md5 hashes (Subsonic login tokens, and naming cached cover images).
   crypto: ^3.0.5
+  # package_info_plus: reads the app's own version number for the About page.
   package_info_plus: ^10.2.1
 
+# Only needed while developing: the test framework and the recommended lint rules.
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
 
 flutter:
+  # Bundles the Material icon font used throughout the UI.
   uses-material-design: true
