@@ -102,6 +102,10 @@ EqPreset? builtInEqPreset(String id) {
 /// that isn't at 0. Empty when nothing needs changing. The overall level isn't
 /// part of it; the player turns its volume down instead (see [eqLevelFactor]).
 ///
+/// The audio engine media_kit ships can't convert sample formats inside the
+/// filter itself (its FFmpeg has no `aresample`), and the equalizer only works on
+/// "planar" samples. So mpv's own converter (`format=format=floatp`) goes first.
+///
 /// A file can only carry sounds up to half its [sampleRate], and the engine
 /// rejects the whole equaliser if any band is above that (for example the
 /// 16k band on a 22 kHz audiobook). So those bands are left out.
@@ -113,7 +117,7 @@ String eqFilter(EqPreset? p, {int? sampleRate}) {
       if (p.gains[i] != 0 && (limit == null || eqBands[i] < limit))
         'equalizer=f=${eqBands[i]}:t=o:w=1:g=${p.gains[i].toStringAsFixed(1)}',
   ];
-  return parts.isEmpty ? '' : 'lavfi=[${parts.join(',')}]';
+  return parts.isEmpty ? '' : 'format=format=floatp,lavfi=[${parts.join(',')}]';
 }
 
 /// How much to scale the volume for [p]'s overall level (1 = unchanged).

@@ -37,7 +37,7 @@ void main() {
       final bass = builtInEqPreset('bass')!;
       expect(
         eqFilter(bass),
-        'lavfi=[equalizer=f=31:t=o:w=1:g=6.0,equalizer=f=62:t=o:w=1:g=5.0,'
+        'format=format=floatp,lavfi=[equalizer=f=31:t=o:w=1:g=6.0,equalizer=f=62:t=o:w=1:g=5.0,'
         'equalizer=f=125:t=o:w=1:g=4.0,equalizer=f=250:t=o:w=1:g=2.0]',
       );
     });
