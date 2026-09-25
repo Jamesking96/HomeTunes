@@ -1,3 +1,6 @@
+// Settings › Online lookups: three on/off switches for the only times HomeTunes goes online
+// on its own (apart from a music server): covers and song details from MusicBrainz / Cover Art
+// Archive, and lyrics from LRCLIB. Each switch saves straight to LibraryModel (settings.json).
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 

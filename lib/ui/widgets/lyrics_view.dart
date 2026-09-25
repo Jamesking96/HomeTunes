@@ -1,3 +1,9 @@
+// The lyrics panel shown in Now Playing (and from the desktop player bar).
+//
+// LyricsModel decides where the lyrics come from (your own, the file, saved, server, LRCLIB);
+// this widget asks it for them, then shows one of: "Looking…", a "no lyrics" message with
+// buttons, plain text, or timed lines that light up and scroll along with the song. A small
+// footer says where the lyrics came from and has a menu (find, edit, hide, look again).
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -26,6 +32,8 @@ class LyricsView extends StatefulWidget {
 }
 
 class _LyricsViewState extends State<LyricsView> {
+  // The lookup is kept between rebuilds so we don't search again on every redraw; the key
+  // records what it was for (see _lyrics).
   Future<Lyrics?>? _future;
   String? _futureKey;
 
@@ -42,16 +50,19 @@ class _LyricsViewState extends State<LyricsView> {
   @override
   Widget build(BuildContext context) {
     final model = context.watch<LyricsModel>();
+    // The user's own lyrics live in LibraryModel's edits, so watch those too.
     final edit = context.select<LibraryModel, String?>((l) => l.lyricsEdit(widget.track.id));
     return FutureBuilder<Lyrics?>(
       future: _lyrics(model, edit),
       builder: (context, snap) {
+        // Pick what to show in the main area, then add the footer underneath.
         final Widget body;
         if (snap.connectionState != ConnectionState.done) {
           body = const _Message(icon: null, text: 'Looking for lyrics…');
         } else if (snap.data == null) {
           body = _NoLyrics(track: widget.track, hidden: model.isHidden(widget.track));
         } else if (snap.data!.timed) {
+          // The key restarts the timed view (and its line positions) when the lyrics change.
           body = _TimedLyrics(key: ValueKey(_futureKey), track: widget.track, lyrics: snap.data!, large: widget.large);
         } else {
           body = _PlainLyrics(lyrics: snap.data!, large: widget.large);
@@ -65,6 +76,7 @@ class _LyricsViewState extends State<LyricsView> {
   }
 }
 
+/// A centred message with an icon (or a spinner when [icon] is null) and optional buttons.
 class _Message extends StatelessWidget {
   final IconData? icon;
   final String text;
@@ -90,6 +102,8 @@ class _Message extends StatelessWidget {
   }
 }
 
+/// Shown when there are no lyrics: either the user hid them (offer to show again), or none
+/// were found (offer to search LRCLIB or type them in).
 class _NoLyrics extends StatelessWidget {
   final Track track;
   final bool hidden;
@@ -108,6 +122,7 @@ class _NoLyrics extends StatelessWidget {
     final online = context.select<LibraryModel, bool>((l) => l.onlineLyrics);
     return _Message(
       icon: Icons.lyrics_outlined,
+      // For a local song with online lookups off, explain why nothing was searched.
       text: online || !track.isLocal
           ? 'No lyrics found for this song.'
           : 'This song has no lyrics of its own.\nLooking them up online is switched off in Settings › Online lookups.',
@@ -146,6 +161,8 @@ class _Footer extends StatelessWidget {
             style: const TextStyle(color: AppColors.textDim, fontSize: 12),
           ),
         ),
+        // Each menu item's value is the action to run, so onSelected just calls it.
+        // Items only appear when they make sense for these lyrics.
         PopupMenuButton<VoidCallback>(
           tooltip: 'Lyrics options',
           icon: const Icon(Icons.more_horiz, color: AppColors.textDim),
@@ -169,6 +186,7 @@ class _Footer extends StatelessWidget {
   }
 }
 
+/// Untimed lyrics: one block of selectable text (so it can be copied).
 class _PlainLyrics extends StatelessWidget {
   final Lyrics lyrics;
   final bool large;
@@ -188,6 +206,8 @@ class _PlainLyrics extends StatelessWidget {
   }
 }
 
+/// Timed (LRC) lyrics that follow the song: the current line is bright, sung lines dimmer,
+/// upcoming ones dimmest.
 class _TimedLyrics extends StatefulWidget {
   final Track track;
   final Lyrics lyrics;
@@ -200,19 +220,23 @@ class _TimedLyrics extends StatefulWidget {
 
 class _TimedLyricsState extends State<_TimedLyrics> {
   final _scroll = ScrollController();
+  // One key per line so we can find a line on screen and scroll to it.
   late final List<GlobalKey> _keys = List.generate(widget.lyrics.lines.length, (_) => GlobalKey());
   StreamSubscription<Duration>? _sub;
-  int _current = -1;
+  int _current = -1; // index of the line being sung, -1 = before the first line
 
   /// After the user scrolls by hand, leave the view alone for a moment.
   DateTime _userScrolledAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   PlayerModel get _player => context.read<PlayerModel>();
+  /// Only follow along when this song is the one playing (the view can show another song).
   bool get _isPlaying => _player.current?.id == widget.track.id;
 
   @override
   void initState() {
     super.initState();
+    // Wait for the first frame so the lines exist, then follow the position and jump
+    // (no animation) straight to the current line.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _sub = _player.positionStream.listen(_onPosition);
@@ -227,14 +251,17 @@ class _TimedLyricsState extends State<_TimedLyrics> {
     super.dispose();
   }
 
+  /// Called on every position update. Only redraws when the current line actually changes.
   void _onPosition(Duration pos, {bool jump = false}) {
     if (!mounted || !_isPlaying) return;
     final i = widget.lyrics.lineAt(pos);
     if (i == _current) return;
     setState(() => _current = i);
+    // The user scrolled in the last 4 seconds: highlight, but don't pull the view away.
     if (DateTime.now().difference(_userScrolledAt) < const Duration(seconds: 4)) return;
     final ctx = i >= 0 ? _keys[i].currentContext : null;
     if (ctx != null) {
+      // Put the current line about a third of the way down, so some upcoming lines show too.
       Scrollable.ensureVisible(
         ctx,
         alignment: 0.35,
@@ -242,6 +269,7 @@ class _TimedLyricsState extends State<_TimedLyrics> {
         curve: Curves.easeOutCubic,
       );
     } else if (i < 0 && _scroll.hasClients) {
+      // Before the first line (e.g. after seeking back to the start): go to the top.
       _scroll.jumpTo(0);
     }
   }
@@ -251,6 +279,7 @@ class _TimedLyricsState extends State<_TimedLyrics> {
     final lines = widget.lyrics.lines;
     final size = widget.large ? 24.0 : 18.0;
     final playing = context.select<PlayerModel, bool>((p) => p.current?.id == widget.track.id);
+    // Note when the user scrolls by hand, so auto-scroll backs off for a while.
     return NotificationListener<UserScrollNotification>(
       onNotification: (_) {
         _userScrolledAt = DateTime.now();
@@ -259,6 +288,7 @@ class _TimedLyricsState extends State<_TimedLyrics> {
       // Every line is built (lyrics are short), so each can be scrolled to.
       child: SingleChildScrollView(
         controller: _scroll,
+        // Big bottom padding lets the last lines scroll up to the reading position.
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 200),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           for (var i = 0; i < lines.length; i++)
@@ -267,6 +297,7 @@ class _TimedLyricsState extends State<_TimedLyrics> {
               borderRadius: BorderRadius.circular(6),
               onTap: playing
                   ? () {
+                      // Tapping a line seeks there and turns auto-scroll straight back on.
                       _userScrolledAt = DateTime.fromMillisecondsSinceEpoch(0);
                       _player.seek(lines[i].time!);
                     }

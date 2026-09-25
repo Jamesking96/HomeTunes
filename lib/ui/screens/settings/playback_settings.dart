@@ -1,3 +1,7 @@
+// Settings › Playback: gapless playback on/off and ReplayGain (even out volume).
+//
+// Both are saved in LibraryModel; PlayerModel reads them from there and passes them to mpv
+// (gapless-audio / prefetch-playlist / replaygain properties), only when they change.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 

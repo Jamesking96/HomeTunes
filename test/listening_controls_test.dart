@@ -1,3 +1,9 @@
+// Tests for the listening controls: skip back/forward across the files of a book
+// (PlayerModel.skipTarget), finding the current chapter, the volume mouse-wheel and speed-label
+// helpers, the sleep timer (state/sleep_timer.dart: music vs book length, fade-out, end of song,
+// end of chapter), and saving the listening/playback settings and each book's own speed.
+// The sleep timer is tested against FakeTarget instead of the real player, and with a fake
+// clock, so no audio engine or real waiting is needed.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +17,7 @@ import 'package:hometunes/state/sleep_timer.dart';
 import 'package:hometunes/ui/widgets/listening_controls.dart';
 import 'package:hometunes/ui/widgets/player_controls.dart';
 
+/// A made-up song (or book file) called [id], [seconds] long.
 Track song(String id, {int seconds = 180}) => Track(
       id: id,
       source: TrackSource.local,
@@ -38,9 +45,11 @@ class FakeTarget implements SleepTarget {
   Duration bookOffset = Duration.zero;
   @override
   int currentChapterIndex = -1;
+  // What chapterEnd() returns, set by the "end of chapter" test.
   Duration end = Duration.zero;
   @override
   double volume = 80;
+  // Flags the tests check: did the timer pause the player / save the book place?
   bool paused = false;
   bool saved = false;
 
@@ -62,6 +71,8 @@ void main() {
   const m = Duration(minutes: 1);
   const s = Duration(seconds: 1);
 
+  // A three-file book, 10 minutes per file. skipTarget returns (file number, position in file),
+  // or null for "go to the next song".
   group('Skipping', () {
     final parts = [m * 10, m * 10, m * 10];
 
@@ -73,6 +84,7 @@ void main() {
       expect(PlayerModel.skipTarget(parts, 0, m * 10 - s * 10, s * 30), (1, s * 20));
     });
 
+    // At the end it stops 1 s before the finish rather than exactly on it.
     test('stops at the very start and the very end of the book', () {
       expect(PlayerModel.skipTarget(parts, 0, s * 5, -s * 15), (0, Duration.zero));
       expect(PlayerModel.skipTarget(parts, 2, m * 10 - s * 10, s * 30), (2, m * 10 - s));
@@ -84,6 +96,7 @@ void main() {
     });
   });
 
+  // Times here are from the start of the whole book (the `offset` of each chapter).
   test('which chapter a time is in', () {
     const chapters = [
       BookChapter(part: 0, start: Duration.zero, offset: Duration.zero, title: 'One'),
@@ -96,6 +109,7 @@ void main() {
     expect(PlayerModel.chapterIndexAt(const [], m), -1);
   });
 
+  // A positive wheel value is scrolling down; each notch moves the volume by 5.
   test('mouse wheel over the volume: down turns it down, up turns it up, within 0–100', () {
     expect(VolumeControl.afterWheel(50, 100), 45);
     expect(VolumeControl.afterWheel(50, -100), 55);
@@ -111,6 +125,8 @@ void main() {
     expect(SpeedButton.label(0.75), '0.75×');
   });
 
+  // Each test gets a fresh timer on a FakeTarget player. `clock` is the timer's idea of "now";
+  // tests move it forward and call tick() instead of waiting for real time to pass.
   group('Sleep timer', () {
     late Directory dir;
     late LibraryModel settings;
@@ -140,6 +156,8 @@ void main() {
       expect(player.paused, isFalse);
     });
 
+    // With a 10 s fade, 5 s before the end the volume should be about half of 80. At the end the
+    // player is paused, the book place saved and the volume put back.
     test('books use the book length, fade out, then pause and save the place', () async {
       await settings.updateListeningSettings(sleepBookMinutes: 45, sleepFadeSeconds: 10);
       player.inBook = true;
@@ -157,6 +175,7 @@ void main() {
       expect(timer.active, isFalse);
     });
 
+    // sleepAtEnd = "stop at the end of this song/chapter" instead of a number of minutes.
     test('end of song: pauses when the song changes', () async {
       await settings.updateListeningSettings(sleepMusicMinutes: LibraryModel.sleepAtEnd);
       timer.start();
@@ -168,6 +187,7 @@ void main() {
       expect(player.paused, isTrue);
     });
 
+    // 50 minutes into the book with the chapter ending at 62 minutes = 12 minutes left.
     test('end of chapter: counts down to the chapter end', () async {
       await settings.updateListeningSettings(sleepBookMinutes: LibraryModel.sleepAtEnd, sleepFadeSeconds: 0);
       player
@@ -185,6 +205,8 @@ void main() {
     });
   });
 
+  // "Survive a restart" = save with one LibraryModel, then load a brand-new one from the same
+  // folder and check the values came back.
   group('Settings and per-book speed are saved', () {
     late Directory dir;
     setUp(() => dir = Directory.systemTemp.createTempSync('hometunes_lset'));

@@ -1,3 +1,10 @@
+// The page for one audiobook: cover, title, author, narrator/series/year, a progress bar,
+// Play / Resume buttons, an "About this book" section (description and any PDF that came with
+// it), the book's bookmarks, and its chapter list.
+//
+// Opened through AppNav.openBook (from the Books tab, Home, search and Now Playing). The listening
+// state (where you are, finished or not) comes from ListeningModel; playing goes through
+// PlayerModel.playBook, which handles resuming at the saved place. Editing opens edit_book.dart.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -17,6 +24,7 @@ import 'edit_book.dart';
 
 /// One audiobook: details, Resume / Play, and its chapters.
 class BookScreen extends StatelessWidget {
+  /// The book's id (from the book index). Looked up fresh on each build so edits show at once.
   final String bookId;
   const BookScreen({super.key, required this.bookId});
 
@@ -24,6 +32,8 @@ class BookScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
     final listening = context.watch<ListeningModel>();
+    // Use select() so this page only rebuilds when these two facts change, not on every position
+    // tick of the player.
     final playingThis = context.select<PlayerModel, bool>((p) => p.book?.id == bookId);
     final isPlaying = context.select<PlayerModel, bool>((p) => p.playing);
     final book = lib.bookById(bookId);
@@ -35,10 +45,13 @@ class BookScreen extends StatelessWidget {
     final progress = listening.progressFor(book);
     final chapters = book.chapters;
     final bookmarks = context.watch<BookmarksModel>().forBook(book);
+    // Which chapter to highlight: worked out from the saved place, not the live position.
     final current = _currentChapter(book, chapters, progress);
     final accent = Theme.of(context).colorScheme.primary;
+    // Wide screens put the cover beside the details; narrow ones stack everything centred.
     final wide = MediaQuery.sizeOf(context).width > 600;
 
+    // 1. The small grey line of details under the author ("Read by … · Series · 2019 · 9h 12m").
     final details = [
       if (book.narrator != null) 'Read by ${book.narrator}',
       if (book.seriesLabel != null) book.seriesLabel!,
@@ -46,6 +59,7 @@ class BookScreen extends StatelessWidget {
       formatLong(book.duration),
     ].join(' · ');
 
+    // 2. Status line: not started / finished / time left and % done.
     final status = switch (state) {
       BookState.notStarted => 'Not started',
       BookState.finished => 'Finished',
@@ -53,6 +67,8 @@ class BookScreen extends StatelessWidget {
         '${formatLong(listening.timeLeft(book))} left · ${(listening.fractionDone(book) * 100).round()}%',
     };
 
+    // The main button: pause/resume if this book is already loaded, otherwise start it.
+    // A finished book starts again from the beginning ("Listen again").
     Future<void> play() async {
       if (playingThis) {
         await player.togglePlay();
@@ -69,6 +85,7 @@ class BookScreen extends StatelessWidget {
             BookState.finished => 'Listen again',
           };
 
+    // 3. The block of text beside/under the cover.
     final info = Column(
       crossAxisAlignment: wide ? CrossAxisAlignment.start : CrossAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
@@ -102,6 +119,7 @@ class BookScreen extends StatelessWidget {
       ],
     );
 
+    // 4. The row of buttons: Play/Resume, Play from start, Edit, and a ⋮ menu.
     final actions = Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -124,6 +142,7 @@ class BookScreen extends StatelessWidget {
           icon: const Icon(Icons.edit_outlined),
           onPressed: () => _edit(context, book),
         ),
+        // Each menu item's value is the function to run, so onSelected just calls it.
         PopupMenuButton<VoidCallback>(
           tooltip: 'More',
           icon: const Icon(Icons.more_vert),
@@ -148,6 +167,7 @@ class BookScreen extends StatelessWidget {
       ],
     );
 
+    // 5. The header: cover + info + buttons on a soft accent-coloured gradient.
     final coverWidth = wide ? 200.0 : 180.0;
     final header = Container(
       decoration: BoxDecoration(
@@ -177,6 +197,7 @@ class BookScreen extends StatelessWidget {
             ]),
     );
 
+    // 6. The page: header, About, bookmarks (if any), then the chapter list.
     return Scaffold(
       appBar: AppBar(),
       body: CustomScrollView(slivers: [
@@ -207,6 +228,8 @@ class BookScreen extends StatelessWidget {
           itemCount: chapters.length,
           itemBuilder: (_, i) {
             final ch = chapters[i];
+            // A chapter ends where the next one starts (or at the end of the book),
+            // which gives its length.
             final end = i + 1 < chapters.length ? chapters[i + 1].offset : book.duration;
             final isCurrent = i == current;
             return ListTile(
@@ -222,6 +245,8 @@ class BookScreen extends StatelessWidget {
                   style: TextStyle(color: isCurrent ? accent : null, fontWeight: FontWeight.w500)),
               subtitle: Text('Starts at ${formatDuration(ch.offset)}'),
               trailing: Text(formatDuration(end - ch.offset), style: const TextStyle(color: AppColors.textDim)),
+              // If the book is loaded, jump within it; otherwise start the book at
+              // this chapter's file and spot.
               onTap: () => playingThis ? player.goToChapter(i) : player.playBook(book, partIndex: ch.part, at: ch.start),
             );
           },
@@ -241,6 +266,8 @@ class BookScreen extends StatelessWidget {
     if (progress == null || progress.finished) return -1;
     final part = book.indexOfPart(progress.partId);
     if (part < 0) return -1;
+    // Turn "file + position in file" into a position in the whole book, then find the last chapter
+    // that starts at or before it.
     final at = book.offsetOf(part, progress.position);
     var found = -1;
     for (var i = 0; i < chapters.length; i++) {
@@ -253,6 +280,7 @@ class BookScreen extends StatelessWidget {
   Future<void> _edit(BuildContext context, Book book) async {
     final lib = context.read<LibraryModel>();
     final navigator = Navigator.of(context);
+    // Remember a file from the book so we can find the (possibly renamed) book again afterwards.
     final firstPart = book.parts.first.id;
     final saved = await showEditBook(context, book);
     if (!saved) return;
@@ -262,6 +290,8 @@ class BookScreen extends StatelessWidget {
     }
   }
 
+  /// Asks, then marks all the book's files as music ("Move to Music"). The snackbar's Undo
+  /// clears the override again so the usual book rules decide.
   Future<void> _moveToMusic(BuildContext context, Book book) async {
     final lib = context.read<LibraryModel>();
     final navigator = Navigator.of(context);
@@ -280,6 +310,7 @@ class BookScreen extends StatelessWidget {
     );
     if (ok != true) return;
     final ids = [for (final t in book.parts) t.id];
+    // The book no longer exists once its files are music, so close this page.
     await lib.setIsBook(ids, false);
     if (navigator.canPop()) navigator.pop();
     messenger?.showSnackBar(SnackBar(
@@ -301,8 +332,10 @@ class _About extends StatefulWidget {
 }
 
 class _AboutState extends State<_About> {
+  /// Whether the description is expanded.
   bool _open = false;
 
+  /// Opens a companion file (e.g. a PDF) in the computer's usual app for it.
   Future<void> _openFile(String path) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
     try {
@@ -337,6 +370,7 @@ class _AboutState extends State<_About> {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: AppColors.textDim, height: 1.45)),
           ),
+          // Only offer "Show more" when the text is long enough to have been cut short.
           if (text.length > 240 || '\n'.allMatches(text).length > 3)
             TextButton(
               style: TextButton.styleFrom(padding: EdgeInsets.zero),

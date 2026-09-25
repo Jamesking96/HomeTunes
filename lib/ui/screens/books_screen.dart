@@ -1,3 +1,10 @@
+// The Books tab: every audiobook as a grid of covers, with ways to narrow it down.
+//
+// Along the top: a search box (title/author/narrator/series), a filter sheet to show just one
+// author, narrator and/or series, and a sort menu. Below that, chips for All / In progress /
+// Not started / Finished with counts. Some sorts (e.g. by author or series) split the grid into
+// headed groups; sortBooks in state/book_index.dart does the sorting and grouping.
+// Books themselves are built by LibraryModel; progress comes from ListeningModel.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -11,6 +18,7 @@ import '../widgets/book_card.dart';
 import '../widgets/cards.dart';
 import '../widgets/music_access_banner.dart';
 
+/// The quick "state" chips along the top of the Books tab.
 enum BookFilter { all, inProgress, notStarted, finished }
 
 /// The Books tab: every audiobook as a grid of covers.
@@ -22,7 +30,9 @@ class BooksScreen extends StatefulWidget {
 }
 
 class _BooksScreenState extends State<BooksScreen> {
+  /// Which state chip is selected.
   BookFilter _filter = BookFilter.all;
+  /// The chosen sort order. Not saved, so it starts as "Recently listened" each run.
   BookSort _sort = BookSort.recentlyListened;
 
   /// One author / narrator / series to show (chosen with the filter button).
@@ -39,12 +49,14 @@ class _BooksScreenState extends State<BooksScreen> {
     super.dispose();
   }
 
+  /// Closes the search box and forgets what was typed.
   void _closeSearch() => setState(() {
         _searching = false;
         _search.clear();
         _query = '';
       });
 
+  /// The words shown on each state chip.
   static String _filterLabel(BookFilter f) => switch (f) {
         BookFilter.all => 'All',
         BookFilter.inProgress => 'In progress',
@@ -52,6 +64,7 @@ class _BooksScreenState extends State<BooksScreen> {
         BookFilter.finished => 'Finished',
       };
 
+  /// The words shown in the sort menu.
   static String _sortLabel(BookSort s) => switch (s) {
         BookSort.recentlyListened => 'Recently listened',
         BookSort.title => 'Title',
@@ -61,6 +74,7 @@ class _BooksScreenState extends State<BooksScreen> {
         BookSort.recentlyAdded => 'Recently added',
       };
 
+  /// Whether book [b] passes the selected state chip.
   bool _matches(Book b, ListeningModel l) => switch (_filter) {
         BookFilter.all => true,
         BookFilter.inProgress => l.stateOf(b) == BookState.inProgress,
@@ -78,6 +92,7 @@ class _BooksScreenState extends State<BooksScreen> {
       showDragHandle: true,
       builder: (_) => _FilterSheet(books: books, current: _only),
     );
+    // A null result means the sheet was dismissed without choosing, so keep the old filters.
     if (picked != null && mounted) setState(() => _only = picked);
   }
 
@@ -87,6 +102,7 @@ class _BooksScreenState extends State<BooksScreen> {
     final listening = context.watch<ListeningModel>();
     final ratio = bookCoverRatio(context);
 
+    // No books at all yet: a helpful message and a button straight to Settings > Audiobooks.
     if (lib.books.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: const Text('Audiobooks', style: TextStyle(fontWeight: FontWeight.w800))),
@@ -113,6 +129,7 @@ class _BooksScreenState extends State<BooksScreen> {
       );
     }
 
+    // 1. Count books in each state for the chip labels (always across the whole library).
     final counts = {for (final f in BookFilter.values) f: 0};
     for (final b in lib.books) {
       counts[BookFilter.all] = counts[BookFilter.all]! + 1;
@@ -124,14 +141,18 @@ class _BooksScreenState extends State<BooksScreen> {
       };
       counts[f] = counts[f]! + 1;
     }
+    // 2. Work out what to show: the state chip, the author/narrator/series filter and the search
+    //    box must all agree. Search results are turned into a set of ids for quick checks.
     final found = _query.trim().isEmpty ? null : {for (final b in searchBookList(lib.books, _query)) b.id};
     final shown = [
       for (final b in lib.books)
         if (_matches(b, listening) && _only.matches(b) && (found == null || found.contains(b.id))) b
     ];
+    // 3. Sort, and split into groups with headings where the sort calls for it.
     final groups = sortBooks(shown, _sort, lastListened: listening.lastListened);
 
     return Scaffold(
+      // App bar: the title turns into a search box while searching.
       appBar: AppBar(
         title: _searching
             ? TextField(
@@ -171,14 +192,17 @@ class _BooksScreenState extends State<BooksScreen> {
           ),
         ],
       ),
+      // Body: work out the grid size from the width so cards line up with the cover shape setting.
       body: LayoutBuilder(builder: (context, c) {
         final cols = gridColumns(c.maxWidth);
+        // 16 = the 8 px padding on each side of the grid.
         final itemWidth = (c.maxWidth - 16) / cols;
         final grid = SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: cols,
           mainAxisExtent: bookCardHeight(itemWidth, ratio),
         );
         return CustomScrollView(slivers: [
+          // Row of chips (scrolls sideways on narrow screens).
           SliverToBoxAdapter(
             child: SizedBox(
               height: 48,
@@ -222,6 +246,7 @@ class _BooksScreenState extends State<BooksScreen> {
                 child: Text('No books match.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)),
               ),
             ),
+          // One optional heading + grid per group (just one unnamed group for most sorts).
           for (final (header, books) in groups) ...[
             if (header != null)
               SliverToBoxAdapter(
@@ -257,6 +282,7 @@ class _FilterSheet extends StatefulWidget {
 }
 
 class _FilterSheetState extends State<_FilterSheet> {
+  /// The filters being chosen; only handed back when "Show books" is pressed.
   late BookFilters _f = widget.current;
 
   /// Choices narrow each other: once an author is picked, only their
@@ -269,12 +295,15 @@ class _FilterSheetState extends State<_FilterSheet> {
             b
       ];
 
+  /// One labelled dropdown with "All" plus each choice and how many books it has.
   Widget _dropdown({
     required String label,
     required String? value,
     required Map<String, int> options,
     required ValueChanged<String?> onChanged,
   }) {
+    // Keep the current pick in the list even if other choices have narrowed it away,
+    // otherwise the dropdown would complain about a value that isn't in its items.
     final items = {...options};
     if (value != null && !items.containsKey(value)) items[value] = 0;
     return Padding(
@@ -297,10 +326,12 @@ class _FilterSheetState extends State<_FilterSheet> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
+        // Extra bottom padding lifts the sheet above the on-screen keyboard.
         padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Show only', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
+          // Each dropdown's choices are narrowed by the other two picks (but not by itself).
           _dropdown(
             label: 'Author',
             value: _f.author,
@@ -323,6 +354,7 @@ class _FilterSheetState extends State<_FilterSheet> {
           const SizedBox(height: 4),
           Row(children: [
             TextButton(
+              // "Clear all" hands back empty filters straight away.
               onPressed: () => Navigator.pop(context, BookFilters.none),
               child: const Text('Clear all'),
             ),

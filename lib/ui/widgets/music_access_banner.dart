@@ -1,3 +1,9 @@
+// The amber "HomeTunes can't read your music" card (Android only in practice).
+//
+// Shown at the top of Home, Books and Settings when LibraryModel says folders are set up but the
+// "Music and audio" permission is missing. Without that permission a scan would find nothing
+// and wipe the library, so the app never scans until access is back. The button asks again,
+// or sends the user to the phone's Settings if Android won't ask any more.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -9,6 +15,7 @@ import '../theme.dart';
 class MusicAccessBanner extends StatelessWidget {
   const MusicAccessBanner({super.key});
 
+  /// Asks for access; if given, re-checks it and rescans. Other screens can call this too.
   static Future<void> fix(BuildContext context) async {
     final lib = context.read<LibraryModel>();
     var access = await MusicPermission.request();
@@ -24,6 +31,7 @@ class MusicAccessBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // select: only rebuild when this one yes/no changes, not on every library change.
     final needed = context.select<LibraryModel, bool>((l) => l.needsMusicAccess);
     if (!needed) return const SizedBox.shrink();
     return Card(

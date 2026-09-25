@@ -1,3 +1,8 @@
+// Talks to the user's own music server using the Subsonic API (Navidrome and friends).
+// LibraryModel uses it to test the login (ping), download the whole song list (fetchAllTracks,
+// stored in library.json as "server:" tracks), and build the stream / cover URLs the player
+// and image widgets open. LyricsModel uses fetchLyrics. Every request carries the login as a
+// "token" (md5 of password + random salt), so the password itself never goes over the network.
 import 'dart:convert';
 import 'dart:math';
 
@@ -15,6 +20,7 @@ class ServerConfig {
 
   const ServerConfig({required this.url, required this.username, required this.password});
 
+  /// Enough filled in to try connecting (a blank password is allowed).
   bool get isComplete => url.trim().isNotEmpty && username.trim().isNotEmpty;
 
   Map<String, dynamic> toJson() => {'url': url, 'username': username, 'password': password};
@@ -35,6 +41,7 @@ class SyncResult {
   const SyncResult(this.tracks, this.failedAlbums);
 }
 
+/// A server problem, with a message that can be shown to the user as it is.
 class SubsonicException implements Exception {
   final String message;
   SubsonicException(this.message);
@@ -44,6 +51,7 @@ class SubsonicException implements Exception {
 
 /// Minimal client for the Subsonic REST API (v1.16.1, JSON responses).
 class SubsonicClient {
+  // Sent with every request: the API version we speak and our app name ("c").
   static const apiVersion = '1.16.1';
   static const clientName = 'hometunes';
 
@@ -82,11 +90,13 @@ class SubsonicClient {
     };
   }
 
+  /// 12 random letters/digits; a fresh one per request makes each token different.
   String _makeSalt() {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
     return List.generate(12, (_) => chars[_random.nextInt(chars.length)]).join();
   }
 
+  /// Full request address: `<server>/rest/<method>?<login>&<params>`.
   Uri buildUri(String method, [Map<String, String> params = const {}, String? salt]) {
     final base = Uri.parse('$baseUrl/rest/$method');
     return base.replace(queryParameters: {...authParams(salt: salt), ...params});
@@ -99,6 +109,8 @@ class SubsonicClient {
   String coverArtUrl(String coverId, {int size = 512}) =>
       buildUri('getCoverArt', {'id': coverId, 'size': '$size'}, _mediaSalt).toString();
 
+  /// Makes one API call and unwraps the reply. Every kind of failure (no network, HTTP error,
+  /// not JSON, server says "failed") becomes a [SubsonicException] with a friendly message.
   Future<Map<String, dynamic>> _get(String method, [Map<String, String> params = const {}]) async {
     final http.Response res;
     try {
@@ -129,6 +141,7 @@ class SubsonicClient {
   /// Downloads the whole song list: every album via getAlbumList2, then each album's songs.
   /// An album that fails to load is skipped and counted in [SyncResult.failedAlbums].
   Future<SyncResult> fetchAllTracks({void Function(int albumsDone, int albumsTotal)? onProgress}) async {
+    // 1. Page through the album list, 500 at a time, until a short page says we're done.
     final albumIds = <String>[];
     const page = 500;
     for (var offset = 0;; offset += page) {
@@ -142,6 +155,7 @@ class SubsonicClient {
       if (list.length < page) break;
     }
 
+    // 2. Fetch each album's songs.
     final tracks = <Track>[];
     var done = 0;
     var failed = 0;
@@ -185,7 +199,7 @@ class SubsonicClient {
   static Track songToTrack(Map<String, dynamic> s, {String? albumArtistFallback}) {
     final artist = (s['artist'] as String?) ?? albumArtistFallback ?? 'Unknown Artist';
     return Track(
-      id: 'server:${s['id']}',
+      id: 'server:${s['id']}',  // see Track.id
       source: TrackSource.server,
       title: (s['title'] as String?) ?? 'Untitled',
       artist: artist,
@@ -197,7 +211,7 @@ class SubsonicClient {
       genre: s['genre'] as String?,
       duration: Duration(seconds: (s['duration'] as num?)?.toInt() ?? 0),
       remoteId: s['id'].toString(),
-      art: s['coverArt']?.toString(),
+      art: s['coverArt']?.toString(),  // a cover id, turned into a URL by coverArtUrl
     );
   }
 
@@ -230,6 +244,7 @@ class SubsonicClient {
         if (s is Map<String, dynamic>) s,
     ];
     if (sets.isEmpty) return null;
+    // A server may offer several versions (e.g. timed and plain); put timed ones first.
     sets.sort((a, b) => ((b['synced'] == true) ? 1 : 0) - ((a['synced'] == true) ? 1 : 0));
     final s = sets.first;
     // A positive offset means the lines come sooner.
@@ -240,6 +255,7 @@ class SubsonicClient {
     ];
     if (lines.isEmpty) return null;
     if (s['synced'] == true) {
+      // Rebuild LRC text, e.g. "[01:23.45]line", so lyrics.dart can parse it like any other.
       String stamp(int ms) {
         final d = Duration(milliseconds: ms < 0 ? 0 : ms);
         final m = d.inMinutes.toString().padLeft(2, '0');
@@ -255,5 +271,6 @@ class SubsonicClient {
     return [for (final l in lines) (l['value'] as String?) ?? ''].join('\n');
   }
 
+  /// Frees the network connection when the client is no longer needed.
   void close() => _http.close();
 }

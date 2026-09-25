@@ -1,3 +1,9 @@
+// Song rows and the song "⋮" menu, used in every list of songs (albums, playlists, search,
+// Library, queue, Now Playing), plus two small shared dialogs: "Add to playlist" and a
+// one-line name prompt (also used for new playlists and book genres).
+//
+// A row plays its list from that song when tapped, and handles multi-select (long-press to
+// start, then taps tick/untick) through SelectionModel; Shell shows the selection bar.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -16,8 +22,11 @@ import 'artwork.dart';
 /// One song row. Tapping plays [list] starting at [index].
 class TrackTile extends StatelessWidget {
   final Track track;
+  /// The whole list this row belongs to; tapping plays all of it, starting here.
   final List<Track> list;
+  /// This song's place in [list].
   final int index;
+  /// Where the music is playing from (e.g. the album or playlist name), shown by the player.
   final String? contextLabel;
 
   /// Show a track number instead of artwork (album pages).
@@ -46,6 +55,8 @@ class TrackTile extends StatelessWidget {
     final selecting = context.select<SelectionModel, bool>((s) => s.active);
     final selected = context.select<SelectionModel, bool>((s) => s.contains(track.id));
 
+    // Left side: a tick box in select mode, else the track number (album pages; a sound-wave
+    // icon for the song playing), else the cover.
     Widget leading;
     if (selecting) {
       leading = SizedBox(
@@ -76,6 +87,8 @@ class TrackTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(color: isCurrent ? accent : null, fontWeight: FontWeight.w500),
       ),
+      // Subtitle: a small cloud for server songs, then artist (and album, unless we're on the
+      // album's own page).
       subtitle: Row(children: [
         if (!track.isLocal)
           const Padding(
@@ -91,6 +104,7 @@ class TrackTile extends StatelessWidget {
         ),
       ]),
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+        // The song length only fits on wider screens. The menu is hidden while selecting.
         if (MediaQuery.sizeOf(context).width > 600)
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -111,6 +125,8 @@ class TrackTile extends StatelessWidget {
 class TrackMenuButton extends StatelessWidget {
   final Track track;
   final PopupMenuEntry<VoidCallback>? extraAction;
+  /// Set when the menu is on a page shown over the tabs (like Now Playing): that page is closed
+  /// before going to an album or artist, so the new page can be seen.
   final bool closeRouteFirst;
 
   const TrackMenuButton({super.key, required this.track, this.extraAction, this.closeRouteFirst = false});
@@ -123,11 +139,14 @@ class TrackMenuButton extends StatelessWidget {
     final lib = context.read<LibraryModel>();
     final liked = context.watch<PlaylistsModel>().isLiked(track);
 
+    // Runs a "go to" action, closing the covering page first if needed.
     void goto(VoidCallback f) {
       if (closeRouteFirst) Navigator.of(context).pop();
       f();
     }
 
+    // Each item's value is the action to run, so onSelected just calls it.
+    // Sections: like / queue / playlists; go to album / artist; edit, lyrics, Books, select.
     return PopupMenuButton<VoidCallback>(
       icon: const Icon(Icons.more_vert),
       tooltip: 'More',
@@ -172,6 +191,7 @@ class TrackMenuButton extends StatelessWidget {
         PopupMenuItem(
           value: () async {
             final messenger = ScaffoldMessenger.maybeOf(context);
+            // Sets the user's override; Undo puts it back to automatic (null), not "music".
             await lib.setIsBook([track.id], true);
             messenger?.showSnackBar(SnackBar(
               content: Text('"${track.title}" moved to Books'),
@@ -190,13 +210,16 @@ class TrackMenuButton extends StatelessWidget {
     );
   }
 
+  /// Icon + text for a menu item.
   static Widget _row(IconData i, String s) => Row(children: [Icon(i, size: 20), const SizedBox(width: 12), Text(s)]);
 }
 
 /// Bottom sheet listing playlists (plus "New playlist").
 Future<void> showAddToPlaylist(BuildContext context, List<Track> tracks) async {
   final model = context.read<PlaylistsModel>();
+  // Grab the messenger now; the sheet closing may leave `context` unusable later.
   final messenger = ScaffoldMessenger.maybeOf(context);
+  // The sheet returns the chosen (or newly made) playlist, or null if dismissed.
   final Playlist? chosen = await showModalBottomSheet<Playlist>(
     context: context,
     backgroundColor: AppColors.surface,
@@ -222,6 +245,7 @@ Future<void> showAddToPlaylist(BuildContext context, List<Track> tracks) async {
     ),
   );
   if (chosen == null) return;
+  // addTracks skips songs already in the playlist and returns how many were really added.
   final n = model.addTracks(chosen, tracks);
   messenger?.showSnackBar(SnackBar(
     content: Text(n == 0 ? 'Already in ${chosen.name}' : 'Added to ${chosen.name}'),
@@ -237,6 +261,7 @@ Future<String?> askForName(BuildContext context, {required String title, String 
   );
 }
 
+/// The dialog behind [askForName]. Stateful only so the text controller can be disposed.
 class _NameDialog extends StatefulWidget {
   final String title;
   final String initial;

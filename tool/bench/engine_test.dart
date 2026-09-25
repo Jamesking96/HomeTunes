@@ -2,6 +2,13 @@
 // songs, editing the list of what plays next, and whether the equaliser and
 // ReplayGain filters exist.
 // Run: flutter test tool/bench/engine_test.dart --dart-define=LIBMPV=<path to libmpv-2.dll>
+//
+// Lives in tool/bench/ rather than test/ on purpose: it needs the real libmpv audio engine, so
+// it isn't part of the normal `flutter test` run. It makes three short test tones, plays them
+// silently (volume 0) and prints a report of what the engine did, then checks the key results.
+// The PlayerModel design (gapless preloading, dropping the finished song, the equaliser and
+// ReplayGain settings) relies on what this test confirms. tone() is reused by
+// player_gapless_test.dart.
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -10,6 +17,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
 
 /// A WAV tone of [seconds] seconds.
+///
+/// Writes a plain 16-bit mono WAV file containing a sine wave at [hz] (pitch) to [path].
+/// Different pitches make the files easy to tell apart by ear if the volume is turned up.
 File tone(String path, double seconds, double hz) {
   const rate = 22050;
   final n = (rate * seconds).round();
@@ -20,6 +30,9 @@ File tone(String path, double seconds, double hz) {
     }
   }
 
+  // The standard 44-byte WAV header: "RIFF" + size, "WAVE", a "fmt " block describing the
+  // format (PCM, 1 channel, sample rate, bytes per second, bytes per sample, 16 bits), then the
+  // "data" block with the samples.
   str(0, 'RIFF');
   d.setUint32(4, 36 + n * 2, Endian.little);
   str(8, 'WAVE');
@@ -33,6 +46,7 @@ File tone(String path, double seconds, double hz) {
   d.setUint16(34, 16, Endian.little);
   str(36, 'data');
   d.setUint32(40, n * 2, Endian.little);
+  // The samples: a quiet sine wave (3000 out of a possible 32767).
   for (var i = 0; i < n; i++) {
     d.setInt16(44 + i * 2, (sin(2 * pi * hz * i / rate) * 3000).round(), Endian.little);
   }
@@ -41,6 +55,7 @@ File tone(String path, double seconds, double hz) {
 
 void main() {
   test('audio engine', () async {
+    // LIBMPV (optional) points at a libmpv DLL; otherwise media_kit looks in its usual places.
     const lib = String.fromEnvironment('LIBMPV');
     MediaKit.ensureInitialized(libmpv: lib.isEmpty ? null : lib);
     final dir = Directory.systemTemp.createTempSync('hometunes_engine');
@@ -49,11 +64,14 @@ void main() {
     final c = tone('${dir.path}/c.wav', 1.2, 880);
 
     final player = Player();
+    // NativePlayer gives direct access to mpv's own settings ("properties").
     final native = player.platform as NativePlayer;
     await player.setVolume(0); // silent test
+    // Ask mpv to join songs with no gap, and to open the next song in the list early.
     await native.setProperty('gapless-audio', 'yes');
     await native.setProperty('prefetch-playlist', 'yes');
 
+    // Log every playlist move and "finished" signal with a timestamp, for the printed report.
     final events = <String>[];
     final sw = Stopwatch()..start();
     final subs = [
@@ -63,6 +81,7 @@ void main() {
       }),
     ];
 
+    // 1. Two songs in the engine's list: does it move from the first to the second by itself?
     await player.open(Playlist([Media(a.path), Media(b.path)]), play: true);
     // Wait for the engine to reach the second song.
     for (var i = 0; i < 40 && player.state.playlist.index != 1; i++) {
@@ -71,6 +90,8 @@ void main() {
     final reachedSecond = player.state.playlist.index == 1;
     final completedBeforeSecond = events.any((e) => e.contains('COMPLETED'));
     // Like the app: drop the finished song, add the next one.
+    // 2. Edit the list while it plays (drop the finished song, add the next one), then check the
+    //    engine carries on into the newly added song and reports "finished" at the very end.
     await player.remove(0);
     await player.add(Media(c.path));
     await Future<void>.delayed(const Duration(milliseconds: 200));
@@ -83,6 +104,9 @@ void main() {
     final completedAtEnd = events.any((e) => e.contains('COMPLETED'));
 
     // Filters.
+    // 3. Check the audio filters the Settings use exist in this build: a single-band equaliser
+    //    (+6 dB at 1 kHz), the multi-band "superequalizer", and ReplayGain volume levelling.
+    //    Reading the property back shows whether mpv accepted it.
     await native.setProperty('af', 'lavfi=[equalizer=f=1000:t=o:w=1:g=6]');
     final eq = await native.getProperty('af');
     await native.setProperty('af', 'lavfi=[superequalizer=1b=1.5]');
@@ -105,6 +129,7 @@ void main() {
       'replaygain: "$rg"',
     ].join('\n'));
 
+    // Tidy up: stop listening, close the engine and delete the tone files.
     for (final s in subs) {
       await s.cancel();
     }

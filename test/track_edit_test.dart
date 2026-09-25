@@ -1,8 +1,13 @@
+// Tests for TrackEdit (models/track_edit.dart): the user's own changes to a song's details,
+// kept separately from the file (null means "use the file's value"). Covers applying edits,
+// merging edits, dropping edits that match the file again, saving to JSON, and the play queue
+// swapping in the edited copy of a song without losing its place.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/track.dart';
 import 'package:hometunes/models/track_edit.dart';
 import 'package:hometunes/state/play_queue.dart';
 
+/// The song "as read from the file" that the edits are applied to.
 const song = Track(
   id: 'local:/music/a.mp3',
   source: TrackSource.local,
@@ -52,11 +57,13 @@ void main() {
     expect(back.art, '/c.png');
   });
 
+  // albumKey is what groups songs into albums, so changing the album name must change it.
   test('edited album name regroups the song', () {
     final t = const TrackEdit(album: 'New Album').applyTo(song);
     expect(t.albumKey, isNot(song.albumKey));
   });
 
+  // refresh() swaps queued songs for their edited versions; it returns whether anything changed.
   test('queue picks up edited copies without moving position', () {
     Track t(String id) => Track(id: id, source: TrackSource.local, title: id, artist: 'a', album: 'b', albumArtist: 'a');
     final q = PlayQueue()..setTracks([t('1'), t('2'), t('3')], start: 1);

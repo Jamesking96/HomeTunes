@@ -1,3 +1,9 @@
+// Settings › Backup & restore: save all of HomeTunes' own data to one .htbackup file, or load
+// one back (merging with what's here, or replacing it).
+//
+// The actual packing/unpacking is done by AppBackup (services/app_backup.dart) through
+// LibraryModel.createBackup / restoreBackup. This page just handles the file picker, the
+// "what's in this backup?" dialog, and reloading the other models after a restore.
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -22,16 +28,18 @@ class BackupSettings extends StatefulWidget {
 }
 
 class BackupSettingsState extends State<BackupSettings> {
-  bool _includePassword = false;
+  bool _includePassword = false; // off by default: it would be stored as plain text
   bool _includeCoverCache = true;
-  bool _working = false;
+  bool _working = false; // true while exporting/reading/restoring; disables the buttons
 
+  /// Suggested file name, e.g. "HomeTunes-backup-2026-09-25.htbackup".
   String get _fileName {
     final d = DateTime.now();
     String two(int n) => n.toString().padLeft(2, '0');
     return 'HomeTunes-backup-${d.year}-${two(d.month)}-${two(d.day)}.${AppBackup.fileExtension}';
   }
 
+  /// Builds the backup in memory, then asks where to save it.
   Future<void> _export() async {
     final lib = context.read<LibraryModel>();
     final messenger = ScaffoldMessenger.of(context);
@@ -41,6 +49,8 @@ class BackupSettingsState extends State<BackupSettings> {
         includePassword: _includePassword,
         includeCoverCache: _includeCoverCache,
       );
+      // The picker is given the bytes and writes the file itself (on Android the app can't
+      // write to the chosen place directly). Null means the user cancelled.
       final saved = await FilePicker.saveFile(
         fileName: _fileName,
         bytes: bytes,
@@ -57,7 +67,9 @@ class BackupSettingsState extends State<BackupSettings> {
     }
   }
 
+  /// Restores a backup in three steps: read the file, ask Merge or Replace, then restore.
   Future<void> _import() async {
+    // Grab all the models now; after the awaits below, `context` may no longer be usable.
     final lib = context.read<LibraryModel>();
     final playlists = context.read<PlaylistsModel>();
     final listening = context.read<ListeningModel>();
@@ -65,6 +77,8 @@ class BackupSettingsState extends State<BackupSettings> {
     final lyrics = context.read<LyricsModel>();
     final messenger = ScaffoldMessenger.of(context);
 
+    // 1. Pick and read the file. A file that isn't a backup (or is from a newer HomeTunes)
+    //    throws a FormatException whose message is already written for the user.
     BackupContents backup;
     try {
       final file = await FilePicker.pickFile(type: FileType.any, dialogTitle: 'Choose a HomeTunes backup');
@@ -80,6 +94,8 @@ class BackupSettingsState extends State<BackupSettings> {
     if (!mounted) return;
     setState(() => _working = false);
 
+    // 2. Show what's in it and ask how to restore. true = Merge, false = Replace,
+    //    null = Cancel (or tapped outside the dialog).
     final merge = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -113,6 +129,8 @@ class BackupSettingsState extends State<BackupSettings> {
     );
     if (merge == null || !mounted) return;
 
+    // 3. Restore. LibraryModel writes the files, then the other models re-read theirs from disk
+    //    (reloadOthers), and finally we explain anything that couldn't be brought across.
     setState(() => _working = true);
     try {
       final result = await lib.restoreBackup(backup, merge: merge, reloadOthers: () async {
@@ -153,11 +171,13 @@ class BackupSettingsState extends State<BackupSettings> {
     }
   }
 
+  /// "25 Sep 2026" style date for the restore dialog.
   static String _date(DateTime d) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
 
+  /// Nicer name for the platform the backup was made on.
   static String _os(String os) => switch (os) {
         'windows' => 'Windows',
         'android' => 'Android',
@@ -183,6 +203,7 @@ class BackupSettingsState extends State<BackupSettings> {
         value: _includeCoverCache,
         onChanged: busy ? null : (v) => setState(() => _includeCoverCache = v),
       )),
+      // Only offered when there's a password to include (so it isn't in the search catalog).
       if (lib.server.password.isNotEmpty)
         SwitchListTile(
           title: const Text('Include the server password'),

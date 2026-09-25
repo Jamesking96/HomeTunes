@@ -1,3 +1,9 @@
+// TrackEdit: the user's own changes to a song's details, kept apart from the music file.
+// LibraryModel stores one TrackEdit per song id in edits.json and lays it over the scanned
+// Track with applyTo() whenever the library is rebuilt. Keeping edits separate means a rescan
+// never loses them, and the files stay untouched until the user chooses
+// Settings -> Your edits -> Save edits into music files (services/tag_writer.dart).
+// Null in any field means "no change, use the file's value".
 import 'track.dart';
 
 /// The user's changes to one song's details, stored by HomeTunes (the music
@@ -41,8 +47,10 @@ class TrackEdit {
     this.lyrics,
   });
 
+  /// An edit that changes nothing.
   static const empty = TrackEdit();
 
+  /// True when nothing is changed, so the edit can be deleted.
   bool get isEmpty =>
       title == null &&
       artist == null &&
@@ -58,6 +66,7 @@ class TrackEdit {
       seriesIndex == null &&
       lyrics == null;
 
+  /// The same edit without the custom cover (goes back to the file's own art).
   TrackEdit withoutArt() => _copy(keepArt: false);
 
   /// The same edit without lyrics.
@@ -66,6 +75,8 @@ class TrackEdit {
   /// The same edit with [lyrics] (null removes them).
   TrackEdit withLyrics(String? lyrics) => _copy(keepLyrics: false, lyrics: lyrics);
 
+  // Shared helper for the three methods above: copies every field, optionally dropping
+  // the cover and/or swapping the lyrics.
   TrackEdit _copy({bool keepArt = true, bool keepLyrics = true, String? lyrics}) => TrackEdit(
         title: title,
         artist: artist,
@@ -83,6 +94,8 @@ class TrackEdit {
       );
 
   /// Fields set in [other] win; fields it leaves null keep this edit's value.
+  /// Used by LibraryModel.editTracks (e.g. album edits): only the fields the user touched are
+  /// passed in [other]. Note this can't clear a field back to null (null means "keep").
   TrackEdit mergedWith(TrackEdit other) => TrackEdit(
         title: other.title ?? title,
         artist: other.artist ?? artist,
@@ -119,6 +132,8 @@ class TrackEdit {
       );
 
   /// The song as the user wants to see it.
+  /// Built field by field (not with copyWith) because copyWith only changes a few fields.
+  /// Anything the user can't edit (id, path, length, chapters, sidecar info) is copied as is.
   Track applyTo(Track t) => Track(
         id: t.id,
         source: t.source,
@@ -145,6 +160,7 @@ class TrackEdit {
         sidecarStamp: t.sidecarStamp,
       );
 
+  /// For edits.json. Only the changed fields are written.
   Map<String, dynamic> toJson() => {
         if (title != null) 'title': title,
         if (artist != null) 'artist': artist,

@@ -1,3 +1,10 @@
+// Two small Open Library search dialogs for audiobooks, sharing one widget:
+//  - showBookCoverSearch: a grid of book covers; tapping one downloads it and saves a copy.
+//  - showBookLookup: a list of matching books; tapping one hands back its title/author/year.
+//
+// Both are used by the "Edit book" dialog (edit_book.dart). The web requests live in
+// services/book_info.dart (BookInfoSearch); this file is just the dialog around them.
+// The search runs as soon as the dialog opens, using the title and author already typed.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -8,6 +15,7 @@ import '../theme.dart';
 /// Searches Open Library for a book cover and lets the user pick one.
 /// Returns the saved image's path, or null.
 Future<String?> showBookCoverSearch(BuildContext context, {String? title, String? author}) async {
+  // The dialog can end with a path (cover picked), a BookMatch (book picked) or nothing.
   final r = await showDialog<Object>(
     context: context,
     useRootNavigator: true,
@@ -27,6 +35,7 @@ Future<BookMatch?> showBookLookup(BuildContext context, {String? title, String? 
   return r is BookMatch ? r : null;
 }
 
+/// The dialog behind both functions. [covers] picks cover mode (grid) over details mode (list).
 class _BookLookupDialog extends StatefulWidget {
   final String title, author;
   final bool covers;
@@ -37,12 +46,17 @@ class _BookLookupDialog extends StatefulWidget {
 }
 
 class _BookLookupDialogState extends State<_BookLookupDialog> {
+  /// Does the web requests; closed when the dialog goes away.
   final _search = BookInfoSearch();
   late final _title = TextEditingController(text: widget.title);
   late final _author = TextEditingController(text: widget.author);
+  /// Search results, or null before the first search has finished.
   List<BookMatch>? _results;
+  /// True while searching.
   bool _loading = false;
+  /// True while the chosen cover is downloading and being saved.
   bool _saving = false;
+  /// A message to show in place of results (nothing typed, no internet, download failed).
   String? _error;
 
   @override
@@ -59,6 +73,7 @@ class _BookLookupDialogState extends State<_BookLookupDialog> {
     super.dispose();
   }
 
+  /// Runs the search with whatever's in the Title and Author boxes.
   Future<void> _run() async {
     final t = _title.text.trim();
     final a = _author.text.trim();
@@ -72,6 +87,7 @@ class _BookLookupDialogState extends State<_BookLookupDialog> {
     });
     try {
       final r = widget.covers ? await _search.searchCovers(title: t, author: a) : await _search.search(title: t, author: a);
+      // The dialog may have been closed while we were waiting on the internet.
       if (!mounted) return;
       setState(() {
         _results = r;
@@ -86,6 +102,8 @@ class _BookLookupDialogState extends State<_BookLookupDialog> {
     }
   }
 
+  /// Downloads the full-size cover, stores a copy in the app's cover folder and closes the
+  /// dialog with that file's path.
   Future<void> _chooseCover(BookMatch b) async {
     final lib = context.read<LibraryModel>();
     setState(() => _saving = true);
@@ -105,6 +123,7 @@ class _BookLookupDialogState extends State<_BookLookupDialog> {
   @override
   Widget build(BuildContext context) {
     final results = _results;
+    // Pick what the middle of the dialog shows: spinner, error, "nothing found", or results.
     Widget body;
     if (_loading || _saving) {
       body = Center(
@@ -124,6 +143,7 @@ class _BookLookupDialogState extends State<_BookLookupDialog> {
           style: const TextStyle(color: AppColors.textDim),
         ),
       );
+    // Cover mode: a grid of tall book covers with title and author/year under each.
     } else if (widget.covers) {
       body = GridView.builder(
         padding: const EdgeInsets.all(4),
@@ -144,6 +164,7 @@ class _BookLookupDialogState extends State<_BookLookupDialog> {
                 aspectRatio: 2 / 3,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(6),
+                  // Cover search only returns books with a thumbnail, so this is never null.
                   child: Image.memory(b.thumbnail!, fit: BoxFit.cover, gaplessPlayback: true),
                 ),
               ),
@@ -157,6 +178,7 @@ class _BookLookupDialogState extends State<_BookLookupDialog> {
           );
         },
       );
+    // Details mode: a simple list; tapping a book returns it.
     } else {
       body = ListView.builder(
         itemCount: results.length,
@@ -172,6 +194,7 @@ class _BookLookupDialogState extends State<_BookLookupDialog> {
       );
     }
 
+    // The dialog frame: title + close, the two search boxes, the results, and a credit line.
     return Dialog(
       backgroundColor: AppColors.surface,
       insetPadding: const EdgeInsets.all(16),

@@ -1,3 +1,10 @@
+// The local music scanner: turns the files in the user's chosen folders into Tracks.
+// LibraryModel.scanLocal() creates a LocalScanner and calls scan(); the results are saved in
+// library.json. Speed tricks (a big library has thousands of files):
+//  - folder walking and tag reading happen in background isolates, never on the UI thread;
+//  - files go out in batches to several isolates at once, and results come back in order;
+//  - a file whose modified time and side files haven't changed is reused, not re-read.
+// Cover art found inside files is saved once into the art/ cache, named by its content.
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:math';
@@ -17,6 +24,7 @@ const _folderArtNames = ['cover.jpg', 'cover.png', 'folder.jpg', 'folder.png', '
 
 /// Walks music folders and turns audio files into [Track]s.
 class LocalScanner {
+  /// Where cover images are cached (Storage.artDir).
   final String artDir;
 
   LocalScanner(this.artDir);
@@ -32,11 +40,15 @@ class LocalScanner {
     Map<String, Track> previous = const {},
     void Function(int done, int total)? onProgress,
   }) async {
+    // 1. Find every audio file (sorted by path, so albums stay together).
     final files = await findAudioFiles(folders);
+    // 2. Cut the list into batches. A local copy of artDir is taken so the isolate job
+    //    doesn't need to capture `this`.
     final artDir = this.artDir;
     final batches = [
       for (var i = 0; i < files.length; i += batchSize) files.sublist(i, (i + batchSize).clamp(0, files.length)),
     ];
+    // One slot per batch, so results land in the right order however fast each worker is.
     final results = List<List<Track>?>.filled(batches.length, null);
     var next = 0;
     var done = 0;
@@ -45,7 +57,7 @@ class LocalScanner {
     // CPU core, up to [maxWorkers]); results are put back in folder order.
     Future<void> worker() async {
       while (true) {
-        final i = next++;
+        final i = next++;  // safe without locks: this code all runs on one thread
         if (i >= batches.length) return;
         final batch = batches[i];
         // Only the tracks that need (re)reading go to the isolate.
@@ -53,15 +65,17 @@ class LocalScanner {
           for (final f in batch)
             if (previous['local:$f'] != null) f: previous['local:$f']!.toJson(),
         };
-        final jsonList = await Isolate.run(_BatchJob(batch, prevJson, artDir).run);
+        final jsonList = await Isolate.run(_BatchJob(batch, prevJson, artDir).run);  // sent as JSON
         results[i] = [for (final j in jsonList) Track.fromJson(j)];
         done += batch.length;
         onProgress?.call(done, files.length);
       }
     }
 
+    // 3. Start the workers. One core is left free so the app stays smooth while scanning.
     final workers = max(1, min(min(Platform.numberOfProcessors - 1, maxWorkers), batches.length));
     await Future.wait([for (var w = 0; w < workers; w++) worker()]);
+    // 4. Join the batches back into one list.
     return [for (final r in results) ...?r];
   }
 
@@ -75,6 +89,8 @@ class LocalScanner {
     final used = {for (final t in tracks) if (t.art != null) p.normalize(t.art!)};
     final dir = Directory(artDir);
     if (!await dir.exists()) return;
+    // Only our own cache files (*.img) are removed; folder covers like cover.jpg are
+    // the user's files and are never touched. art/custom/ is a subfolder, so it's skipped.
     await for (final e in dir.list()) {
       final leftoverTemp = e.path.endsWith('.tmp'); // from a scan that was interrupted
       if (e is File && (leftoverTemp || (p.extension(e.path) == '.img' && !used.contains(p.normalize(e.path))))) {
@@ -115,6 +131,7 @@ class _ListJob {
         }
       }
     }
+    // Sorted so the batches, and the library's first view, follow folder order.
     out.sort();
     return out;
   }
@@ -129,12 +146,16 @@ class _BatchJob {
   List<Map<String, dynamic>> run() => _scanBatch(files, previous, artDir);
 }
 
+/// Reads one batch of files inside a background isolate. Works with JSON maps rather than
+/// Tracks so the data passes cheaply between isolates.
 List<Map<String, dynamic>> _scanBatch(
   List<String> files,
   Map<String, Map<String, dynamic>> previous,
   String artDir,
 ) {
   final out = <Map<String, dynamic>>[];
+  // Remembers each folder's file list, so looking for side files doesn't list the same
+  // folder again for every file in it.
   final folders = FolderCache();
   for (final path in files) {
     try {
@@ -165,6 +186,7 @@ Track readTrack(String path, int modifiedMs, String artDir, {Sidecars sidecars =
   var chapters = const <Chapter>[];
 
   try {
+    // 1. Tags from the file itself.
     final m = readMetadata(File(path), getImage: true);
     title = _clean(m.title);
     artist = _clean(m.artist);
@@ -183,17 +205,21 @@ Track readTrack(String path, int modifiedMs, String artDir, {Sidecars sidecars =
     // Unsupported or damaged tags.
   }
 
+  // 2. Fill gaps the tags left.
   // No length in the tags: WAV files can be measured from their header.
   if (duration == Duration.zero && p.extension(path).toLowerCase() == '.wav') {
     duration = wavDuration(File(path)) ?? Duration.zero;
   }
 
+  // 3. Book side files.
   // Extra files beside it (audiobooks): a metadata file's details beat the
   // tags, which are often messy ("Author, Translator - translator").
   final info = sidecars.metadataFile == null ? null : BookInfo.parse(readSmallText(sidecars.metadataFile!, maxBytes: 4 << 20) ?? '');
   String? narrator, series, description;
   double? seriesIndex;
   if (info != null) {
+    // A metadata file for this one file names it; a shared one (e.g. an Audiobookshelf
+    // metadata.json for a whole folder) only names the book, not each part.
     if (sidecars.metadataIsOwn && info.title != null) title = info.title;
     album = info.title ?? album;
     artist = info.author ?? artist;
@@ -211,6 +237,7 @@ Track readTrack(String path, int modifiedMs, String artDir, {Sidecars sidecars =
     description = readSmallText(sidecars.descriptionFile!, maxBytes: 64 << 10);
   }
 
+  // 4. Anything still missing comes from the file and folder names.
   final folder = p.dirname(path);
   final fallback = fallbackFromFileName(p.basenameWithoutExtension(path));
   title ??= fallback.title;
@@ -223,6 +250,7 @@ Track readTrack(String path, int modifiedMs, String artDir, {Sidecars sidecars =
   // a cover picture in the folder.
   final art = sidecars.imageIsOwn ? sidecars.image : (_saveArt(pictureBytes, folder, artDir) ?? sidecars.image);
 
+  // 5. Build the finished Track.
   return Track(
     id: 'local:$path',
     source: TrackSource.local,
@@ -251,6 +279,7 @@ Track readTrack(String path, int modifiedMs, String artDir, {Sidecars sidecars =
 
 /// Parses names like "03 - Song Name" or "03. Song Name".
 ({String title, int? trackNumber}) fallbackFromFileName(String name) {
+  // 1-3 digits, an optional - . _ or ), then a space and the title.
   final match = RegExp(r'^\s*(\d{1,3})\s*[-._)]?\s+(.+)$').firstMatch(name);
   if (match != null) {
     return (title: match.group(2)!.trim(), trackNumber: int.tryParse(match.group(1)!));
@@ -258,6 +287,7 @@ Track readTrack(String path, int modifiedMs, String artDir, {Sidecars sidecars =
   return (title: name, trackNumber: null);
 }
 
+/// Trims a tag value, removing stray null characters some taggers leave; blank means none.
 String? _clean(String? s) {
   if (s == null) return null;
   final t = s.replaceAll('\u0000', '').trim();
@@ -269,7 +299,7 @@ String? _clean(String? s) {
 /// cover.jpg etc. in the folder.
 String? _saveArt(List<int>? bytes, String folder, String artDir) {
   if (bytes != null && bytes.isNotEmpty) {
-    final name = md5.convert(bytes).toString();
+    final name = md5.convert(bytes).toString();  // same picture = same name
     final file = File(p.join(artDir, '$name.img'));
     if (!file.existsSync()) {
       // Several workers may save the same album cover at once: write to a
@@ -287,6 +317,7 @@ String? _saveArt(List<int>? bytes, String folder, String artDir) {
     }
     return file.path;
   }
+  // No picture inside the file: look for a cover image in the folder.
   for (final n in _folderArtNames) {
     final f = File(p.join(folder, n));
     if (f.existsSync()) return f.path;
@@ -300,6 +331,8 @@ Duration? wavDuration(File file) {
   try {
     raf = file.openSync();
     final length = raf.lengthSync();
+    // A WAV file is "RIFF" + size + "WAVE", then a list of chunks, each with a 4-letter id
+    // and a size. We skip from chunk to chunk until we've seen both `fmt ` and `data`.
     final header = raf.readSync(12);
     if (header.length < 12 || String.fromCharCodes(header.sublist(0, 4)) != 'RIFF') return null;
     int? byteRate;
@@ -309,16 +342,18 @@ Duration? wavDuration(File file) {
       raf.setPositionSync(pos);
       final h = raf.readSync(8);
       final id = String.fromCharCodes(h.sublist(0, 4));
-      final size = h[4] | (h[5] << 8) | (h[6] << 16) | (h[7] << 24);
+      final size = h[4] | (h[5] << 8) | (h[6] << 16) | (h[7] << 24);  // little-endian
       if (id == 'fmt ') {
         final fmt = raf.readSync(12);
+        // Bytes 8-11 of the fmt chunk hold the average bytes per second.
         if (fmt.length >= 12) byteRate = fmt[8] | (fmt[9] << 8) | (fmt[10] << 16) | (fmt[11] << 24);
       } else if (id == 'data') {
         dataSize = size;
       }
-      pos += 8 + size + (size.isOdd ? 1 : 0);
+      pos += 8 + size + (size.isOdd ? 1 : 0);  // chunks are padded to even sizes
     }
     if (byteRate == null || byteRate == 0 || dataSize == null) return null;
+    // Length = amount of sound data / bytes played per second.
     return Duration(microseconds: (dataSize * 1000000 / byteRate).round());
   } catch (_) {
     return null;

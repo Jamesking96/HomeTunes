@@ -1,9 +1,14 @@
+// Tests for the basic music library building blocks (no files, no screens):
+// grouping songs into albums and artists and sorting them (state/library_index.dart), library
+// search, saving a Track to JSON and back, guessing details from a file name when a file has no
+// tags (local_scanner.dart), and the Subsonic server client's address, login and song parsing.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/track.dart';
 import 'package:hometunes/services/local_scanner.dart';
 import 'package:hometunes/services/subsonic_client.dart';
 import 'package:hometunes/state/library_index.dart';
 
+/// Makes a small in-memory song for the tests (no real file behind it).
 Track t(String title, String artist, String album, {int? no, int? disc, int? year}) => Track(
       id: 'local:$artist/$album/$title',
       source: TrackSource.local,
@@ -18,6 +23,8 @@ Track t(String title, String artist, String album, {int? no, int? disc, int? yea
     );
 
 void main() {
+  // A mini library: songs deliberately out of order, one album with two discs, and an
+  // artist starting with "The".
   final tracks = [
     t('So What', 'Miles Davis', 'Kind of Blue', no: 1, year: 1959),
     t('Blue in Green', 'Miles Davis', 'Kind of Blue', no: 3, year: 1959),
@@ -45,6 +52,8 @@ void main() {
     expect(rh.albums.first.title, 'Kid A'); // newest first
   });
 
+  // "radiohead air" must match both words (artist + title); a title starting with the search
+  // word ranks above one that merely contains it; a blank search returns nothing.
   test('search needs every word and ranks prefix matches first', () {
     final albums = groupAlbums(tracks);
     final artists = groupArtists(albums);
@@ -66,6 +75,7 @@ void main() {
     expect(b.source, TrackSource.local);
   });
 
+  // Used for untagged files: "03 - Song Name" -> track 3, title "Song Name".
   test('file name fallback parses track numbers', () {
     expect(fallbackFromFileName('03 - Song Name').title, 'Song Name');
     expect(fallbackFromFileName('03 - Song Name').trackNumber, 3);
@@ -74,6 +84,8 @@ void main() {
     expect(fallbackFromFileName('Just a title').title, 'Just a title');
   });
 
+  // Pure checks on SubsonicClient (no network): the server details the user typed are tidied
+  // up, and requests are signed the way the Subsonic API expects.
   group('Subsonic', () {
     const cfg = ServerConfig(url: 'music.local:4533/', username: 'me', password: 'sesame');
     final c = SubsonicClient(cfg);

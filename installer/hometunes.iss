@@ -5,6 +5,8 @@
 ; To run by hand:
 ;   iscc /DAppVersion=0.1.0 /DSourceDir=..\build\windows\x64\runner\Release installer\hometunes.iss
 
+; The #ifndef blocks below are Inno Setup preprocessor defaults. build_release.ps1 overrides
+; them with /DAppVersion=..., /DSourceDir=... and /DOutputDir=... on the command line.
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
@@ -15,6 +17,7 @@
   #define OutputDir "..\build\dist"
 #endif
 
+; Names used throughout the script below ({#AppName}, {#AppExe}).
 #define AppName "HomeTunes"
 #define AppExe "hometunes.exe"
 
@@ -28,11 +31,14 @@ AppPublisher={#AppName}
 UninstallDisplayName={#AppName}
 UninstallDisplayIcon={app}\{#AppExe}
 SetupIconFile=..\windows\runner\resources\app_icon.ico
+; (The icon path is relative to this .iss file, i.e. the generated windows\ runner folder.)
 
 ; Installs just for the current user by default, so no admin rights are needed
 ; (handy on work PCs). The user can still choose "all users" if they are admin.
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
+; {autopf} means "Program Files" for an all-users install, or the per-user programs folder
+; (%LOCALAPPDATA%\Programs) for a current-user install.
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
@@ -48,13 +54,16 @@ RestartApplications=no
 
 OutputDir={#OutputDir}
 OutputBaseFilename=HomeTunes-Setup-{#AppVersion}
+; Strongest compression; makes the installer smaller at the cost of a slower build.
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 
+; English only, using Inno Setup's built-in wording.
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
+; Optional tick-box on the wizard: "Create a desktop shortcut" (unticked by default).
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
@@ -62,10 +71,12 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 ; The whole Flutter Release folder: exe, engine + plugin DLLs, data\ and the VC++ runtime DLLs.
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+; Start menu shortcut, plus the desktop shortcut if the task above was ticked.
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
+; "Launch HomeTunes" tick-box on the final page (skipped for silent installs).
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
 

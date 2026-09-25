@@ -1,3 +1,9 @@
+// Looks up song and album details on MusicBrainz, for the "find details online" buttons in
+// the song / album editors (ui/screens/info_lookup_dialog.dart and edit_details.dart).
+// It can search songs and albums, fetch an album's genres and track list, and match an
+// album's track list against our own song titles to fill in track numbers.
+// The parse* methods are static and don't touch the network, so tests can feed them saved
+// replies. MusicBrainz allows about one request a second, so requests queue up (see _getJson).
 import 'dart:async';
 import 'dart:convert';
 
@@ -12,6 +18,7 @@ class SongMatch {
   final int? year;
   final int? trackNumber;
   final int? discNumber;
+  /// MusicBrainz's album id, used to fetch genres or the track list later.
   final String releaseGroupId;
 
   /// Official studio album (not live/compilation/bootleg): shown first.
@@ -36,6 +43,7 @@ class AlbumMatch {
   final String title;
   final String artist;
   final int? year;
+  /// "Album", "Single", "EP"...
   final String? type;
   const AlbumMatch({required this.id, required this.title, required this.artist, this.year, this.type});
 }
@@ -52,6 +60,7 @@ class TrackInfo {
 /// Requests are spaced ~1 s apart, as MusicBrainz asks.
 class MusicInfoSearch {
   static const userAgent = 'HomeTunes/0.1 ( https://github.com/Jamesking96/HomeTunes )';
+  // Static, so the pacing holds across every MusicInfoSearch in the app, not just one.
   static DateTime _lastRequest = DateTime.fromMillisecondsSinceEpoch(0);
   static Future<void> _queue = Future.value();
 
@@ -67,7 +76,7 @@ class MusicInfoSearch {
       if (wait > Duration.zero) await Future<void>.delayed(wait);
       const headers = {'User-Agent': userAgent, 'Accept': 'application/json'};
       var res = await _http.get(uri, headers: headers).timeout(const Duration(seconds: 15));
-      if (res.statusCode == 503) {
+      if (res.statusCode == 503) {  // "too many requests": wait, retry once
         await Future<void>.delayed(const Duration(milliseconds: 1500));
         res = await _http.get(uri, headers: headers).timeout(const Duration(seconds: 15));
       }
@@ -75,12 +84,14 @@ class MusicInfoSearch {
       if (res.statusCode != 200) throw Exception('MusicBrainz replied ${res.statusCode}');
       return jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
     });
-    _queue = result.then((_) {}, onError: (_) {});
+    _queue = result.then((_) {}, onError: (_) {});  // one failure mustn't block the queue
     return result;
   }
 
+  /// A quoted search value, with characters that would break the query removed.
   static String _q(String s) => '"${s.replaceAll(RegExp(r'["\\]'), ' ').trim()}"';
 
+  /// Search address for a song (recording), narrowed by artist and album when given.
   static Uri songQuery({required String title, String? artist, String? album, int limit = 15}) {
     final parts = ['recording:${_q(title)}'];
     if ((artist ?? '').trim().isNotEmpty) parts.add('artist:${_q(artist!)}');
@@ -92,6 +103,7 @@ class MusicInfoSearch {
     });
   }
 
+  /// Search address for an album (release group).
   static Uri albumQuery({String? artist, String? album, int limit = 12}) {
     final parts = <String>[];
     if ((album ?? '').trim().isNotEmpty) parts.add('releasegroup:${_q(album!)}');
@@ -103,6 +115,7 @@ class MusicInfoSearch {
     });
   }
 
+  /// Artist names joined the way MusicBrainz says, e.g. "A feat. B" or "A & B".
   static String _credit(Object? credit) {
     final list = credit as List? ?? const [];
     return list.map((c) {
@@ -111,6 +124,7 @@ class MusicInfoSearch {
     }).join().trim();
   }
 
+  /// The year from a date like "1997-05-21" (or just "1997").
   static int? _year(Object? date) {
     final s = (date as String?) ?? '';
     return s.length >= 4 ? int.tryParse(s.substring(0, 4)) : null;
@@ -125,6 +139,7 @@ class MusicInfoSearch {
       final title = (rec['title'] as String?) ?? '';
       final artist = _credit(rec['artist-credit']);
       final firstYear = _year(rec['first-release-date']);
+      // One recording can be on many releases (album, single, best-of...): one match each.
       for (final rl in (rec['releases'] as List? ?? const [])) {
         final rel = rl as Map<String, dynamic>;
         final rg = rel['release-group'] as Map<String, dynamic>? ?? const {};
@@ -148,6 +163,7 @@ class MusicInfoSearch {
           releaseGroupId: (rg['id'] as String?) ?? '',
           preferred: rel['status'] == 'Official' && rg['primary-type'] == 'Album' && secondary.isEmpty,
         );
+        // Many releases are near-copies (different countries, reissues): show each only once.
         final key = '${match.album}|${match.year}|${match.trackNumber}|${match.artist}';
         if (seen.add(key)) out.add(match);
       }
@@ -158,6 +174,7 @@ class MusicInfoSearch {
     return [...preferred, ...others];
   }
 
+  /// Album matches from a release-group search, in MusicBrainz's order.
   static List<AlbumMatch> parseAlbumMatches(Map<String, dynamic> json) => [
         for (final g in (json['release-groups'] as List? ?? const []))
           AlbumMatch(
@@ -187,6 +204,7 @@ class MusicInfoSearch {
     if (releases.isEmpty) return const [];
     int count(Map<String, dynamic> r) => (r['media'] as List? ?? const [])
         .fold<int>(0, (n, m) => n + (((m as Map)['tracks'] as List?)?.length ?? 0));
+    // Lower is better: official releases first, then ones with the same number of tracks.
     int rank(Map<String, dynamic> r) =>
         (r['status'] == 'Official' ? 0 : 2) + (preferTrackCount != null && count(r) == preferTrackCount ? 0 : 1);
     releases.sort((a, b) => rank(a).compareTo(rank(b)));
@@ -213,6 +231,7 @@ class MusicInfoSearch {
   /// For each of [ourTitles], the matching track (or null if none).
   static List<TrackInfo?> matchTracks(List<String> ourTitles, List<TrackInfo> tracks) {
     final byTitle = <String, TrackInfo>{};
+    // Keyed by tidied title; if two tracks share a title, the first one wins.
     for (final t in tracks) {
       byTitle.putIfAbsent(normalizeTitle(t.title), () => t);
     }
@@ -221,6 +240,7 @@ class MusicInfoSearch {
 
   // ---- network calls ----
 
+  /// Songs matching the title (and artist/album if given), best first.
   Future<List<SongMatch>> searchSongs({required String title, String? artist, String? album}) async {
     var results = parseSongMatches(await _getJson(songQuery(title: title, artist: artist, album: album)));
     // If the album name was too strict, try again without it.
@@ -230,12 +250,15 @@ class MusicInfoSearch {
     return results;
   }
 
+  /// Albums matching the name and/or artist.
   Future<List<AlbumMatch>> searchAlbums({String? artist, String? album}) async =>
       parseAlbumMatches(await _getJson(albumQuery(artist: artist, album: album)));
 
+  /// The genres people have tagged an album with on MusicBrainz.
   Future<List<String>> genresFor(String releaseGroupId) async => parseGenres(await _getJson(
       Uri.https('musicbrainz.org', '/ws/2/release-group/$releaseGroupId', {'inc': 'genres', 'fmt': 'json'})));
 
+  /// An album's track list, from the edition that best fits ours (see parseTracklist).
   Future<List<TrackInfo>> tracklist(String releaseGroupId, {int? preferTrackCount}) async => parseTracklist(
         await _getJson(Uri.https('musicbrainz.org', '/ws/2/release', {
           'release-group': releaseGroupId,

@@ -1,3 +1,9 @@
+// Settings › Library: the music folders HomeTunes reads, the Rescan button, and the list of
+// "missing" songs (known songs whose files have gone).
+//
+// Also home to [pickFolderWithPermission], which the Audiobooks page borrows. On Android the
+// app must have "Music and audio" access before a folder is added, otherwise the scan would
+// find nothing and wipe the library (see 03_FEATURES_AND_DESIGN_NOTES, Android fixes).
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,6 +19,8 @@ Future<String?> pickFolderWithPermission(BuildContext context, String title) asy
   final messenger = ScaffoldMessenger.of(context);
   final lib = context.read<LibraryModel>();
   final access = await MusicPermission.request();
+  // Let the library (and the "no access" banner) know the answer. No rescan here, because the
+  // caller is about to add a folder, which scans anyway.
   await lib.refreshMusicAccess(rescanIfNewlyAllowed: false);
   if (access != MusicAccess.allowed) {
     messenger.showSnackBar(const SnackBar(
@@ -29,12 +37,14 @@ Future<String?> pickFolderWithPermission(BuildContext context, String title) asy
 class LibrarySettings extends StatelessWidget {
   const LibrarySettings({super.key});
 
+  /// Asks for a folder, adds it (which scans it), then reports how many local songs there are.
   Future<void> _addFolder(BuildContext context) async {
     final lib = context.read<LibraryModel>();
     final messenger = ScaffoldMessenger.of(context);
     final path = await pickFolderWithPermission(context, 'Choose your music folder');
     if (path == null) return;
     await lib.addFolder(path);
+    // Only count local files; server songs are in lib.tracks too.
     final n = lib.tracks.where((t) => t.isLocal).length;
     messenger.showSnackBar(SnackBar(content: Text('Library now has $n local songs')));
   }
@@ -74,6 +84,7 @@ class LibrarySettings extends StatelessWidget {
                 label: const Text('Rescan'),
                 onPressed: lib.busy || lib.folders.isEmpty ? null : lib.scanLocal,
               ),
+              // While scanning, show the live progress text; otherwise the song count.
               ValueListenableBuilder<String?>(
                 valueListenable: lib.statusText,
                 builder: (_, status, _) => Text(lib.busy ? (status ?? 'Working…') : '$localCount songs found',
@@ -83,6 +94,7 @@ class LibrarySettings extends StatelessWidget {
           ),
         ]),
       ),
+      // Only shown when there are missing songs, so it isn't in the search catalog.
       if (lib.missingTracks.isNotEmpty) _MissingSongsTile(count: lib.missingTracks.length),
     ]);
   }
@@ -94,6 +106,7 @@ class _MissingSongsTile extends StatelessWidget {
   final int count;
   const _MissingSongsTile({required this.count});
 
+  /// Lists the missing songs, then (after a second "are you sure?") can forget them.
   Future<void> _showList(BuildContext context) async {
     final lib = context.read<LibraryModel>();
     final songs = lib.missingTracks;
@@ -131,6 +144,7 @@ class _MissingSongsTile extends StatelessWidget {
       ),
     );
     if (forget != true || !context.mounted) return;
+    // Forgetting deletes edits and playlist entries, so double-check first.
     final sure = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

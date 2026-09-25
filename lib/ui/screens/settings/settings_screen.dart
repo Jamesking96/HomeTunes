@@ -1,3 +1,11 @@
+// The Settings tab: a list of settings pages with a search box on top.
+//
+// It's the root page of the Settings tab's Navigator (see shell.dart). On wide windows the list
+// sits on the left and the chosen page on the right; on phones tapping a page pushes it as its
+// own screen. Other screens can jump straight to a page via AppNav.openSettings, which leaves a
+// request that this screen picks up in [_SettingsScreenState._takeRequest]. The pages themselves
+// live in the other files in this folder; the list of pages and search words in
+// settings_catalog.dart.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -43,11 +51,11 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _search = TextEditingController();
-  String _query = '';
-  SettingsPage _page = SettingsPage.library;
-  String? _highlight;
+  String _query = ''; // the trimmed search text; empty means "show the list of pages"
+  SettingsPage _page = SettingsPage.library; // the page open on the right (wide only)
+  String? _highlight; // the setting to scroll to and light up on that page
   int _opened = 0; // makes the page start fresh (and scroll) each time a setting is picked
-  bool _wide = false;
+  bool _wide = false; // set during build from the available width
 
   @override
   void dispose() {
@@ -55,6 +63,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
+  /// Shows [page] (and optionally lights up [setting] on it): in the right-hand pane when wide,
+  /// otherwise as a new screen on the Settings tab.
   void _open(SettingsPage page, [String? setting]) {
     if (_wide) {
       setState(() {
@@ -75,6 +85,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (request == null) return;
     final page = SettingsPage.byName(request.page);
     if (page == null) return;
+    // We're in the middle of build here, so act after the frame: close any settings page
+    // already open on a phone, then open the requested one.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       Navigator.of(context).popUntil((r) => r.isFirst);
@@ -89,7 +101,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(title: const Text('Settings')),
       body: LayoutBuilder(builder: (context, box) {
         _wide = box.maxWidth >= SettingsScreen.twoPaneWidth;
+        // Checked on every build: AppNav rebuilds us (we watch it) when a request arrives.
         _takeRequest(nav);
+        // Phone: one scrolling list of the banner, search box and pages.
         if (!_wide) {
           return ListView(padding: const EdgeInsets.only(bottom: 32), children: [
             const MusicAccessBanner(),
@@ -97,6 +111,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ..._entries(),
           ]);
         }
+        // Wide: the list (300 px) on the left, then the open page with its title on the right.
         return Column(children: [
           const MusicAccessBanner(),
           Expanded(
@@ -119,6 +134,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       alignment: Alignment.topLeft,
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 820),
+                        // The key changes each time a page/setting is opened, so the page is
+                        // rebuilt from scratch and the highlight runs again.
                         child: SettingsHighlight(
                           key: ValueKey('${_page.name}/$_opened'),
                           id: _highlight,
@@ -136,6 +153,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  /// The "Search settings" box, with a clear button once something is typed.
   Widget _searchField() => Padding(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         child: TextField(
@@ -161,6 +179,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
 
+  /// The rows under the search box: search results while searching, otherwise every page.
   List<Widget> _entries() {
     if (_query.isNotEmpty) {
       final found = searchSettings(_query);
@@ -182,6 +201,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
       ];
     }
+    // No search: one row per page. On wide windows the open page is shown as selected.
     return [
       for (final p in SettingsPage.values)
         ListTile(

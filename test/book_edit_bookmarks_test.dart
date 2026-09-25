@@ -1,3 +1,8 @@
+// Tests for editing and organising audiobooks: book details (narrator, series) stored as
+// HomeTunes edits, editing a whole book in a real temp library, bookmarks (BookmarksModel),
+// the Open Library book lookup (services/book_info.dart, no network), bookmarks in backups,
+// searching books and chapters, and the Books tab's sort and filter options
+// (state/book_index.dart). Helper book builders are at the bottom of the file.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -15,6 +20,7 @@ import 'package:path/path.dart' as p;
 
 import 'metadata_features_test.dart' show silentWav;
 
+/// A made-up book file at [path], optionally with book details already set.
 Track part(String path, {int minutes = 10, int? n, String? narrator, String? series, double? seriesIndex}) => Track(
       id: 'local:$path',
       source: TrackSource.local,
@@ -32,6 +38,8 @@ Track part(String path, {int minutes = 10, int? n, String? narrator, String? ser
 
 void main() {
   group('Book details as edits', () {
+    // The book fields behave like every other edit: saved and loaded, merged, applied to a song,
+    // and dropped when they match the file again.
     test('narrator and series survive JSON, merging and "back to the file"', () {
       const e = TrackEdit(narrator: 'Stephen Fry', series: 'Harry Potter', seriesIndex: 2);
       final again = TrackEdit.fromJson(e.toJson());
@@ -44,6 +52,7 @@ void main() {
       expect(Track.fromJson(e.applyTo(t).toJson()).series, 'Harry Potter');
     });
 
+    // There are no standard tags for narrator and series, so they're never written into files.
     test('they always stay in HomeTunes when writing tags into files', () {
       final left = TagSupport.forPath('a.mp3').leftover(const TrackEdit(title: 'T', narrator: 'N', series: 'S'));
       expect(left.title, isNull);
@@ -51,6 +60,8 @@ void main() {
       expect(left.series, 'S');
     });
 
+    // Without edits, narrator and series number come from the folder names; edits override that,
+    // and an edit of '' means "none" rather than "use the folder name".
     test('edited details win over folder names; empty clears them', () {
       const dir = r'F:\HP Audio Books 1-7; Read by Stephen Fry\Book 02 - Chamber';
       final fromFolders = groupBooks([part('$dir\\01.mp3')]).single;
@@ -70,6 +81,7 @@ void main() {
     });
   });
 
+  // A real temp library with a two-file book (tiny silent WAVs) in an audiobook folder.
   group('Editing a book in the library', () {
     late Directory dir;
     late LibraryModel lib;
@@ -85,11 +97,14 @@ void main() {
       lib = LibraryModel(storage);
       await lib.addAudiobookFolder(p.join(dir.path, 'books'));
     });
+    // Short wait so any save still in progress finishes before the folder is deleted.
     tearDown(() async {
       await Future<void>.delayed(const Duration(milliseconds: 100));
       dir.deleteSync(recursive: true);
     });
 
+    // Editing a book edits all its files at once (the book's title is the files' album name).
+    // Resetting the edits brings back the folder name as the title.
     test('title, author, narrator and cover apply to every file', () async {
       final b = lib.books.single;
       final ids = [for (final t in b.parts) t.id];
@@ -115,6 +130,7 @@ void main() {
   group('Bookmarks', () {
     late Directory dir;
     late BookmarksModel model;
+    // Two 30-minute files; bookmarks are stored per file and position.
     final book = Book(id: 'b', title: 'B', author: 'A', parts: [
       part(r'F:\B\1.mp3', minutes: 30),
       part(r'F:\B\2.mp3', minutes: 30),
@@ -130,6 +146,7 @@ void main() {
       dir.deleteSync(recursive: true);
     });
 
+    // Bookmarks come back in the order they occur in the book, not the order they were added.
     test('added, listed in listening order, noted, deleted and saved', () async {
       final late = await model.add(book.parts[1].id, const Duration(minutes: 5), note: 'Twist!');
       final early = await model.add(book.parts[0].id, const Duration(minutes: 20));
@@ -144,6 +161,8 @@ void main() {
       expect(model.forBook(book).length, 1);
     });
 
+    // When files move, their bookmarks follow the new ids; when files are dropped from the
+    // library, their bookmarks go too.
     test('follow moved files; forgotten files take their bookmarks with them', () async {
       final b = await model.add(book.parts[0].id, const Duration(minutes: 1));
       model.remapIds({book.parts[0].id: 'local:G:\\B\\1.mp3'});
@@ -154,6 +173,7 @@ void main() {
     });
   });
 
+  // Only the request address and reading a fake reply; results with the same work key count once.
   group('Open Library', () {
     test('search query and results', () {
       final u = BookInfoSearch.buildQuery(title: 'The Hobbit', author: 'Tolkien');
@@ -175,6 +195,8 @@ void main() {
     });
   });
 
+  // Take a backup with bookmark "a", replace the saved bookmarks with "b", then restore in
+  // "merge" mode: both should be there (the current ones first).
   test('backups carry bookmarks, and merging keeps both sets', () async {
     final dir = Directory.systemTemp.createTempSync('hometunes_bmbackup');
     addTearDown(() => dir.deleteSync(recursive: true));
@@ -196,6 +218,7 @@ void main() {
     expect([for (final b in merged['bookmarks'] as List) (b as Map)['id']], ['b', 'a']);
   });
 
+  // Three small books; the chapter titles are the file titles.
   group('Search', () {
     final books = [
       _book('The Philosopher\'s Stone', 'J.K. Rowling', ['Chapter 01 - The Boy Who Lived', 'Chapter 05 - Diagon Alley'],
@@ -211,6 +234,7 @@ void main() {
       expect(searchBookList(books, '  '), isEmpty);
     });
 
+    // `chapter` is the chapter's number within its book, counting from 0.
     test('chapters by name', () {
       final hits = searchChapterList(books, 'diagon');
       expect(hits.single.book.title, 'The Philosopher\'s Stone');
@@ -220,6 +244,7 @@ void main() {
     });
   });
 
+  // sortBooks returns (group name, books) pairs, e.g. one group per series or author.
   group('Books tab: sort and filter', () {
     final books = [
       _b('Chamber of Secrets', author: 'J.K. Rowling', narrator: 'Stephen Fry', series: 'Harry Potter', n: 2),
@@ -253,6 +278,7 @@ void main() {
       expect(titles(sortBooks(books, BookSort.title).single.$2).first, 'Casual Vacancy');
     });
 
+    // choices() lists the values offered in a filter menu, with how many books have each.
     test('filters by author, narrator and series, and lists choices with counts', () {
       const f = BookFilters(author: 'J.K. Rowling', series: 'Harry Potter');
       expect(titles([for (final b in books) if (f.matches(b)) b]), ['Chamber of Secrets', 'Philosopher\'s Stone']);
@@ -265,6 +291,7 @@ void main() {
 
 // ---------------------------------------------------------------- search
 
+/// A book whose files are named after [chapterTitles] (one file per chapter).
 Book _book(String title, String author, List<String> chapterTitles, {String? series}) => Book(
       id: 'book:$title',
       title: title,
@@ -285,6 +312,7 @@ Book _book(String title, String author, List<String> chapterTitles, {String? ser
       ],
     );
 
+/// A one-file book with the given details, for the sort and filter tests.
 Book _b(String title, {String author = 'A', String? narrator, String? series, double? n, int added = 0}) => Book(
       id: 'book:$title',
       title: title,

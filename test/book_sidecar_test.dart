@@ -1,3 +1,9 @@
+// Tests for audiobook "sidecar" files: the extra files that sit next to the audio
+// (services/book_sidecar.dart). Covers reading book details from Libation/Audible .metadata.json
+// and Audiobookshelf metadata.json files (author, narrators, series, genres, description,
+// chapters), finding the right cover picture, description text and PDFs beside a book, and a
+// real scan where a metadata file added later is picked up on the next scan.
+// The book, author and narrators are made up.
 import 'dart:convert';
 import 'dart:io';
 
@@ -36,6 +42,8 @@ Map<String, dynamic> audibleJson({String sequence = '0.1'}) => {
       'release_date': '2014-02-27',
       'publisher_summary': '<p><b>A kettle</b> &amp; a quest.</p><p>Second&nbsp;part.<br />New line.</p>',
       'product_images': {'500': 'https://example.com/x.jpg'},
+      // Audible files start with a short "brand intro" and end with an outro; some download tools
+      // cut these out, which shifts every chapter. The nested chapters test "heading + parts".
       'ChapterInfo': {
         'brandIntroDurationMs': '2000',
         'brandOutroDurationMs': '3000',
@@ -58,6 +66,8 @@ Map<String, dynamic> audibleJson({String sequence = '0.1'}) => {
 
 void main() {
   group('Book metadata files', () {
+    // "Sam Leaf - translator" isn't an author; the genre is the most specific step of the
+    // category ladder; the HTML description becomes plain text.
     test('Libation / Audible: details, roles left out of the author, genres, HTML description', () {
       final info = BookInfo.parse(jsonEncode(audibleJson()))!;
       expect(info.title, 'The Last Kettle');
@@ -70,12 +80,15 @@ void main() {
       expect(info.description, 'A kettle & a quest.\n\nSecond part.\nNew line.');
     });
 
+    // The 2.5 s "The Kettle" heading is too short to be a chapter itself; its parts take its name.
     test('chapters: parts are named after their heading; short headings dropped', () {
       final info = BookInfo.parse(jsonEncode(audibleJson()))!;
       expect(info.chapters.map((c) => c.title),
           ['Opening Credits', 'The Kettle: Part I', 'The Kettle: Part II', 'End Credits']);
     });
 
+    // chaptersFor(file length) works out whether the intro/outro are in the file from its length,
+    // and shifts the chapter times to match.
     test('chapters line up with files that had Audible\'s intro cut, or not', () {
       final info = BookInfo.parse(jsonEncode(audibleJson()))!;
       // 65 s with the 2 s intro and 3 s outro removed = 60 s.
@@ -88,6 +101,7 @@ void main() {
       expect(info.chaptersFor(const Duration(minutes: 30)), isEmpty);
     });
 
+    // A range like "1-5" uses its first number; an empty sequence means no number.
     test('series numbers like "1-5" and "" ', () {
       expect(BookInfo.parse(jsonEncode(audibleJson(sequence: '1-5')))!.seriesIndex, 1);
       expect(BookInfo.parse(jsonEncode(audibleJson(sequence: '')))!.seriesIndex, isNull);
@@ -127,9 +141,12 @@ void main() {
     setUp(() => dir = Directory.systemTemp.createTempSync('hometunes_sidecar'));
     tearDown(() => dir.deleteSync(recursive: true));
 
+    /// Creates a small file at [rel] inside the temp folder (making folders as needed).
     File touch(String rel, [String text = 'x']) =>
         File(p.join(dir.path, rel))..createSync(recursive: true)..writeAsStringSync(text);
 
+    // "Own" = named after the book itself (rather than just found in the same folder). The stamp
+    // changes when sidecar files change, so a rescan knows to re-read them.
     test('Libation layout: files named after the book', () {
       final book = touch('Kettle [B01]/The Last Kettle [B01].m4b');
       touch('Kettle [B01]/The Last Kettle [B01].jpg');
@@ -144,6 +161,8 @@ void main() {
       expect(s.stamp, isNot(0));
     });
 
+    // With two pictures and neither named after the book/folder, it's unclear which is the cover,
+    // so none is picked.
     test('a picture named after the folder, or the only one, is the cover; two unnamed ones are not', () {
       final a = touch('Mentats/Mentats Part 1.mp3');
       touch('Mentats/Mentats Part 2.mp3');
@@ -161,6 +180,7 @@ void main() {
       expect(findSidecars(c.path, FolderCache()).image, isNull);
     });
 
+    // A description file in a parent (collection) folder applies to the books in its sub-folders.
     test('a collection\'s Info.txt describes the books in its folders', () {
       final a = touch('Tea Books/Book 01 - Brew/01.mp3');
       touch('Tea Books/Info.txt', 'All about the tea books.');
@@ -176,6 +196,7 @@ void main() {
       expect(findSidecars(a.path, FolderCache()).companions, isEmpty);
     });
 
+    // 1. Scan a real (tiny) .m4b with no sidecars: only its own tags are used.
     test('scanning reads the details and chapters, and picks up files added later', () async {
       final folder = Directory(p.join(dir.path, 'Kettle'))..createSync();
       File(p.join('test', 'fixtures', 'tagged.m4a')).copySync(p.join(folder.path, 'The Last Kettle.m4b'));
@@ -198,6 +219,8 @@ void main() {
       File(p.join(folder.path, 'The Last Kettle.metadata.json')).writeAsStringSync(jsonEncode(meta));
       File(p.join(folder.path, 'The Last Kettle.jpg')).writeAsBytesSync([0xFF, 0xD8, 0xFF]);
 
+      // 2. Rescan with the earlier results: the file itself hasn't changed, but the new sidecar
+      //    files should still be noticed and applied.
       final previous = {for (final t in tracks) t.id: t};
       tracks = await scanner.scan([folder.path], previous: previous);
       final t = tracks.single;
@@ -225,6 +248,7 @@ void main() {
     });
   });
 
+  // hasBookInfo (a metadata sidecar was found) on its own is enough to count as a book.
   test('a metadata file marks MP3s as a book even without an audiobook genre', () {
     const t = Track(
       id: 'local:/m/a.mp3',
