@@ -105,7 +105,7 @@ class _BooksScreenState extends State<BooksScreen> {
               : FilledButton.icon(
                   icon: const Icon(Icons.create_new_folder_outlined),
                   label: const Text('Add audiobooks'),
-                  onPressed: () => context.read<AppNav>().selectTab(AppNav.settingsTab),
+                  onPressed: () => context.read<AppNav>().openSettings('audiobooks', setting: 'book-folders'),
                 ),
             ),
           ),
