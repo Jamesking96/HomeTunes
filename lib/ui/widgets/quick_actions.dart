@@ -25,6 +25,13 @@ class QuickAction {
   const QuickAction(this.icon, this.label, this.run);
 }
 
+/// An icon and a label for a menu item. The label wraps rather than overflowing a narrow menu.
+Widget menuRow(IconData icon, String label) => Row(children: [
+      Icon(icon, size: 20),
+      const SizedBox(width: 12),
+      Flexible(child: Text(label)),
+    ]);
+
 /// Shows [actions] as a menu at [at] (a screen position), with [header] items first.
 Future<void> showQuickActions(BuildContext context, Offset at, List<QuickAction> actions,
     {List<PopupMenuEntry<Future<void> Function()>> header = const []}) async {
@@ -38,7 +45,7 @@ Future<void> showQuickActions(BuildContext context, Offset at, List<QuickAction>
       for (final a in actions)
         PopupMenuItem(
           value: a.run,
-          child: Row(children: [Icon(a.icon, size: 20), const SizedBox(width: 12), Text(a.label)]),
+          child: menuRow(a.icon, a.label),
         ),
     ],
   );

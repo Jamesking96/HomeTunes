@@ -121,16 +121,12 @@ class _SelectableCardState extends State<SelectableCard> {
     await showQuickActions(context, at, widget.actionsFor?.call([widget.id]) ?? const [], header: [
       PopupMenuItem(
         value: () async => sel.start(widget.id, kind: widget.kind, scope: widget.scope),
-        child: const Row(children: [Icon(Icons.check_box_outlined, size: 20), SizedBox(width: 12), Text('Select')]),
+        child: menuRow(Icons.check_box_outlined, 'Select'),
       ),
       if (others > 1)
         PopupMenuItem(
           value: () async => sel.start(widget.id, kind: widget.kind, scope: widget.scope, all: true),
-          child: Row(children: [
-            const Icon(Icons.select_all, size: 20),
-            const SizedBox(width: 12),
-            Text('Select all ($others)'),
-          ]),
+          child: menuRow(Icons.select_all, 'Select all ($others)'),
         ),
     ]);
   }
