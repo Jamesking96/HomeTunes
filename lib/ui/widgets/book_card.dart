@@ -1,3 +1,8 @@
+// Book covers and book tiles for the Books tab, Home shelves and search results.
+//
+// [BookCover] draws a cover in the shape the user picked (square or tall, Settings ›
+// Audiobooks). [BookCard] adds a progress bar / "finished" tick from ListeningModel and opens
+// the book's page when tapped. [bookCardHeight] lets horizontal shelves size themselves.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -22,8 +27,11 @@ class BookCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ratio = bookCoverRatio(context);
+    // The book's cover comes from one of its files (see Book.artTrack).
     final track = book.artTrack;
     final lib = context.read<LibraryModel>();
+    // Same sizing trick as Artwork: fetch/decode at about twice the drawn width, for sharp
+    // screens, but no more.
     final px = (width * 2).clamp(64, 800).round();
     final image = lib.artFor(track, size: px);
     final placeholder = Container(
@@ -56,8 +64,9 @@ class BookCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Watch ListeningModel so the progress bar and "left" time update as you listen.
     final listening = context.watch<ListeningModel>();
-    final state = listening.stateOf(book);
+    final state = listening.stateOf(book); // not started / in progress / finished
     final accent = Theme.of(context).colorScheme.primary;
 
     final card = InkWell(
@@ -67,6 +76,7 @@ class BookCard extends StatelessWidget {
         padding: const EdgeInsets.all(8),
         child: LayoutBuilder(builder: (context, c) {
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Cover, with a tick in the corner once the book is finished.
             Stack(children: [
               BookCover(book: book, width: c.maxWidth),
               if (state == BookState.finished)
@@ -95,6 +105,7 @@ class BookCard extends StatelessWidget {
               ),
             Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w600)),
+            // Second line: time left for a book in progress, otherwise the author.
             Text(
               state == BookState.inProgress ? '${formatLong(listening.timeLeft(book))} left' : book.author,
               maxLines: 1,
@@ -110,4 +121,7 @@ class BookCard extends StatelessWidget {
 }
 
 /// Height a [BookCard] needs at [width] (cover + progress + two lines of text).
+// The numbers: 16 = padding above and below (8 + 8, also taken off the width for the cover),
+// 6 = gap under the cover, 9 = progress bar and its gap (3 + 6), 40 = the two lines of text.
+// If BookCard's layout changes, update these too.
 double bookCardHeight(double width, double ratio) => (width - 16) * ratio + 16 + 6 + 9 + 40;

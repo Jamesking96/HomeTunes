@@ -1,3 +1,9 @@
+// The core data models for music: Track (one song or audiobook file), Chapter, Album, Artist.
+// Tracks are made by the local scanner (services/local_scanner.dart) or the Subsonic sync
+// (services/subsonic_client.dart) and saved in library.json via toJson/fromJson.
+// LibraryModel then applies the user's edits (TrackEdit.applyTo) and groups the results into
+// albums, artists and books. Tracks are immutable: a change means building a new Track.
+// If you add a field, also add it to toJson, fromJson, copyWith and TrackEdit.applyTo.
 /// Where a track comes from.
 enum TrackSource { local, server }
 
@@ -5,6 +11,7 @@ enum TrackSource { local, server }
 class Track {
   /// Stable id. Local tracks: `local:<absolute path>`. Server tracks: `server:<subsonic id>`.
   final String id;
+  /// A file on this device, or a song streamed from a Subsonic server.
   final TrackSource source;
 
   final String title;
@@ -17,6 +24,7 @@ class Track {
   final int? discNumber;
   final int? year;
   final String? genre;
+  /// Length of the song. Zero when the file didn't say (see [hasDuration]).
   final Duration duration;
 
   /// Local file path (local tracks only).
@@ -79,15 +87,20 @@ class Track {
     this.sidecarStamp,
   });
 
+  /// True for files on this device.
   bool get isLocal => source == TrackSource.local;
 
   /// Some files don't say how long they are; the length is then learned the
   /// first time the song plays.
   bool get hasDuration => duration > Duration.zero;
 
+  // Lower-cased so "The Album" and "the album" land together; the invisible \u0000
+  // separator stops e.g. "AB" + "C" from matching "A" + "BC".
   /// Key that groups tracks into an album.
   String get albumKey => '${albumArtist.toLowerCase()}\u0000${album.toLowerCase()}';
 
+  /// A copy with a new cover, length or chapters. Only these three can change after a scan
+  /// (e.g. a cover found online, or the real length learned while playing).
   Track copyWith({String? art, Duration? duration, List<Chapter>? chapters}) => Track(
         id: id,
         source: source,
@@ -114,6 +127,7 @@ class Track {
         sidecarStamp: sidecarStamp,
       );
 
+  /// For library.json. Empty/unset fields are left out to keep the file small.
   Map<String, dynamic> toJson() => {
         'id': id,
         'source': source.name,
@@ -140,6 +154,8 @@ class Track {
         if (sidecarStamp != null) 'sidecarStamp': sidecarStamp,
       };
 
+  /// Reads a track back from library.json. Missing fields fall back to sensible defaults,
+  /// so files saved by older versions of the app still load.
   factory Track.fromJson(Map<String, dynamic> j) => Track(
         id: j['id'] as String,
         source: TrackSource.values.byName(j['source'] as String),
@@ -161,13 +177,15 @@ class Track {
         ],
         narrator: j['narrator'] as String?,
         series: j['series'] as String?,
-        seriesIndex: (j['seriesIndex'] as num?)?.toDouble(),
+        seriesIndex: (j['seriesIndex'] as num?)?.toDouble(),  // JSON may store 2 as an int
         description: j['description'] as String?,
         companions: (j['companions'] as List? ?? const []).cast<String>(),
         hasBookInfo: (j['hasBookInfo'] as bool?) ?? false,
         sidecarStamp: j['sidecarStamp'] as int?,
       );
 
+  // Tracks are equal when their ids match, so lists and sets treat an edited copy as the
+  // same song.
   @override
   bool operator ==(Object other) => other is Track && other.id == id;
 
@@ -181,6 +199,7 @@ class Chapter {
   final String title;
   const Chapter(this.start, this.title);
 
+  /// Stored inside the track's entry in library.json.
   Map<String, dynamic> toJson() => {'startMs': start.inMilliseconds, 'title': title};
 
   factory Chapter.fromJson(Map<String, dynamic> j) =>
@@ -195,8 +214,10 @@ class Chapter {
 
 /// An album built by grouping tracks.
 class Album {
+  /// The shared [Track.albumKey] of its tracks.
   final String key;
   final String title;
+  /// The album artist.
   final String artist;
   final int? year;
   final List<Track> tracks;
@@ -211,6 +232,7 @@ class Album {
     return tracks.isEmpty ? null : tracks.first;
   }
 
+  /// All the tracks' lengths added up.
   Duration get totalDuration => tracks.fold(Duration.zero, (a, t) => a + t.duration);
 }
 
@@ -221,5 +243,6 @@ class Artist {
 
   Artist({required this.name, required this.albums});
 
+  /// Every song by this artist, album by album.
   List<Track> get tracks => [for (final a in albums) ...a.tracks];
 }

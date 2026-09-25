@@ -1,3 +1,14 @@
+// Windows (C++) half of the audio_service_win plugin (vendored, see HOMETUNES_CHANGES.md).
+//
+// Talks to the Windows "System Media Transport Controls" (SMTC): the media overlay that pops up
+// with the volume keys, the lock screen's now-playing panel and the keyboard's media keys.
+// The Dart side (lib/audio_service_win.dart) sends three messages over the "audio_service_win"
+// channel: initializeSMTC, setMediaItem (song details + cover) and updateState (play / pause /
+// stop). Button presses go the other way as "onSMTCButtonPressed".
+//
+// A desktop app can't get the SMTC directly, so the trick used here is to create a hidden
+// Windows MediaPlayer purely to borrow its SMTC. Nothing is ever played through it; the real
+// audio comes from media_kit (libmpv).
 #include "audio_service_win_plugin.h"
 
 // This must be included before many other Windows headers.
@@ -24,6 +35,9 @@
 #include <iterator> // std::istreambuf_iterator
 #include <iomanip>
 
+// Shared state for the whole plugin (there is only ever one media overlay per app):
+// the borrowed MediaPlayer, its SMTC, the SMTC's "display updater" (title, artist, cover),
+// the channel back to Dart, and the app id given by Dart.
 static winrt::Windows::Media::Playback::MediaPlayer mediaPlayer{nullptr};
 static winrt::Windows::Media::SystemMediaTransportControls smtc{nullptr};
 static winrt::Windows::Media::SystemMediaTransportControlsDisplayUpdater updater{nullptr};
@@ -38,6 +52,7 @@ namespace audio_service_win
       flutter::PluginRegistrarWindows *registrar)
   {
 
+    // Guard so a second Flutter window (if one were ever opened) doesn't register it again.
     static bool plugin_already_registered = false;
 
     if (plugin_already_registered) {
@@ -47,12 +62,14 @@ namespace audio_service_win
 
     plugin_already_registered = true;
 
+    // The channel name must match the MethodChannel name in lib/audio_service_win.dart.
     channel = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
         registrar->messenger(), "audio_service_win",
         &flutter::StandardMethodCodec::GetInstance());
 
     auto plugin = std::make_unique<AudioServiceWinPlugin>();
 
+    // Route every message from Dart to HandleMethodCall below.
     channel->SetMethodCallHandler(
         [plugin_pointer = plugin.get()](const auto &call, auto result)
         {
@@ -67,6 +84,8 @@ namespace audio_service_win
   AudioServiceWinPlugin::~AudioServiceWinPlugin() {}
 
   // Function to setup System Media Transport Controls (SMTC)
+  // Creates the hidden MediaPlayer and hooks up the SMTC. Safe to call more than once: it does
+  // nothing if it has already run.
   static void SetupSMTC()
   {
     if (mediaPlayer == nullptr)
@@ -80,6 +99,7 @@ namespace audio_service_win
       updater = smtc.DisplayUpdater();
       updater.AppMediaId(winrt::to_hstring(appId));
 
+      // Buttons shown on the overlay. The whole control stays hidden until there's a song to show.
       smtc.IsPlayEnabled(true);
       smtc.IsPauseEnabled(true);
       smtc.IsNextEnabled(true);
@@ -88,6 +108,10 @@ namespace audio_service_win
 
       std::cout << "SMTC initialized with appid: " << appId << std::endl;
 
+      // When a media key or overlay button is pressed, turn it into a short name
+      // ("play", "next"...) and send it to Dart. Dart only acts on play, pause, stop, next,
+      // previous, fastForward and rewind.
+      // (Note: Windows calls this from a background thread, not Flutter's main thread.)
       smtc.ButtonPressed([](auto const &, winrt::Windows::Media::SystemMediaTransportControlsButtonPressedEventArgs const &args)
                          {
                            std::string *method = new std::string;
@@ -140,6 +164,8 @@ namespace audio_service_win
 namespace audio_service_win
 {
 
+  // Turns "%20"-style codes in a file:// address back into normal characters (and "+" into a
+  // space), so the cover's real file path can be opened.
   std::string UrlDecode(const std::string &encoded)
   {
     std::ostringstream result;
@@ -171,6 +197,7 @@ namespace audio_service_win
     return result.str();
   }
 
+  // Handles each message from Dart: initializeSMTC, setMediaItem, updateState.
   void AudioServiceWinPlugin::HandleMethodCall(
       const flutter::MethodCall<flutter::EncodableValue> &method_call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result)
@@ -206,6 +233,7 @@ namespace audio_service_win
           arguments->find(flutter::EncodableValue("artist")) != arguments->end() &&
           arguments->find(flutter::EncodableValue("album")) != arguments->end())
       {
+        // Read title / artist / album; a missing or null value becomes an empty string.
         std::string title;
         const auto &titleValue =
             arguments->at(flutter::EncodableValue("title"));
@@ -236,6 +264,7 @@ namespace audio_service_win
           SetupSMTC();
         }
 
+        // The cover is optional.
         std::string artUri;
         if (arguments->find(flutter::EncodableValue("artUri")) != arguments->end())
         {
@@ -248,6 +277,7 @@ namespace audio_service_win
 
         if (updater)
         {
+          // Show the overlay and replace everything it showed before with the new song's details.
           smtc.IsEnabled(true);
           updater.ClearAll();
           updater.Type(winrt::Windows::Media::MediaPlaybackType::Music);
@@ -260,15 +290,24 @@ namespace audio_service_win
             try
             {
 
+              // Loading the cover can be slow (a download or a file read), so it's done
+              // on a separate thread. The text details are shown straight away (Update()
+              // further down); this thread adds the picture and calls Update() again
+              // once it has loaded.
               std::thread([artUri]()
                           {
+              // Each new thread must set up Windows' COM system before using WinRT objects.
               winrt::init_apartment(winrt::apartment_type::multi_threaded);
               try {
+                  // Server covers: let Windows fetch the picture from the web address itself.
                   if (artUri.rfind("http://", 0) == 0 || artUri.rfind("https://", 0) == 0) {
                       winrt::Windows::Foundation::Uri uri(winrt::to_hstring(artUri));
                       auto thumbRef = winrt::Windows::Storage::Streams::RandomAccessStreamReference::CreateFromUri(uri);
                       updater.Thumbnail(thumbRef);
                   } else {
+                      // Local covers: "file:///C:/Music/x.jpg" -> "C:\Music\x.jpg"
+                      // (drop the 8 characters of "file:///", use Windows backslashes),
+                      // then undo the %-encoding.
                       std::string localPath = artUri;
                       if (localPath.rfind("file://", 0) == 0) {
                           localPath = localPath.substr(8);
@@ -306,6 +345,7 @@ namespace audio_service_win
       const auto *arguments = std::get_if<flutter::EncodableMap>(method_call.arguments());
       if (arguments && arguments->find(flutter::EncodableValue("state")) != arguments->end())
       {
+        // 0 = playing, 1 = paused, 2 = stopped (see setState / stopService on the Dart side).
         int32_t state = std::get<int32_t>(arguments->at(flutter::EncodableValue("state")));
         if (smtc)
         {
@@ -320,6 +360,7 @@ namespace audio_service_win
             break;
           case 2: // Stopped
             smtc.PlaybackStatus(winrt::Windows::Media::MediaPlaybackStatus::Stopped);
+            // Stopped: hide the overlay and wipe its details.
             smtc.IsEnabled(false);
             updater.ClearAll();
             updater.Update();
@@ -339,6 +380,7 @@ namespace audio_service_win
 
     else
     {
+      // Any other message name isn't supported.
       result->NotImplemented();
     }
   }

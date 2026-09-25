@@ -1,3 +1,13 @@
+// The "Edit song / Edit album / Edit N songs" dialog: change titles, artists, album names,
+// track and disc numbers, year, genre and cover.
+//
+// Opened from a song's ⋮ menu, the album page's pencil button and multi-select. It works in three
+// modes: one song (every field, blank = "use the file's value"), a whole album, or a selection of
+// songs (only the shared fields, and only the ones actually changed are applied).
+// Changes are stored as TrackEdits in LibraryModel (edits.json); the files themselves are only
+// changed later if the user uses Settings > Your edits > Save edits into music files.
+// Two helpers make album tidying easier: a single-song edit can also update the rest of its
+// album, and an album edit can pull in "stray" songs listed as a separate album.
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -35,8 +45,10 @@ Future<bool> showEditDetails(BuildContext context, List<Track> tracks, {bool alb
   return saved ?? false;
 }
 
+/// The text fields the editor can show.
 enum _Field { title, artist, album, albumArtist, trackNumber, discNumber, year, genre }
 
+/// The editor itself. [albumMode] means "edit this album"; [fullScreen] picks the phone layout.
 class _EditDetails extends StatefulWidget {
   final List<Track> tracks;
   final bool albumMode;
@@ -48,14 +60,19 @@ class _EditDetails extends StatefulWidget {
 }
 
 class _EditDetailsState extends State<_EditDetails> {
+  /// True when editing exactly one song (the only mode that shows every field).
   late final bool _single = widget.tracks.length == 1 && !widget.albumMode;
+  /// Which fields to show in this mode, in order.
   late final List<_Field> _fields;
   final Map<_Field, TextEditingController> _ctrl = {};
   final Map<_Field, String> _initial = {};
+  /// Fields where the songs being edited disagree; their box starts blank with a "Mixed" hint.
   final Set<_Field> _mixed = {};
 
   String? _newCover; // imported copy of a picked image
+  /// True when the user chose to go back to the file's own cover.
   bool _resetCover = false;
+  /// True while saving; disables the buttons so it can't be pressed twice.
   bool _saving = false;
 
   /// Single song: also give the rest of its album the album-wide changes.
@@ -72,11 +89,13 @@ class _EditDetailsState extends State<_EditDetails> {
   @override
   void initState() {
     super.initState();
+    // Pick the fields: all of them for one song; album-level ones for an album or a selection.
     _fields = _single
         ? _Field.values
         : widget.albumMode
             ? const [_Field.album, _Field.albumArtist, _Field.artist, _Field.year, _Field.genre]
             : const [_Field.artist, _Field.album, _Field.albumArtist, _Field.year, _Field.genre];
+    // Start each box with the value all the songs share, or blank if they differ.
     for (final f in _fields) {
       final values = _tracks.map((t) => _valueOf(t, f)).toSet();
       final common = values.length == 1 ? values.first : '';
@@ -85,6 +104,7 @@ class _EditDetailsState extends State<_EditDetails> {
       _ctrl[f] = TextEditingController(text: common);
     }
     final first = _tracks.first;
+    // For a single song, note the other songs on its album (used for "Also update the other…").
     _albumSiblings = _single
         ? [
             for (final t in context.read<LibraryModel>().tracks)
@@ -97,12 +117,16 @@ class _EditDetailsState extends State<_EditDetails> {
   /// Album mode: songs with this album's title that show up as a separate
   /// album because their album artist differs (typically "A feat. B" songs).
   late final List<Track> _strays;
+  /// Whether the strays should be pulled into this album on save (the tick box).
   bool _includeStrays = true;
 
+  /// Finds the "stray" songs: same album title, different album key, and the album artist's name
+  /// appears in their artist or album artist (e.g. "Artist feat. Someone").
   List<Track> _findStrays(List<Track> all) {
     final first = _tracks.first;
     final title = first.album.toLowerCase();
     final artist = first.albumArtist.toLowerCase();
+    // Don't guess for untitled or unknown-artist albums: too many false matches.
     if (title.isEmpty || artist.isEmpty || artist == 'unknown artist') return const [];
     return [
       for (final t in all)
@@ -120,8 +144,10 @@ class _EditDetailsState extends State<_EditDetails> {
           if (_ctrl[f]!.text.trim().isNotEmpty && _ctrl[f]!.text.trim() != _initial[f]) f
       ];
 
+  /// Whether the cover has been changed (new one picked, or reset) in this editor.
   bool get _albumCoverChanged => _newCover != null || _resetCover;
 
+  /// Whether to show the "Also update the other songs on this album" tick box.
   bool get _offerAlbumUpdate =>
       _single && _albumSiblings.isNotEmpty && (_changedAlbumFields.isNotEmpty || _albumCoverChanged);
 
@@ -133,6 +159,7 @@ class _EditDetailsState extends State<_EditDetails> {
     super.dispose();
   }
 
+  /// The value of field [f] for song [t], as text for a box.
   static String _valueOf(Track t, _Field f) => switch (f) {
         _Field.title => t.title,
         _Field.artist => t.artist,
@@ -155,14 +182,18 @@ class _EditDetailsState extends State<_EditDetails> {
         _Field.genre => 'Genre',
       };
 
+  /// Number-only fields (digits only on the keyboard).
   static bool _isNumber(_Field f) => f == _Field.trackNumber || f == _Field.discNumber || f == _Field.year;
 
+  /// The dialog's title, which depends on the mode.
   String get _heading {
     if (_single) return 'Edit song';
     if (widget.albumMode) return 'Edit album';
     return 'Edit ${_tracks.length} songs';
   }
 
+  /// "Choose image…": pick a picture file and copy it into the app's own cover folder
+  /// (so the cover still works if the original picture is moved).
   Future<void> _pickCover() async {
     final lib = context.read<LibraryModel>();
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -188,6 +219,7 @@ class _EditDetailsState extends State<_EditDetails> {
     return v.isNotEmpty ? v : _valueOf(_tracks.first, f);
   }
 
+  /// "Find online…" for the cover: searches by album artist (or artist) and album.
   Future<void> _findOnline() async {
     final albumArtist = _current(_Field.albumArtist);
     final path = await showCoverSearch(
@@ -203,6 +235,7 @@ class _EditDetailsState extends State<_EditDetails> {
     });
   }
 
+  /// Maps an editor field to the matching kind of online lookup.
   static InfoField _infoField(_Field f) => switch (f) {
         _Field.title => InfoField.title,
         _Field.artist => InfoField.artist,
@@ -230,10 +263,12 @@ class _EditDetailsState extends State<_EditDetails> {
     setState(() => _ctrl[f]!.text = choice.value);
   }
 
+  /// Saves the changes. One song and several songs are handled quite differently; see below.
   Future<void> _save() async {
     final lib = context.read<LibraryModel>();
     setState(() => _saving = true);
 
+    // Blank box = no value (for one song that means "use the file's value").
     String? text(_Field f) {
       final v = _ctrl[f]!.text.trim();
       return v.isEmpty ? null : v;
@@ -241,6 +276,8 @@ class _EditDetailsState extends State<_EditDetails> {
 
     int? number(_Field f) => int.tryParse(_ctrl[f]!.text.trim());
 
+    // ---- One song ----
+    // The whole edit is replaced by what's in the boxes (lyrics are kept by setEdit).
     if (_single) {
       final t = _tracks.first;
       final original = lib.originalById(t.id);
@@ -248,6 +285,8 @@ class _EditDetailsState extends State<_EditDetails> {
       final alsoAlbum = _offerAlbumUpdate && _updateAlbum;
       final albumFields = _changedAlbumFields;
       final siblingIds = [for (final s in _albumSiblings) s.id];
+      // Siblings that showed the same cover as this song; they follow a
+      // "use the file's cover" reset.
       final sharedCoverIds = [
         for (final s in _albumSiblings)
           if (s.art == t.art) s.id
@@ -281,6 +320,7 @@ class _EditDetailsState extends State<_EditDetails> {
         );
         if (!patch.isEmpty) await lib.editMany(siblingIds, patch);
       }
+    // ---- An album or several songs ----
     } else {
       // Only fields the user actually changed are applied to every song.
       String? changedText(_Field f) {
@@ -294,6 +334,7 @@ class _EditDetailsState extends State<_EditDetails> {
         return v == null ? null : int.tryParse(v);
       }
 
+      // Reset covers first, so a newly picked cover in the patch wins.
       final ids = [for (final t in _tracks) t.id];
       if (_resetCover) await lib.resetCovers(ids);
       final patch = TrackEdit(
@@ -307,6 +348,8 @@ class _EditDetailsState extends State<_EditDetails> {
       if (!patch.isEmpty) await lib.editMany(ids, patch);
       if (_strays.isNotEmpty && _includeStrays) {
         // Bring the stray songs into this album, with the same changes.
+        // Strays also get the album name and album artist, so they group with this album
+        // afterwards. If the album artist box is blank, use the current album artist.
         final albumArtist = _ctrl[_Field.albumArtist]!.text.trim();
         await lib.editMany(
           [for (final t in _strays) t.id],
@@ -320,6 +363,7 @@ class _EditDetailsState extends State<_EditDetails> {
     if (mounted) Navigator.of(context).pop(true);
   }
 
+  /// "Reset to file details": removes all the user's edits for these songs.
   Future<void> _resetAll() async {
     final lib = context.read<LibraryModel>();
     final ok = await showDialog<bool>(
@@ -349,6 +393,7 @@ class _EditDetailsState extends State<_EditDetails> {
       return o != null && t.art != o.art;
     });
 
+    // ---- The form: cover section, one text box per field, tick boxes, notes, reset button ----
     final form = ListView(
       shrinkWrap: !widget.fullScreen,
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
@@ -373,12 +418,15 @@ class _EditDetailsState extends State<_EditDetails> {
                     )
                   : null,
               labelText: _label(f),
+              // "Mixed" boxes start blank; leaving them blank keeps each song's own value.
               hintText: _mixed.contains(f) ? 'Mixed – leave blank to keep each song\'s own' : null,
               helperText: _helperFor(f, lib),
             ),
           ),
           const SizedBox(height: 10),
         ],
+        // Single song: offer to copy album-wide changes (album, album artist, year, genre, cover)
+        // to the other songs on the album.
         if (_offerAlbumUpdate)
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
@@ -397,6 +445,7 @@ class _EditDetailsState extends State<_EditDetails> {
               style: const TextStyle(color: AppColors.textDim, fontSize: 12),
             ),
           ),
+        // Album mode: offer to pull in the stray songs found when the editor opened.
         if (_strays.isNotEmpty)
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
@@ -440,6 +489,7 @@ class _EditDetailsState extends State<_EditDetails> {
           : const Text('Save'),
     );
 
+    // Phone layout: an app bar with a close (x) button and Save.
     if (widget.fullScreen) {
       return Scaffold(
         appBar: AppBar(
@@ -450,6 +500,7 @@ class _EditDetailsState extends State<_EditDetails> {
         body: form,
       );
     }
+    // Dialog layout: title bar, the scrolling form, and Cancel / Save at the bottom.
     return Column(mainAxisSize: MainAxisSize.min, children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(20, 18, 12, 4),
@@ -480,6 +531,8 @@ class _EditDetailsState extends State<_EditDetails> {
     return 'In file: $fileValue';
   }
 
+  /// The cover row: a preview (new pick, the file's own cover after a reset, or the current
+  /// cover) with Choose image / Find online / "Use the file's own cover" buttons.
   Widget _coverSection(bool anyCustomCover) {
     Widget preview;
     if (_newCover != null) {
@@ -511,6 +564,7 @@ class _EditDetailsState extends State<_EditDetails> {
               icon: const Icon(Icons.image_outlined),
               label: const Text('Choose image…'),
             ),
+            // Only offer an online search when there's an artist or album to search for.
             if (context.watch<LibraryModel>().onlineCovers &&
                 (_current(_Field.artist).isNotEmpty || _current(_Field.album).isNotEmpty))
               OutlinedButton.icon(

@@ -1,3 +1,9 @@
+// Settings › Servers: sign in to a Subsonic-compatible music server (Navidrome etc.) and choose
+// whether its music and audiobooks are included.
+//
+// Connecting, syncing and forgetting are done by LibraryModel (which uses SubsonicClient).
+// The lower half is a greyed-out preview of a separate audiobook server (Audiobookshelf), which
+// isn't built yet ("phase E" in the roadmap).
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -16,10 +22,12 @@ class ServerSettings extends StatefulWidget {
 
 class ServerSettingsState extends State<ServerSettings> {
   late final TextEditingController _url, _user, _pass;
+  // The saved server details the text boxes were last filled from, so we can tell when they
+  // change behind our back (see build).
   late ServerConfig _shown;
   bool _connecting = false;
-  bool _showPass = false;
-  String? _message;
+  bool _showPass = false; // the eye button on the password box
+  String? _message; // result of the last Connect, shown under the buttons
   bool _messageIsError = false;
 
   @override
@@ -40,6 +48,8 @@ class ServerSettingsState extends State<ServerSettings> {
     super.dispose();
   }
 
+  /// Saves the typed details and tries to connect and sync. Shows either the error or how many
+  /// server songs there are now.
   Future<void> _connect() async {
     final lib = context.read<LibraryModel>();
     setState(() {
@@ -47,6 +57,7 @@ class ServerSettingsState extends State<ServerSettings> {
       _message = null;
     });
     final err = await lib.connectServer(
+      // The password isn't trimmed: spaces could be part of it.
       ServerConfig(url: _url.text.trim(), username: _user.text.trim(), password: _pass.text),
     );
     if (!mounted) return;
@@ -73,6 +84,7 @@ class ServerSettingsState extends State<ServerSettings> {
     }
     final remoteCount = lib.tracks.where((t) => !t.isLocal).length;
 
+    // --- Music server ---
     return SettingsPageList(
       intro: 'Optional: stream from your own servers as well as playing your own files.',
       children: [
@@ -80,6 +92,7 @@ class ServerSettingsState extends State<ServerSettings> {
         'Music server',
         'Works with anything that speaks the Subsonic API — Navidrome, Airsonic-Advanced, Gonic, Ampache and others.',
       ),
+      // Only once a server is set up (so it isn't in the search catalog).
       if (hasServer)
         SwitchListTile(
           title: const Text('Include server music'),
@@ -119,6 +132,7 @@ class ServerSettingsState extends State<ServerSettings> {
             onSubmitted: (_) => _connect(),
           ),
           const SizedBox(height: 16),
+          // Buttons: Connect / Save & reconnect, Sync now, and Forget server on the right.
           Row(children: [
             FilledButton.icon(
               icon: _connecting
@@ -161,6 +175,7 @@ class ServerSettingsState extends State<ServerSettings> {
             ),
         ]),
       )),
+      // --- Audiobooks: books from the music server, and the future audiobook server ---
       const SettingsGroupTitle('Audiobooks'),
       SettingTarget(
         'server-books',

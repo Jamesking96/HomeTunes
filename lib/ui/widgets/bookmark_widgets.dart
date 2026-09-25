@@ -1,3 +1,9 @@
+// Audiobook bookmarks: adding one at the current spot, the note dialog, jumping to a bookmark,
+// the bookmark row, and the Bookmarks sheet opened from Now Playing.
+//
+// A bookmark is saved against one file of the book (partId) plus a position inside that file,
+// because books can be several files. For display it's turned into a time from the start of
+// the whole book and matched to its chapter. Storage is BookmarksModel (bookmarks.json).
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -12,7 +18,9 @@ Future<void> addBookmarkNow(BuildContext context) async {
   final bookmarks = context.read<BookmarksModel>();
   final messenger = ScaffoldMessenger.maybeOf(context);
   final t = player.current;
+  // Only for books (music has no bookmarks).
   if (player.book == null || t == null) return;
+  // Saved as "this file, this far in"; the message shows the time into the whole book.
   final b = await bookmarks.add(t.id, player.position);
   messenger?.showSnackBar(SnackBar(
     content: Text('Bookmark added at ${formatElapsed(player.bookOffset)}'),
@@ -30,6 +38,7 @@ Future<void> addBookmarkNow(BuildContext context) async {
 /// Asks for a bookmark's note. Returns null if cancelled.
 Future<String?> askForBookmarkNote(BuildContext context, {String initial = ''}) {
   final ctrl = TextEditingController(text: initial);
+  // useRootNavigator: show above everything, including the player sheet and bottom bars.
   return showDialog<String>(
     context: context,
     useRootNavigator: true,
@@ -48,14 +57,15 @@ Future<String?> askForBookmarkNote(BuildContext context, {String initial = ''}) 
         FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Save')),
       ],
     ),
-  ).whenComplete(ctrl.dispose);
+  ).whenComplete(ctrl.dispose); // tidy up the text box once the dialog closes
 }
 
 /// Plays [book] from a bookmark (or just jumps there if it's playing).
 Future<void> playBookmark(BuildContext context, Book book, Bookmark b) async {
   final player = context.read<PlayerModel>();
   final part = book.indexOfPart(b.partId);
-  if (part < 0) return;
+  if (part < 0) return; // that file is no longer part of the book
+  // Same book already loaded: just seek (keeps the queue and speed as they are).
   if (player.book?.id == book.id) {
     await player.goToPart(part, b.position);
     if (!player.playing) await player.play();
@@ -68,6 +78,7 @@ Future<void> playBookmark(BuildContext context, Book book, Bookmark b) async {
 class BookmarkTile extends StatelessWidget {
   final Book book;
   final Bookmark bookmark;
+  /// Called after a tap starts playback (the sheet uses it to close itself).
   final VoidCallback? onPlayed;
   const BookmarkTile({super.key, required this.book, required this.bookmark, this.onPlayed});
 
@@ -77,10 +88,14 @@ class BookmarkTile extends StatelessWidget {
     final part = book.indexOfPart(bookmark.partId);
     final at = book.offsetOf(part, bookmark.position);
     final chapters = book.chapters;
+    // Chapters are in order, so the last one starting at or before the bookmark is the one
+    // it's in.
     var chapter = '';
     for (final c in chapters) {
       if (c.offset <= at) chapter = c.title;
     }
+    // With a note: the note is the title and "time · chapter" underneath. Without: the chapter
+    // is the title and the time underneath.
     return ListTile(
       leading: Icon(Icons.bookmark, color: Theme.of(context).colorScheme.primary),
       title: Text(bookmark.note.isEmpty ? chapter : bookmark.note, maxLines: 2, overflow: TextOverflow.ellipsis),
@@ -120,6 +135,8 @@ Future<void> showBookmarksSheet(BuildContext context) {
     isScrollControlled: true,
     backgroundColor: AppColors.surface,
     showDragHandle: true,
+    // A sheet that opens about half-height and can be dragged up; the Consumer keeps the list
+    // up to date as bookmarks are added, edited or deleted while it's open.
     builder: (ctx) => DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.55,

@@ -1,3 +1,8 @@
+// Tests for editing song details in the files themselves and for the online cover search:
+// which fields each file type can store (TagSupport in services/tag_writer.dart), writing tags
+// into a real (tiny, generated) WAV file with a backup copy, and building / reading MusicBrainz
+// cover search requests (services/cover_search.dart) without going online.
+// silentWav() is also used by scan_test.dart to make test files.
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -18,6 +23,7 @@ Uint8List silentWav() {
     }
   }
 
+  // Standard 44-byte WAV header, then the (all-zero) samples.
   str(0, 'RIFF');
   data.setUint32(4, 36 + samples * 2, Endian.little);
   str(8, 'WAVE');
@@ -35,6 +41,8 @@ Uint8List silentWav() {
 }
 
 void main() {
+  // leftover(edit) = the parts of an edit the file type can't hold. Those stay as HomeTunes-only
+  // edits instead of being written into the file.
   group('Which fields each format can store', () {
     test('MP3 and FLAC take everything', () {
       const edit = TrackEdit(title: 'T', albumArtist: 'AA', art: '/c.jpg');
@@ -48,6 +56,7 @@ void main() {
       expect(left.albumArtist, 'AA');
     });
 
+    // "Keeps" = kept as a HomeTunes edit. OGG files can't be written at all (`anything` is false).
     test('WAV keeps cover and disc number; OGG keeps everything', () {
       final wav = TagSupport.forPath('a.wav').leftover(const TrackEdit(title: 'T', discNumber: 2, art: '/c.jpg'));
       expect(wav.title, isNull);
@@ -56,6 +65,7 @@ void main() {
       expect(TagSupport.forPath('a.ogg').anything, isFalse);
     });
 
+    // The first few bytes of an image ("magic numbers") tell JPEG from PNG, whatever its name.
     test('image type is detected from the bytes', () {
       expect(imageMimeType([0xFF, 0xD8, 0xFF, 0xE0]), 'image/jpeg');
       expect(imageMimeType([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0]), 'image/png');
@@ -87,6 +97,7 @@ void main() {
       expect(File(p.join(backups, 'song.wav')).existsSync(), isTrue);
     });
 
+    // Also shows the file's bytes are left exactly as they were.
     test('unsupported types are refused without touching the file', () async {
       final file = File(p.join(dir.path, 'song.ogg'))..writeAsBytesSync([1, 2, 3]);
       final result = await writeTagsToFile(file.path, const TrackEdit(title: 'X'));
@@ -95,6 +106,7 @@ void main() {
     });
   });
 
+  // Covers are looked up on MusicBrainz and the pictures come from the Cover Art Archive.
   group('Online cover search', () {
     test('album search includes album and artist', () {
       final u = CoverSearch.buildQuery(artist: 'Radiohead', album: 'OK Computer');
@@ -110,6 +122,8 @@ void main() {
       expect(u.queryParameters['query'], 'recording:"Song" AND artist:"A  B"');
     });
 
+    // A fake MusicBrainz reply: an album found directly plus the same album again via a song
+    // search (which also turns up a second edition). The duplicate "rg1" must appear only once.
     test('parses release groups and recordings, without duplicates', () {
       final results = CoverSearch.parseResults({
         'release-groups': [

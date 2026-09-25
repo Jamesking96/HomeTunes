@@ -1,3 +1,9 @@
+// Lyrics as data, plus the LRC parser.
+// A Lyrics object holds the raw text (exactly as stored) and the parsed lines. "Timed" lyrics
+// (LRC, e.g. `[01:23.45]words`) let the lyrics view highlight and scroll along with the song;
+// plain lyrics are just shown as text. LyricsModel (state/lyrics_model.dart) decides which
+// source to use (your edit, the file, a .lrc file, the server or LRCLIB) and builds these.
+// Everything here is pure Dart with no Flutter, so it's easy to test.
 /// Where a song's lyrics came from.
 enum LyricsSource {
   /// Chosen or typed by the user (a HomeTunes edit).
@@ -15,6 +21,7 @@ enum LyricsSource {
   /// Found online on LRCLIB.
   lrclib;
 
+  /// Wording shown to the user under the lyrics.
   String get label => switch (this) {
         yours => 'Your lyrics',
         file => 'From the music file',
@@ -44,24 +51,31 @@ class LyricLine {
 class Lyrics {
   /// Exactly as stored (plain text or LRC).
   final String text;
+  /// Where these lyrics came from.
   final LyricsSource source;
+  /// The parsed lines (see [parseLyrics]).
   final List<LyricLine> lines;
 
   Lyrics._(this.text, this.source, this.lines);
 
+  /// Parses [text] once, up front, so drawing the lyrics never has to parse again.
   factory Lyrics(String text, LyricsSource source) => Lyrics._(text, source, parseLyrics(text));
 
   /// Timed lyrics highlight the current line and scroll with the song.
   bool get timed => lines.isNotEmpty && lines.first.time != null;
 
+  /// True when there are no words at all (only blank lines).
   bool get isEmpty => lines.every((l) => l.text.trim().isEmpty);
 
   /// The line being sung at [position], or -1 before the first line.
   int lineAt(Duration position) => lyricLineAt(lines, position);
 }
 
+// A line time like [01:23.45] or [1:23:450] (minutes, seconds, optional fraction).
 final _timeTag = RegExp(r'\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]');
+// An LRC info line like [ar:Artist] or [offset:+200] (a word, a colon, then the value).
 final _metaTag = RegExp(r'^\[([a-zA-Z#]+):(.*)\]\s*$');
+// Per-word timings in "enhanced" LRC, like <01:23.45>. We only highlight whole lines.
 final _wordTag = RegExp(r'<\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?>');
 
 /// Parses lyrics: LRC (`[01:23.45]words`) if any line has a time, plain
@@ -70,6 +84,8 @@ final _wordTag = RegExp(r'<\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?>');
 /// times are repeated at each of them. Timed lines come back in time order.
 List<LyricLine> parseLyrics(String text) {
   final rawLines = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n');
+  // Only counts as LRC if a line actually *starts* with a time, so plain lyrics that happen
+  // to mention something in square brackets aren't mistaken for timed ones.
   final hasTimes = rawLines.any((l) => _timeTag.hasMatch(l.trimLeft()) && l.trimLeft().startsWith('['));
   if (!hasTimes) {
     // Plain lyrics: keep the lines (and blank lines between verses), trimmed at the ends.
@@ -83,6 +99,7 @@ List<LyricLine> parseLyrics(String text) {
     return lines;
   }
 
+  // Timed (LRC) lyrics from here on.
   var offset = Duration.zero;
   final timed = <LyricLine>[];
   for (final raw in rawLines) {
@@ -96,6 +113,7 @@ List<LyricLine> parseLyrics(String text) {
       }
       continue;
     }
+    // A line can start with several times (e.g. a repeated chorus); collect them all.
     final times = <Duration>[];
     while (true) {
       final m = _timeTag.matchAsPrefix(line);
@@ -104,11 +122,13 @@ List<LyricLine> parseLyrics(String text) {
       line = line.substring(m.end).trimLeft();
     }
     if (times.isEmpty) continue; // untimed text inside timed lyrics
+    // Strip word timings and squash runs of spaces left behind.
     final words = line.replaceAll(_wordTag, '').replaceAll(RegExp(r'\s+'), ' ').trim();
     for (final t in times) {
       timed.add(LyricLine(words, t));
     }
   }
+  // Apply the [offset:] shift now that we've seen the whole file (it may come anywhere).
   final shifted = [
     for (final l in timed)
       LyricLine(l.text, offset == Duration.zero ? l.time : _atLeastZero(l.time! + offset)),
@@ -146,11 +166,13 @@ String formatLrcTime(Duration d) {
 
 /// Index of the last line starting at or before [position] (-1 if none).
 int lyricLineAt(List<LyricLine> lines, Duration position) {
+  // Binary search, since this runs many times a second while a song plays.
+  // It relies on the lines being sorted by time, which parseLyrics guarantees.
   var lo = 0, hi = lines.length - 1, found = -1;
   while (lo <= hi) {
     final mid = (lo + hi) >> 1;
     final t = lines[mid].time;
-    if (t == null) return -1;
+    if (t == null) return -1;  // plain (untimed) lyrics: no current line
     if (t <= position) {
       found = mid;
       lo = mid + 1;

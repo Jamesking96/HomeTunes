@@ -1,3 +1,9 @@
+// Audiobook "side files": the extra files that sit next to audio files (metadata JSON, covers,
+// description text, PDFs). local_scanner.dart calls findSidecars() for every file it reads and,
+// when there's a metadata file, BookInfo.parse() to pull out the book's details, which then
+// win over the (often messy) tags. Having a metadata file also marks the file as a book.
+// Note: on Android the app can only see audio files in shared storage, so this mostly helps
+// on Windows. The long doc comment below lists exactly which files are recognised.
 import 'dart:convert';
 import 'dart:io';
 
@@ -18,6 +24,7 @@ import '../models/track.dart';
 ///
 /// Everything here is pure file reading, safe to run in a background isolate.
 
+// File names that are recognised (all compared in lower case).
 const imageExtensions = {'.jpg', '.jpeg', '.png', '.webp'};
 const _coverNames = ['cover', 'folder', 'front', 'album', 'poster'];
 const _descriptionNames = ['desc', 'description', 'summary', 'info', 'readme', 'about'];
@@ -62,17 +69,21 @@ class BookInfo {
     this.brandOutro = Duration.zero,
   });
 
+  /// All authors / narrators as one line, like "A, B".
   String? get author => authors.isEmpty ? null : authors.join(', ');
   String? get narrator => narrators.isEmpty ? null : narrators.join(', ');
 
   /// The chapters, lined up with a file that is [fileLength] long. Empty if
   /// the file doesn't look like the audio the chapters describe.
   List<Chapter> chaptersFor(Duration fileLength) {
-    if (chapters.isEmpty) return const [];
+    if (chapters.isEmpty) return const [];  // nothing to line up
     final full = runtime;
+    // Length unknown on either side: keep the chapters as long as they fit inside the file.
     if (full == null || full <= Duration.zero || fileLength <= Duration.zero) {
       return chapters.last.start < fileLength || fileLength <= Duration.zero ? chapters : const [];
     }
+    // Is this file the full Audible audio, or a copy with the Audible intro/outro cut off?
+    // Whichever length is closer tells us; a cut copy starts earlier, so shift the chapters.
     final trimmed = full - brandIntro - brandOutro;
     final diffFull = (fileLength - full).inMilliseconds.abs();
     final diffTrimmed = (fileLength - trimmed).inMilliseconds.abs();
@@ -94,6 +105,8 @@ class BookInfo {
       return null;
     }
     if (j is! Map<String, dynamic>) return null;
+    // Tell the two formats apart: Audible's has ChapterInfo, product images or authors with
+    // an "asin" (Amazon's id). Anything else that looks like a book is Audiobookshelf's.
     final audible = j['ChapterInfo'] is Map ||
         j['product_images'] != null ||
         (j['authors'] is List && (j['authors'] as List).any((a) => a is Map && a['asin'] != null));
@@ -104,6 +117,7 @@ class BookInfo {
 
   /// Libation / audible-cli: Audible's own product details.
   static BookInfo _fromAudible(Map<String, dynamic> j) {
+    // Audible lists people as [{"name": ..., "asin": ...}].
     List<String> names(Object? list) => [
           for (final a in (list is List ? list : const []))
             if (a is Map && a['name'] is String) (a['name'] as String).trim(),
@@ -113,6 +127,7 @@ class BookInfo {
     final allAuthors = names(j['authors']);
     final authors = allAuthors.where((a) => !RegExp(r'\s[-–]\s*\w').hasMatch(a)).toList();
 
+    // Only the first series is used (a book can belong to several).
     String? series;
     double? index;
     final s = j['series'];
@@ -121,6 +136,8 @@ class BookInfo {
       index = parseSeriesNumber(_str((s.first as Map)['sequence']));
     }
 
+    // Audible files genres as "ladders" (e.g. Fiction > Fantasy > Epic); use the last,
+    // most specific step of each.
     final genres = <String>[];
     final ladders = j['category_ladders'];
     if (ladders is List) {
@@ -133,6 +150,7 @@ class BookInfo {
       }
     }
 
+    // Milliseconds that might arrive as a number or as text.
     Duration? ms(Object? v) {
       final n = v is num ? v : num.tryParse('${v ?? ''}');
       return n == null ? null : Duration(milliseconds: n.round());
@@ -141,6 +159,8 @@ class BookInfo {
     final chapters = <Chapter>[];
     final info = j['ChapterInfo'];
     if (info is Map) {
+      // Chapters can be nested (a Part with chapters inside). Walk them all and flatten them,
+      // naming the inner ones "Part: Chapter" so they still make sense on their own.
       void walk(Object? list, String? parent) {
         if (list is! List) return;
         for (var i = 0; i < list.length; i++) {
@@ -163,13 +183,13 @@ class BookInfo {
       }
 
       walk(info['chapters'], null);
-      chapters.sort((a, b) => a.start.compareTo(b.start));
+      chapters.sort((a, b) => a.start.compareTo(b.start));  // nested lists may be out of order
     }
 
     return BookInfo(
       title: _str(j['title']),
       subtitle: _str(j['subtitle']),
-      authors: authors.isEmpty ? allAuthors : authors,
+      authors: authors.isEmpty ? allAuthors : authors,  // if everyone was filtered out
       narrators: names(j['narrators']),
       series: series,
       seriesIndex: index,
@@ -185,6 +205,7 @@ class BookInfo {
 
   /// Audiobookshelf's metadata.json.
   static BookInfo _fromAudiobookshelf(Map<String, dynamic> j) {
+    // Audiobookshelf may list names as plain strings or as {"name": ...} objects.
     List<String> strings(Object? v) => [
           for (final x in (v is List ? v : const []))
             if (x is String && x.trim().isNotEmpty) x.trim() else if (x is Map && x['name'] is String) (x['name'] as String).trim(),
@@ -198,6 +219,7 @@ class BookInfo {
       series = m == null ? s.first : m.group(1)!.trim();
       index = m == null ? null : parseSeriesNumber(m.group(2));
     }
+    // Chapter starts here are in seconds (with decimals).
     final chapters = <Chapter>[
       for (final c in (j['chapters'] is List ? j['chapters'] as List : const []))
         if (c is Map && c['start'] is num)
@@ -219,12 +241,14 @@ class BookInfo {
   }
 }
 
+/// A tidy string from any JSON value. Python-made files sometimes write "None" for empty.
 String? _str(Object? v) {
   if (v == null) return null;
   final s = '$v'.trim();
   return s.isEmpty || s == 'None' || s == 'null' ? null : s;
 }
 
+/// The first believable year (1500-2999) in a date like "2019-05-07".
 int? _year(String? s) {
   final m = s == null ? null : RegExp(r'\b(1[5-9]\d\d|2\d\d\d)\b').firstMatch(s);
   return m == null ? null : int.parse(m.group(1)!);
@@ -240,12 +264,14 @@ double? parseSeriesNumber(String? s) {
 /// lines and drop the rest of the markup.
 String? htmlToText(String? html) {
   if (html == null) return null;
+  // 1. Turn block ends into line breaks, list items into bullets, then drop all other tags.
   var s = html
       .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
       .replaceAll(RegExp(r'</li>', caseSensitive: false), '\n')
       .replaceAll(RegExp(r'</p>|</div>|</h\d>|</ul>|</ol>', caseSensitive: false), '\n\n')
       .replaceAll(RegExp(r'<li[^>]*>', caseSensitive: false), '• ')
       .replaceAll(RegExp(r'<[^>]+>'), '');
+  // 2. Decode the common HTML character codes.
   s = s
       .replaceAll('&nbsp;', ' ')
       .replaceAll('&amp;', '&')
@@ -255,22 +281,27 @@ String? htmlToText(String? html) {
       .replaceAll('&lt;', '<')
       .replaceAll('&gt;', '>')
       .replaceAllMapped(RegExp(r'&#(\d+);'), (m) => String.fromCharCode(int.parse(m.group(1)!)));
+  // 3. Trim each line and allow at most one blank line in a row.
   s = s.split('\n').map((l) => l.trim()).join('\n').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
   return s.isEmpty ? null : s;
 }
 
 /// What sits next to one audio file.
 class Sidecars {
+  /// Path of the book metadata JSON, if any.
   final String? metadataFile;
 
   /// The metadata file is named after this audio file (not shared by a folder).
   final bool metadataIsOwn;
+  /// Path of the best cover picture found, if any.
   final String? image;
 
   /// The picture is named after this audio file, so it wins over the art
   /// inside the file (usually it's the same cover, bigger).
   final bool imageIsOwn;
+  /// Path of a text file with the book's description.
   final String? descriptionFile;
+  /// PDFs / EPUBs that come with the book.
   final List<String> companions;
 
   /// Changes whenever any of these files is added, removed or changed, so a
@@ -287,6 +318,7 @@ class Sidecars {
     this.stamp = 0,
   });
 
+  /// Nothing found.
   static const none = Sidecars();
 
   bool get isEmpty => metadataFile == null && image == null && descriptionFile == null && companions.isEmpty;
@@ -294,6 +326,7 @@ class Sidecars {
 
 /// Lists folders once per scan batch (many files share a folder).
 class FolderCache {
+  // Folder path -> the files in it. An unreadable folder counts as empty.
   final Map<String, List<File>> _files = {};
 
   List<File> filesIn(String dir) => _files[dir] ??= () {
@@ -311,14 +344,17 @@ Sidecars findSidecars(String audioPath, FolderCache folders) {
   final base = p.basenameWithoutExtension(audioPath).toLowerCase();
   final folderName = p.basename(dir).toLowerCase();
   final files = folders.filesIn(dir);
+  // How many audio files share this folder: with just one, any side file must be for it.
   final audioInFolder = files.where((f) => _isAudio(f.path)).length;
 
   String? metadata, image, description;
   var metadataIsOwn = false;
   var imageRank = 99, descRank = 99;
   final companions = <String>[];
+  // Side files that affect this track; their names and dates make up the [stamp].
   final used = <File>[];
 
+  // Look at every file in the folder once and sort it into the right kind.
   for (final f in files) {
     final name = p.basename(f.path).toLowerCase();
     final ext = p.extension(name);
@@ -331,6 +367,8 @@ Sidecars findSidecars(String audioPath, FolderCache folders) {
       metadata = f.path;
       used.add(f);
     } else if (imageExtensions.contains(ext)) {
+      // Best picture wins: named after the audio file, then cover/folder/..., then named
+      // after the folder, then any other picture.
       final rank = stem == base
           ? 0
           : _coverNames.contains(stem)
@@ -344,13 +382,14 @@ Sidecars findSidecars(String audioPath, FolderCache folders) {
       }
       used.add(f);
     } else if (ext == '.txt') {
+      // Same idea for text: named after the audio file first, then desc.txt, description.txt...
       final named = _descriptionNames.indexOf(stem);
       final rank = stem == base ? 0 : (named < 0 ? 99 : named + 1);
       if (rank < descRank) {
         descRank = rank;
         description = f.path;
       }
-      if (rank < 99) used.add(f);
+      if (rank < 99) used.add(f);  // ignore unrelated .txt files
     } else if (companionExtensions.contains(ext)) {
       // With several books in one folder, only files named after this one.
       if (audioInFolder <= 1 || stem.startsWith(base) || base.startsWith(stem)) companions.add(f.path);
@@ -380,6 +419,8 @@ Sidecars findSidecars(String audioPath, FolderCache folders) {
     }
   }
 
+  // Mix the used files' names and modified times into one number. If any of them is added,
+  // removed or edited, the number changes and the next scan re-reads this track.
   var stamp = 17;
   for (final f in used) {
     int modified;
@@ -392,7 +433,7 @@ Sidecars findSidecars(String audioPath, FolderCache folders) {
   }
   return Sidecars(
     metadataFile: metadata,
-    metadataIsOwn: metadataIsOwn || (metadata != null && audioInFolder <= 1),
+    metadataIsOwn: metadataIsOwn || (metadata != null && audioInFolder <= 1),  // one-file book
     image: image,
     imageIsOwn: image != null && imageRank == 0 && p.dirname(image) == dir,
     descriptionFile: description,
@@ -401,6 +442,7 @@ Sidecars findSidecars(String audioPath, FolderCache folders) {
   );
 }
 
+/// Same list as audioExtensions in local_scanner.dart.
 bool _isAudio(String path) =>
     const {'.mp3', '.flac', '.m4a', '.m4b', '.mp4', '.aac', '.ogg', '.opus', '.wav'}.contains(p.extension(path).toLowerCase());
 

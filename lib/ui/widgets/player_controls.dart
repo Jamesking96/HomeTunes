@@ -1,3 +1,10 @@
+// The player's buttons and bars: seek bar, play/pause row, like button, the phone mini player,
+// the desktop player bar along the bottom, and the volume control.
+//
+// Shell puts MiniPlayer (phones) or DesktopPlayerBar (wide windows) under the pages; Now
+// Playing reuses SeekBar and TransportControls at a bigger size. Everything reads from
+// PlayerModel. When a book is playing the controls switch to book mode (chapters, skip back /
+// forward, speed) instead of shuffle / repeat.
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +21,7 @@ import 'listening_controls.dart';
 
 /// Seek bar with elapsed / total times. Rebuilds from the position stream only.
 class SeekBar extends StatefulWidget {
+  /// Small version with the times either side of the bar (desktop player bar).
   final bool compact;
   const SeekBar({super.key, this.compact = false});
 
@@ -27,13 +35,16 @@ class _SeekBarState extends State<SeekBar> {
   @override
   Widget build(BuildContext context) {
     final player = context.watch<PlayerModel>();
-    final total = player.duration;
+    final total = player.duration; // the length of the file playing now
+    // The position arrives many times a second; only this StreamBuilder redraws for it.
     return StreamBuilder<Duration>(
       stream: player.positionStream,
       initialData: player.position,
       builder: (context, snap) {
         final pos = snap.data ?? Duration.zero;
         final maxMs = total.inMilliseconds.toDouble();
+        // While the length is unknown (0), use a dummy range of 1 so the Slider doesn't complain,
+        // and disable dragging.
         final value = (_dragValue ?? pos.inMilliseconds.toDouble()).clamp(0.0, maxMs <= 0 ? 1.0 : maxMs);
         final shown = Duration(milliseconds: value.round());
         final times = TextStyle(color: AppColors.textDim, fontSize: widget.compact ? 11 : 12);
@@ -42,6 +53,7 @@ class _SeekBarState extends State<SeekBar> {
           value: value,
           max: maxMs <= 0 ? 1.0 : maxMs,
           onChanged: maxMs <= 0 ? null : (v) => setState(() => _dragValue = v),
+          // Only seek once the drag ends, not on every movement.
           onChangeEnd: (v) {
             player.seek(Duration(milliseconds: v.round()));
             setState(() => _dragValue = null);
@@ -73,9 +85,11 @@ class _SeekBarState extends State<SeekBar> {
 /// Music: Shuffle · Previous · Play/Pause · Next · Repeat · Sleep timer.
 /// Books: Previous chapter · −15 · Play/Pause · +30 · Next chapter · Sleep timer.
 class TransportControls extends StatelessWidget {
+  /// Size of the round play button; the other buttons scale from it.
   final double playSize;
   const TransportControls({super.key, this.playSize = 64});
 
+  /// The big white round play/pause button (shows a spinner while loading/buffering).
   Widget _playButton(PlayerModel p) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: SizedBox(
@@ -104,6 +118,7 @@ class TransportControls extends StatelessWidget {
     final repeatIcon = p.repeat == RepeatSetting.one ? Icons.repeat_one : Icons.repeat;
     final sleep = SleepTimerButton(iconSize: playSize < 50 ? 20 : 24);
 
+    // Book mode: chapter and skip buttons. The skip amounts come from Settings › Audiobooks.
     if (p.inBook) {
       final lib = context.watch<LibraryModel>();
       final skipSize = playSize * 0.5;
@@ -133,6 +148,7 @@ class TransportControls extends StatelessWidget {
       ]);
     }
 
+    // Music mode. Shuffle and repeat light up in the accent colour when on.
     return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
       IconButton(
         tooltip: 'Shuffle',
@@ -159,13 +175,14 @@ class TransportControls extends StatelessWidget {
           RepeatSetting.one => 'Repeat: one',
         },
         icon: Icon(repeatIcon, color: p.repeat == RepeatSetting.off ? null : accent),
-        onPressed: p.cycleRepeat,
+        onPressed: p.cycleRepeat, // off -> all -> one -> off
       ),
       sleep,
     ]);
   }
 }
 
+/// Heart button for the song playing now (adds it to / removes it from Liked Songs).
 class LikeButton extends StatelessWidget {
   const LikeButton({super.key});
 
@@ -186,6 +203,9 @@ class LikeButton extends StatelessWidget {
   }
 }
 
+/// Opens the full-screen Now Playing page, sliding up from the bottom. [lyrics] true opens it
+/// on the lyrics (null keeps whatever was chosen last).
+/// It's pushed on the root navigator so it covers the tabs and the player bar.
 void openNowPlaying(BuildContext context, {bool? lyrics}) {
   Navigator.of(context, rootNavigator: true).push(PageRouteBuilder(
     pageBuilder: (_, _, _) => NowPlayingScreen(showLyrics: lyrics),
@@ -197,6 +217,7 @@ void openNowPlaying(BuildContext context, {bool? lyrics}) {
   ));
 }
 
+/// Opens the play queue page, above everything like Now Playing.
 void openQueue(BuildContext context) {
   Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(builder: (_) => const QueueScreen()));
 }
@@ -209,6 +230,7 @@ class MiniPlayer extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.watch<PlayerModel>();
     final t = p.current;
+    // Nothing loaded: no mini player at all.
     if (t == null) return const SizedBox.shrink();
     return Material(
       color: AppColors.surfaceHigh,
@@ -237,6 +259,7 @@ class MiniPlayer extends StatelessWidget {
               ),
             ]),
           ),
+          // A hairline progress bar along the bottom edge.
           _ThinProgress(),
         ]),
       ),
@@ -244,6 +267,7 @@ class MiniPlayer extends StatelessWidget {
   }
 }
 
+/// The mini player's thin progress line; like SeekBar, only it redraws on position updates.
 class _ThinProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -311,6 +335,7 @@ class DesktopPlayerBar extends StatelessWidget {
         Expanded(
           flex: 3,
           child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            // Books get speed and chapters; songs get a lyrics button.
             if (p.inBook) const SpeedButton(),
             if (p.inBook)
               IconButton(
@@ -363,6 +388,7 @@ class VolumeControl extends StatelessWidget {
         }
       },
       onPointerPanZoomUpdate: (event) {
+        // Touchpad two-finger swipe: move smoothly with the fingers (up = louder).
         final player = context.read<PlayerModel>();
         player.setVolume((player.volume - event.panDelta.dy * 0.25).clamp(0.0, 100.0));
       },

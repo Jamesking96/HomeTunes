@@ -1,3 +1,9 @@
+// Writes the user's edits into the music files themselves ("Save edits into music files").
+// LibraryModel.writeEditsToFiles calls writeTagsToFile once per edited song. Each write runs in
+// a background isolate, can first copy the original into a backup folder, and re-reads the file
+// afterwards to make sure it worked. Tags HomeTunes doesn't manage are kept, thanks to the
+// patched tag library in packages/audio_metadata_reader. Anything a format can't hold (see
+// TagSupport) comes back as a "leftover" and simply stays as a HomeTunes edit.
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
@@ -23,6 +29,7 @@ class TagSupport {
     this.lyrics = true,
   });
 
+  /// A file type we can't write at all.
   static const none = TagSupport(
     title: false,
     artist: false,
@@ -44,6 +51,7 @@ class TagSupport {
         _ => none,
       };
 
+  /// True if at least one field can be written.
   bool get anything =>
       title || artist || album || albumArtist || trackNumber || discNumber || year || genre || cover || lyrics;
 
@@ -69,6 +77,7 @@ class TagSupport {
 /// Outcome of writing one file.
 class TagWriteResult {
   final String path;
+  /// True when the file was written and checked. On failure [error] says why.
   final bool ok;
   final String? error;
 
@@ -86,6 +95,7 @@ Future<TagWriteResult> writeTagsToFile(String path, TrackEdit edit, {String? bac
   return Isolate.run(job.run);
 }
 
+/// Everything the isolate needs, as simple values (the edit travels as JSON).
 class _WriteJob {
   final String path;
   final Map<String, dynamic> editJson;
@@ -93,9 +103,10 @@ class _WriteJob {
   _WriteJob(this.path, this.editJson, this.backupDir);
 
   TagWriteResult run() {
+    // 1. Work out what this file type can take.
     final edit = TrackEdit.fromJson(editJson);
     final support = TagSupport.forPath(path);
-    final leftover = support.leftover(edit);
+    final leftover = support.leftover(edit);  // what stays as a HomeTunes edit
     if (!support.anything) {
       return TagWriteResult(path, ok: false, error: 'This file type can\'t be written', leftover: edit);
     }
@@ -103,11 +114,13 @@ class _WriteJob {
     final file = File(path);
     File? backup;
     try {
+      // 2. Safety copy first, under a name that doesn't overwrite an older backup.
       if (backupDir != null) {
         Directory(backupDir!).createSync(recursive: true);
         backup = file.copySync(p.join(backupDir!, _uniqueName(backupDir!, p.basename(path))));
       }
 
+      // 3. Load the new cover and check it's a picture the tag formats accept.
       Uint8List? coverBytes;
       String? coverMime;
       if (support.cover && edit.art != null) {
@@ -116,6 +129,7 @@ class _WriteJob {
         if (coverMime == null) throw const FormatException('The cover image isn\'t a JPEG or PNG');
       }
 
+      // 4. Write the tags.
       if (p.extension(path).toLowerCase() == '.wav') ensureRiffInfoChunk(file);
       updateMetadata(file, (m) => _apply(m, edit, support, coverBytes, coverMime));
 
@@ -145,6 +159,7 @@ class _WriteJob {
   }
 }
 
+/// "song.mp3", or "song (1).mp3", "song (2).mp3"... if that name is already taken.
 String _uniqueName(String dir, String name) {
   var candidate = name;
   var i = 1;
@@ -184,12 +199,14 @@ void ensureRiffInfoChunk(File file) {
     ..add((ByteData(4)..setUint32(0, 4, Endian.little)).buffer.asUint8List())
     ..add('INFO'.codeUnits);
   final bytes = out.toBytes();
+  // Bytes 4-7 of a WAV file hold the size of everything after them.
   ByteData.sublistView(bytes).setUint32(4, bytes.length - 8, Endian.little);
   file.writeAsBytesSync(bytes, flush: true);
 }
 
 /// JPEG or PNG, from the file's first bytes.
 String? imageMimeType(List<int> bytes) {
+  // Checks the "magic" bytes every JPEG / PNG file starts with, rather than trusting the name.
   if (bytes.length > 3 && bytes[0] == 0xFF && bytes[1] == 0xD8) return 'image/jpeg';
   if (bytes.length > 8 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
     return 'image/png';
@@ -197,6 +214,9 @@ String? imageMimeType(List<int> bytes) {
   return null;
 }
 
+/// Copies the edited fields into the tag object for the file's format. Fields left null
+/// in the edit aren't touched. Each format names things differently (e.g. ID3's
+/// "band/orchestra" frame, TPE2, is what players use for album artist).
 void _apply(Object m, TrackEdit e, TagSupport s, Uint8List? cover, String? coverMime) {
   final picture = (cover != null && coverMime != null) ? Picture(cover, coverMime, PictureType.coverFront) : null;
   switch (m) {
@@ -204,11 +224,12 @@ void _apply(Object m, TrackEdit e, TagSupport s, Uint8List? cover, String? cover
       if (e.title != null) m.songName = e.title;
       if (e.artist != null) m.leadPerformer = e.artist;
       if (e.album != null) m.album = e.album;
-      if (e.albumArtist != null) m.bandOrOrchestra = e.albumArtist;
+      if (e.albumArtist != null) m.bandOrOrchestra = e.albumArtist;  // ID3 TPE2 frame
       if (e.trackNumber != null) m.trackNumber = e.trackNumber;
-      if (e.discNumber != null) m.partOfSet = '${e.discNumber}';
+      if (e.discNumber != null) m.partOfSet = '${e.discNumber}';  // ID3 stores it as text
       if (e.year != null) m.year = e.year;
       if (e.genre != null) m.genres = [e.genre!];
+      // The new cover replaces the old front cover; other pictures (back, booklet) stay.
       if (picture != null) {
         m.pictures = [
           picture,
@@ -216,7 +237,7 @@ void _apply(Object m, TrackEdit e, TagSupport s, Uint8List? cover, String? cover
         ];
       }
       if (e.lyrics != null) m.lyric = e.lyrics;
-    case Mp4Metadata():
+    case Mp4Metadata():  // M4A / M4B / MP4
       if (e.title != null) m.title = e.title;
       if (e.artist != null) m.artist = e.artist;
       if (e.album != null) m.album = e.album;
@@ -226,7 +247,7 @@ void _apply(Object m, TrackEdit e, TagSupport s, Uint8List? cover, String? cover
       if (e.genre != null) m.genre = e.genre;
       if (picture != null) m.picture = picture;
       if (e.lyrics != null) m.lyrics = e.lyrics;
-    case VorbisMetadata():
+    case VorbisMetadata():  // FLAC
       if (e.title != null) m.title = [e.title!];
       if (e.artist != null) m.artist = [e.artist!];
       if (e.album != null) m.album = [e.album!];
@@ -242,7 +263,7 @@ void _apply(Object m, TrackEdit e, TagSupport s, Uint8List? cover, String? cover
         ];
       }
       if (e.lyrics != null) m.lyric = e.lyrics;
-    case RiffMetadata():
+    case RiffMetadata():  // WAV (LIST/INFO chunk)
       if (e.title != null) m.title = e.title;
       if (e.artist != null) m.artist = e.artist;
       if (e.album != null) m.album = e.album;

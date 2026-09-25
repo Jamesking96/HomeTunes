@@ -1,3 +1,10 @@
+// The full-screen "Now Playing" page, opened by tapping the mini player / desktop player bar.
+//
+// It shows the big cover, title and artist (or chapter and book for audiobooks), the seek bar,
+// the transport buttons and a row of extras. Songs get Like, Lyrics and Queue buttons; books get
+// Bookmark, Speed, Chapters, Bookmarks and (if music is waiting) "Back to music".
+// Lyrics replace the cover on narrow screens and sit in a side panel on windows ≥900 px wide.
+// Everything comes from PlayerModel, which this page watches.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -25,9 +32,11 @@ class NowPlayingScreen extends StatefulWidget {
   State<NowPlayingScreen> createState() => _NowPlayingScreenState();
 }
 
+/// Whether the lyrics are showing right now (they're never shown for books).
 class _NowPlayingScreenState extends State<NowPlayingScreen> {
   late bool _lyrics = widget.showLyrics ?? NowPlayingScreen.lyricsWereOpen;
 
+  /// Shows or hides lyrics and remembers the choice for next time (this session only).
   void _toggleLyrics() {
     setState(() => _lyrics = !_lyrics);
     NowPlayingScreen.lyricsWereOpen = _lyrics;
@@ -38,17 +47,22 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     final p = context.watch<PlayerModel>();
     final t = p.current;
     final book = p.book;
+    // Can happen if the queue is cleared while this page is open.
     if (t == null) {
       return Scaffold(appBar: AppBar(), body: const Center(child: Text('Nothing playing')));
     }
     final size = MediaQuery.sizeOf(context);
+    // Cover size: fit the shorter side of the window, within sensible limits.
     final artSize = (size.shortestSide - 64).clamp(160.0, 460.0);
     final accent = Theme.of(context).colorScheme.primary;
+    // Books don't have lyrics, so ignore the toggle while one is playing.
     final lyrics = _lyrics && book == null;
     final wide = size.width >= 900;
+    // Keyed by song id so the lyrics view starts fresh (and loads new lyrics) on each song change.
     final lyricsPanel = LyricsView(key: ValueKey(t.id), track: t);
 
     return Scaffold(
+      // Background: a soft wash of the accent colour fading into the normal background.
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -59,6 +73,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
         ),
         child: SafeArea(
           child: Row(children: [
+            // Left (or only) column: top bar, cover or lyrics, then the controls.
             Expanded(child: Column(children: [
               // Top bar
               Row(children: [
@@ -86,6 +101,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                 else
                   TrackMenuButton(track: t, closeRouteFirst: true),
               ]),
+              // The middle area: lyrics on narrow screens when turned on, else the cover.
               Expanded(
                 child: lyrics && !wide
                     ? lyricsPanel
@@ -96,9 +112,13 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                         ),
                       ),
               ),
+              // Controls are capped at 560 px wide so they don't stretch across big windows.
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 560),
                 child: Column(children: [
+                  // Title line (song title, or current chapter for books), with the
+                  // artist / book below it.
+                  // Tapping that second line opens the artist's or the book's page.
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Row(children: [
@@ -125,6 +145,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                           ),
                         ]),
                       ),
+                      // Songs get a heart; books get a quick "bookmark this spot" button.
                       if (book == null)
                         const LikeButton()
                       else
@@ -139,14 +160,18 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                   const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: SeekBar()),
                   const SizedBox(height: 4),
                   const TransportControls(),
+                  // Bottom row of extras. Different buttons for songs and books.
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                     child: Row(children: [
+                      // A cloud icon when the song streams from the music server.
                       if (!t.isLocal)
                         const Tooltip(
                           message: 'Streaming from your server',
                           child: Icon(Icons.cloud_outlined, color: AppColors.textDim, size: 20),
                         ),
+                      // Any playback error takes up the spare space; otherwise a spacer
+                      // pushes the buttons to the right.
                       if (p.lastError != null)
                         Expanded(
                           child: Text(p.lastError!,
@@ -192,6 +217,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                 ]),
               ),
             ])),
+            // Right-hand lyrics panel on wide windows.
             if (lyrics && wide)
               Container(
                 width: (size.width * 0.42).clamp(360.0, 620.0),
@@ -216,6 +242,7 @@ class _ChapterTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.watch<PlayerModel>();
+    // Rebuild on every position tick so the title changes as soon as a new chapter starts.
     return StreamBuilder<Duration>(
       stream: p.positionStream,
       builder: (context, _) {

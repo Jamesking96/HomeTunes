@@ -1,3 +1,11 @@
+// The lyrics dialogs, all opened from a song's ⋮ menu or the lyrics view:
+//  - showLyricsDialog: shows a song's lyrics in a pop-up (the same LyricsView as Now Playing).
+//  - findLyricsOnline: "Find lyrics on LRCLIB…" – search, preview a result, then "Use these
+//    lyrics" saves it as the user's own lyrics for that song.
+//  - editLyrics: "Edit lyrics" – type or paste plain or timed (LRC) lyrics; clearing the box
+//    removes the user's lyrics so the file's / online ones show again.
+// Where lyrics come from and how they're stored is LyricsModel's job (state/lyrics_model.dart);
+// the user's own lyrics are kept as the `lyrics` field of the song's TrackEdit.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -8,6 +16,7 @@ import '../../state/lyrics_model.dart';
 import '../theme.dart';
 import '../widgets/lyrics_view.dart';
 
+/// Formats a length as "m:ss" for the result list.
 String _mmss(Duration d) => '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
 
 /// Shows a song's lyrics in a dialog (from the song's ⋮ menu).
@@ -50,13 +59,16 @@ Future<void> findLyricsOnline(BuildContext context, Track track) async {
   final text = await showDialog<String>(
     context: context,
     useRootNavigator: true,
+    // The dialog opens on the root navigator, so hand it the model explicitly.
     builder: (_) => ChangeNotifierProvider.value(value: model, child: _LrclibDialog(track: track)),
   );
+  // Null means the dialog was closed without picking anything.
   if (text == null) return;
   await model.setYours(track, text);
   messenger?.showSnackBar(SnackBar(content: Text('Lyrics saved for "${track.title}"')));
 }
 
+/// The LRCLIB search dialog: a list of results, and a preview of the one tapped.
 class _LrclibDialog extends StatefulWidget {
   final Track track;
   const _LrclibDialog({required this.track});
@@ -68,7 +80,9 @@ class _LrclibDialog extends StatefulWidget {
 class _LrclibDialogState extends State<_LrclibDialog> {
   late final _title = TextEditingController(text: widget.track.title);
   late final _artist = TextEditingController(text: widget.track.artist);
+  /// The search results, or null before the first search has finished.
   List<LrclibMatch>? _results;
+  /// The result being previewed, or null while showing the list.
   LrclibMatch? _preview;
   bool _loading = false;
   String? _error;
@@ -98,12 +112,16 @@ class _LrclibDialogState extends State<_LrclibDialog> {
       _preview = null;
     });
     try {
+      // LyricsModel.search tries title + artist first, then a looser text search.
       final r = await context.read<LyricsModel>().search(widget.track, title: title, artist: _artist.text.trim());
       if (!mounted) return;
+      // Drop results with nothing to use (no lyrics and not marked instrumental).
       setState(() {
         _results = [for (final m in r) if (m.hasLyrics || m.instrumental) m];
         _loading = false;
       });
+    // The LRCLIB client turns network problems into an LrclibException with a
+    // friendly message.
     } on LrclibException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -118,11 +136,14 @@ class _LrclibDialogState extends State<_LrclibDialog> {
     final t = widget.track;
     final preview = _preview;
     Widget body;
+    // Pick what the middle shows: spinner, error, a preview of one result,
+    // "nothing found", or the list.
     if (_loading) {
       body = const Center(child: CircularProgressIndicator());
     } else if (_error != null) {
       body = Center(child: Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textDim)));
     } else if (preview != null) {
+      // Preview: show the lines (with their times, if timed) and a way back to the list.
       final lyrics = Lyrics(preview.bestLyrics ?? '', LyricsSource.lrclib);
       body = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         TextButton.icon(
@@ -142,6 +163,7 @@ class _LrclibDialogState extends State<_LrclibDialog> {
                     child: Text.rich(TextSpan(children: [
                       if (l.time != null)
                         TextSpan(
+                          // Just "mm:ss" of the time, to keep the preview tidy.
                           text: '${formatLrcTime(l.time!).substring(0, 5)}  ',
                           style: const TextStyle(color: AppColors.textDim, fontFeatures: [FontFeature.tabularFigures()]),
                         ),
@@ -163,6 +185,8 @@ class _LrclibDialogState extends State<_LrclibDialog> {
         itemCount: _results!.length,
         itemBuilder: (_, i) {
           final m = _results![i];
+          // "Same length" when the result is within about 3 seconds of the song's
+          // length: a good sign it's the same recording.
           final close = t.hasDuration && LrclibClient.closeLength(m.duration, t.duration);
           return ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 8),
@@ -176,12 +200,15 @@ class _LrclibDialogState extends State<_LrclibDialog> {
               if (close) const _Chip('Same length'),
               _Chip(m.instrumental && !m.hasLyrics ? 'Instrumental' : (m.timed ? 'Timed' : 'Plain')),
             ]),
+            // Instrumental-only results can't be previewed (there's nothing to show).
             onTap: m.hasLyrics ? () => setState(() => _preview = m) : null,
           );
         },
       );
     }
 
+    // The dialog frame: title + close, the song being searched for, search boxes (hidden while
+    // previewing), the results, and a note on what's sent to LRCLIB.
     return Dialog(
       backgroundColor: AppColors.surface,
       insetPadding: const EdgeInsets.all(16),
@@ -226,6 +253,8 @@ class _LrclibDialogState extends State<_LrclibDialog> {
                 child: Text('Lyrics from LRCLIB (lrclib.net). Only the title, artist, album and length are sent.',
                     style: TextStyle(color: AppColors.textDim, fontSize: 11)),
               ),
+              // While previewing: keep the old lyrics, or use these (the text goes back
+              // to findLyricsOnline, which saves it).
               if (preview != null) ...[
                 TextButton(onPressed: () => Navigator.pop(context), child: const Text('Keep what I have')),
                 const SizedBox(width: 8),
@@ -242,6 +271,7 @@ class _LrclibDialogState extends State<_LrclibDialog> {
   }
 }
 
+/// A small rounded label on a search result ("Timed", "Same length"…).
 class _Chip extends StatelessWidget {
   final String text;
   const _Chip(this.text);
@@ -256,6 +286,7 @@ class _Chip extends StatelessWidget {
 
 /// Type or paste a song's lyrics (plain, or timed LRC).
 Future<void> editLyrics(BuildContext context, Track track) async {
+  // Start the box with the lyrics the song shows now (without searching online).
   final model = context.read<LyricsModel>();
   final current = await model.lyricsFor(track, online: false);
   if (!context.mounted) return;
@@ -264,6 +295,7 @@ Future<void> editLyrics(BuildContext context, Track track) async {
     useRootNavigator: true,
     builder: (_) => _EditLyricsDialog(track: track, initial: current?.text ?? ''),
   );
+  // Cancelled, or saved without changing anything: nothing to do.
   if (result == null || result == (current?.text ?? '')) return;
   if (result.trim().isEmpty) {
     await model.removeYours(track);
@@ -272,6 +304,7 @@ Future<void> editLyrics(BuildContext context, Track track) async {
   }
 }
 
+/// The "Edit lyrics" dialog: one big text box. Returns the text when Save is pressed.
 class _EditLyricsDialog extends StatefulWidget {
   final Track track;
   final String initial;

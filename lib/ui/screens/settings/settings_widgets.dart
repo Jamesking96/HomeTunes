@@ -1,3 +1,9 @@
+// Building blocks shared by all the Settings pages.
+//
+// Every page (library_settings.dart, playback_settings.dart, …) is a [SettingsPageList] of
+// [SettingsGroupTitle]s and tiles. Tiles are wrapped in [SettingTarget] so that Settings search
+// can jump to them: SettingsScreen puts a [SettingsHighlight] above the page naming the setting
+// to show, and the matching SettingTarget scrolls itself into view and glows for a moment.
 import 'package:flutter/material.dart';
 
 import '../../theme.dart';
@@ -50,9 +56,11 @@ class SettingsGroupTitle extends StatelessWidget {
 
 /// Which setting a page was opened to show (from search), if any.
 class SettingsHighlight extends InheritedWidget {
+  /// The [SettingInfo.id] to light up, or null for none.
   final String? id;
   const SettingsHighlight({super.key, required this.id, required super.child});
 
+  /// The id to light up for the page [context] is in (null if none or no highlight above).
   static String? of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<SettingsHighlight>()?.id;
 
@@ -65,6 +73,8 @@ class SettingsHighlight extends InheritedWidget {
 class SettingTarget extends StatefulWidget {
   final String id;
   final Widget child;
+  // The key is made from the id, so each setting's state (and its "done" flag) is kept
+  // even if tiles above it appear or disappear.
   SettingTarget(this.id, {required this.child}) : super(key: ValueKey('setting:$id'));
 
   @override
@@ -72,8 +82,8 @@ class SettingTarget extends StatefulWidget {
 }
 
 class _SettingTargetState extends State<SettingTarget> {
-  bool _lit = false;
-  bool _done = false;
+  bool _lit = false; // currently glowing
+  bool _done = false; // already did our scroll-and-glow, so don't repeat it on rebuilds
 
   @override
   void didChangeDependencies() {
@@ -81,6 +91,8 @@ class _SettingTargetState extends State<SettingTarget> {
     if (_done || SettingsHighlight.of(context) != widget.id) return;
     _done = true;
     _lit = true;
+    // Wait until after this frame so the page is laid out, then scroll this tile about a
+    // fifth of the way down the screen, keep it lit for a moment and let it fade out.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await Scrollable.ensureVisible(context,
@@ -106,6 +118,7 @@ class ChoiceTile<T> extends StatelessWidget {
   final String? subtitle;
   final T value;
   final List<T> options;
+  /// Turns a choice into the text shown for it.
   final String Function(T) label;
   final ValueChanged<T> onChanged;
 

@@ -1,3 +1,8 @@
+// The big header at the top of album, artist and playlist pages: cover, "ALBUM"-style label,
+// title, subtitle, and Play / Shuffle buttons (plus any extra buttons the page adds).
+//
+// On wide windows it's laid out side by side (cover left, text right); on phones everything is
+// stacked and centred. The background fades from the accent colour into the page colour.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -11,8 +16,11 @@ class CollectionHeader extends StatelessWidget {
   final String kind; // "Album", "Playlist", "Artist"
   final String title;
   final String subtitle;
+  /// The songs Play / Shuffle will play, in order.
   final List<Track> tracks;
+  /// Where the music is playing from, e.g. the album name (shown in the player).
   final String contextLabel;
+  /// More buttons after Shuffle (like, edit, menu…), supplied by the page.
   final List<Widget> extraActions;
 
   const CollectionHeader({
@@ -32,6 +40,7 @@ class CollectionHeader extends StatelessWidget {
     final wide = MediaQuery.sizeOf(context).width > 600;
     final artSize = wide ? 200.0 : 180.0;
 
+    // The text block: kind, title, subtitle.
     final info = Column(
       crossAxisAlignment: wide ? CrossAxisAlignment.start : CrossAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
@@ -49,6 +58,7 @@ class CollectionHeader extends StatelessWidget {
       ],
     );
 
+    // Play and Shuffle (greyed out when there's nothing to play), then the page's own buttons.
     final actions = Row(
       mainAxisAlignment: wide ? MainAxisAlignment.start : MainAxisAlignment.center,
       children: [
@@ -78,6 +88,7 @@ class CollectionHeader extends StatelessWidget {
         ),
       ),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      // Wide: cover and text side by side, buttons below. Phone: everything in one centred column.
       child: wide
           ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(crossAxisAlignment: CrossAxisAlignment.end, children: [

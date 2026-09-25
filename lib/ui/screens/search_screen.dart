@@ -1,3 +1,9 @@
+// The Search tab: one search box that looks through songs, artists, albums, audiobooks and
+// audiobook chapters all at once, showing results as you type.
+//
+// The actual matching lives in LibraryModel (search / searchBooks / searchChapters, which use
+// library_index.dart and book_index.dart). This page just holds the typed text and lays out
+// the results as shelves (artists, albums, books) and lists (songs, chapters).
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -10,6 +16,7 @@ import '../widgets/book_card.dart';
 import '../widgets/cards.dart';
 import '../widgets/track_tile.dart';
 
+/// The Search tab page.
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
 
@@ -19,6 +26,7 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final _ctrl = TextEditingController();
+  /// What's been typed so far. Each keystroke rebuilds the page and re-runs the search.
   String _query = '';
 
   @override
@@ -30,12 +38,15 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
+    // Run all the searches for the current text. The book searches return nothing for an empty
+    // query, so they're cheap when the box is blank.
     final results = _query.trim().isEmpty ? SearchResults.empty : lib.search(_query);
     final books = lib.searchBooks(_query);
     final chapters = lib.searchChapters(_query);
     final ratio = bookCoverRatio(context);
 
     return Scaffold(
+      // The search box sits in the app bar, with a clear (x) button once something's typed.
       appBar: AppBar(
         toolbarHeight: 72,
         title: TextField(
@@ -62,12 +73,14 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ),
       ),
+      // Body: a hint when nothing's typed, "no results" when nothing matched, else the results.
       body: _query.trim().isEmpty
           ? const EmptyState(
               icon: Icons.search, title: 'Search your library', message: 'Find songs, artists, albums, audiobooks and their chapters.')
           : results.isEmpty && books.isEmpty && chapters.isEmpty
               ? EmptyState(icon: Icons.search_off, title: 'No results for "$_query"')
               : CustomScrollView(slivers: [
+                  // Horizontal shelves first (artists, albums, audiobooks), capped at 12 each.
                   if (results.artists.isNotEmpty)
                     SliverToBoxAdapter(
                       child: Shelf(
@@ -92,6 +105,8 @@ class _SearchScreenState extends State<SearchScreen> {
                         children: [for (final b in books.take(12)) BookCard(book: b, width: 150)],
                       ),
                     ),
+                  // Then the matching songs as a normal song list (tapping one plays the
+                  // search results from there).
                   if (results.tracks.isNotEmpty) ...[
                     const SliverToBoxAdapter(
                       child: Padding(
@@ -109,6 +124,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
                     ),
                   ],
+                  // And finally any audiobook chapters whose names matched.
                   if (chapters.isNotEmpty) ...[
                     const SliverToBoxAdapter(
                       child: Padding(
@@ -135,6 +151,7 @@ class _ChapterResult extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Look up the chapter's name, which file ("part") it's in, and where it starts.
     final c = book.chapters[chapter];
     return ListTile(
       leading: SizedBox(width: 44, child: Center(child: BookCover(book: book, width: 40, radius: 4))),
@@ -142,6 +159,7 @@ class _ChapterResult extends StatelessWidget {
       subtitle: Text('${book.title} · starts at ${formatElapsed(c.offset)}', maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: const Icon(Icons.play_circle_outline),
       onTap: () {
+        // If this book is already loaded, just jump to the chapter; otherwise start the book there.
         final player = context.read<PlayerModel>();
         if (player.book?.id == book.id) {
           player.goToChapter(chapter);

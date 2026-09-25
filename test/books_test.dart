@@ -1,3 +1,10 @@
+// Tests for audiobooks: deciding which files are books (BookRules in state/book_index.dart),
+// grouping files into books with title, author, series and narrator worked out from tags and
+// folder names (groupBooks), chapters across files, remembering the listening place
+// (ListeningModel), the "rewind a little on resume" rule, merging places from a backup, and a
+// real temp library with a music folder and an audiobook folder (LibraryModel).
+// Paths are Windows-style (F:\...) because that's how the owner's library is laid out; the
+// grouping logic works on the text of the path, so they don't need to exist.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -13,8 +20,10 @@ import 'package:path/path.dart' as p;
 
 import 'metadata_features_test.dart' show silentWav;
 
+/// The owner's real Harry Potter folder name, used as a realistic tricky example.
 const hp = r'F:\AudioBooks\Harry Potter Audio Books 1-7; Read by Stephen Fry [MP3]';
 
+/// A made-up book file at [path] (by default tagged with the "Audio Book" genre).
 Track file(
   String path, {
   String title = 'T',
@@ -41,6 +50,8 @@ Track file(
     );
 
 void main() {
+  // A file is a book if its genre says so, it's an .m4b, it sits under a folder named like
+  // "Audiobooks", or under one of the folders the user chose as audiobook folders.
   group('Which files are audiobooks', () {
     final rules = BookRules(bookFolders: [r'E:\Listen']);
 
@@ -60,6 +71,7 @@ void main() {
       expect(rules.isBook(file(r'F:\Music\Band\01.mp3', genre: null)), isFalse);
     });
 
+    // The user's own choice per file (true = book, false = music) beats every automatic rule.
     test('Move to Books / Move to Music win over the rules', () {
       final r = BookRules(overrides: {'local:F:\\Music\\a.mp3': true, 'local:F:\\Music\\b.m4b': false});
       expect(r.isBook(file(r'F:\Music\a.mp3', genre: 'Rock')), isTrue);
@@ -68,6 +80,8 @@ void main() {
   });
 
   group('Grouping into books', () {
+    // Files given out of order; the narrator ("Read by Stephen Fry") and series come from the
+    // top folder name, the series number from "Book 01".
     test('your Harry Potter layout: one book per folder, with series and narrator', () {
       final dir1 = "$hp\\Book 01 - Harry Potter and the Philosopher's Stone";
       final dir7 = '$hp\\Book 07 - Harry Potter and the Deathly Hallows';
@@ -89,6 +103,7 @@ void main() {
       expect(stone.duration, const Duration(hours: 1));
     });
 
+    // An .m4b is a whole book in one file; loose MP3s in one folder are split by album tag.
     test('each .m4b is its own book; MP3 books sharing a folder stay apart', () {
       final books = groupBooks([
         file(r'F:\Books\One.m4b', album: 'Same'),
@@ -111,6 +126,7 @@ void main() {
       expect(books.single.author, 'J.K. Rowling');
     });
 
+    // "Natural" order: Part 2 before Part 10 (plain text sorting would put 10 first).
     test('parts without track numbers sort naturally', () {
       final books = groupBooks([
         file(r'F:\B\Part 10.mp3'),
@@ -133,6 +149,9 @@ void main() {
       expect(seriesFromFolder('AudioBooks'), isNull);
     });
 
+    // A file without chapter markers counts as one chapter named after its title. `part` is which
+    // file a chapter is in, `start` is its time within that file and `offset` its time within the
+    // whole book (the first file is 10 minutes long).
     test('chapters: markers inside files, otherwise one per file', () {
       final b = Book(id: 'b', title: 'T', author: 'A', parts: [
         file(r'F:\B\1.mp3', title: 'Opening', minutes: 10),
@@ -150,6 +169,8 @@ void main() {
     });
   });
 
+  // Each test gets a fresh ListeningModel saving into a temp folder, and a two-file, one-hour
+  // book. The clock is fixed so "last listened" times are predictable.
   group('Remembering the place in a book', () {
     late Directory dir;
     late ListeningModel l;
@@ -171,6 +192,7 @@ void main() {
       dir.deleteSync(recursive: true);
     });
 
+    // 15 minutes into the second 30-minute file = 45 of 60 minutes = 75% done.
     test('progress, time left and state', () async {
       expect(l.stateOf(book), BookState.notStarted);
       await l.record(book, book.parts[1].id, const Duration(minutes: 15));
@@ -189,6 +211,7 @@ void main() {
       expect(again.progressFor(book)!.position, const Duration(minutes: 7));
     });
 
+    // When files move, the library reports old id -> new id and the saved place follows along.
     test('a book that moved (new id) keeps its place through its files', () async {
       await l.record(book, book.parts[1].id, const Duration(minutes: 3));
       l.remapIds({book.parts[1].id: 'local:G:\\X\\2.mp3'});
@@ -200,12 +223,16 @@ void main() {
       expect(l.stateOf(moved), BookState.inProgress);
     });
 
+    // After a pause, playback starts a little earlier so you catch the thread again: a few seconds
+    // after a short break, more after a long one.
     test('rewind on resume grows with the break', () {
       expect(PlayerModel.resumeRewind(const Duration(seconds: 20)), const Duration(seconds: 2));
       expect(PlayerModel.resumeRewind(const Duration(minutes: 20)), const Duration(seconds: 10));
       expect(PlayerModel.resumeRewind(const Duration(days: 2)), const Duration(seconds: 30));
     });
 
+    // Restoring a backup: for each book the place with the newest "updated" time wins; books only
+    // in one of the two are kept.
     test('backup merge keeps the most recent place per book', () {
       final merged = AppBackup.mergeListening(
         {
@@ -224,6 +251,8 @@ void main() {
     });
   });
 
+  // A real scan of tiny silent WAV files: one song in the music folder and a two-file book in
+  // the chosen audiobook folder.
   group('Library with an audiobook folder', () {
     late Directory dir;
     late LibraryModel lib;
@@ -252,6 +281,7 @@ void main() {
       expect(lib.albums.length, 1);
     });
 
+    // setIsBook(ids, null) removes the user's choice so the automatic rules apply again.
     test('Move to Books and back', () async {
       final song = lib.tracks.single;
       await lib.setIsBook([song.id], true);

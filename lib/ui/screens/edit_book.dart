@@ -1,3 +1,11 @@
+// The "Edit book" dialog: change an audiobook's title, author, narrator, series and number,
+// year, genre and cover, all at once for every file in the book.
+//
+// Opened from the book page (book_screen.dart). Nothing is written into the files here: the
+// changes are saved as TrackEdits in LibraryModel (edits.json), the same way song and album edits
+// work, and can be written into the files later from Settings > Your edits.
+// A book's "title" is stored as each file's album name, and its author as artist + album artist.
+// On wide windows it's a centred dialog; on phones it fills the screen.
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -33,8 +41,10 @@ Future<bool> showEditBook(BuildContext context, Book book) async {
   return saved ?? false;
 }
 
+/// The text fields on the form.
 enum _F { title, author, narrator, series, seriesIndex, year, genre }
 
+/// The editor itself. [fullScreen] picks the phone layout (app bar with Save) over the dialog.
 class _EditBook extends StatefulWidget {
   final Book book;
   final bool fullScreen;
@@ -45,13 +55,19 @@ class _EditBook extends StatefulWidget {
 }
 
 class _EditBookState extends State<_EditBook> {
+  /// One text box per field, filled with the book's current values.
   final Map<_F, TextEditingController> _ctrl = {};
+  /// What each field held when the dialog opened, so we only save the ones that changed.
   final Map<_F, String> _initial = {};
+  /// A cover picked (or found online) but not saved yet. Path to a copy in the app's art folder.
   String? _newCover;
+  /// True when the user chose "Use the files' own cover" (drop any custom cover on save).
   bool _resetCover = false;
+  /// True while saving; disables the buttons so it can't be pressed twice.
   bool _saving = false;
 
   Book get _book => widget.book;
+  /// The ids of every file in the book, which all get the same edit.
   List<String> get _ids => [for (final t in _book.parts) t.id];
 
   @override
@@ -63,8 +79,10 @@ class _EditBookState extends State<_EditBook> {
       _F.author: _book.author,
       _F.narrator: _book.narrator ?? '',
       _F.series: _book.series ?? '',
+      // Show "3" rather than "3.0", but keep real decimals like "2.5" (novellas between books).
       _F.seriesIndex: idx == null ? '' : (idx == idx.roundToDouble() ? '${idx.round()}' : '$idx'),
       _F.year: _book.year?.toString() ?? '',
+      // Genre isn't part of Book, so take it from the first file.
       _F.genre: _book.parts.first.genre ?? '',
     };
     for (final e in values.entries) {
@@ -91,9 +109,13 @@ class _EditBookState extends State<_EditBook> {
         _F.genre => 'Genre',
       };
 
+  /// A field's text, trimmed.
   String _text(_F f) => _ctrl[f]!.text.trim();
+  /// Whether a field differs from what it held when the dialog opened.
   bool _changed(_F f) => _text(f) != _initial[f];
 
+  /// "Choose image…": pick a picture file and copy it into the app's own cover folder
+  /// (so the cover still works if the original picture is moved).
   Future<void> _pickCover() async {
     final lib = context.read<LibraryModel>();
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -112,6 +134,7 @@ class _EditBookState extends State<_EditBook> {
     }
   }
 
+  /// "Find online…" for the cover: search Open Library covers by the typed title and author.
   Future<void> _findCover() async {
     final path = await showBookCoverSearch(context, title: _text(_F.title), author: _text(_F.author));
     if (path == null || !mounted) return;
@@ -125,6 +148,7 @@ class _EditBookState extends State<_EditBook> {
   Future<void> _lookUp(_F f) async {
     final match = await showBookLookup(context, title: _text(_F.title), author: _text(_F.author));
     if (match == null || !mounted) return;
+    // Only the field whose button was pressed is filled in; the others are left as typed.
     setState(() {
       switch (f) {
         case _F.title:
@@ -139,6 +163,7 @@ class _EditBookState extends State<_EditBook> {
     });
   }
 
+  /// Saves only the fields that changed as one edit applied to every file of the book.
   Future<void> _save() async {
     final lib = context.read<LibraryModel>();
     setState(() => _saving = true);
@@ -149,19 +174,23 @@ class _EditBookState extends State<_EditBook> {
       return (v == null || v.isEmpty) ? null : v;
     }
 
+    // The book's author is stored as both the artist and the album artist of each file.
     final author = required(_F.author);
     final seriesText = changed(_F.seriesIndex);
     final patch = TrackEdit(
+      // The book title lives in the files' album field.
       album: required(_F.title),
       artist: author,
       albumArtist: author,
       narrator: changed(_F.narrator),
       series: changed(_F.series),
+      // Accept "2,5" as well as "2.5" for the number in the series.
       seriesIndex: seriesText == null ? null : double.tryParse(seriesText.replaceAll(',', '.')),
       year: changed(_F.year) == null ? null : int.tryParse(_text(_F.year)),
       genre: required(_F.genre),
       art: _newCover,
     );
+    // Order: reset the cover first, so a newly chosen cover (in the patch) wins.
     if (_resetCover) await lib.resetCovers(_ids);
     if (!patch.isEmpty) await lib.editMany(_ids, patch);
     // A new genre could stop the files counting as a book: keep them in Books.
@@ -169,6 +198,7 @@ class _EditBookState extends State<_EditBook> {
     if (mounted) Navigator.of(context).pop(true);
   }
 
+  /// "Reset to file details": removes all of the user's edits for this book's files.
   Future<void> _resetAll() async {
     final lib = context.read<LibraryModel>();
     final ok = await showDialog<bool>(
@@ -191,12 +221,15 @@ class _EditBookState extends State<_EditBook> {
   @override
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
+    // Used to decide whether to offer "Reset to file details" and "Use the files' own cover".
     final anyEdited = _book.parts.any((t) => lib.isEdited(t.id));
     final anyCustomCover = _book.parts.any((t) {
       final o = lib.originalById(t.id);
       return o != null && t.art != o.art;
     });
 
+    /// Builds one text box. Number fields only accept digits (plus , or . when [decimal]).
+    /// [online] adds a "find online" button, if online details lookups are switched on.
     Widget field(_F f, {bool number = false, bool decimal = false, bool online = false}) => Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: TextField(
@@ -222,6 +255,7 @@ class _EditBookState extends State<_EditBook> {
           ),
         );
 
+    // The cover preview: the newly picked image if there is one, otherwise the current cover.
     Widget preview;
     if (_newCover != null) {
       preview = ClipRRect(
@@ -232,10 +266,12 @@ class _EditBookState extends State<_EditBook> {
       preview = BookCover(book: _book, width: 120);
     }
 
+    // ---- The form ----
     final form = ListView(
       shrinkWrap: !widget.fullScreen,
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       children: [
+        // Cover row: preview on the left, buttons on the right.
         Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
           preview,
           const SizedBox(width: 16),
@@ -273,6 +309,7 @@ class _EditBookState extends State<_EditBook> {
             ]),
           ),
         ]),
+        // Then the text fields, with series + number and year + genre sharing a row.
         const SizedBox(height: 16),
         field(_F.title, online: true),
         field(_F.author, online: true),
@@ -314,6 +351,7 @@ class _EditBookState extends State<_EditBook> {
           : const Text('Save'),
     );
 
+    // Phone layout: an app bar with a close (x) button and Save.
     if (widget.fullScreen) {
       return Scaffold(
         appBar: AppBar(
@@ -324,6 +362,7 @@ class _EditBookState extends State<_EditBook> {
         body: form,
       );
     }
+    // Dialog layout: title bar, the scrolling form, and Cancel / Save at the bottom.
     return Column(mainAxisSize: MainAxisSize.min, children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(20, 18, 12, 4),

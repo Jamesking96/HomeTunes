@@ -1,9 +1,14 @@
+// Tests for the play queue logic (state/play_queue.dart), which PlayerModel uses to decide what
+// plays next: repeat off / all / one, shuffle on and off, "Play next" and "Add to queue",
+// reordering and removing upcoming songs, and "peeking" at the next song so it can be loaded
+// early for gapless playback. Pure logic, no audio engine involved.
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/track.dart';
 import 'package:hometunes/state/play_queue.dart';
 
+/// A minimal song whose id and title are both [id] (e.g. 't3').
 Track t(String id) => Track(
       id: id,
       source: TrackSource.local,
@@ -16,6 +21,7 @@ Track t(String id) => Track(
 void main() {
   final five = [for (var i = 1; i <= 5; i++) t('t$i')];
 
+  // `auto: true` means "the song finished by itself", as opposed to the user pressing Next.
   test('plays in order and stops at the end with repeat off', () {
     final q = PlayQueue()..setTracks(five, start: 3);
     expect(q.current!.id, 't4');
@@ -37,6 +43,7 @@ void main() {
     expect(q.next()!.id, 't2');
   });
 
+  // A fixed Random seed makes the shuffle order the same every run.
   test('shuffle keeps the chosen song first and contains every song once', () {
     final q = PlayQueue(random: Random(1))..setTracks(five, start: 2, shuffle: true);
     expect(q.current!.id, 't3');
@@ -74,6 +81,8 @@ void main() {
     expect(q.previous()!.id, 't1');
   });
 
+  // peekNextAuto() says which song will play when the current one ends, without moving the
+  // queue, so the player can preload it and start it with no gap.
   group('Song to load ahead (gapless)', () {
     test('the next song, without moving', () {
       final q = PlayQueue()..setTracks(five, start: 1);
@@ -88,6 +97,8 @@ void main() {
       expect(q.peekNextAuto()!.id, 't1');
     });
 
+    // With shuffle + repeat-all, a new shuffle order is made when the queue loops, so the next song
+    // can't be known in advance: null means "don't preload".
     test('repeat-all with shuffle reshuffles at the loop, so it isn\'t known yet', () {
       final q = PlayQueue(random: Random(3))..setTracks(five, shuffle: true);
       q.cycleRepeat(); // all
@@ -95,6 +106,7 @@ void main() {
       expect(q.peekNextAuto(), isNull);
     });
 
+    // Whatever was peeked must be exactly what next() then gives, even after the queue was edited.
     test('matches what actually plays next, after Play next and reordering', () {
       final q = PlayQueue()..setTracks(five.sublist(0, 3));
       q.playNext(t('x'));
