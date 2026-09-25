@@ -98,7 +98,10 @@ class LyricsModel extends ChangeNotifier {
   /// With [online] false, only what's on this device is used.
   Future<Lyrics?> lyricsFor(Track t, {bool online = true}) {
     final key = '${t.id}|$online';
-    return _pending[key] ??= _resolve(t, online).whenComplete(() => _pending.remove(key));
+    // (A block body: returning the removed future would make it wait on itself.)
+    return _pending[key] ??= _resolve(t, online).whenComplete(() {
+      _pending.remove(key);
+    });
   }
 
   Future<Lyrics?> _resolve(Track t, bool online) async {
