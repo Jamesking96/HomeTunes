@@ -290,7 +290,7 @@ class _EditBookState extends State<_EditBook> {
         const SizedBox(height: 6),
         const Text(
           'Changes are saved in HomeTunes and apply to every file of the book. Title, author, year, genre and '
-          'cover can also be written into the files from Settings.',
+          'cover can also be written into the files from Settings › Your edits.',
           style: TextStyle(color: AppColors.textDim, fontSize: 12),
         ),
         if (anyEdited) ...[

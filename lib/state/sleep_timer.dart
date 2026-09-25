@@ -25,7 +25,7 @@ abstract class SleepTarget {
 enum SleepMode { minutes, endOfChapter, endOfSong }
 
 /// Pauses playback after a while. One tap on the button beside play/pause
-/// turns it on with the length set in Settings > Audiobooks (separate lengths
+/// turns it on with the length set in Settings > Sleep timer (separate lengths
 /// for books and music); another tap turns it off. The volume fades out
 /// before it pauses.
 ///

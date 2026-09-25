@@ -13,13 +13,16 @@ Read the files in this order:
 | `01_ARCHITECTURE.md` | Code map: models, state, services, UI, data files, vendored packages |
 | `02_ENVIRONMENT_AND_WORKFLOW.md` | The user's PC, paths, build/test/install commands, git, known environment traps |
 | `03_FEATURES_AND_DESIGN_NOTES.md` | What each feature does and *why* it's built that way (gapless, books, lyrics, sidecars…) |
-| `04_ROADMAP_AND_OPEN_ITEMS.md` | What's next (equaliser, offline server songs), open decisions, known issues |
+| `04_ROADMAP_AND_OPEN_ITEMS.md` | What's next (settings tidy-up, equaliser, multi-album edit, offline server songs), decisions, known issues |
 
 ## Status (25 Sep 2026)
 
-- **Everything is in source control.** The repo is `main` on GitHub
-  (github.com/Jamesking96/HomeTunes). There are no other branches and no uncommitted work.
-  Version **0.1.8+7**.
+- **Everything is in source control.** `main` on GitHub (github.com/Jamesking96/HomeTunes) is
+  **0.1.9+9**, with the Settings tidy-up merged. There are no other branches.
+  - Tests: 165 pass, and `flutter analyze` is clean.
+  - Builds for 0.1.9 are in `build\dist` on the PC.
+  - The phone has 0.1.9 **build 8**: the same features, minus the greyed-out Audiobookshelf boxes.
+    Build 9 hasn't been installed (ask first).
 - Built and merged so far:
   - the music library, player, playlists, editing and backups
   - server streaming
@@ -27,11 +30,10 @@ Read the files in this order:
   - gapless + ReplayGain (plan phase 1)
   - lyrics (phase 2)
   - audiobook sidecar files (Libation `.metadata.json`, covers, descriptions, PDFs)
-- Builds for 0.1.8 are in `C:\Users\James.Miller\source\hometunes\build\dist\` on the PC
-  (not in git). 0.1.8 (versionCode 7) is installed on the phone.
-- Tests: 149 pass (`flutter test`). `flutter analyze` is clean.
+  - Settings tidy-up (pages, search, Sleep timer page, Servers page, About)
 - These notes are also in the repo under `docs/ai-context/`. Update them when things change.
-- **Next up:** phase 3, the equaliser (see `04_ROADMAP_AND_OPEN_ITEMS.md`).
+- **Next up:** B equaliser → C multi-album and
+  multi-book edit → D offline. See `04_ROADMAP_AND_OPEN_ITEMS.md`.
 
 ## Rules the user cares about (follow these)
 
@@ -44,21 +46,29 @@ Read the files in this order:
    goes on the phone. Android refuses downgrades. Bump the version for each feature (0.1.x).
 4. **Before building or testing on the PC, check that the user isn't running HomeTunes or a
    `flutter run` (VS Code F5).** Never kill their app. `LNK1168` during a Windows build means the
-   app is open: skip the Windows build and say so.
-5. **Settings placement:** audiobook-related settings go in **Settings → Audiobooks**. Playback
-   settings go in **Settings → Playback**. Online look-up switches go in **Settings → Online lookups**.
-6. **Server password in backups is opt-in only.**
-7. **Never reproduce copyrighted lyrics** (not in mock-ups, tests or probes either). Use invented
+   app is open: skip the Windows build and say so. (A process check whose own command line contains
+   the search pattern will match itself. Ignore your own PID.)
+5. **Ask before installing on the phone.** It's usually plugged in, but may have been removed.
+6. **Settings placement:**
+   - Audiobook-related settings go in **Settings → Audiobooks**.
+   - Playback settings go in **Settings → Playback**.
+   - Online look-up switches go in **Settings → Online lookups**.
+   - The sleep timer has its own **Settings → Sleep timer** page.
+   - Every new setting gets a `SettingTarget` and an entry in `settingsCatalog` so search finds it.
+7. **Server password in backups is opt-in only.**
+8. **Never reproduce copyrighted lyrics** (not in mock-ups, tests or probes either). Use invented
    lines. `tool/probe_lyrics.dart` prints counts only.
-8. Don't do things the user didn't ask for without flagging them. Surprising findings (e.g. the
+9. Don't do things the user didn't ask for without flagging them. Surprising findings (e.g. the
    tag writer dropping tags) are reported plainly.
-9. The user's email is only for commit attribution.
+10. Ask the server questions and the Android "All files access" question only when that work comes
+    up.
+11. The user's email is only for commit attribution.
 
 ## How to pick up a task
 
 1. Read `04_ROADMAP_AND_OPEN_ITEMS.md` for what's next and what's undecided.
 2. For anything bigger than a small fix, write a **plan first** and agree it with the user. Past
-   plans were published as artifacts: "HomeTunes Sound & Offline Plan" covers phases 1–4. Ask the
-   user the open questions from the plan before building.
+   plans were published as artifacts: "HomeTunes Sound & Offline Plan" covers everything still
+   planned. Ask the user the open questions from the plan before building.
 3. Create a branch from the right base, build, and verify (see `02_…`). Then report what the user
    will see and anything that couldn't be verified.

@@ -23,6 +23,7 @@ lib/services/            no Flutter UI: files, network, platform
 lib/state/               ChangeNotifiers + pure helpers (library_index, book_index, play_queue)
 lib/ui/shell.dart        wide: sidebar + DesktopPlayerBar; phone: MiniPlayer + bottom nav; per-tab Navigators (nav.dart AppNav)
 lib/ui/screens/          pages & dialogs
+lib/ui/screens/settings/ Settings: hub (list + search, two panes when ≥760 px), one file per page, catalog, shared widgets
 lib/ui/widgets/          shared widgets
 packages/                vendored plugins (see below)
 test/                    unit/widget tests (+ test/fixtures: small tagged mp3/flac/m4a made with ffmpeg+mutagen)
@@ -68,7 +69,7 @@ tool/                    probes, benches, build script, platform patcher
 - **`PlaylistsModel`** (`playlists.json`, includes Liked Songs).
 - **`LyricsModel`** (`lyrics.json` = lyrics found online, plus "nothing found" timestamps) decides
   where lyrics come from (see `03_…`).
-- **`SleepTimer`**, **`AppNav`** (per-tab navigators, `openBook/openAlbum/openArtist`) and
+- **`SleepTimer`**, **`AppNav`** (per-tab navigators, `openBook/openAlbum/openArtist`, `openSettings(page, setting:)`) and
   **`SelectionModel`** (multi-select).
 
 ## Services

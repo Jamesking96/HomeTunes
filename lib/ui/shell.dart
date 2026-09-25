@@ -15,7 +15,7 @@ import 'screens/home_screen.dart';
 import 'screens/library_screen.dart';
 import 'screens/edit_details.dart';
 import 'screens/search_screen.dart';
-import 'screens/settings_screen.dart';
+import 'screens/settings/settings_screen.dart';
 import 'theme.dart';
 import 'widgets/player_controls.dart';
 import 'widgets/track_tile.dart';

@@ -43,6 +43,9 @@ class LibraryModel extends ChangeNotifier {
   /// Look up lyrics on LRCLIB when a song has none of its own.
   bool onlineLyrics = true;
 
+  /// Audiobooks on the music server show in the Books tab (Settings › Servers).
+  bool serverBooks = true;
+
   // ---- playback settings ----
 
   /// Load the next song ahead so it follows with no gap.
@@ -201,6 +204,7 @@ class LibraryModel extends ChangeNotifier {
     onlineCovers = true;
     onlineDetails = true;
     onlineLyrics = true;
+    serverBooks = true;
     gaplessPlayback = true;
     replayGain = ReplayGainMode.off;
     audiobookFolders = [];
@@ -229,6 +233,7 @@ class LibraryModel extends ChangeNotifier {
       onlineCovers = (s['onlineCovers'] as bool?) ?? true;
       onlineDetails = (s['onlineDetails'] as bool?) ?? true;
       onlineLyrics = (s['onlineLyrics'] as bool?) ?? true;
+      serverBooks = (s['serverBooks'] as bool?) ?? true;
       gaplessPlayback = (s['gaplessPlayback'] as bool?) ?? true;
       replayGain = ReplayGainMode.values.asNameMap()[s['replayGain']] ?? ReplayGainMode.off;
       audiobookFolders = (s['audiobookFolders'] as List? ?? const []).cast<String>().toList();
@@ -269,6 +274,7 @@ class LibraryModel extends ChangeNotifier {
         'onlineCovers': onlineCovers,
         'onlineDetails': onlineDetails,
         'onlineLyrics': onlineLyrics,
+        'serverBooks': serverBooks,
         'gaplessPlayback': gaplessPlayback,
         'replayGain': replayGain.name,
         'audiobookFolders': audiobookFolders,
@@ -293,6 +299,14 @@ class LibraryModel extends ChangeNotifier {
 
   Future<void> setOnlineLyrics(bool on) async {
     onlineLyrics = on;
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Shows or leaves out the audiobooks found on the music server.
+  Future<void> setServerBooks(bool on) async {
+    serverBooks = on;
+    _rebuild();
     notifyListeners();
     await _saveSettings();
   }
@@ -323,7 +337,11 @@ class LibraryModel extends ChangeNotifier {
     final bookFiles = <Track>[];
     tracks = [];
     for (final t in all) {
-      (rules.isBook(t) ? bookFiles : tracks).add(t);
+      if (!rules.isBook(t)) {
+        tracks.add(t);
+      } else if (t.isLocal || serverBooks) {
+        bookFiles.add(t);
+      }
     }
     books = groupBooks(bookFiles);
     _bookById = {for (final b in books) b.id: b};
@@ -391,7 +409,7 @@ class LibraryModel extends ChangeNotifier {
     await _saveSettings();
   }
 
-  /// Changes any of the listening / sleep timer settings (Settings > Audiobooks).
+  /// Changes any of the listening settings (Settings > Audiobooks) and sleep timer settings (Settings > Sleep timer).
   Future<void> updateListeningSettings({
     int? skipBackSeconds,
     int? skipForwardSeconds,

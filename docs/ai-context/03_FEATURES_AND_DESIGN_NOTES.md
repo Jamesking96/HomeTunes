@@ -12,7 +12,7 @@ before changing that area.
   covers songs, albums, artists, books and book chapters.
 - **Edits.** The user can edit a song, a whole album, or a multi-selection. Covers can be picked
   from a file or found online (MusicBrainz / Cover Art Archive), and so can details. Edits are
-  stored in `edits.json`; the files are untouched until **Settings → Save edits into music files**
+  stored in `edits.json`; the files are untouched until **Settings → Your edits → Save edits into music files**
   (with an optional backup copy). Tags the app doesn't edit are kept, thanks to the patched writer.
 - **Missing songs.** Songs whose files disappear are kept if they have edits or are in playlists or
   Liked Songs. If a file moves, it's matched to its old id. Settings can forget missing songs.
@@ -74,7 +74,8 @@ before changing that area.
 - The Books page can **sort and filter** by title, author, narrator, series (in series order),
   recently listened or recently added. Covers can be square or tall (a setting).
 - A book is **in progress** once there's a saved place in it and it isn't finished.
-- Settings live in **Settings → Audiobooks**. This is the user's rule for everything book-related.
+- Settings live in **Settings → Audiobooks**. This is the user's rule for everything book-related,
+  except the sleep timer, which the user wanted in its own **Settings → Sleep timer** page (music and books).
 
 ## Book sidecar files (`book-extras` branch)
 - **Metadata sidecars.** `<name>.metadata.json` (Libation / audible-cli, Audible's schema) or an
@@ -121,6 +122,26 @@ before changing that area.
   - Timed lines highlight and auto-scroll; auto-scroll pauses for 4 s after the user scrolls.
     Tapping a line seeks there.
 - Lyrics can be written into MP3 (USLT), FLAC (LYRICS) and M4A (©lyr), but not WAV.
+
+## Settings (`settings-tidy` branch, 0.1.9)
+- **Pages:** Library, Playback, Sleep timer, Audiobooks, Online lookups, Servers, Your edits,
+  Backup & restore and About, in that order (`SettingsPage` in `settings_catalog.dart`).
+- **Layout:**
+  - Wide (≥760 px of content): the list sits on the left and the open page on the right. Pages are
+    capped at 820 px wide.
+  - Phone: a list, and each page pushes on the Settings tab's navigator.
+- **Search:** matches every typed word against the title, the page name and the extra words in
+  `settingsCatalog`. Tapping a result opens the page, scrolls to the setting and briefly lights it up
+  (`SettingTarget` + `SettingsHighlight`).
+  - **When you add a setting, add a `SettingTarget(id)` and a catalog entry.**
+    `test/settings_test.dart` checks that every catalog id is on its page.
+  - Settings shown only sometimes (server password, include server music, missing songs) aren't in
+    the catalog.
+- **Links from other screens:** Home "Add music" and Books "Add audiobooks" use
+  `AppNav.openSettings(...)` to go straight to the right page.
+- **Servers:** the music server, then an Audiobooks group. That group has the "Audiobooks from the
+  music server" switch (`serverBooks`) and a placeholder for a separate audiobook server (phase E).
+- **About** shows the version (package_info_plus) and the data folder, with "Open folder" on Windows.
 
 ## Android fixes worth remembering
 - **Lock screen empty and playback stopping.** The cause was "You must specify an icon resource id
