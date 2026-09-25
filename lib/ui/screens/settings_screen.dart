@@ -12,6 +12,7 @@ import '../../state/book_index.dart';
 import '../../state/bookmarks_model.dart';
 import '../../state/library_model.dart';
 import '../../state/listening_model.dart';
+import '../../state/lyrics_model.dart';
 import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
 import '../theme.dart';
@@ -638,6 +639,16 @@ class _CoversSection extends StatelessWidget {
         value: lib.onlineDetails,
         onChanged: lib.setOnlineDetails,
       ),
+      SwitchListTile(
+        title: const Text('Find lyrics online'),
+        subtitle: const Text(
+          'When you open the lyrics of a song that has none of its own, look them up on LRCLIB '
+          '(lrclib.net). Only the title, artist, album and length are sent, and what\'s found is saved. '
+          '"Find lyrics on LRCLIB" in a song\'s menu works either way.',
+        ),
+        value: lib.onlineLyrics,
+        onChanged: lib.setOnlineLyrics,
+      ),
     ]);
   }
 }
@@ -810,6 +821,7 @@ class _BackupSectionState extends State<_BackupSection> {
     final playlists = context.read<PlaylistsModel>();
     final listening = context.read<ListeningModel>();
     final bookmarks = context.read<BookmarksModel>();
+    final lyrics = context.read<LyricsModel>();
     final messenger = ScaffoldMessenger.of(context);
 
     BackupContents backup;
@@ -866,6 +878,7 @@ class _BackupSectionState extends State<_BackupSection> {
         await playlists.load();
         await listening.load();
         await bookmarks.load();
+        await lyrics.load();
       });
       if (!mounted) return;
       await showDialog<void>(

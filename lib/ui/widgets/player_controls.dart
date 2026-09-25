@@ -186,9 +186,9 @@ class LikeButton extends StatelessWidget {
   }
 }
 
-void openNowPlaying(BuildContext context) {
+void openNowPlaying(BuildContext context, {bool? lyrics}) {
   Navigator.of(context, rootNavigator: true).push(PageRouteBuilder(
-    pageBuilder: (_, _, _) => const NowPlayingScreen(),
+    pageBuilder: (_, _, _) => NowPlayingScreen(showLyrics: lyrics),
     transitionsBuilder: (_, anim, _, child) => SlideTransition(
       position: Tween(begin: const Offset(0, 1), end: Offset.zero)
           .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
@@ -317,6 +317,12 @@ class DesktopPlayerBar extends StatelessWidget {
                 tooltip: 'Chapters',
                 icon: const Icon(Icons.format_list_bulleted),
                 onPressed: () => showChaptersSheet(context),
+              ),
+            if (t != null && !p.inBook)
+              IconButton(
+                tooltip: 'Lyrics',
+                icon: const Icon(Icons.lyrics_outlined),
+                onPressed: () => openNowPlaying(context, lyrics: true),
               ),
             IconButton(tooltip: 'Queue', icon: const Icon(Icons.queue_music), onPressed: () => openQueue(context)),
             const VolumeControl(),
