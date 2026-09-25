@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../services/subsonic_client.dart';
 import '../../../state/library_model.dart';
+import '../../theme.dart';
 import 'settings_widgets.dart';
 
 /// Settings › Servers: the music server, and where audiobooks can stream from.
@@ -175,15 +176,60 @@ class ServerSettingsState extends State<ServerSettings> {
       ),
       SettingTarget(
         'book-server',
-        child: const ListTile(
-          leading: Icon(Icons.headphones_outlined),
-          title: Text('Audiobook server'),
-          subtitle: Text('Connecting a separate audiobook server, such as Audiobookshelf, is coming in a later '
-              'update. It will be set up here.'),
-          enabled: false,
-        ),
+        child: const _AudiobookServerPreview(),
       ),
       ],
+    );
+  }
+}
+
+/// Where a separate audiobook server (Audiobookshelf) will be set up. Shown
+/// greyed out until that connection is built.
+class _AudiobookServerPreview extends StatelessWidget {
+  const _AudiobookServerPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Audiobook server', style: TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Row(children: [
+            Icon(Icons.schedule, size: 18, color: AppColors.textDim),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Coming in a later update: stream audiobooks from a separate server such as Audiobookshelf, '
+                'with your place in each book kept in step. These boxes will work then.',
+                style: TextStyle(color: AppColors.textDim, fontSize: 13),
+              ),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 8),
+        const TextField(
+          enabled: false,
+          decoration: InputDecoration(labelText: 'Server type', hintText: 'Audiobookshelf'),
+        ),
+        const SizedBox(height: 8),
+        const TextField(
+          enabled: false,
+          decoration: InputDecoration(labelText: 'Server address', hintText: 'e.g. http://192.168.1.20:13378'),
+        ),
+        const SizedBox(height: 8),
+        const TextField(enabled: false, decoration: InputDecoration(labelText: 'Username')),
+        const SizedBox(height: 8),
+        const TextField(enabled: false, decoration: InputDecoration(labelText: 'Password')),
+        const SizedBox(height: 16),
+        const FilledButton(onPressed: null, child: Text('Connect')),
+      ]),
     );
   }
 }
