@@ -7,15 +7,15 @@ The plan is published as an artifact (https://claude.ai/artifact/QsNhvBvSRx69PNv
 
 | Phase | Status |
 |---|---|
-| 0: engine check | Done on Windows. **Android (25 Sep):** static check of the arm64 `libmpv.so` shows ffmpeg built with `--enable-filter=equalizer` (and `scaletempo2`). No `superequalizer`/`anequalizer`/`firequalizer`, no rubberband. Use lavfi `equalizer` only. A listening test on the phone is still needed with the first EQ build. |
+| 0: engine check | Done. The arm64 `libmpv.so` has lavfi `equalizer` and `scaletempo2`, but no `superequalizer` or rubberband. The equaliser was confirmed running on the phone (logcat, 25 Sep). |
 | 1: gapless + ReplayGain | Done, in `main` |
 | 2: lyrics | Done, in `main` |
 | Book sidecar files | Done, in `main` |
 | A: settings tidy-up | **Done, merged (0.1.9+9).** The phone has build 8, which lacks only the greyed-out Audiobookshelf boxes |
-| **B: equaliser** (was phase 3) | **Built on `equaliser` (0.1.10+10).** Checked on Windows, including with the real engine. Waiting for a listen on the phone (ask before installing) and approval to merge |
-| **C: multi-album + multi-book edit** | **Built on `multi-edit` (0.1.11+11), branched from `equaliser`** (the user asked to move on without merging the equaliser). Waiting for approval; merging `multi-edit` brings both in |
-| **Favourite albums & books** (asked for 25 Sep) | **Built on `favourites` (0.1.12+12), branched from `multi-edit`.** Waiting for approval; merging `favourites` brings in B, C and this |
-| **Quick actions + Details page** (asked for 25 Sep) | **Built on `details-and-quick-edits` (0.1.13+13), branched from `favourites`.** Merging it brings in everything since 0.1.9 |
+| B: equaliser (was phase 3) | **Done, merged (0.1.10).** Confirmed on the phone in logcat |
+| C: multi-album + multi-book edit | **Done, merged (0.1.11)** |
+| Favourite albums & books | **Done, merged (0.1.12)** |
+| Quick actions + Details page | **Done, merged (0.1.13)** |
 | D: offline copies of server songs (was phase 4) | After the server review |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to C and D isn't decided |
 
@@ -138,7 +138,8 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
 - A sleep-timer button in the Android notification.
 
 ## Source control
-`main` holds everything (0.1.9+9, Settings tidy-up merged with `--no-ff`). There are no other
-branches. Builds (`build\dist`) are not in git; they are rebuilt from source with
+`main` holds everything (0.1.13+13). The work was built on stacked branches (`equaliser` →
+`multi-edit` → `favourites` → `details-and-quick-edits`) and merged in one `--no-ff` merge of the
+last one on 25 Sep. The branches were then deleted, so there are no other branches. Builds (`build\dist`) are not in git; they are rebuilt from source with
 the commands in `02_…`. The repo copy of these notes (`docs/ai-context/`) is kept the same as the
 project copy.
