@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:media_kit/media_kit.dart' show Media, NativePlayer, Player, Playlist;
+import 'package:media_kit/media_kit.dart' show Media, NativePlayer, Player, Playlist, PlaylistMode;
 
 import '../models/book.dart';
 import '../models/track.dart';
@@ -60,6 +60,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// Engine settings last applied (so they're only sent when they change).
   String? _appliedReplayGain;
   bool? _appliedGapless;
+  bool? _appliedLoopOne;
 
   /// The audiobook playing, or null when playing music.
   Book? get book => _book;
@@ -210,6 +211,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     try {
       final start = startAt != null && startAt > Duration.zero ? startAt : null;
       // Load the song after this one too, so it follows without a gap.
+      await _syncLoopOne();
       final ahead = _songToLoadAhead();
       _engineIds = [t.id, if (ahead != null) ahead.$1.id];
       await _player.open(
@@ -226,7 +228,9 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   /// The song to load ahead in the engine (and its file / stream), if any.
   (Track, String)? _songToLoadAhead() {
-    if (!library.gaplessPlayback) return null;
+    // Repeat-one uses the engine's own "loop this file" instead (loading the
+    // same song ahead of itself stalls the engine – see player_gapless_test).
+    if (!library.gaplessPlayback || queue.repeat == RepeatSetting.one) return null;
     final next = queue.peekNextAuto();
     if (next == null) return null;
     final uri = library.playableUri(next);
@@ -272,6 +276,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// After the queue changes (Play next, reorder, shuffle, repeat…), make
   /// sure the song loaded ahead in the engine is still the right one.
   Future<void> _syncLoadedAhead() async {
+    await _syncLoopOne();
     if (_opening > 0 || _engineIds.isEmpty || queue.current == null) return;
     if (_engineIds.first != queue.current!.id) return; // a new song is being opened
     final want = _songToLoadAhead();
@@ -291,6 +296,18 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
       debugPrint('HomeTunes: couldn\'t update the song loaded ahead: $e');
     } finally {
       _engineEdits--;
+    }
+  }
+
+  /// Repeat-one: the engine loops the song by itself, with no gap.
+  Future<void> _syncLoopOne() async {
+    final loop = queue.repeat == RepeatSetting.one && book == null;
+    if (_appliedLoopOne == loop) return;
+    _appliedLoopOne = loop;
+    try {
+      await _player.setPlaylistMode(loop ? PlaylistMode.single : PlaylistMode.none);
+    } catch (e) {
+      debugPrint('HomeTunes: couldn\'t set repeat-one looping: $e');
     }
   }
 
