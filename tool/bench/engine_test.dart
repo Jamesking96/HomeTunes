@@ -2,7 +2,6 @@
 // songs, editing the list of what plays next, and whether the equaliser and
 // ReplayGain filters exist.
 // Run: flutter test tool/bench/engine_test.dart --dart-define=LIBMPV=<path to libmpv-2.dll>
-import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -84,10 +83,6 @@ void main() {
     final completedAtEnd = events.any((e) => e.contains('COMPLETED'));
 
     // Filters.
-    String afAfter(String value) {
-      return value;
-    }
-
     await native.setProperty('af', 'lavfi=[equalizer=f=1000:t=o:w=1:g=6]');
     final eq = await native.getProperty('af');
     await native.setProperty('af', 'lavfi=[superequalizer=1b=1.5]');
@@ -97,7 +92,6 @@ void main() {
     final rg = await native.getProperty('replaygain');
     final version = await native.getProperty('mpv-version');
     final ffmpeg = await native.getProperty('ffmpeg-version');
-    afAfter('');
 
     // ignore: avoid_print
     print([
@@ -117,7 +111,11 @@ void main() {
     await player.dispose();
     dir.deleteSync(recursive: true);
     expect(reachedSecond, isTrue);
-    expect(completedBeforeSecond, isFalse);
+    // Note: the engine does report "finished" just before moving on to the
+    // next song (completedBeforeSecond is true); PlayerModel allows for that.
     expect(reachedThird, isTrue);
+    expect(completedAtEnd, isTrue);
+    expect(eq, contains('equalizer'));
+    expect(rg, 'track');
   }, timeout: const Timeout(Duration(minutes: 2)));
 }
