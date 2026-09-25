@@ -36,7 +36,11 @@ void main() {
   setUp(() => dir = Directory.systemTemp.createTempSync('hometunes_fav'));
   tearDown(() async {
     await Future<void>.delayed(const Duration(milliseconds: 150));
-    dir.deleteSync(recursive: true);
+    try {
+      dir.deleteSync(recursive: true);
+    } on FileSystemException {
+      // A save started inside a widget test can still hold the file; it's only a temp folder.
+    }
   });
 
   final a1 = song('a1', 'Harbour Lights'), a2 = song('a2', 'Harbour Lights'), b1 = song('b1', 'Night Ferry');
