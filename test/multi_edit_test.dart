@@ -122,19 +122,24 @@ void main() {
       await pump(tester, (c) => showEditDetails(c, [for (final a in picked) ...a.tracks], albumCount: 2));
       expect(find.text('Edit 2 albums'), findsOneWidget);
       expect(find.widgetWithText(TextField, 'Album'), findsNothing);
-      expect(find.text(differentMarker), findsNWidgets(4)); // album artist, artist, year, genre all differ
+      // Album artist, artist, year and genre all differ.
+      final keeping = find.textContaining('Different for each album');
+      expect(find.text(differentMarker), findsNWidgets(4));
+      expect(keeping, findsNWidgets(4));
 
       final genre = find.widgetWithText(TextField, 'Genre');
       await tester.enterText(genre, 'Jazz');
       await tester.pump();
       expect(find.text('Every album gets this genre'), findsOneWidget);
+      expect(keeping, findsNWidgets(3));
       // Typed in year, then changed my mind: back to --:--.
       final year = find.widgetWithText(TextField, 'Year');
       await tester.enterText(year, '1999');
       await tester.pump();
+      expect(keeping, findsNWidgets(2));
       await tester.tap(find.byTooltip('Keep each album\'s own year'));
       await tester.pump();
-      expect(find.text(differentMarker), findsNWidgets(3));
+      expect(keeping, findsNWidgets(3));
       await save(tester);
 
       expect(album('Harbour Lights').tracks.every((t) => t.genre == 'Jazz'), isTrue);
@@ -160,7 +165,7 @@ void main() {
       expect(find.text('Edit 2 books'), findsOneWidget);
       expect(find.widgetWithText(TextField, 'Title'), findsNothing);
       expect(find.widgetWithText(TextField, 'Number in series'), findsNothing);
-      expect(find.text(differentMarker), findsOneWidget); // only the author differs
+      expect(find.textContaining('Different for each book'), findsOneWidget); // only the author differs
       await tester.enterText(find.widgetWithText(TextField, 'Narrator'), 'Kim Reader');
       await save(tester);
 
