@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/lyrics.dart';
 import 'package:hometunes/models/track.dart';
@@ -150,14 +149,11 @@ void main() {
       dir = Directory.systemTemp.createTempSync('hometunes_lyrics');
       final storage = Storage.at(dir);
       final musicFile = File(p.join(dir.path, 'music', 'kettle.mp3'))..createSync(recursive: true);
-      debugPrint('setup 1');
       await storage.write('library.json', {
         'local': [song(musicFile.path).toJson()],
       });
       library = LibraryModel(storage);
-      debugPrint('setup 2');
       await library.load();
-      debugPrint('setup 3');
       local = {};
       lrclibCalls = 0;
       lrclibAnswer = null;
@@ -181,7 +177,6 @@ void main() {
         })),
       );
       await lyrics.load();
-      debugPrint('setup 4');
     });
     tearDown(() async {
       await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -191,7 +186,6 @@ void main() {
     Track t() => library.tracks.single;
 
     test('timed .lrc file beats plain tags; tags beat nothing', () async {
-      debugPrint('body 1');
       local[t().path!] = (tags: 'plain words', lrc: '[00:01.00]timed words');
       expect((await lyrics.lyricsFor(t()))!.source, LyricsSource.lrcFile);
       local[t().path!] = (tags: 'plain words', lrc: null);
