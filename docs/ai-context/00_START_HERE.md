@@ -17,11 +17,12 @@ Read the files in this order:
 
 ## Status (25 Sep 2026)
 
-- **Source control:** `main` on GitHub (github.com/Jamesking96/HomeTunes) is **0.1.8+7**.
-  - Branch **`settings-tidy`** (0.1.9+8) holds the Settings tidy-up. It's pushed, analyze is clean
-    and all 164 tests pass.
-  - Windows zip/installer and APK are in `build\dist`. It's waiting for the user to try it, a phone
-    install (ask first), and approval to merge.
+- **Everything is in source control.** `main` on GitHub (github.com/Jamesking96/HomeTunes) is
+  **0.1.9+9**, with the Settings tidy-up merged. There are no other branches.
+  - Tests: 165 pass, and `flutter analyze` is clean.
+  - Builds for 0.1.9 are in `build\dist` on the PC.
+  - The phone has 0.1.9 **build 8**: the same features, minus the greyed-out Audiobookshelf boxes.
+    Build 9 hasn't been installed (ask first).
 - Built and merged so far:
   - the music library, player, playlists, editing and backups
   - server streaming
@@ -29,8 +30,9 @@ Read the files in this order:
   - gapless + ReplayGain (plan phase 1)
   - lyrics (phase 2)
   - audiobook sidecar files (Libation `.metadata.json`, covers, descriptions, PDFs)
+  - Settings tidy-up (pages, search, Sleep timer page, Servers page, About)
 - These notes are also in the repo under `docs/ai-context/`. Update them when things change.
-- **Next up:** A settings tidy-up (built, awaiting approval) → B equaliser → C multi-album and
+- **Next up:** B equaliser → C multi-album and
   multi-book edit → D offline. See `04_ROADMAP_AND_OPEN_ITEMS.md`.
 
 ## Rules the user cares about (follow these)

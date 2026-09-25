@@ -11,8 +11,8 @@ The plan is published as an artifact (https://claude.ai/artifact/QsNhvBvSRx69PNv
 | 1: gapless + ReplayGain | Done, in `main` |
 | 2: lyrics | Done, in `main` |
 | Book sidecar files | Done, in `main` |
-| **A: settings tidy-up** | **Built on `settings-tidy` (0.1.9+8)**, checked on the PC. Waiting for the user to try it and approve the merge. Phone install only after asking. |
-| B: equaliser (was phase 3) | Decided, see below. Next after A |
+| A: settings tidy-up | **Done, merged (0.1.9+9).** The phone has build 8, which lacks only the greyed-out Audiobookshelf boxes |
+| **B: equaliser** (was phase 3) | **Next.** Decided, see below |
 | C: multi-album + multi-book edit (new, asked for 25 Sep) | Planned, own branch, after the equaliser |
 | D: offline copies of server songs (was phase 4) | After the server review |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to C and D isn't decided |
@@ -32,7 +32,9 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
     - a new **"Audiobooks from the music server"** switch (`LibraryModel.serverBooks`, default on).
       When it's off, server tracks classed as books are dropped in `_rebuild`, and server music is
       unaffected.
-    - a disabled "Audiobook server" tile saying Audiobookshelf is coming later.
+    - an "Audiobook server" block. At the user's request it shows greyed-out boxes (server type,
+      address, username, password, Connect) under a "coming in a later update" notice. It's
+      `_AudiobookServerPreview` in `server_settings.dart`, and phase E makes it work.
 - **No behaviour changes.** Keep the user's placement rule: book settings go in Audiobooks,
   playback settings in Playback, online look-ups in Online lookups. The sleep timer is the
   exception and has its own page.
@@ -136,7 +138,7 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
 - A sleep-timer button in the Android notification.
 
 ## Source control
-`main` is at 0966569 (0.1.8). The `settings-tidy` branch (0.1.9+8) is pushed and waiting for the
-user's approval to merge. Builds (`build\dist`) are not in git; they are rebuilt from source with
+`main` holds everything (0.1.9+9, Settings tidy-up merged with `--no-ff`). There are no other
+branches. Builds (`build\dist`) are not in git; they are rebuilt from source with
 the commands in `02_…`. The repo copy of these notes (`docs/ai-context/`) is kept the same as the
 project copy.
