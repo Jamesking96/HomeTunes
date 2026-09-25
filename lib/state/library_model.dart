@@ -391,7 +391,7 @@ class LibraryModel extends ChangeNotifier {
     await _saveSettings();
   }
 
-  /// Changes any of the listening / sleep timer settings (Settings > Audiobooks).
+  /// Changes any of the listening settings (Settings > Audiobooks) and sleep timer settings (Settings > Sleep timer).
   Future<void> updateListeningSettings({
     int? skipBackSeconds,
     int? skipForwardSeconds,

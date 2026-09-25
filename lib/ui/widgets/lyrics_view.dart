@@ -110,7 +110,7 @@ class _NoLyrics extends StatelessWidget {
       icon: Icons.lyrics_outlined,
       text: online || !track.isLocal
           ? 'No lyrics found for this song.'
-          : 'This song has no lyrics of its own.\nLooking them up online is switched off in Settings.',
+          : 'This song has no lyrics of its own.\nLooking them up online is switched off in Settings › Online lookups.',
       actions: [
         FilledButton.tonalIcon(
           onPressed: () => findLyricsOnline(context, track),

@@ -30,6 +30,23 @@ class AppNav extends ChangeNotifier {
     }
   }
 
+  ({String page, String? setting})? _settingsRequest;
+
+  /// Opens Settings at one of its pages (a `SettingsPage` name), optionally
+  /// scrolled to one setting. The Settings screen picks the request up.
+  void openSettings(String page, {String? setting}) {
+    _settingsRequest = (page: page, setting: setting);
+    tab = settingsTab;
+    notifyListeners();
+  }
+
+  /// The pending [openSettings] request, cleared once taken.
+  ({String page, String? setting})? takeSettingsRequest() {
+    final r = _settingsRequest;
+    _settingsRequest = null;
+    return r;
+  }
+
   void push(Widget page) => current?.push(MaterialPageRoute(builder: (_) => page));
 
   void openAlbum(Album a) => push(AlbumScreen(albumKey: a.key));

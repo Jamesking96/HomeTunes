@@ -321,7 +321,7 @@ class _EditLyricsDialogState extends State<_EditLyricsDialog> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Saved in HomeTunes, like other edits. Save edits into files (Settings) can also put them into '
+              'Saved in HomeTunes, like other edits. Settings › Your edits can also put them into '
               'MP3, FLAC and M4A files. Clear the box and save to remove your lyrics.',
               style: TextStyle(color: AppColors.textDim, fontSize: 12),
             ),
