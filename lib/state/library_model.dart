@@ -18,6 +18,9 @@ import '../services/track_matching.dart';
 import 'book_index.dart';
 import 'library_index.dart' as index;
 
+/// Evening out loudness between songs with ReplayGain information in the files.
+enum ReplayGainMode { off, track, album }
+
 /// Holds the music library: local tracks, server tracks, settings, and the
 /// derived album/artist lists.
 class LibraryModel extends ChangeNotifier {
@@ -36,6 +39,14 @@ class LibraryModel extends ChangeNotifier {
 
   /// Offer to look up missing song details (year, artist, genre…) on MusicBrainz.
   bool onlineDetails = true;
+
+  // ---- playback settings ----
+
+  /// Load the next song ahead so it follows with no gap.
+  bool gaplessPlayback = true;
+
+  /// Even out volume using ReplayGain info in the files (off / by song / by album).
+  ReplayGainMode replayGain = ReplayGainMode.off;
 
   // ---- audiobook settings ----
 
@@ -186,6 +197,8 @@ class LibraryModel extends ChangeNotifier {
     serverEnabled = false;
     onlineCovers = true;
     onlineDetails = true;
+    gaplessPlayback = true;
+    replayGain = ReplayGainMode.off;
     audiobookFolders = [];
     bookGenres = List.of(defaultBookGenres);
     bookCoversTall = false;
@@ -211,6 +224,8 @@ class LibraryModel extends ChangeNotifier {
       serverEnabled = (s['serverEnabled'] as bool?) ?? false;
       onlineCovers = (s['onlineCovers'] as bool?) ?? true;
       onlineDetails = (s['onlineDetails'] as bool?) ?? true;
+      gaplessPlayback = (s['gaplessPlayback'] as bool?) ?? true;
+      replayGain = ReplayGainMode.values.asNameMap()[s['replayGain']] ?? ReplayGainMode.off;
       audiobookFolders = (s['audiobookFolders'] as List? ?? const []).cast<String>().toList();
       if (s['bookGenres'] is List) bookGenres = (s['bookGenres'] as List).cast<String>().toList();
       bookCoversTall = (s['bookCoversTall'] as bool?) ?? false;
@@ -248,6 +263,8 @@ class LibraryModel extends ChangeNotifier {
         'serverEnabled': serverEnabled,
         'onlineCovers': onlineCovers,
         'onlineDetails': onlineDetails,
+        'gaplessPlayback': gaplessPlayback,
+        'replayGain': replayGain.name,
         'audiobookFolders': audiobookFolders,
         'bookGenres': bookGenres,
         'bookCoversTall': bookCoversTall,
@@ -352,6 +369,14 @@ class LibraryModel extends ChangeNotifier {
     bookCoversTall = tall;
     await _saveSettings();
     notifyListeners();
+  }
+
+  /// Changes the playback settings (Settings > Playback).
+  Future<void> updatePlaybackSettings({bool? gaplessPlayback, ReplayGainMode? replayGain}) async {
+    this.gaplessPlayback = gaplessPlayback ?? this.gaplessPlayback;
+    this.replayGain = replayGain ?? this.replayGain;
+    notifyListeners();
+    await _saveSettings();
   }
 
   /// Changes any of the listening / sleep timer settings (Settings > Audiobooks).

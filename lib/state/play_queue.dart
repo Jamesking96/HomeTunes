@@ -75,6 +75,19 @@ class PlayQueue {
     return null;
   }
 
+  /// What will play when the current song ends by itself, without moving
+  /// (used to load it early, for gapless playback). Null when the queue would
+  /// end there, or when it can't be known yet: repeat-all with shuffle
+  /// reshuffles when it loops.
+  Track? peekNextAuto() {
+    final cur = current;
+    if (cur == null) return null;
+    if (repeat == RepeatSetting.one) return cur;
+    if (_pos + 1 < _queue.length) return _queue[_pos + 1];
+    if (repeat == RepeatSetting.all && !shuffle) return _queue.first;
+    return null;
+  }
+
   /// Moves back one track (wraps round with repeat-all).
   Track? previous() {
     if (_queue.isEmpty) return null;
