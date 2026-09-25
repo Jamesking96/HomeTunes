@@ -1,7 +1,7 @@
 name: hometunes
 description: A Spotify-style music player for your own music folder, with optional streaming from a Subsonic-compatible server.
 publish_to: 'none'
-version: 0.1.5+4
+version: 0.1.6+5
 
 environment:
   sdk: '>=3.10.0 <4.0.0'
