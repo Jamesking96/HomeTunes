@@ -291,11 +291,9 @@ A few existing comments are also out of date (left as they were): `Storage` list
 
 ## About the comments
 
-The comments are committed on the branch **`docs/code-comments`** (made from `main`), together with a copy of this guide at `docs/ai-context/05_CODE_GUIDE.md`. The branch isn't merged into `main` or pushed to GitHub yet.
+The comments were added on the branch `docs/code-comments` and merged into `main` on 25 Sep 2026, together with this guide (`docs/ai-context/05_CODE_GUIDE.md`).
 
 - **What changed:** 104 files, about 2,165 comment lines added. No code was changed. A script confirmed that every original line is still there, untouched, and everything new is a comment. The 61 "removed" lines in git are lines that got a short comment added to the end.
 - **Covered:** everything in `lib/`, `test/` and `tool/`, the setup and build scripts, the installer script, `pubspec.yaml`, and the Windows media-keys plugin in `packages/audio_service_win`. The borrowed tag library `packages/audio_metadata_reader` was left alone, as it's third-party code.
 - **Checks on the PC:** `flutter analyze` reports no issues, and `flutter test` passed all 164 tests. (The handover notes say 165. Comments can't remove a test, so that count is probably out of date.)
-- **To review:** `git log main..docs/code-comments` and `git show`, or the branch in VS Code's Source Control panel.
-- **To merge it:** `git checkout main`, `git merge --no-ff docs/code-comments`, then `git push` to put it on GitHub.
-- **To throw it away:** `git checkout main`, then `git branch -D docs/code-comments`.
+- **To see the change:** `git log --oneline` shows the merge; `git show` on the commit "Docs: explanatory comments throughout the code, plus a code guide" shows every comment added.
