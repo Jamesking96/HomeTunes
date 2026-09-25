@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hometunes/models/track.dart';
 import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/ui/nav.dart';
@@ -26,6 +27,53 @@ void main() {
       expect(ids('navidrome'), ['server']);
       expect(ids('  '), isEmpty);
       expect(ids('no such thing'), isEmpty);
+    });
+  });
+
+  group('Audiobooks from the music server', () {
+    late Directory dir;
+    setUp(() => dir = Directory.systemTemp.createTempSync('hometunes_serverbooks'));
+    tearDown(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      dir.deleteSync(recursive: true);
+    });
+
+    Track remote(String id, {String? genre}) => Track(
+          id: 'server:$id',
+          source: TrackSource.server,
+          title: id,
+          artist: 'A',
+          album: id,
+          albumArtist: 'A',
+          genre: genre,
+          duration: const Duration(minutes: 3),
+          remoteId: id,
+        );
+
+    test('can be left out of the Books tab without touching server music', () async {
+      final storage = Storage.at(dir);
+      await storage.write('settings.json', {
+        'serverEnabled': true,
+        'server': {'url': 'http://example.invalid', 'username': 'u', 'password': 'p'},
+      });
+      await storage.write('library.json', {
+        'local': [],
+        'remote': [remote('song').toJson(), remote('book', genre: 'Audiobook').toJson()],
+        'missing': [],
+      });
+      final lib = LibraryModel(storage);
+      await lib.load();
+      expect(lib.serverBooks, isTrue);
+      expect(lib.books.length, 1);
+      expect(lib.tracks.map((t) => t.title), ['song']);
+
+      await lib.setServerBooks(false);
+      expect(lib.books, isEmpty);
+      expect(lib.tracks.map((t) => t.title), ['song']);
+
+      final again = LibraryModel(storage);
+      await again.load();
+      expect(again.serverBooks, isFalse);
     });
   });
 

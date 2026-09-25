@@ -5,7 +5,7 @@ import '../../../services/subsonic_client.dart';
 import '../../../state/library_model.dart';
 import 'settings_widgets.dart';
 
-/// Settings › Music server.
+/// Settings › Servers: the music server, and where audiobooks can stream from.
 class ServerSettings extends StatefulWidget {
   const ServerSettings({super.key});
 
@@ -73,9 +73,12 @@ class ServerSettingsState extends State<ServerSettings> {
     final remoteCount = lib.tracks.where((t) => !t.isLocal).length;
 
     return SettingsPageList(
-      intro: 'Optional: stream from your own server as well. Works with anything that speaks the Subsonic API — '
-          'Navidrome, Airsonic-Advanced, Gonic, Ampache and others.',
+      intro: 'Optional: stream from your own servers as well as playing your own files.',
       children: [
+      const SettingsGroupTitle(
+        'Music server',
+        'Works with anything that speaks the Subsonic API — Navidrome, Airsonic-Advanced, Gonic, Ampache and others.',
+      ),
       if (hasServer)
         SwitchListTile(
           title: const Text('Include server music'),
@@ -157,6 +160,29 @@ class ServerSettingsState extends State<ServerSettings> {
             ),
         ]),
       )),
+      const SettingsGroupTitle('Audiobooks'),
+      SettingTarget(
+        'server-books',
+        child: SwitchListTile(
+          title: const Text('Audiobooks from the music server'),
+          subtitle: Text(hasServer
+              ? 'Books on your music server show in the Books tab, the same way as books in your folders. '
+                  'Turn off to keep them out.'
+              : 'Once a music server is connected, books on it show in the Books tab. Turn off to keep them out.'),
+          value: lib.serverBooks,
+          onChanged: lib.setServerBooks,
+        ),
+      ),
+      SettingTarget(
+        'book-server',
+        child: const ListTile(
+          leading: Icon(Icons.headphones_outlined),
+          title: Text('Audiobook server'),
+          subtitle: Text('Connecting a separate audiobook server, such as Audiobookshelf, is coming in a later '
+              'update. It will be set up here.'),
+          enabled: false,
+        ),
+      ),
       ],
     );
   }

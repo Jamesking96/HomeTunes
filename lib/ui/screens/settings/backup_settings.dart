@@ -140,7 +140,7 @@ class BackupSettingsState extends State<BackupSettings> {
             ],
             if (result.needsPassword) ...[
               const SizedBox(height: 12),
-              const Text('The server password wasn\'t in the backup: enter it under Music server.'),
+              const Text('The server password wasn\'t in the backup: enter it under Settings › Servers.'),
             ],
           ]),
           actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
