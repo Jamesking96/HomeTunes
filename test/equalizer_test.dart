@@ -65,6 +65,7 @@ void main() {
       await eq.load();
     });
     tearDown(() async {
+      await eq.flush();
       await Future<void>.delayed(const Duration(milliseconds: 100));
       dir.deleteSync(recursive: true);
     });
