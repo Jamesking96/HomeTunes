@@ -183,6 +183,32 @@ before changing that area.
   heard on the phone before merging. Check it with
   `adb logcat | Select-String "HomeTunes: equaliser|lavfi|Disabling filter"`.
 
+## Editing several albums, books or songs (`multi-edit` branch, 0.1.11)
+- **Selecting:**
+  - `SelectionModel` holds one kind at a time (`SelectKind.songs/albums/books`). Ticking a
+    different kind starts a new selection.
+  - Album and book tiles use `SelectableCard` (in `cards.dart`). Right-click, or press and hold on
+    a phone, opens a menu with Select and "Select all (n)". While selecting, a tap ticks or unticks
+    the tile instead of opening it.
+  - Each tile gets a `scope`: everything shown with it on that screen (Albums tab, artist page,
+    search, Home shelves, Books grid in its current sort and filter). "Select all" ticks the scope.
+  - `TrackTile` only shows tick boxes when songs are being selected.
+- **The bar** (`_GroupSelectionBar` in `shell.dart`) shows "n albums/books selected", Select all,
+  and **Edit albums / Edit books**. With one album it opens the normal album editor.
+- **The `--:--` marker** (`differentMarker` in `edit_details.dart`):
+  - A box whose value differs across what's being edited starts empty with `--:--` as its hint,
+    and the note under it says "Different for each … – leave as --:-- to keep them".
+  - Once something is typed, an undo button puts it back to `--:--`.
+  - Only changed fields are saved, as TrackEdits on every track.
+  - Songs multi-edit uses the same marker instead of "Mixed" (user's choice, 25 Sep).
+- **Several albums** (`showEditDetails(..., albumCount: n)`):
+  - The boxes are album artist, artist, year and genre, plus cover (choose image only).
+  - **No album title**, because giving several albums the same title would merge them.
+  - There are no online look-ups, and "Covers differ" is shown when they do.
+- **Several books** (`showEditBooks`): the boxes are author, narrator, series, year and genre, plus
+  cover. There's no title or number in series, and no online look-ups.
+- **Tests:** `test/multi_edit_test.dart`.
+
 ## Android fixes worth remembering
 - **Lock screen empty and playback stopping.** The cause was "You must specify an icon resource id
   to build a CustomAction". It's fixed by `res/raw/keep.xml`.

@@ -32,9 +32,12 @@ Read the files in this order:
   - audiobook sidecar files (Libation `.metadata.json`, covers, descriptions, PDFs)
   - Settings tidy-up (pages, search, Sleep timer page, Servers page, About)
 - These notes are also in the repo under `docs/ai-context/`. Update them when things change.
-- **In progress:** B equaliser, built on branch `equaliser` (0.1.10+10) and waiting for a listen on
-  the phone and approval to merge. After that: C multi-album and
-  multi-book edit → D offline. See `04_ROADMAP_AND_OPEN_ITEMS.md`.
+- **In progress, not merged yet:**
+  - B equaliser, on branch `equaliser` (0.1.10+10).
+  - C: editing several albums and books, on branch `multi-edit` (0.1.11+11), built on top of
+    `equaliser`, so merging `multi-edit` brings both in.
+  - The user asked to move on without merging the equaliser. Both are waiting for the go-ahead.
+  - After them: D offline (after the server review) and E audiobook server. See `04_ROADMAP_AND_OPEN_ITEMS.md`.
 
 ## Rules the user cares about (follow these)
 
