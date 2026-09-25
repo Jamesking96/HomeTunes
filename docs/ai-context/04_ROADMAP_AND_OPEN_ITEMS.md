@@ -7,13 +7,15 @@ The plan is published as an artifact (https://claude.ai/artifact/QsNhvBvSRx69PNv
 
 | Phase | Status |
 |---|---|
-| 0: engine check | Done on Windows. **Android (25 Sep):** static check of the arm64 `libmpv.so` shows ffmpeg built with `--enable-filter=equalizer` (and `scaletempo2`). No `superequalizer`/`anequalizer`/`firequalizer`, no rubberband. Use lavfi `equalizer` only. A listening test on the phone is still needed with the first EQ build. |
+| 0: engine check | Done. The arm64 `libmpv.so` has lavfi `equalizer` and `scaletempo2`, but no `superequalizer` or rubberband. The equaliser was confirmed running on the phone (logcat, 25 Sep). |
 | 1: gapless + ReplayGain | Done, in `main` |
 | 2: lyrics | Done, in `main` |
 | Book sidecar files | Done, in `main` |
 | A: settings tidy-up | **Done, merged (0.1.9+9).** The phone has build 8, which lacks only the greyed-out Audiobookshelf boxes |
-| **B: equaliser** (was phase 3) | **Next.** Decided, see below |
-| C: multi-album + multi-book edit (new, asked for 25 Sep) | Planned, own branch, after the equaliser |
+| B: equaliser (was phase 3) | **Done, merged (0.1.10).** Confirmed on the phone in logcat |
+| C: multi-album + multi-book edit | **Done, merged (0.1.11)** |
+| Favourite albums & books | **Done, merged (0.1.12)** |
+| Quick actions + Details page | **Done, merged (0.1.13)** |
 | D: offline copies of server songs (was phase 4) | After the server review |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to C and D isn't decided |
 
@@ -49,11 +51,9 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
   be restored.
 - **Audiobooks:** books switch automatically to their own preset (default Spoken word, and the user
   can choose another). A switch in **Settings → Audiobooks** turns this off.
-- **Implementation:**
-  - Use lavfi `equalizer` via media_kit's `af` property (`NativePlayer.setProperty`). Changes are
-    live and work alongside `scaletempo2` speed changes.
-  - For the overall level (pre-amp), check whether the `volume` lavfi filter exists on Android. If
-    not, scale the player volume.
+- **Implementation (built):** see `03_…` → Equaliser. It uses mpv `af` = `format=format=floatp,lavfi=[equalizer…]`,
+  leaves out bands at or above half the file's sample rate, and does the overall level by scaling
+  the player volume.
 - **Where it lives:** Settings → Playback and a Now Playing button. Presets go into backups. Add
   `SettingTarget`s and catalog entries for search.
 
@@ -138,7 +138,8 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
 - A sleep-timer button in the Android notification.
 
 ## Source control
-`main` holds everything (0.1.9+9, Settings tidy-up merged with `--no-ff`). There are no other
-branches. Builds (`build\dist`) are not in git; they are rebuilt from source with
+`main` holds everything (0.1.13+13). The work was built on stacked branches (`equaliser` →
+`multi-edit` → `favourites` → `details-and-quick-edits`) and merged in one `--no-ff` merge of the
+last one on 25 Sep. The branches were then deleted, so there are no other branches. Builds (`build\dist`) are not in git; they are rebuilt from source with
 the commands in `02_…`. The repo copy of these notes (`docs/ai-context/`) is kept the same as the
 project copy.

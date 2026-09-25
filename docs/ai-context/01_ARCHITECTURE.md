@@ -67,6 +67,8 @@ tool/                    probes, benches, build script, platform patcher
 - **`ListeningModel`** (`listening.json`) stores each book's place, finished state and speed.
 - **`BookmarksModel`** (`bookmarks.json`).
 - **`PlaylistsModel`** (`playlists.json`, includes Liked Songs).
+- **`EqualizerModel`** (`equalizer.json`): on/off, the music and audiobook presets, edits to
+  built-ins and your own presets. `PlayerModel` listens and applies it (see `03_…` → Equaliser).
 - **`LyricsModel`** (`lyrics.json` = lyrics found online, plus "nothing found" timestamps) decides
   where lyrics come from (see `03_…`).
 - **`SleepTimer`**, **`AppNav`** (per-tab navigators, `openBook/openAlbum/openArtist`, `openSettings(page, setting:)`) and
@@ -91,7 +93,7 @@ tool/                    probes, benches, build script, platform patcher
 
 ## Data files (app support dir `…/hometunes/`)
 `settings.json`, `library.json`, `edits.json`, `playlists.json`, `listening.json`,
-`bookmarks.json`, `lyrics.json`, `art/` (+`art/custom/`), `backups/` (tag-write backups),
+`bookmarks.json`, `lyrics.json`, `equalizer.json`, `art/` (+`art/custom/`), `backups/` (tag-write backups),
 `before-restore.htbackup`.
 
 ## Vendored packages (keep their HOMETUNES_CHANGES.md up to date)

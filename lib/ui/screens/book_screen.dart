@@ -16,10 +16,12 @@ import '../../state/bookmarks_model.dart';
 import '../../state/library_model.dart';
 import '../../state/listening_model.dart';
 import '../../state/player_model.dart';
+import '../../state/playlists_model.dart';
 import '../theme.dart';
 import '../widgets/book_card.dart';
 import '../widgets/bookmark_widgets.dart';
 import '../widgets/cards.dart';
+import 'details_screen.dart';
 import 'edit_book.dart';
 
 /// One audiobook: details, Resume / Play, and its chapters.
@@ -137,6 +139,16 @@ class BookScreen extends StatelessWidget {
             label: const Text('Play from start'),
             onPressed: () => player.playBook(book, fromStart: true),
           ),
+        Builder(builder: (context) {
+          final playlists = context.watch<PlaylistsModel>();
+          final on = playlists.isFavouriteBook(book);
+          return IconButton(
+            tooltip: on ? 'Remove from favourites' : 'Add to favourites',
+            icon: Icon(on ? Icons.favorite : Icons.favorite_border,
+                color: on ? Theme.of(context).colorScheme.primary : null),
+            onPressed: () => playlists.setFavouriteBooks([book], !on),
+          );
+        }),
         IconButton(
           tooltip: 'Edit book details',
           icon: const Icon(Icons.edit_outlined),
@@ -158,6 +170,10 @@ class BookScreen extends StatelessWidget {
                 value: () => listening.setFinished(book, false),
                 child: Text(state == BookState.finished ? 'Mark as not finished' : 'Start over (clear progress)'),
               ),
+            PopupMenuItem(
+              value: () => openDetails(context, kind: 'Audiobook', title: book.title, tracks: book.parts, book: book),
+              child: const Text('Details: where it comes from'),
+            ),
             PopupMenuItem(
               value: () => _moveToMusic(context, book),
               child: const Text('Move to Music…'),

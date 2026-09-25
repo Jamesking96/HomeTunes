@@ -14,14 +14,14 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hometunes/models/eq_preset.dart';
 import 'package:media_kit/media_kit.dart';
 
 /// A WAV tone of [seconds] seconds.
 ///
 /// Writes a plain 16-bit mono WAV file containing a sine wave at [hz] (pitch) to [path].
 /// Different pitches make the files easy to tell apart by ear if the volume is turned up.
-File tone(String path, double seconds, double hz) {
-  const rate = 22050;
+File tone(String path, double seconds, double hz, {int rate = 22050}) {
   final n = (rate * seconds).round();
   final d = ByteData(44 + n * 2);
   void str(int o, String s) {
@@ -143,4 +143,56 @@ void main() {
     expect(eq, contains('equalizer'));
     expect(rg, 'track');
   }, timeout: const Timeout(Duration(minutes: 2)));
+
+  // 4. The app's real equaliser filters, as PlayerModel builds them for the file's sample rate:
+  //    a whole preset while a tone plays at 1.5× speed, then changed live to another preset.
+  //    Playback must keep going with no filter errors, for CD-quality music (44.1 kHz) and for
+  //    the lower rate many audiobooks use (22 kHz, where the 16k band has to be left out).
+  for (final rate in [44100, 22050]) {
+    test('equaliser presets play at $rate Hz', () async {
+      const lib = String.fromEnvironment('LIBMPV');
+      MediaKit.ensureInitialized(libmpv: lib.isEmpty ? null : lib);
+      final dir = Directory.systemTemp.createTempSync('hometunes_eq_engine');
+      final t = tone('${dir.path}/long.wav', 6, 440, rate: rate);
+      final player = Player(configuration: const PlayerConfiguration(logLevel: MPVLogLevel.warn));
+      final native = player.platform as NativePlayer;
+      final problems = <String>[];
+      final sub = player.stream.log.listen((l) => problems.add('[${l.level}] ${l.prefix}: ${l.text.trim()}'));
+      final errors = player.stream.error.listen((e) => problems.add('error: $e'));
+      await player.setVolume(0);
+
+      final rock = eqFilter(builtInEqPreset('rock'), sampleRate: rate);
+      await native.setProperty('af', rock);
+      await player.open(Media(t.path), play: true);
+      await player.setRate(1.5);
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      final afterRock = player.state.position;
+      final applied = await native.getProperty('af');
+      final seenRate = player.state.audioParams.sampleRate;
+
+      await native.setProperty('af', eqFilter(builtInEqPreset('spoken'), sampleRate: rate));
+      await Future<void>.delayed(const Duration(milliseconds: 1000));
+      final afterSpoken = player.state.position;
+      final stillPlaying = player.state.playing;
+
+      await native.setProperty('af', '');
+      await sub.cancel();
+      await errors.cancel();
+      await player.dispose();
+      dir.deleteSync(recursive: true);
+
+      // ignore: avoid_print
+      print([
+        'equaliser at $rate Hz (engine saw $seenRate): filter = "$applied"',
+        'position after 1.5 s with Rock at 1.5x: $afterRock; after switching to Spoken word: $afterSpoken',
+        'engine warnings: ${problems.isEmpty ? 'none' : problems.join(' | ')}',
+      ].join('\n'));
+      expect(seenRate, rate);
+      expect(applied, contains('equalizer'));
+      expect(afterRock, greaterThan(const Duration(milliseconds: 1200))); // 1.5 s at 1.5× ≈ 2.2 s
+      expect(afterSpoken, greaterThan(afterRock));
+      expect(stillPlaying, isTrue);
+      expect(problems.where((p) => p.contains('lavfi') || p.contains('filter') || p.startsWith('error')), isEmpty);
+    }, timeout: const Timeout(Duration(minutes: 1)));
+  }
 }

@@ -94,7 +94,10 @@ class _SearchScreenState extends State<SearchScreen> {
                       child: Shelf(
                         title: 'Albums',
                         height: 220,
-                        children: [for (final a in results.albums.take(12)) AlbumCard(album: a, width: 160)],
+                        children: [
+                          for (final a in results.albums.take(12))
+                            AlbumCard(album: a, width: 160, scope: [for (final x in results.albums.take(12)) x.key]),
+                        ],
                       ),
                     ),
                   if (books.isNotEmpty)
@@ -102,7 +105,10 @@ class _SearchScreenState extends State<SearchScreen> {
                       child: Shelf(
                         title: 'Audiobooks',
                         height: bookCardHeight(150, ratio),
-                        children: [for (final b in books.take(12)) BookCard(book: b, width: 150)],
+                        children: [
+                          for (final b in books.take(12))
+                            BookCard(book: b, width: 150, scope: [for (final x in books.take(12)) x.id]),
+                        ],
                       ),
                     ),
                   // Then the matching songs as a normal song list (tapping one plays the

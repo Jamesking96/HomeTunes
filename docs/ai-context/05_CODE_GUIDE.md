@@ -61,6 +61,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `track_edit.dart` | Your edits to a song, kept apart from the file and laid over it. Null means "use the file's value"; `""` lyrics means "hide lyrics". |
 | `book.dart` | An audiobook made of one or more files. Works out its total length, its chapters across all files, and "time from the start of the book". |
 | `lyrics.dart` | Timed (LRC) and plain lyrics, the LRC parser, and a quick look-up of which line is being sung now. |
+| `eq_preset.dart` | The equaliser's ten bands, a preset (a gain per band plus an overall level), the built-in presets, and the audio-engine filter text a preset turns into. |
 | `playlist.dart` | A named list of song ids. Storing ids means playlists survive rescans and moved files. |
 
 ### State (`lib/state/`): the app's live brain
@@ -72,12 +73,13 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `play_queue.dart` | The play order with no audio in it: queue, current position, shuffle (keeping the original order), repeat, Play next, reordering, and a peek at what plays next. |
 | `library_index.dart` | Plain functions that group songs into albums and artists (ignoring a leading "The") and run the song, album and artist search. |
 | `book_index.dart` | Decides which files are audiobooks (six rules, first match wins) and groups them into books. Guesses series, number and narrator from folder names; your edits win. Also the Books tab's sort and filters, and book and chapter search. |
+| `equalizer_model.dart` | The equaliser (`equalizer.json`): on/off, the preset for music and for audiobooks, your changes to built-in presets and your own presets. The player listens and applies it live. |
 | `listening_model.dart` | Each book's saved place, finished state and speed (`listening.json`), plus percent done, time left and "Continue listening". |
 | `bookmarks_model.dart` | Audiobook bookmarks with notes (`bookmarks.json`). |
-| `playlists_model.dart` | Playlists and Liked Songs (`playlists.json`). |
+| `playlists_model.dart` | Playlists, Liked Songs and favourite albums and books (`playlists.json`). |
 | `lyrics_model.dart` | Picks a song's lyrics from five sources in order: your edit, the file or `.lrc`, saved online finds, the server, LRCLIB. Caches finds and "nothing found" in `lyrics.json`. |
 | `sleep_timer.dart` | The sleep timer: minutes, or end of chapter or song. Fades the volume out, then pauses and saves the book's place. |
-| `selection_model.dart` | Which songs are ticked in multi-select mode. |
+| `selection_model.dart` | What's ticked in select mode: songs, albums or audiobooks (one kind at a time), plus what "Select all" covers. |
 
 ### Services (`lib/services/`): files, network and the OS
 
@@ -92,6 +94,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `lrclib_client.dart` | Looks up lyrics on LRCLIB and ranks the matches (length within 3 s, timed first, title, artist). |
 | `local_lyrics.dart` | Reads lyrics from a song's tags or a `.lrc` file beside it. |
 | `media_session.dart` | Connects the player to Android's notification, lock screen and headset buttons, and to Windows media keys. For books the buttons skip by seconds. |
+| `media_details.dart` | For the Details page: re-reads a file and works out where each detail came from (tags, book details file, folder or file name, your edit, server). |
 | `music_permission.dart` | Android's "read your music" permission, which differs by Android version. |
 | `cover_search.dart` | Finds album covers on MusicBrainz and Cover Art Archive and downloads the one you pick. |
 | `music_info.dart` | Looks up song and album details, genres and track lists on MusicBrainz (about one request a second). |
@@ -119,9 +122,11 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `book_screen.dart` | One audiobook: details, progress, Play/Resume, description, PDF, bookmarks, chapters, Move to Music. |
 | `playlist_screen.dart` | One playlist or Liked Songs, with drag to reorder. |
 | `queue_screen.dart` | Now playing and up next: drag, swipe to remove, tap to jump. |
-| `now_playing_screen.dart` | The full-screen player. Songs get Like, Lyrics and Queue; books get Bookmark, Speed and Chapters. |
-| `edit_details.dart` | The song, album and multi-song editor. |
-| `edit_book.dart` | The Edit book dialog (saved as edits on every file of the book). |
+| `now_playing_screen.dart` | The full-screen player. Songs get Like, Lyrics and Queue; books get Bookmark, Speed and Chapters. Both get the Equaliser button. |
+| `details_screen.dart` | Details: where a song, album or book comes from, its folder and files, why it's a book, each detail's source, and what the file's tags say. |
+| `equalizer_screen.dart` | The Equaliser: preset chips, Music/Audiobooks switch, Edit (ten upright band sliders and the overall level), Restore default, and your own presets. |
+| `edit_details.dart` | The song, album, several-songs and several-albums editor. Details that differ show `--:--`. |
+| `edit_book.dart` | The Edit book dialog (saved as edits on every file of the book), also for several books at once. |
 | `lyrics_dialogs.dart` | Show lyrics, find them on LRCLIB with a preview, and edit them. |
 | `cover_search_dialog.dart`, `info_lookup_dialog.dart`, `book_lookup_dialog.dart` | The "find online" pop-ups for covers, song and album details, and books. |
 
@@ -137,10 +142,11 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `listening_controls.dart` | Sleep timer (moon) button, −15/+30 skips, speed button and chooser, chapter list. |
 | `lyrics_view.dart` | The lyrics panel. Timed lyrics highlight the current line and scroll along; tapping a line jumps there. |
 | `track_tile.dart` | A song row, its ⋮ menu, Add to playlist, and the name prompt. |
-| `cards.dart` | Album and artist tiles, and the horizontal scrolling shelves on Home. |
+| `cards.dart` | Album and artist tiles, the horizontal scrolling shelves on Home, and `SelectableCard` (right-click / press and hold → Select for album and book tiles). |
 | `book_card.dart` | Book covers and tiles with a progress bar. |
 | `bookmark_widgets.dart` | Adding, listing and jumping to bookmarks. |
 | `collection_header.dart` | The big header on album, artist and playlist pages with Play and Shuffle. |
+| `quick_actions.dart` | The quick actions for albums and books (edit, cover, favourites, details) used by tile menus and the selection bar. |
 | `artwork.dart` | Cover images, loaded at a sensible size to save memory. |
 | `music_access_banner.dart` | The amber "can't read your music" card on Android. |
 
@@ -190,6 +196,7 @@ Everything lives in the app's data folder, `…/hometunes/` inside the system's 
 | `listening.json` | Each book's place, finished state and speed | `ListeningModel` |
 | `bookmarks.json` | Audiobook bookmarks and notes | `BookmarksModel` |
 | `lyrics.json` | Lyrics found online, and "nothing found" times so they aren't looked up again too soon | `LyricsModel` |
+| `equalizer.json` | Equaliser on/off, the chosen presets, edited and your own presets | `EqualizerModel` |
 | `art/` | Covers taken from files (`art/custom/` holds the ones you chose) | `local_scanner.dart`, `LibraryModel` |
 | `backups/` | Copies of music files made before writing edits into them | `tag_writer.dart` |
 | `before-restore.htbackup` | Your data from just before the last restore | `app_backup.dart` |
@@ -234,6 +241,10 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `keep_and_backup_test.dart` | Following moved songs, keeping edits for missing songs, backup round trip and merging |
 | `listening_controls_test.dart` | Skipping across book files, speed, volume wheel, the sleep timer |
 | `settings_test.dart` | Settings search and every Settings page on phone and wide layouts |
+| `details_test.dart` | Where details come from (tags, folder and file names, book details file, edits, server) and why something is a book |
+| `favourites_test.dart` | Favourite albums and books: saving, surviving moves and backups, the tile menu and heart |
+| `multi_edit_test.dart` | Selecting albums and books, the tiles' Select menu, and editing several albums, books or songs with `--:--` |
+| `equalizer_test.dart` | Preset filter text (including bands left out for low sample rates), editing and restoring presets, your own presets, music vs audiobook presets, saving, and the Equaliser screen |
 
 ## Working with the code
 

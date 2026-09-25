@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/track.dart';
 import 'package:hometunes/services/storage.dart';
+import 'package:hometunes/state/equalizer_model.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/settings/settings_catalog.dart';
@@ -116,6 +117,7 @@ void main() {
         providers: [
           ChangeNotifierProvider.value(value: lib),
           ChangeNotifierProvider.value(value: nav),
+          ChangeNotifierProvider(create: (_) => EqualizerModel(Storage.at(Directory.systemTemp))),
         ],
         child: MaterialApp(home: child),
       ));

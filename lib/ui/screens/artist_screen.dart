@@ -64,7 +64,11 @@ class ArtistScreen extends StatelessWidget {
                 childAspectRatio: 0.78,
               ),
               itemCount: artist.albums.length,
-              itemBuilder: (_, i) => AlbumCard(album: artist.albums[i], showArtist: false),
+              itemBuilder: (_, i) => AlbumCard(
+                album: artist.albums[i],
+                showArtist: false,
+                scope: [for (final a in artist.albums) a.key],
+              ),
             ),
           );
         }),

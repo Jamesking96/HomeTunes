@@ -7,9 +7,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/track.dart';
+import '../../state/playlists_model.dart';
+import '../../state/selection_model.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../../state/library_model.dart';
 import 'artwork.dart';
+import 'quick_actions.dart';
 
 /// Album tile for grids and carousels.
 class AlbumCard extends StatelessWidget {
@@ -18,13 +22,27 @@ class AlbumCard extends StatelessWidget {
   final double? width;
   /// Second line shows the artist; if false, the year instead (used on an artist's own page).
   final bool showArtist;
-  const AlbumCard({super.key, required this.album, this.width, this.showArtist = true});
+  /// The keys of all the albums shown alongside this one, for "Select all".
+  final List<String> scope;
+  const AlbumCard({super.key, required this.album, this.width, this.showArtist = true, this.scope = const []});
 
   @override
   Widget build(BuildContext context) {
-    final card = InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: () => context.read<AppNav>().openAlbum(album),
+    final favourite = context.select<PlaylistsModel, bool>((p) => p.isFavouriteAlbum(album));
+    final card = SelectableCard(
+      id: album.key,
+      kind: SelectKind.albums,
+      scope: scope,
+      favourite: favourite,
+      actionsFor: (keys) {
+        final lib = context.read<LibraryModel>();
+        // Just this one: use it as shown. Several: look each one up.
+        final albums = keys.length == 1 && keys.first == album.key
+            ? [album]
+            : [for (final k in keys) lib.albumByKey(k)].whereType<Album>().toList();
+        return albumActions(context, albums);
+      },
+      onOpen: () => context.read<AppNav>().openAlbum(album),
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -42,6 +60,131 @@ class AlbumCard extends StatelessWidget {
       ),
     );
     return width == null ? card : SizedBox(width: width, child: card);
+  }
+}
+
+/// An album or book tile that can be selected. Tapping opens it. Right-click
+/// (or press and hold on a phone) offers Select and Select all, then quick
+/// actions (edit, cover, favourites, details). While selecting, a tap ticks or
+/// unticks it instead of opening it, and right-clicking a ticked one offers the
+/// quick actions for everything ticked. Favourites show a small heart.
+class SelectableCard extends StatefulWidget {
+  final String id;
+  final SelectKind kind;
+  /// Everything shown alongside it, for "Select all".
+  final List<String> scope;
+  final VoidCallback onOpen;
+  final Widget child;
+  final bool favourite;
+  /// The quick actions for these ids (this one, or everything selected).
+  final List<QuickAction> Function(List<String> ids)? actionsFor;
+  const SelectableCard({
+    super.key,
+    required this.id,
+    required this.kind,
+    required this.scope,
+    required this.onOpen,
+    required this.child,
+    this.favourite = false,
+    this.actionsFor,
+  });
+
+  @override
+  State<SelectableCard> createState() => _SelectableCardState();
+}
+
+class _SelectableCardState extends State<SelectableCard> {
+  // Where the finger or mouse last went down, so the menu opens there.
+  Offset? _at;
+
+  Future<void> _menu() async {
+    final sel = context.read<SelectionModel>();
+    final box = context.findRenderObject() as RenderBox;
+    final at = _at ?? box.localToGlobal(box.size.center(Offset.zero));
+    final kindName = widget.kind == SelectKind.books ? 'books' : 'albums';
+    if (sel.selecting(widget.kind)) {
+      // Pressing and holding (or right-clicking) one that isn't ticked just ticks it.
+      if (!sel.contains(widget.id, kind: widget.kind)) {
+        sel.toggle(widget.id, kind: widget.kind);
+        return;
+      }
+      // A ticked one: the quick actions for everything ticked.
+      final ids = sel.ids.toList();
+      await showQuickActions(context, at, widget.actionsFor?.call(ids) ?? const [], header: [
+        PopupMenuItem(enabled: false, child: Text('${ids.length} $kindName selected')),
+        if (sel.canSelectAll) PopupMenuItem(value: () async => sel.selectScope(), child: const Text('Select all')),
+        PopupMenuItem(value: () async => sel.clear(), child: const Text('Stop selecting')),
+      ]);
+      return;
+    }
+    final others = widget.scope.length;
+    await showQuickActions(context, at, widget.actionsFor?.call([widget.id]) ?? const [], header: [
+      PopupMenuItem(
+        value: () async => sel.start(widget.id, kind: widget.kind, scope: widget.scope),
+        child: menuRow(Icons.check_box_outlined, 'Select'),
+      ),
+      if (others > 1)
+        PopupMenuItem(
+          value: () async => sel.start(widget.id, kind: widget.kind, scope: widget.scope, all: true),
+          child: menuRow(Icons.select_all, 'Select all ($others)'),
+        ),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final (selecting, selected) = context.select<SelectionModel, (bool, bool)>(
+        (s) => (s.selecting(widget.kind), s.contains(widget.id, kind: widget.kind)));
+    final accent = Theme.of(context).colorScheme.primary;
+    return Stack(children: [
+      Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: selected ? accent : Colors.transparent, width: 2),
+          color: selected ? accent.withValues(alpha: 0.12) : null,
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTapDown: (d) => _at = d.globalPosition,
+          onTap: selecting ? () => context.read<SelectionModel>().toggle(widget.id, kind: widget.kind) : widget.onOpen,
+          onLongPress: _menu,
+          onSecondaryTapDown: (d) {
+            _at = d.globalPosition;
+            _menu();
+          },
+          child: widget.child,
+        ),
+      ),
+      if (widget.favourite)
+        Positioned(
+          right: 12,
+          top: 12,
+          child: IgnorePointer(
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+              child: Icon(Icons.favorite, size: 14, color: accent, semanticLabel: 'Favourite'),
+            ),
+          ),
+        ),
+      if (selecting)
+        Positioned(
+          left: 12,
+          top: 12,
+          child: IgnorePointer(
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: selected ? accent : Colors.black54,
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(color: selected ? accent : Colors.white, width: 2),
+              ),
+              child: selected ? const Icon(Icons.check, size: 16, color: Colors.black) : null,
+            ),
+          ),
+        ),
+    ]);
   }
 }
 

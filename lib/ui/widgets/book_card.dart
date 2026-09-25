@@ -9,8 +9,12 @@ import 'package:provider/provider.dart';
 import '../../models/book.dart';
 import '../../state/library_model.dart';
 import '../../state/listening_model.dart';
+import '../../state/playlists_model.dart';
+import '../../state/selection_model.dart';
 import '../nav.dart';
 import '../theme.dart';
+import 'cards.dart' show SelectableCard;
+import 'quick_actions.dart';
 
 /// Height ÷ width of book covers: square like music, or tall like a book
 /// (Settings > Audiobooks).
@@ -60,7 +64,9 @@ class BookCover extends StatelessWidget {
 class BookCard extends StatelessWidget {
   final Book book;
   final double? width;
-  const BookCard({super.key, required this.book, this.width});
+  /// The ids of all the books shown alongside this one, for "Select all".
+  final List<String> scope;
+  const BookCard({super.key, required this.book, this.width, this.scope = const []});
 
   @override
   Widget build(BuildContext context) {
@@ -69,20 +75,32 @@ class BookCard extends StatelessWidget {
     final state = listening.stateOf(book); // not started / in progress / finished
     final accent = Theme.of(context).colorScheme.primary;
 
-    final card = InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: () => context.read<AppNav>().openBook(book),
+    final favourite = context.select<PlaylistsModel, bool>((p) => p.isFavouriteBook(book));
+    final card = SelectableCard(
+      id: book.id,
+      kind: SelectKind.books,
+      scope: scope,
+      favourite: favourite,
+      actionsFor: (ids) {
+        final lib = context.read<LibraryModel>();
+        final books = ids.length == 1 && ids.first == book.id
+            ? [book]
+            : [for (final id in ids) lib.bookById(id)].whereType<Book>().toList();
+        return bookActions(context, books);
+      },
+      onOpen: () => context.read<AppNav>().openBook(book),
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: LayoutBuilder(builder: (context, c) {
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Cover, with a tick in the corner once the book is finished.
+            // Cover, with a tick in the bottom corner once the book is finished (the top
+            // corners are for the favourite heart and the select tick).
             Stack(children: [
               BookCover(book: book, width: c.maxWidth),
               if (state == BookState.finished)
                 Positioned(
                   right: 6,
-                  top: 6,
+                  bottom: 6,
                   child: Container(
                     padding: const EdgeInsets.all(3),
                     decoration: BoxDecoration(color: accent, shape: BoxShape.circle),

@@ -143,6 +143,130 @@ before changing that area.
   music server" switch (`serverBooks`) and a placeholder for a separate audiobook server (phase E).
 - **About** shows the version (package_info_plus) and the data folder, with "Open folder" on Windows.
 
+## Equaliser (`equaliser` branch, 0.1.10)
+- **Where:** `EqualizerModel` (`equalizer.json`, included in backups) and `models/eq_preset.dart`.
+  The screen is `ui/screens/equalizer_screen.dart`, opened from Settings › Playback, from Now
+  Playing, and from the icon on the Settings › Audiobooks switch.
+- **Presets:**
+  - Built-ins: Flat, Bass boost, Treble boost, Vocal, Rock, Pop, Classical, Spoken word and
+    Headphones. Each one that boosts also turns the overall level down.
+  - Editing a built-in stores an override. It shows "· edited", and "Restore default" or "Restore
+    all presets" removes the override. Moving the sliders back to the original counts as not edited.
+  - Your own presets ("New", copied from the current one) can be renamed and deleted. Deleting one
+    in use falls back to Flat or Spoken word.
+- **Music vs audiobooks:**
+  - `musicPresetId` and `bookPresetId` hold the two choices. `separateBooks` is on by default and is
+    the switch in Settings › Audiobooks. When it's off, books use the music preset.
+  - Choosing a preset switches the equaliser on. It starts off.
+- **How it's heard (`PlayerModel._applyEqualizer`):**
+  - It runs when the equaliser settings change, when switching between music and a book
+    (`_setBook`), and when the file's sample rate changes (`stream.audioParams`).
+  - Calls are coalesced, so dragging a slider doesn't pile up engine calls.
+  - The filter is `format=format=floatp,lavfi=[equalizer=f=…:t=o:w=1:g=…, …]`, with one octave-wide
+    band per non-zero slider.
+- **Why it's built this way (found with `tool/bench/engine_test.dart` on 25 Sep):**
+  - **media_kit's FFmpeg has no `aresample`.** On its own, the lavfi graph fails ("'aresample'
+    filter not present, cannot convert formats") for any input that isn't planar, and mpv silently
+    disables the filter. mpv's own `format=format=floatp` converter goes first to avoid that.
+  - **The engine rejects the whole graph if a band is at or above Nyquist** (e.g. 16 kHz on 22 kHz
+    audiobooks). `eqFilter(sampleRate:)` leaves those bands out. Before the first file's rate is
+    known, all bands are sent; if that fails, the rate event re-sends without them.
+  - **Just setting `af` and reading it back proves nothing.** mpv accepts the text and fails later.
+    The bench plays a tone at 44.1 and 22.05 kHz at 1.5× and checks the log for filter errors.
+  - **The overall level isn't a lavfi `volume` filter** (not certain to be in the Android build).
+    The player sends `volume × 10^(level/20)` to the engine and keeps `PlayerModel.volume` as the
+    user's own setting. The engine volume stream is no longer copied back.
+- **"Isn't available on this device":** if `setProperty('af')` throws, `EqualizerModel.unavailable`
+  is set and the screen says so. A runtime graph failure (as above) wouldn't be caught this way,
+  which is why the bench matters.
+- **Android:** the arm64 `libmpv.so` includes `equalizer` and `scaletempo2`. The equaliser must be
+  heard on the phone before merging. Check it with
+  `adb logcat | Select-String "HomeTunes: equaliser|lavfi|Disabling filter"`.
+
+## Editing several albums, books or songs (`multi-edit` branch, 0.1.11)
+- **Selecting:**
+  - `SelectionModel` holds one kind at a time (`SelectKind.songs/albums/books`). Ticking a
+    different kind starts a new selection.
+  - Album and book tiles use `SelectableCard` (in `cards.dart`). Right-click, or press and hold on
+    a phone, opens a menu with Select and "Select all (n)". While selecting, a tap ticks or unticks
+    the tile instead of opening it.
+  - Each tile gets a `scope`: everything shown with it on that screen (Albums tab, artist page,
+    search, Home shelves, Books grid in its current sort and filter). "Select all" ticks the scope.
+  - `TrackTile` only shows tick boxes when songs are being selected.
+- **The bar** (`_GroupSelectionBar` in `shell.dart`) shows "n albums/books selected", Select all,
+  and **Edit albums / Edit books**. With one album it opens the normal album editor.
+- **The `--:--` marker** (`differentMarker` in `edit_details.dart`):
+  - A box whose value differs across what's being edited starts empty with `--:--` as its hint,
+    and the note under it says "Different for each … – leave as --:-- to keep them".
+  - Once something is typed, an undo button puts it back to `--:--`.
+  - Only changed fields are saved, as TrackEdits on every track.
+  - Songs multi-edit uses the same marker instead of "Mixed" (user's choice, 25 Sep).
+- **Several albums** (`showEditDetails(..., albumCount: n)`):
+  - The boxes are album artist, artist, year and genre, plus cover (choose image only).
+  - **No album title**, because giving several albums the same title would merge them.
+  - There are no online look-ups, and "Covers differ" is shown when they do.
+- **Several books** (`showEditBooks`): the boxes are author, narrator, series, year and genre, plus
+  cover. There's no title or number in series, and no online look-ups.
+- **Tests:** `test/multi_edit_test.dart`.
+
+## Favourite albums and audiobooks (`favourites` branch, 0.1.12)
+- **Storage:** favourites are saved in `playlists.json` as `favouriteAlbums` and `favouriteBooks`.
+  - **Both hold song/file ids, not album keys or book ids.** An album or book counts as a favourite
+    when any of its songs is in the set.
+  - That way they survive edits that regroup an album (album keys change), moved files (`remapIds`)
+    and forgetting missing songs (`removeIds`). They also count in `referencedIds`, like playlists.
+  - A backup merge keeps favourites from both sides.
+- **Marking favourites:**
+  - The heart button on the album page (`_FavouriteAlbumButton`) and on the book page.
+  - "Add to / Remove from favourites" in the tile menu (right-click, or press and hold on a phone).
+  - The heart in the selection bar. It removes them only when every selected one is already a
+    favourite.
+- **Seeing them:**
+  - A small heart in the top-right of a favourite album or book cover.
+  - The book "finished" tick moved to the cover's bottom-right corner to make room.
+  - A Favourites filter: All / Favourites chips on Library › Albums, and a Favourites chip among the
+    Books tab's state chips. The user chose filters only: no Home shelves and no separate page.
+- **Tests:** `test/favourites_test.dart`.
+
+## Quick actions and the Details page (`details-and-quick-edits` branch, 0.1.13)
+- **Quick actions** (`ui/widgets/quick_actions.dart`, `albumActions` / `bookActions`):
+  - The actions: Edit details…, Choose cover… (one picture for all), Find cover online… (one item
+    only), Use the files' own cover(s) (only when a custom cover exists), Add to / Remove from
+    favourites, and Details….
+  - They appear in an album or book tile's right-click / press-and-hold menu, under Select and
+    Select all.
+  - While selecting, right-clicking a *ticked* tile shows the same actions for everything ticked,
+    plus Select all / Stop selecting. Right-clicking an unticked tile just ticks it.
+  - The selection bar's ⋮ shows them too.
+  - Covers are set with `importCover` + `editMany(ids, TrackEdit(art:))`, like the editors.
+- **Songs:** right-clicking a song row opens the same menu as its ⋮ button (`TrackMenuButton.items`),
+  which now has **Details…**.
+- **Details page** (`ui/screens/details_screen.dart`, logic in `services/media_details.dart`):
+  - **Opened from:** Details… in the menus above, the ⓘ button on the album page, and "Details:
+    where it comes from" in the book page's ⋮ menu.
+  - **Shows:**
+    - the folder(s), with "Show in folder" on Windows
+    - file count, formats and size
+    - why it's in Books or Music (`BookRules.why`, the same rules as `isBook`)
+    - book series or narrator worked out from folder names
+    - a table of every detail with **where it came from**
+    - what the file's tags say (re-read now, plus sample rate and bit rate)
+    - the files beside it that HomeTunes uses
+  - With several files, the table covers the first file and each file expands to its own.
+- **How a source is decided** (`inspectTrackNow`):
+  - The scanned track (before edits) is compared with the track as shown. Anything different is
+    "Your edit", with "File says:".
+  - Otherwise the scanner's order is followed: book details file (`BookInfo`), the tags read again
+    now, folder name, file name (`fallbackFromFileName`), stand-in ("Unknown Artist").
+  - Covers: a picture beside it (`Sidecars.image`, or the folder cover names), built into the file
+    (cached in `art/`), or your choice.
+  - Length: from the tags, measured from the WAV header, or learned when played.
+  - Server songs say "Music server".
+  - If the file has changed since the scan, a detail can show "Couldn't tell".
+- **Menus:** menu labels use `menuRow` (the text can wrap), because long labels overflowed the
+  280 px menu.
+- **Tests:** `test/details_test.dart`.
+
 ## Android fixes worth remembering
 - **Lock screen empty and playback stopping.** The cause was "You must specify an icon resource id
   to build a CustomAction". It's fixed by `res/raw/keep.xml`.

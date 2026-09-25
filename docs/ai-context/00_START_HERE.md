@@ -18,11 +18,9 @@ Read the files in this order:
 ## Status (25 Sep 2026)
 
 - **Everything is in source control.** `main` on GitHub (github.com/Jamesking96/HomeTunes) is
-  **0.1.9+9**, with the Settings tidy-up merged. There are no other branches.
-  - Tests: 165 pass, and `flutter analyze` is clean.
-  - Builds for 0.1.9 are in `build\dist` on the PC.
-  - The phone has 0.1.9 **build 8**: the same features, minus the greyed-out Audiobookshelf boxes.
-    Build 9 hasn't been installed (ask first).
+  **0.1.13+13**. There are no other branches.
+  - Tests: 197 pass, and `flutter analyze` is clean.
+  - Builds for 0.1.13 are in `build\dist` on the PC, and 0.1.13 is installed on the phone.
 - Built and merged so far:
   - the music library, player, playlists, editing and backups
   - server streaming
@@ -30,10 +28,15 @@ Read the files in this order:
   - gapless + ReplayGain (plan phase 1)
   - lyrics (phase 2)
   - audiobook sidecar files (Libation `.metadata.json`, covers, descriptions, PDFs)
-  - Settings tidy-up (pages, search, Sleep timer page, Servers page, About)
+  - Settings tidy-up (pages, search, Sleep timer page, Servers page, About) (0.1.9)
+  - equaliser (0.1.10), confirmed working on the phone in logcat
+  - editing several albums and books at once, with `--:--` (0.1.11)
+  - favourite albums and books (0.1.12)
+  - quick actions in the right-click menu and the Details page, "where it comes from" (0.1.13)
 - These notes are also in the repo under `docs/ai-context/`. Update them when things change.
-- **Next up:** B equaliser → C multi-album and
-  multi-book edit → D offline. See `04_ROADMAP_AND_OPEN_ITEMS.md`.
+- **Next:** nothing is agreed yet. The open phases are D (offline server songs, after the server
+  review) and E (the Audiobookshelf connection, which needs a plan). Ask the user.
+  - After them: D offline (after the server review) and E audiobook server. See `04_ROADMAP_AND_OPEN_ITEMS.md`.
 
 ## Rules the user cares about (follow these)
 
