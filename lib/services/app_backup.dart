@@ -329,7 +329,17 @@ class AppBackup {
     for (final id in (incoming['liked'] as List? ?? const [])) {
       if (!liked.contains(id)) liked.add(id);
     }
-    return {'playlists': lists, 'liked': liked};
+    // Favourite albums and books: everything that's a favourite in either.
+    List<Object?> both(String key) => {
+          ...(current[key] as List? ?? const []),
+          ...(incoming[key] as List? ?? const []),
+        }.toList();
+    return {
+      'playlists': lists,
+      'liked': liked,
+      'favouriteAlbums': both('favouriteAlbums'),
+      'favouriteBooks': both('favouriteBooks'),
+    };
   }
 
   /// Combines two listening.json "books" maps, keeping the latest place per book.

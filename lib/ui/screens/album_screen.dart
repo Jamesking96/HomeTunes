@@ -8,7 +8,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/track.dart';
 import '../../state/library_model.dart';
+import '../../state/playlists_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/artwork.dart';
@@ -76,6 +78,7 @@ class AlbumScreen extends StatelessWidget {
           contextLabel: label,
           // Extra buttons in the header: edit details, add to playlist, and a link to the artist.
           extraActions: [
+            _FavouriteAlbumButton(album: album),
             IconButton(
               tooltip: 'Edit album details',
               icon: const Icon(Icons.edit_outlined),
@@ -274,5 +277,22 @@ class _MissingInfoPromptsState extends State<_MissingInfoPrompts> {
         ),
       const SizedBox(height: 4),
     ]);
+  }
+}
+
+/// The heart on an album's page: adds it to or removes it from favourite albums.
+class _FavouriteAlbumButton extends StatelessWidget {
+  final Album album;
+  const _FavouriteAlbumButton({required this.album});
+
+  @override
+  Widget build(BuildContext context) {
+    final playlists = context.watch<PlaylistsModel>();
+    final on = playlists.isFavouriteAlbum(album);
+    return IconButton(
+      tooltip: on ? 'Remove from favourites' : 'Add to favourites',
+      icon: Icon(on ? Icons.favorite : Icons.favorite_border, color: on ? Theme.of(context).colorScheme.primary : null),
+      onPressed: () => playlists.setFavouriteAlbums([album], !on),
+    );
   }
 }

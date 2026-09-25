@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../models/book.dart';
 import '../../state/library_model.dart';
 import '../../state/listening_model.dart';
+import '../../state/playlists_model.dart';
 import '../../state/selection_model.dart';
 import '../nav.dart';
 import '../theme.dart';
@@ -73,22 +74,26 @@ class BookCard extends StatelessWidget {
     final state = listening.stateOf(book); // not started / in progress / finished
     final accent = Theme.of(context).colorScheme.primary;
 
+    final favourite = context.select<PlaylistsModel, bool>((p) => p.isFavouriteBook(book));
     final card = SelectableCard(
       id: book.id,
       kind: SelectKind.books,
       scope: scope,
+      favourite: favourite,
+      onFavourite: (on) => context.read<PlaylistsModel>().setFavouriteBooks([book], on),
       onOpen: () => context.read<AppNav>().openBook(book),
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: LayoutBuilder(builder: (context, c) {
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Cover, with a tick in the corner once the book is finished.
+            // Cover, with a tick in the bottom corner once the book is finished (the top
+            // corners are for the favourite heart and the select tick).
             Stack(children: [
               BookCover(book: book, width: c.maxWidth),
               if (state == BookState.finished)
                 Positioned(
                   right: 6,
-                  top: 6,
+                  bottom: 6,
                   child: Container(
                     padding: const EdgeInsets.all(3),
                     decoration: BoxDecoration(color: accent, shape: BoxShape.circle),

@@ -1,4 +1,10 @@
-// The user's playlists and their "Liked Songs", saved together in playlists.json.
+// The user's playlists, their "Liked Songs" and their favourite albums and audiobooks, saved
+// together in playlists.json.
+//
+// Favourite albums and books are stored as the ids of their songs/files rather than album keys
+// or book ids, so they follow the same rules as playlists: they survive edits that regroup an
+// album, files that move, and backups. An album or book is a favourite when any of its songs is
+// in the set.
 //
 // Playlists store track ids only (not copies of the songs), so edits to a song show up
 // everywhere. Because of that, LibraryModel keeps songs that are in a playlist even when their
@@ -6,6 +12,7 @@
 // the user forgets missing songs (`removeIds`). Every change is saved straight away.
 import 'package:flutter/foundation.dart';
 
+import '../models/book.dart';
 import '../models/playlist.dart';
 import '../models/track.dart';
 import '../services/storage.dart';
@@ -23,16 +30,24 @@ class PlaylistsModel extends ChangeNotifier {
   // The same ids as a set, so "is this song liked?" is a quick look-up while drawing lists.
   Set<String> _likedSet = {};
 
+  // Song/file ids of favourite albums and favourite audiobooks.
+  Set<String> _favAlbums = {};
+  Set<String> _favBooks = {};
+
   /// Reads playlists.json (at start-up and after a backup is restored).
   Future<void> load() async {
     playlists = [];
     liked = [];
+    _favAlbums = {};
+    _favBooks = {};
     final j = await storage.read('playlists.json') as Map<String, dynamic>?;
     if (j != null) {
       playlists = [
         for (final p in (j['playlists'] as List? ?? const [])) Playlist.fromJson(p as Map<String, dynamic>),
       ];
       liked = (j['liked'] as List? ?? const []).cast<String>().toList();
+      _favAlbums = (j['favouriteAlbums'] as List? ?? const []).cast<String>().toSet();
+      _favBooks = (j['favouriteBooks'] as List? ?? const []).cast<String>().toSet();
     }
     _likedSet = liked.toSet();
     notifyListeners();
@@ -41,6 +56,8 @@ class PlaylistsModel extends ChangeNotifier {
   Future<void> _save() => storage.write('playlists.json', {
         'playlists': [for (final p in playlists) p.toJson()],
         'liked': liked,
+        'favouriteAlbums': _favAlbums.toList(),
+        'favouriteBooks': _favBooks.toList(),
       });
 
   /// Redraws listeners and saves. Called after every change. The save isn't awaited: the
@@ -59,6 +76,31 @@ class PlaylistsModel extends ChangeNotifier {
     } else {
       _likedSet.add(t.id);
       liked.insert(0, t.id);
+    }
+    _changed();
+  }
+
+  // ---- favourite albums and books ----
+
+  bool isFavouriteAlbum(Album a) => a.tracks.any((t) => _favAlbums.contains(t.id));
+  bool isFavouriteBook(Book b) => b.parts.any((t) => _favBooks.contains(t.id));
+
+  /// Makes [albums] favourites, or not.
+  void setFavouriteAlbums(Iterable<Album> albums, bool favourite) {
+    for (final a in albums) {
+      for (final t in a.tracks) {
+        favourite ? _favAlbums.add(t.id) : _favAlbums.remove(t.id);
+      }
+    }
+    _changed();
+  }
+
+  /// Makes [books] favourites, or not.
+  void setFavouriteBooks(Iterable<Book> books, bool favourite) {
+    for (final b in books) {
+      for (final t in b.parts) {
+        favourite ? _favBooks.add(t.id) : _favBooks.remove(t.id);
+      }
     }
     _changed();
   }
@@ -109,8 +151,9 @@ class PlaylistsModel extends ChangeNotifier {
     _changed();
   }
 
-  /// Every track id used by a playlist or Liked Songs.
-  Set<String> get referencedIds => {..._likedSet, for (final p in playlists) ...p.trackIds};
+  /// Every track id used by a playlist, Liked Songs or a favourite album or book.
+  Set<String> get referencedIds =>
+      {..._likedSet, ..._favAlbums, ..._favBooks, for (final p in playlists) ...p.trackIds};
 
   /// Songs that moved (old id → new id) keep their places in playlists and likes.
   void remapIds(Map<String, String> moved) {
@@ -137,6 +180,8 @@ class PlaylistsModel extends ChangeNotifier {
     }
     liked = remap(liked);
     _likedSet = liked.toSet();
+    _favAlbums = remap(_favAlbums.toList()).toSet();
+    _favBooks = remap(_favBooks.toList()).toSet();
     if (changed) _changed();
   }
 
@@ -148,6 +193,8 @@ class PlaylistsModel extends ChangeNotifier {
     }
     liked.removeWhere(ids.contains);
     _likedSet = liked.toSet();
+    _favAlbums.removeAll(ids);
+    _favBooks.removeAll(ids);
     _changed();
   }
 

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/track.dart';
+import '../../state/playlists_model.dart';
 import '../../state/selection_model.dart';
 import '../nav.dart';
 import '../theme.dart';
@@ -25,10 +26,13 @@ class AlbumCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final favourite = context.select<PlaylistsModel, bool>((p) => p.isFavouriteAlbum(album));
     final card = SelectableCard(
       id: album.key,
       kind: SelectKind.albums,
       scope: scope,
+      favourite: favourite,
+      onFavourite: (on) => context.read<PlaylistsModel>().setFavouriteAlbums([album], on),
       onOpen: () => context.read<AppNav>().openAlbum(album),
       child: Padding(
         padding: const EdgeInsets.all(8),
@@ -51,8 +55,9 @@ class AlbumCard extends StatelessWidget {
 }
 
 /// An album or book tile that can be selected. Tapping opens it. Right-click
-/// (or press and hold on a phone) offers Select and Select all; while
-/// selecting, a tap ticks or unticks it instead of opening it.
+/// (or press and hold on a phone) offers Select, Select all and Add to /
+/// Remove from favourites; while selecting, a tap ticks or unticks it instead
+/// of opening it. Favourites show a small heart on the cover.
 class SelectableCard extends StatefulWidget {
   final String id;
   final SelectKind kind;
@@ -60,6 +65,9 @@ class SelectableCard extends StatefulWidget {
   final List<String> scope;
   final VoidCallback onOpen;
   final Widget child;
+  final bool favourite;
+  /// Makes it a favourite (true) or not; null hides the menu item.
+  final ValueChanged<bool>? onFavourite;
   const SelectableCard({
     super.key,
     required this.id,
@@ -67,6 +75,8 @@ class SelectableCard extends StatefulWidget {
     required this.scope,
     required this.onOpen,
     required this.child,
+    this.favourite = false,
+    this.onFavourite,
   });
 
   @override
@@ -87,16 +97,25 @@ class _SelectableCardState extends State<SelectableCard> {
     final box = context.findRenderObject() as RenderBox;
     final at = _at ?? box.localToGlobal(box.size.center(Offset.zero));
     final others = widget.scope.length;
-    final choice = await showMenu<bool>(
+    final choice = await showMenu<String>(
       context: context,
       position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
       items: [
-        const PopupMenuItem(value: false, child: Text('Select')),
-        if (others > 1) PopupMenuItem(value: true, child: Text('Select all ($others)')),
+        const PopupMenuItem(value: 'one', child: Text('Select')),
+        if (others > 1) PopupMenuItem(value: 'all', child: Text('Select all ($others)')),
+        if (widget.onFavourite != null)
+          PopupMenuItem(
+            value: 'fav',
+            child: Text(widget.favourite ? 'Remove from favourites' : 'Add to favourites'),
+          ),
       ],
     );
     if (choice == null || !mounted) return;
-    sel.start(widget.id, kind: widget.kind, scope: widget.scope, all: choice);
+    if (choice == 'fav') {
+      widget.onFavourite!(!widget.favourite);
+    } else {
+      sel.start(widget.id, kind: widget.kind, scope: widget.scope, all: choice == 'all');
+    }
   }
 
   @override
@@ -123,6 +142,18 @@ class _SelectableCardState extends State<SelectableCard> {
           child: widget.child,
         ),
       ),
+      if (widget.favourite)
+        Positioned(
+          right: 12,
+          top: 12,
+          child: IgnorePointer(
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+              child: Icon(Icons.favorite, size: 14, color: accent, semanticLabel: 'Favourite'),
+            ),
+          ),
+        ),
       if (selecting)
         Positioned(
           left: 12,

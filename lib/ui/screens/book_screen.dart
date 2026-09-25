@@ -16,6 +16,7 @@ import '../../state/bookmarks_model.dart';
 import '../../state/library_model.dart';
 import '../../state/listening_model.dart';
 import '../../state/player_model.dart';
+import '../../state/playlists_model.dart';
 import '../theme.dart';
 import '../widgets/book_card.dart';
 import '../widgets/bookmark_widgets.dart';
@@ -137,6 +138,16 @@ class BookScreen extends StatelessWidget {
             label: const Text('Play from start'),
             onPressed: () => player.playBook(book, fromStart: true),
           ),
+        Builder(builder: (context) {
+          final playlists = context.watch<PlaylistsModel>();
+          final on = playlists.isFavouriteBook(book);
+          return IconButton(
+            tooltip: on ? 'Remove from favourites' : 'Add to favourites',
+            icon: Icon(on ? Icons.favorite : Icons.favorite_border,
+                color: on ? Theme.of(context).colorScheme.primary : null),
+            onPressed: () => playlists.setFavouriteBooks([book], !on),
+          );
+        }),
         IconButton(
           tooltip: 'Edit book details',
           icon: const Icon(Icons.edit_outlined),
