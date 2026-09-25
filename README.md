@@ -75,6 +75,14 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
   Repeat-one loops without a gap. Can be switched off in Settings → Playback.
 - **Even out volume (ReplayGain)** – off, by song or by album, using the loudness info many files
   carry (Settings → Playback).
+- **Lyrics** – the lyrics button in Now Playing (beside the cover on wide windows, in place of it
+  on phones). Timed lyrics follow the song, and tapping a line jumps there. They come from the file's
+  tags, a `.lrc` file with the same name, your server, or LRCLIB (lrclib.net, switch in Settings →
+  Online lookups; only title, artist, album and length are sent, and what's found is saved).
+  **Find lyrics on LRCLIB…** in any song's ⋮ menu shows the matches so you can check one before
+  using it, even if the song already has lyrics. You can also edit or paste lyrics. They're kept as
+  HomeTunes edits and can be saved into MP3, FLAC and M4A files.
+  `dart run tool/probe_lyrics.dart "Title" "Artist" [seconds]` checks the LRCLIB look-up.
 - **System media controls** – Android: media notification, lock screen, Bluetooth/headset buttons,
   and background playback that Android won't kill. Windows: keyboard media keys and the Windows
   media overlay. Back on the Android Home screen hides the app and keeps the music playing.
@@ -193,4 +201,7 @@ tool/patch_platforms.dart    adds Android/macOS/iOS permissions after `flutter c
 - **iOS**: iOS doesn't allow apps to read arbitrary folders; local playback there would need
   import through the Files app. Server streaming works.
 - **Offline copies of server songs** (download for later) aren't implemented.
-- No lyrics or equaliser yet (planned).
+- No equaliser yet (planned).
+- Writing tags uses a patched copy of audio_metadata_reader (`packages/audio_metadata_reader`)
+  that keeps lyrics, ReplayGain, comments and other tags it doesn't edit. Version 1.8.0 on its own
+  drops them.
