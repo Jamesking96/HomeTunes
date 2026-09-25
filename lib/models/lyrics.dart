@@ -124,7 +124,7 @@ List<LyricLine> parseLyrics(String text) {
 
 Duration _atLeastZero(Duration d) => d.isNegative ? Duration.zero : d;
 
-Duration _lrcDuration(RegExpMatch m) {
+Duration _lrcDuration(Match m) {
   final minutes = int.parse(m.group(1)!);
   final seconds = int.parse(m.group(2)!);
   final frac = m.group(3);
