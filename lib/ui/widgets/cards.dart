@@ -11,7 +11,9 @@ import '../../state/playlists_model.dart';
 import '../../state/selection_model.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../../state/library_model.dart';
 import 'artwork.dart';
+import 'quick_actions.dart';
 
 /// Album tile for grids and carousels.
 class AlbumCard extends StatelessWidget {
@@ -32,7 +34,10 @@ class AlbumCard extends StatelessWidget {
       kind: SelectKind.albums,
       scope: scope,
       favourite: favourite,
-      onFavourite: (on) => context.read<PlaylistsModel>().setFavouriteAlbums([album], on),
+      actionsFor: (keys) {
+        final lib = context.read<LibraryModel>();
+        return albumActions(context, [for (final k in keys) lib.albumByKey(k)].whereType<Album>().toList());
+      },
       onOpen: () => context.read<AppNav>().openAlbum(album),
       child: Padding(
         padding: const EdgeInsets.all(8),
@@ -55,9 +60,10 @@ class AlbumCard extends StatelessWidget {
 }
 
 /// An album or book tile that can be selected. Tapping opens it. Right-click
-/// (or press and hold on a phone) offers Select, Select all and Add to /
-/// Remove from favourites; while selecting, a tap ticks or unticks it instead
-/// of opening it. Favourites show a small heart on the cover.
+/// (or press and hold on a phone) offers Select and Select all, then quick
+/// actions (edit, cover, favourites, details). While selecting, a tap ticks or
+/// unticks it instead of opening it, and right-clicking a ticked one offers the
+/// quick actions for everything ticked. Favourites show a small heart.
 class SelectableCard extends StatefulWidget {
   final String id;
   final SelectKind kind;
@@ -66,8 +72,8 @@ class SelectableCard extends StatefulWidget {
   final VoidCallback onOpen;
   final Widget child;
   final bool favourite;
-  /// Makes it a favourite (true) or not; null hides the menu item.
-  final ValueChanged<bool>? onFavourite;
+  /// The quick actions for these ids (this one, or everything selected).
+  final List<QuickAction> Function(List<String> ids)? actionsFor;
   const SelectableCard({
     super.key,
     required this.id,
@@ -76,7 +82,7 @@ class SelectableCard extends StatefulWidget {
     required this.onOpen,
     required this.child,
     this.favourite = false,
-    this.onFavourite,
+    this.actionsFor,
   });
 
   @override
@@ -89,33 +95,40 @@ class _SelectableCardState extends State<SelectableCard> {
 
   Future<void> _menu() async {
     final sel = context.read<SelectionModel>();
-    if (sel.selecting(widget.kind)) {
-      sel.toggle(widget.id, kind: widget.kind);
-      return;
-    }
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final box = context.findRenderObject() as RenderBox;
     final at = _at ?? box.localToGlobal(box.size.center(Offset.zero));
-    final others = widget.scope.length;
-    final choice = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
-      items: [
-        const PopupMenuItem(value: 'one', child: Text('Select')),
-        if (others > 1) PopupMenuItem(value: 'all', child: Text('Select all ($others)')),
-        if (widget.onFavourite != null)
-          PopupMenuItem(
-            value: 'fav',
-            child: Text(widget.favourite ? 'Remove from favourites' : 'Add to favourites'),
-          ),
-      ],
-    );
-    if (choice == null || !mounted) return;
-    if (choice == 'fav') {
-      widget.onFavourite!(!widget.favourite);
-    } else {
-      sel.start(widget.id, kind: widget.kind, scope: widget.scope, all: choice == 'all');
+    final kindName = widget.kind == SelectKind.books ? 'books' : 'albums';
+    if (sel.selecting(widget.kind)) {
+      // Pressing and holding (or right-clicking) one that isn't ticked just ticks it.
+      if (!sel.contains(widget.id, kind: widget.kind)) {
+        sel.toggle(widget.id, kind: widget.kind);
+        return;
+      }
+      // A ticked one: the quick actions for everything ticked.
+      final ids = sel.ids.toList();
+      await showQuickActions(context, at, widget.actionsFor?.call(ids) ?? const [], header: [
+        PopupMenuItem(enabled: false, child: Text('${ids.length} $kindName selected')),
+        if (sel.canSelectAll) PopupMenuItem(value: () async => sel.selectScope(), child: const Text('Select all')),
+        PopupMenuItem(value: () async => sel.clear(), child: const Text('Stop selecting')),
+      ]);
+      return;
     }
+    final others = widget.scope.length;
+    await showQuickActions(context, at, widget.actionsFor?.call([widget.id]) ?? const [], header: [
+      PopupMenuItem(
+        value: () async => sel.start(widget.id, kind: widget.kind, scope: widget.scope),
+        child: const Row(children: [Icon(Icons.check_box_outlined, size: 20), SizedBox(width: 12), Text('Select')]),
+      ),
+      if (others > 1)
+        PopupMenuItem(
+          value: () async => sel.start(widget.id, kind: widget.kind, scope: widget.scope, all: true),
+          child: Row(children: [
+            const Icon(Icons.select_all, size: 20),
+            const SizedBox(width: 12),
+            Text('Select all ($others)'),
+          ]),
+        ),
+    ]);
   }
 
   @override

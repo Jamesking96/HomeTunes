@@ -21,6 +21,7 @@ import '../../models/track_edit.dart';
 import '../../services/music_info.dart';
 import 'cover_search_dialog.dart';
 import 'info_lookup_dialog.dart';
+import 'details_screen.dart';
 import 'edit_details.dart';
 
 /// Shows one album. [albumKey] is the album's grouping key (album artist + album name), which
@@ -79,6 +80,11 @@ class AlbumScreen extends StatelessWidget {
           // Extra buttons in the header: edit details, add to playlist, and a link to the artist.
           extraActions: [
             _FavouriteAlbumButton(album: album),
+            IconButton(
+              tooltip: 'Details: where it comes from',
+              icon: const Icon(Icons.info_outline),
+              onPressed: () => openDetails(context, kind: 'Album', title: album.title, tracks: tracks),
+            ),
             IconButton(
               tooltip: 'Edit album details',
               icon: const Icon(Icons.edit_outlined),
