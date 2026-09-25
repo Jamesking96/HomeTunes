@@ -11,6 +11,7 @@ import 'services/storage.dart';
 import 'state/bookmarks_model.dart';
 import 'state/library_model.dart';
 import 'state/listening_model.dart';
+import 'state/lyrics_model.dart';
 import 'state/player_model.dart';
 import 'state/playlists_model.dart';
 import 'state/selection_model.dart';
@@ -28,7 +29,8 @@ Future<void> main() async {
   final playlists = PlaylistsModel(storage);
   final listening = ListeningModel(storage);
   final bookmarks = BookmarksModel(storage);
-  await Future.wait([library.load(), playlists.load(), listening.load(), bookmarks.load()]);
+  final lyrics = LyricsModel(library, storage);
+  await Future.wait([library.load(), playlists.load(), listening.load(), bookmarks.load(), lyrics.load()]);
   // Songs in playlists / Liked Songs are kept track of even when their files
   // are missing, and follow them if they move.
   library
@@ -63,6 +65,7 @@ Future<void> main() async {
     playlists: playlists,
     listening: listening,
     bookmarks: bookmarks,
+    lyrics: lyrics,
     player: player,
   ));
 
@@ -93,6 +96,7 @@ class HomeTunesApp extends StatelessWidget {
   final PlaylistsModel playlists;
   final ListeningModel listening;
   final BookmarksModel bookmarks;
+  final LyricsModel lyrics;
   final PlayerModel player;
   const HomeTunesApp({
     super.key,
@@ -100,6 +104,7 @@ class HomeTunesApp extends StatelessWidget {
     required this.playlists,
     required this.listening,
     required this.bookmarks,
+    required this.lyrics,
     required this.player,
   });
 
@@ -111,6 +116,7 @@ class HomeTunesApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: playlists),
         ChangeNotifierProvider.value(value: listening),
         ChangeNotifierProvider.value(value: bookmarks),
+        ChangeNotifierProvider.value(value: lyrics),
         ChangeNotifierProvider.value(value: player),
         ChangeNotifierProvider(create: (_) => SleepTimer(player, library)),
         ChangeNotifierProvider(create: (_) => AppNav()),

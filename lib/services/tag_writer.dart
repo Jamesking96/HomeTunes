@@ -9,7 +9,7 @@ import '../models/track_edit.dart';
 
 /// Which tag fields each file type can store.
 class TagSupport {
-  final bool title, artist, album, albumArtist, trackNumber, discNumber, year, genre, cover;
+  final bool title, artist, album, albumArtist, trackNumber, discNumber, year, genre, cover, lyrics;
   const TagSupport({
     this.title = true,
     this.artist = true,
@@ -20,6 +20,7 @@ class TagSupport {
     this.year = true,
     this.genre = true,
     this.cover = true,
+    this.lyrics = true,
   });
 
   static const none = TagSupport(
@@ -32,17 +33,19 @@ class TagSupport {
     year: false,
     genre: false,
     cover: false,
+    lyrics: false,
   );
 
   /// By file extension. OGG/Opus have no writer in the tag library.
   static TagSupport forPath(String path) => switch (p.extension(path).toLowerCase()) {
         '.mp3' || '.flac' => const TagSupport(),
         '.m4a' || '.mp4' || '.aac' => const TagSupport(albumArtist: false),
-        '.wav' => const TagSupport(albumArtist: false, discNumber: false, cover: false),
+        '.wav' => const TagSupport(albumArtist: false, discNumber: false, cover: false, lyrics: false),
         _ => none,
       };
 
-  bool get anything => title || artist || album || albumArtist || trackNumber || discNumber || year || genre || cover;
+  bool get anything =>
+      title || artist || album || albumArtist || trackNumber || discNumber || year || genre || cover || lyrics;
 
   /// The part of [e] this file type can't store (it stays as a HomeTunes edit).
   TrackEdit leftover(TrackEdit e) => TrackEdit(
@@ -59,6 +62,7 @@ class TagSupport {
         narrator: e.narrator,
         series: e.series,
         seriesIndex: e.seriesIndex,
+        lyrics: lyrics ? null : e.lyrics,
       );
 }
 
@@ -211,6 +215,7 @@ void _apply(Object m, TrackEdit e, TagSupport s, Uint8List? cover, String? cover
           ...m.pictures.where((x) => x.pictureType != PictureType.coverFront),
         ];
       }
+      if (e.lyrics != null) m.lyric = e.lyrics;
     case Mp4Metadata():
       if (e.title != null) m.title = e.title;
       if (e.artist != null) m.artist = e.artist;
@@ -220,6 +225,7 @@ void _apply(Object m, TrackEdit e, TagSupport s, Uint8List? cover, String? cover
       if (e.year != null) m.year = DateTime(e.year!);
       if (e.genre != null) m.genre = e.genre;
       if (picture != null) m.picture = picture;
+      if (e.lyrics != null) m.lyrics = e.lyrics;
     case VorbisMetadata():
       if (e.title != null) m.title = [e.title!];
       if (e.artist != null) m.artist = [e.artist!];
@@ -235,6 +241,7 @@ void _apply(Object m, TrackEdit e, TagSupport s, Uint8List? cover, String? cover
           ...m.pictures.where((x) => x.pictureType != PictureType.coverFront),
         ];
       }
+      if (e.lyrics != null) m.lyric = e.lyrics;
     case RiffMetadata():
       if (e.title != null) m.title = e.title;
       if (e.artist != null) m.artist = e.artist;

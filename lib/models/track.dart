@@ -39,6 +39,20 @@ class Track {
   final String? series;
   final double? seriesIndex;
 
+  /// About the book, from a metadata or text file next to it (audiobooks).
+  final String? description;
+
+  /// Files that come with the book, like a PDF (paths).
+  final List<String> companions;
+
+  /// A book metadata file (e.g. Libation's .metadata.json) was found for this
+  /// file, which marks it as an audiobook.
+  final bool hasBookInfo;
+
+  /// Changes when the extra files next to this one change (see book_sidecar.dart),
+  /// so rescans read them again.
+  final int? sidecarStamp;
+
   const Track({
     required this.id,
     required this.source,
@@ -59,6 +73,10 @@ class Track {
     this.narrator,
     this.series,
     this.seriesIndex,
+    this.description,
+    this.companions = const [],
+    this.hasBookInfo = false,
+    this.sidecarStamp,
   });
 
   bool get isLocal => source == TrackSource.local;
@@ -90,6 +108,10 @@ class Track {
         narrator: narrator,
         series: series,
         seriesIndex: seriesIndex,
+        description: description,
+        companions: companions,
+        hasBookInfo: hasBookInfo,
+        sidecarStamp: sidecarStamp,
       );
 
   Map<String, dynamic> toJson() => {
@@ -112,6 +134,10 @@ class Track {
         if (narrator != null) 'narrator': narrator,
         if (series != null) 'series': series,
         if (seriesIndex != null) 'seriesIndex': seriesIndex,
+        if (description != null) 'description': description,
+        if (companions.isNotEmpty) 'companions': companions,
+        if (hasBookInfo) 'hasBookInfo': true,
+        if (sidecarStamp != null) 'sidecarStamp': sidecarStamp,
       };
 
   factory Track.fromJson(Map<String, dynamic> j) => Track(
@@ -136,6 +162,10 @@ class Track {
         narrator: j['narrator'] as String?,
         series: j['series'] as String?,
         seriesIndex: (j['seriesIndex'] as num?)?.toDouble(),
+        description: j['description'] as String?,
+        companions: (j['companions'] as List? ?? const []).cast<String>(),
+        hasBookInfo: (j['hasBookInfo'] as bool?) ?? false,
+        sidecarStamp: j['sidecarStamp'] as int?,
       );
 
   @override

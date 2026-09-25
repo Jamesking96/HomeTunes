@@ -40,6 +40,9 @@ class LibraryModel extends ChangeNotifier {
   /// Offer to look up missing song details (year, artist, genre…) on MusicBrainz.
   bool onlineDetails = true;
 
+  /// Look up lyrics on LRCLIB when a song has none of its own.
+  bool onlineLyrics = true;
+
   // ---- playback settings ----
 
   /// Load the next song ahead so it follows with no gap.
@@ -197,6 +200,7 @@ class LibraryModel extends ChangeNotifier {
     serverEnabled = false;
     onlineCovers = true;
     onlineDetails = true;
+    onlineLyrics = true;
     gaplessPlayback = true;
     replayGain = ReplayGainMode.off;
     audiobookFolders = [];
@@ -224,6 +228,7 @@ class LibraryModel extends ChangeNotifier {
       serverEnabled = (s['serverEnabled'] as bool?) ?? false;
       onlineCovers = (s['onlineCovers'] as bool?) ?? true;
       onlineDetails = (s['onlineDetails'] as bool?) ?? true;
+      onlineLyrics = (s['onlineLyrics'] as bool?) ?? true;
       gaplessPlayback = (s['gaplessPlayback'] as bool?) ?? true;
       replayGain = ReplayGainMode.values.asNameMap()[s['replayGain']] ?? ReplayGainMode.off;
       audiobookFolders = (s['audiobookFolders'] as List? ?? const []).cast<String>().toList();
@@ -263,6 +268,7 @@ class LibraryModel extends ChangeNotifier {
         'serverEnabled': serverEnabled,
         'onlineCovers': onlineCovers,
         'onlineDetails': onlineDetails,
+        'onlineLyrics': onlineLyrics,
         'gaplessPlayback': gaplessPlayback,
         'replayGain': replayGain.name,
         'audiobookFolders': audiobookFolders,
@@ -281,6 +287,12 @@ class LibraryModel extends ChangeNotifier {
 
   Future<void> setOnlineDetails(bool on) async {
     onlineDetails = on;
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  Future<void> setOnlineLyrics(bool on) async {
+    onlineLyrics = on;
     notifyListeners();
     await _saveSettings();
   }
@@ -652,6 +664,8 @@ class LibraryModel extends ChangeNotifier {
   Future<void> setEdit(String id, TrackEdit edit) async {
     final original = _rawById[id];
     if (original == null) return;
+    // The details editor doesn't touch lyrics: keep the song's own.
+    if (edit.lyrics == null) edit = edit.withLyrics(_edits[id]?.lyrics);
     final e = edit.normalizedAgainst(original);
     if (e.isEmpty) {
       _edits.remove(id);
@@ -681,9 +695,28 @@ class LibraryModel extends ChangeNotifier {
       editTracks({for (final id in ids) id: change});
 
   /// Forgets the user's edits so the songs show what the files say again.
+  /// Lyrics the user added are kept (they have their own "remove").
   Future<void> resetEdits(Iterable<String> ids) async {
     for (final id in ids) {
+      final lyrics = _edits.remove(id)?.lyrics;
+      if (lyrics != null) _edits[id] = TrackEdit(lyrics: lyrics);
+    }
+    await _saveEdits();
+  }
+
+  // ---- lyrics ----
+
+  /// Lyrics the user chose or typed for a song: null if none, "" if they
+  /// said the song has no lyrics.
+  String? lyricsEdit(String id) => _edits[id]?.lyrics;
+
+  /// Sets (or with null, removes) the user's lyrics for a song.
+  Future<void> setLyrics(String id, String? lyrics) async {
+    final e = (_edits[id] ?? TrackEdit.empty).withLyrics(lyrics);
+    if (e.isEmpty) {
       _edits.remove(id);
+    } else {
+      _edits[id] = e;
     }
     await _saveEdits();
   }
