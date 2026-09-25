@@ -23,17 +23,27 @@ import '../widgets/artwork.dart';
 import 'cover_search_dialog.dart';
 import 'info_lookup_dialog.dart';
 
-/// Opens the editor for one song, a whole album ([album] = true) or several
-/// selected songs. Changes are saved in HomeTunes only; music files are never
-/// modified. Returns true if anything was saved.
-Future<bool> showEditDetails(BuildContext context, List<Track> tracks, {bool album = false}) async {
+/// The marker shown in a box when the songs, albums or books being edited
+/// together have different values. Leaving it keeps each one's own value.
+const differentMarker = '--:--';
+
+/// Opens the editor for one song, a whole album ([album] = true), several
+/// selected songs, or several albums ([albumCount] > 1, [tracks] = all their
+/// songs). Changes are saved in HomeTunes only, as edits laid over the files.
+/// Returns true if anything was saved.
+Future<bool> showEditDetails(BuildContext context, List<Track> tracks, {bool album = false, int albumCount = 1}) async {
   if (tracks.isEmpty) return false;
   final wide = MediaQuery.sizeOf(context).width >= 700;
   final saved = await showDialog<bool>(
     context: context,
     useRootNavigator: true,
     builder: (_) {
-      final editor = _EditDetails(tracks: tracks, albumMode: album, fullScreen: !wide);
+      final editor = _EditDetails(
+        tracks: tracks,
+        albumMode: album && albumCount <= 1,
+        albumCount: albumCount,
+        fullScreen: !wide,
+      );
       return wide
           ? Dialog(
               backgroundColor: AppColors.surface,
@@ -52,8 +62,10 @@ enum _Field { title, artist, album, albumArtist, trackNumber, discNumber, year, 
 class _EditDetails extends StatefulWidget {
   final List<Track> tracks;
   final bool albumMode;
+  /// More than 1: editing several albums at once (their songs are in [tracks]).
+  final int albumCount;
   final bool fullScreen;
-  const _EditDetails({required this.tracks, required this.albumMode, required this.fullScreen});
+  const _EditDetails({required this.tracks, required this.albumMode, this.albumCount = 1, required this.fullScreen});
 
   @override
   State<_EditDetails> createState() => _EditDetailsState();
@@ -61,12 +73,14 @@ class _EditDetails extends StatefulWidget {
 
 class _EditDetailsState extends State<_EditDetails> {
   /// True when editing exactly one song (the only mode that shows every field).
-  late final bool _single = widget.tracks.length == 1 && !widget.albumMode;
+  late final bool _single = widget.tracks.length == 1 && !widget.albumMode && !_manyAlbums;
+  /// Editing several albums at once.
+  bool get _manyAlbums => widget.albumCount > 1;
   /// Which fields to show in this mode, in order.
   late final List<_Field> _fields;
   final Map<_Field, TextEditingController> _ctrl = {};
   final Map<_Field, String> _initial = {};
-  /// Fields where the songs being edited disagree; their box starts blank with a "Mixed" hint.
+  /// Fields where the songs being edited disagree; their box starts blank and shows [differentMarker].
   final Set<_Field> _mixed = {};
 
   String? _newCover; // imported copy of a picked image
@@ -90,11 +104,14 @@ class _EditDetailsState extends State<_EditDetails> {
   void initState() {
     super.initState();
     // Pick the fields: all of them for one song; album-level ones for an album or a selection.
+    // Several albums: no album title, since giving them all one title would merge them.
     _fields = _single
         ? _Field.values
-        : widget.albumMode
-            ? const [_Field.album, _Field.albumArtist, _Field.artist, _Field.year, _Field.genre]
-            : const [_Field.artist, _Field.album, _Field.albumArtist, _Field.year, _Field.genre];
+        : _manyAlbums
+            ? const [_Field.albumArtist, _Field.artist, _Field.year, _Field.genre]
+            : widget.albumMode
+                ? const [_Field.album, _Field.albumArtist, _Field.artist, _Field.year, _Field.genre]
+                : const [_Field.artist, _Field.album, _Field.albumArtist, _Field.year, _Field.genre];
     // Start each box with the value all the songs share, or blank if they differ.
     for (final f in _fields) {
       final values = _tracks.map((t) => _valueOf(t, f)).toSet();
@@ -188,6 +205,7 @@ class _EditDetailsState extends State<_EditDetails> {
   /// The dialog's title, which depends on the mode.
   String get _heading {
     if (_single) return 'Edit song';
+    if (_manyAlbums) return 'Edit ${widget.albumCount} albums';
     if (widget.albumMode) return 'Edit album';
     return 'Edit ${_tracks.length} songs';
   }
@@ -372,7 +390,10 @@ class _EditDetailsState extends State<_EditDetails> {
         title: const Text('Reset to file details?'),
         content: Text(_single
             ? 'Your changes to this song will be removed and it will show the details from the music file again.'
-            : 'Your changes to these ${_tracks.length} songs will be removed and they will show the details from the music files again.'),
+            : _manyAlbums
+                ? 'Your changes to these ${widget.albumCount} albums will be removed and they will show the details from '
+                    'the music files again.'
+                : 'Your changes to these ${_tracks.length} songs will be removed and they will show the details from the music files again.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Reset')),
@@ -406,20 +427,17 @@ class _EditDetailsState extends State<_EditDetails> {
             keyboardType: _isNumber(f) ? TextInputType.number : TextInputType.text,
             inputFormatters: _isNumber(f) ? [FilteringTextInputFormatter.digitsOnly] : null,
             textCapitalization: _isNumber(f) ? TextCapitalization.none : TextCapitalization.words,
-            // Refresh the "In file: …" hint as you type.
-            onChanged: _single ? (_) => setState(() {}) : null,
+            // Refresh the "In file: …" hint, or the undo button, as you type.
+            onChanged: _single || _mixed.contains(f) ? (_) => setState(() {}) : null,
             decoration: InputDecoration(
-              // A separate "find online" button for each detail.
-              suffixIcon: context.watch<LibraryModel>().onlineDetails
-                  ? IconButton(
-                      tooltip: 'Find ${_label(f).toLowerCase()} online',
-                      icon: const Icon(Icons.travel_explore, size: 20),
-                      onPressed: _saving ? null : () => _lookUp(f),
-                    )
-                  : null,
+              suffixIcon: _suffixFor(f),
               labelText: _label(f),
-              // "Mixed" boxes start blank; leaving them blank keeps each song's own value.
-              hintText: _mixed.contains(f) ? 'Mixed – leave blank to keep each song\'s own' : null,
+              // Boxes where they differ show --:--; leaving it keeps each one's own value.
+              floatingLabelBehavior: _mixed.contains(f) ? FloatingLabelBehavior.always : null,
+              hintText: _mixed.contains(f) ? differentMarker : null,
+              hintStyle: _mixed.contains(f)
+                  ? const TextStyle(color: AppColors.textDim, letterSpacing: 2, fontWeight: FontWeight.w600)
+                  : null,
               helperText: _helperFor(f, lib),
             ),
           ),
@@ -521,14 +539,53 @@ class _EditDetailsState extends State<_EditDetails> {
     ]);
   }
 
+  /// What these are called in messages: albums or songs.
+  String get _things => _manyAlbums ? 'album' : 'song';
+
+  /// The button at the end of a box: "keep each one's own" once a --:-- box has
+  /// been typed in, otherwise "find online" (not for several albums at once).
+  Widget? _suffixFor(_Field f) {
+    if (_mixed.contains(f) && _ctrl[f]!.text.isNotEmpty) {
+      return IconButton(
+        tooltip: 'Keep each $_things\'s own ${_label(f).toLowerCase()}',
+        icon: const Icon(Icons.undo, size: 20),
+        onPressed: _saving ? null : () => setState(() => _ctrl[f]!.clear()),
+      );
+    }
+    if (_manyAlbums || !context.watch<LibraryModel>().onlineDetails) return null;
+    return IconButton(
+      tooltip: 'Find ${_label(f).toLowerCase()} online',
+      icon: const Icon(Icons.travel_explore, size: 20),
+      onPressed: _saving ? null : () => _lookUp(f),
+    );
+  }
+
   /// Under a single song's field, show the file's value when it's been changed.
+  /// Under a --:-- box, say what leaving it does.
   String? _helperFor(_Field f, LibraryModel lib) {
+    if (_mixed.contains(f)) {
+      return _ctrl[f]!.text.isEmpty
+          ? 'Different for each $_things – leave as $differentMarker to keep them'
+          : 'Every $_things gets this ${_label(f).toLowerCase()}';
+    }
     if (!_single) return null;
     final original = lib.originalById(_tracks.first.id);
     if (original == null) return null;
     final fileValue = _valueOf(original, f);
     if (fileValue == _ctrl[f]!.text.trim() || fileValue.isEmpty) return null;
     return 'In file: $fileValue';
+  }
+
+  /// Several albums: they don't all have the same cover.
+  late final bool _coversDiffer =
+      _manyAlbums && {for (final key in _tracks.map((t) => t.albumKey).toSet()) _albumArt(key)}.length > 1;
+
+  /// The cover an album shows: its first song with a cover.
+  String? _albumArt(String albumKey) {
+    for (final t in _tracks) {
+      if (t.albumKey == albumKey && t.art != null) return t.art;
+    }
+    return null;
   }
 
   /// The cover row: a preview (new pick, the file's own cover after a reset, or the current
@@ -554,7 +611,13 @@ class _EditDetailsState extends State<_EditDetails> {
           const Text('Cover', style: TextStyle(fontWeight: FontWeight.w600)),
           if (!_single)
             Text(
-              _tracks.length == 1 ? 'Applies to this song' : 'Applies to all ${_tracks.length} songs',
+              _manyAlbums
+                  ? (_coversDiffer && _newCover == null && !_resetCover
+                      ? '$differentMarker  Different for each album – choose one to give them all the same cover'
+                      : 'Applies to all ${widget.albumCount} albums')
+                  : _tracks.length == 1
+                      ? 'Applies to this song'
+                      : 'Applies to all ${_tracks.length} songs',
               style: const TextStyle(color: AppColors.textDim, fontSize: 12),
             ),
           const SizedBox(height: 8),
@@ -565,7 +628,8 @@ class _EditDetailsState extends State<_EditDetails> {
               label: const Text('Choose image…'),
             ),
             // Only offer an online search when there's an artist or album to search for.
-            if (context.watch<LibraryModel>().onlineCovers &&
+            if (!_manyAlbums &&
+                context.watch<LibraryModel>().onlineCovers &&
                 (_current(_Field.artist).isNotEmpty || _current(_Field.album).isNotEmpty))
               OutlinedButton.icon(
                 onPressed: _saving ? null : _findOnline,

@@ -52,7 +52,7 @@ class TrackTile extends StatelessWidget {
     final currentId = context.select<PlayerModel, String?>((p) => p.current?.id);
     final isCurrent = currentId == track.id;
     final accent = Theme.of(context).colorScheme.primary;
-    final selecting = context.select<SelectionModel, bool>((s) => s.active);
+    final selecting = context.select<SelectionModel, bool>((s) => s.selecting(SelectKind.songs));
     final selected = context.select<SelectionModel, bool>((s) => s.contains(track.id));
 
     // Left side: a tick box in select mode, else the track number (album pages; a sound-wave

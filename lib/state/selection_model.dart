@@ -1,42 +1,77 @@
-// Multi-select state for song lists.
+// What's ticked in select mode: songs, albums or audiobooks (one kind at a time).
 //
-// When the user long-presses a song (or picks ⋮ → Select), the app goes into "select mode" and
-// this model remembers which song ids are ticked. Song lists and the selection bar at the top
-// of the screen watch it, so they can show tick boxes and actions like "Edit" or "Add to
-// playlist" that apply to every ticked song at once. Select mode is simply "one or more ticked".
+// Songs: long-press a song, or ⋮ → Select. Albums and books: right-click a tile
+// (or press and hold on a phone) → Select / Select all. The bar at the bottom of
+// the screen (shell.dart) then offers what can be done with them together, such
+// as Edit details, Edit albums or Edit books.
+
 import 'package:flutter/foundation.dart';
 
-/// Songs ticked in "select" mode (long-press a song, or ⋮ → Select), so they
-/// can be edited or added to a playlist together.
+/// What kind of thing is being selected.
+enum SelectKind { songs, albums, books }
+
 class SelectionModel extends ChangeNotifier {
-  /// The ticked song ids (Track ids such as `local:<path>` or `server:<id>`).
   final Set<String> _ids = {};
 
-  /// A read-only copy, so callers can't change the selection behind our back.
+  /// What the ticked ids are: song ids, album keys or book ids.
+  SelectKind kind = SelectKind.songs;
+
+  // Everything shown where selecting started, for "Select all".
+  List<String> _scope = const [];
+
   Set<String> get ids => Set.unmodifiable(_ids);
-  /// True while at least one song is ticked, i.e. select mode is on.
   bool get active => _ids.isNotEmpty;
   int get count => _ids.length;
-  bool contains(String id) => _ids.contains(id);
 
-  /// Ticks the song if it wasn't ticked, or unticks it if it was.
-  void toggle(String id) {
-    // `remove` returns false when the id wasn't there, which means we should add it instead.
+  /// True while things of [k] are being selected.
+  bool selecting(SelectKind k) => active && kind == k;
+
+  /// Whether [id] (of [kind]) is ticked.
+  bool contains(String id, {SelectKind kind = SelectKind.songs}) => this.kind == kind && _ids.contains(id);
+
+  /// "Select all" would tick something more.
+  bool get canSelectAll => active && _scope.any((id) => !_ids.contains(id));
+
+  // Ticking a different kind of thing starts a new selection.
+  void _use(SelectKind k) {
+    if (kind == k) return;
+    _ids.clear();
+    _scope = const [];
+    kind = k;
+  }
+
+  void toggle(String id, {SelectKind kind = SelectKind.songs}) {
+    _use(kind);
     if (!_ids.remove(id)) _ids.add(id);
     notifyListeners();
   }
 
-  /// Ticks every song in [ids] (used by "Select all"), keeping any already ticked.
-  void selectAll(Iterable<String> ids) {
+  void selectAll(Iterable<String> ids, {SelectKind kind = SelectKind.songs}) {
+    _use(kind);
     _ids.addAll(ids);
     notifyListeners();
   }
 
-  /// Unticks everything, which also leaves select mode.
+  /// Starts selecting with [id] ticked. [scope] is everything shown alongside it
+  /// (what "Select all" ticks); with [all] they're all ticked straight away.
+  void start(String id, {required SelectKind kind, List<String> scope = const [], bool all = false}) {
+    _use(kind);
+    _scope = List.of(scope);
+    _ids.add(id);
+    if (all) _ids.addAll(scope);
+    notifyListeners();
+  }
+
+  /// Ticks everything shown where selecting started.
+  void selectScope() {
+    _ids.addAll(_scope);
+    notifyListeners();
+  }
+
   void clear() {
-    // Skip the redraw if there was nothing to clear.
     if (_ids.isEmpty) return;
     _ids.clear();
+    _scope = const [];
     notifyListeners();
   }
 }
