@@ -38,6 +38,9 @@ Read the files in this order:
     `equaliser`, so merging `multi-edit` brings both in.
   - Favourite albums and books, on branch `favourites` (0.1.12+12), built on top of `multi-edit`.
     Merging `favourites` into `main` brings all three in.
+  - Quick actions in the right-click menu and the Details page ("where it comes from"), on branch
+    `details-and-quick-edits` (0.1.13+13), built on top of `favourites`. **Merging this one brings
+    in everything since 0.1.9.**
   - The user asked to move on without merging. All three are waiting for the go-ahead. The phone has
     0.1.11 (equaliser + multi-edit). The equaliser was confirmed working on the phone in logcat.
   - After them: D offline (after the server review) and E audiobook server. See `04_ROADMAP_AND_OPEN_ITEMS.md`.

@@ -228,6 +228,45 @@ before changing that area.
     Books tab's state chips. The user chose filters only: no Home shelves and no separate page.
 - **Tests:** `test/favourites_test.dart`.
 
+## Quick actions and the Details page (`details-and-quick-edits` branch, 0.1.13)
+- **Quick actions** (`ui/widgets/quick_actions.dart`, `albumActions` / `bookActions`):
+  - The actions: Edit details…, Choose cover… (one picture for all), Find cover online… (one item
+    only), Use the files' own cover(s) (only when a custom cover exists), Add to / Remove from
+    favourites, and Details….
+  - They appear in an album or book tile's right-click / press-and-hold menu, under Select and
+    Select all.
+  - While selecting, right-clicking a *ticked* tile shows the same actions for everything ticked,
+    plus Select all / Stop selecting. Right-clicking an unticked tile just ticks it.
+  - The selection bar's ⋮ shows them too.
+  - Covers are set with `importCover` + `editMany(ids, TrackEdit(art:))`, like the editors.
+- **Songs:** right-clicking a song row opens the same menu as its ⋮ button (`TrackMenuButton.items`),
+  which now has **Details…**.
+- **Details page** (`ui/screens/details_screen.dart`, logic in `services/media_details.dart`):
+  - **Opened from:** Details… in the menus above, the ⓘ button on the album page, and "Details:
+    where it comes from" in the book page's ⋮ menu.
+  - **Shows:**
+    - the folder(s), with "Show in folder" on Windows
+    - file count, formats and size
+    - why it's in Books or Music (`BookRules.why`, the same rules as `isBook`)
+    - book series or narrator worked out from folder names
+    - a table of every detail with **where it came from**
+    - what the file's tags say (re-read now, plus sample rate and bit rate)
+    - the files beside it that HomeTunes uses
+  - With several files, the table covers the first file and each file expands to its own.
+- **How a source is decided** (`inspectTrackNow`):
+  - The scanned track (before edits) is compared with the track as shown. Anything different is
+    "Your edit", with "File says:".
+  - Otherwise the scanner's order is followed: book details file (`BookInfo`), the tags read again
+    now, folder name, file name (`fallbackFromFileName`), stand-in ("Unknown Artist").
+  - Covers: a picture beside it (`Sidecars.image`, or the folder cover names), built into the file
+    (cached in `art/`), or your choice.
+  - Length: from the tags, measured from the WAV header, or learned when played.
+  - Server songs say "Music server".
+  - If the file has changed since the scan, a detail can show "Couldn't tell".
+- **Menus:** menu labels use `menuRow` (the text can wrap), because long labels overflowed the
+  280 px menu.
+- **Tests:** `test/details_test.dart`.
+
 ## Android fixes worth remembering
 - **Lock screen empty and playback stopping.** The cause was "You must specify an icon resource id
   to build a CustomAction". It's fixed by `res/raw/keep.xml`.
