@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:media_kit/media_kit.dart' show Media, Player;
+import 'package:media_kit/media_kit.dart' show Media, NativePlayer, Player, Playlist, PlaylistMode;
 
 import '../models/book.dart';
 import '../models/track.dart';
@@ -47,6 +47,21 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// How many opens are in flight (see the `completed` listener).
   int _opening = 0;
 
+  /// Gapless playback: the audio engine holds the song playing now and,
+  /// loaded ahead, the one that plays next ([_engineIds], by track id). When
+  /// it moves on by itself there's no gap; HomeTunes then catches its own
+  /// queue up and loads the following song. HomeTunes' queue stays in charge
+  /// (shuffle, repeat, Play next…): the engine never holds more than that.
+  List<String> _engineIds = [];
+
+  /// Our own changes to the engine's list are in progress (ignore its events).
+  int _engineEdits = 0;
+
+  /// Engine settings last applied (so they're only sent when they change).
+  String? _appliedReplayGain;
+  bool? _appliedGapless;
+  bool? _appliedLoopOne;
+
   /// The audiobook playing, or null when playing music.
   Book? get book => _book;
   Book? _book;
@@ -69,6 +84,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   PlayerModel(this.library, {this.listening}) {
     library.addListener(_onLibraryChanged);
+    _applyEngineSettings();
     // While a book plays, save the place every 10 seconds.
     _saveTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (book != null && playing) saveBookPlace();
@@ -94,9 +110,18 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         notifyListeners();
       }),
       _player.stream.completed.listen((done) {
-        // Opening a new file can briefly report the old one as "completed";
-        // ignore that so we don't skip an extra song.
-        if (done && _opening == 0) _advance(auto: true);
+        // The engine reports "finished" at the end of every song, a moment
+        // before it moves on to one loaded ahead (checked with
+        // tool/bench/engine_test.dart). Only act when nothing was loaded
+        // ahead: the queue ended, or gapless is off. Opening a new file can
+        // also briefly report the old one as finished; ignore that too.
+        if (done && _opening == 0 && _engineEdits == 0 && _engineIds.length < 2) _advance(auto: true);
+      }),
+      _player.stream.playlist.listen((pl) {
+        // The engine moved on to the song loaded ahead, by itself.
+        if (_opening == 0 && _engineEdits == 0 && pl.index == 1 && _engineIds.length > 1) {
+          _onEngineAdvanced();
+        }
       }),
       _player.stream.error.listen((e) {
         lastError = e;
@@ -108,6 +133,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// Keeps the queue (and the now-playing display / system media controls)
   /// showing songs' latest details after they're edited or rescanned.
   void _onLibraryChanged() {
+    _applyEngineSettings();
     var changed = queue.refresh(library.byId);
     // Keep the playing book's details (and parts) current after a rescan.
     final b = book;
@@ -161,6 +187,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     final t = queue.current;
     if (t == null) {
       await _player.stop();
+      _engineIds = [];
       notifyListeners();
       return;
     }
@@ -183,12 +210,127 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     _opening++;
     try {
       final start = startAt != null && startAt > Duration.zero ? startAt : null;
-      await _player.open(Media(uri, start: start), play: true);
+      // Load the song after this one too, so it follows without a gap.
+      await _syncLoopOne();
+      final ahead = _songToLoadAhead();
+      _engineIds = [t.id, if (ahead != null) ahead.$1.id];
+      await _player.open(
+        Playlist([Media(uri, start: start), if (ahead != null) Media(ahead.$2)], index: 0),
+        play: true,
+      );
       // Make sure the new song actually starts, even if playback was paused
       // (e.g. pressing Next while paused, or after the previous song ended).
       if (!_player.state.playing) await _player.play();
     } finally {
       _opening--;
+    }
+  }
+
+  /// The song to load ahead in the engine (and its file / stream), if any.
+  (Track, String)? _songToLoadAhead() {
+    // Repeat-one uses the engine's own "loop this file" instead (loading the
+    // same song ahead of itself stalls the engine – see player_gapless_test).
+    if (!library.gaplessPlayback || queue.repeat == RepeatSetting.one) return null;
+    final next = queue.peekNextAuto();
+    if (next == null) return null;
+    final uri = library.playableUri(next);
+    return uri == null ? null : (next, uri);
+  }
+
+  /// The engine went on to the song loaded ahead: catch the queue up, drop
+  /// the finished song from the engine and load the one after.
+  Future<void> _onEngineAdvanced() async {
+    // Set before anything else, so a repeated "moved on" event from the
+    // engine can't advance the queue twice.
+    _engineEdits++;
+    Track? next;
+    try {
+      final expected = _engineIds[1];
+      next = queue.next(auto: true);
+      if (next == null || next.id != expected) {
+        next = null; // out of step (shouldn't happen): reopened below
+      } else {
+        duration = next.duration;
+        try {
+          await _player.remove(0);
+          _engineIds.removeAt(0);
+        } catch (_) {
+          // The engine's list changed underneath us; the sync below repairs it.
+        }
+        if (book != null) await listening?.record(book!, next.id, Duration.zero);
+      }
+    } finally {
+      _engineEdits--;
+    }
+    if (next == null) {
+      await _openCurrent();
+      return;
+    }
+    // The engine briefly counts itself as stopped at the end of each song;
+    // make sure it carries on.
+    if (!_player.state.playing) await _player.play();
+    notifyListeners();
+    await _syncLoadedAhead();
+  }
+
+  /// After the queue changes (Play next, reorder, shuffle, repeat…), make
+  /// sure the song loaded ahead in the engine is still the right one.
+  Future<void> _syncLoadedAhead() async {
+    await _syncLoopOne();
+    if (_opening > 0 || _engineIds.isEmpty || queue.current == null) return;
+    if (_engineIds.first != queue.current!.id) return; // a new song is being opened
+    final want = _songToLoadAhead();
+    final have = _engineIds.length > 1 ? _engineIds[1] : null;
+    if (want?.$1.id == have) return;
+    _engineEdits++;
+    try {
+      while (_engineIds.length > 1) {
+        await _player.remove(_engineIds.length - 1);
+        _engineIds.removeLast();
+      }
+      if (want != null) {
+        await _player.add(Media(want.$2));
+        _engineIds.add(want.$1.id);
+      }
+    } catch (e) {
+      debugPrint('HomeTunes: couldn\'t update the song loaded ahead: $e');
+    } finally {
+      _engineEdits--;
+    }
+  }
+
+  /// Repeat-one: the engine loops the song by itself, with no gap.
+  Future<void> _syncLoopOne() async {
+    final loop = queue.repeat == RepeatSetting.one && book == null;
+    if (_appliedLoopOne == loop) return;
+    _appliedLoopOne = loop;
+    try {
+      await _player.setPlaylistMode(loop ? PlaylistMode.single : PlaylistMode.none);
+    } catch (e) {
+      debugPrint('HomeTunes: couldn\'t set repeat-one looping: $e');
+    }
+  }
+
+  /// Sends the gapless and ReplayGain settings to the audio engine.
+  Future<void> _applyEngineSettings() async {
+    final engine = _player.platform;
+    if (engine is! NativePlayer) return;
+    try {
+      if (_appliedGapless != library.gaplessPlayback) {
+        _appliedGapless = library.gaplessPlayback;
+        // "yes": no gap even between files of different formats; the next
+        // file is opened early so streams from a server are ready in time.
+        await engine.setProperty('gapless-audio', library.gaplessPlayback ? 'yes' : 'no');
+        await engine.setProperty('prefetch-playlist', library.gaplessPlayback ? 'yes' : 'no');
+        await _syncLoadedAhead();
+      }
+      final rg = library.replayGain.name; // off / track / album
+      if (_appliedReplayGain != rg) {
+        _appliedReplayGain = rg;
+        await engine.setProperty('replaygain', rg == 'off' ? 'no' : rg);
+      }
+    } catch (e) {
+      debugPrint('HomeTunes: couldn\'t apply playback settings: $e');
     }
   }
 
@@ -258,12 +400,14 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     if (book != null) return; // books always play in order
     queue.setShuffle(!queue.shuffle);
     notifyListeners();
+    _syncLoadedAhead();
   }
 
   void cycleRepeat() {
     if (book != null) return;
     queue.cycleRepeat();
     notifyListeners();
+    _syncLoadedAhead();
   }
 
   Future<void> jumpTo(int queueIndex) async {
@@ -281,6 +425,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     queue.playNext(t);
     if (wasEmpty) await _openCurrent();
     notifyListeners();
+    await _syncLoadedAhead();
   }
 
   Future<void> addToQueue(Track t) async {
@@ -292,16 +437,19 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     queue.add(t);
     if (wasEmpty) await _openCurrent();
     notifyListeners();
+    await _syncLoadedAhead();
   }
 
   void removeUpcoming(int i) {
     queue.removeUpcoming(i);
     notifyListeners();
+    _syncLoadedAhead();
   }
 
   void moveUpcoming(int from, int to) {
     queue.moveUpcoming(from, to);
     notifyListeners();
+    _syncLoadedAhead();
   }
 
   // ---- audiobooks ----

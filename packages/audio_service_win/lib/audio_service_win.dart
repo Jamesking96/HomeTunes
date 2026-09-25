@@ -62,8 +62,8 @@ class AudioServiceWin extends AudioServicePlatform {
 
   @override
   Future<void> setQueue(SetQueueRequest request) async {
-    log('setQueue() has not been implemented for Windows.',
-        name: 'audio_service_win');
+    // Windows media controls have no "up next" list, so there's nothing to
+    // do here (and nothing to warn about).
   }
 
   @override
