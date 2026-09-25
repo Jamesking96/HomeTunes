@@ -94,7 +94,9 @@ class _SettingTargetState extends State<SettingTarget> {
   Widget build(BuildContext context) => AnimatedContainer(
         duration: const Duration(milliseconds: 600),
         color: _lit ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.18) : Colors.transparent,
-        child: widget.child,
+        // Its own see-through Material so list tiles' hover and tap effects
+        // still show above the highlight.
+        child: Material(type: MaterialType.transparency, child: widget.child),
       );
 }
 
