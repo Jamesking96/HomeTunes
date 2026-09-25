@@ -61,6 +61,7 @@ void main() {
     expect(row(d, 'Title').source, DetailSource.fileName);
     expect(row(d, 'Track number').source, DetailSource.fileName);
     expect(row(d, 'Artist').source, DetailSource.standIn);
+    expect(row(d, 'Album artist').source, DetailSource.sameAsArtist);
     expect(row(d, 'Genre').source, DetailSource.notSet);
     expect(row(d, 'Cover').source, DetailSource.notSet);
   });
