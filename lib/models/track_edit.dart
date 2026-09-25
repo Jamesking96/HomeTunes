@@ -139,6 +139,10 @@ class TrackEdit {
         narrator: narrator ?? t.narrator,
         series: series ?? t.series,
         seriesIndex: seriesIndex ?? t.seriesIndex,
+        description: t.description,
+        companions: t.companions,
+        hasBookInfo: t.hasBookInfo,
+        sidecarStamp: t.sidecarStamp,
       );
 
   Map<String, dynamic> toJson() => {

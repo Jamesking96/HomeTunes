@@ -11,6 +11,12 @@ class Book {
   final double? seriesIndex;
   final int? year;
 
+  /// About the book (from a metadata or text file beside it).
+  final String? description;
+
+  /// Files that come with the book, like a PDF (paths).
+  final List<String> companions;
+
   /// Files in playing order.
   final List<Track> parts;
 
@@ -22,6 +28,8 @@ class Book {
     this.series,
     this.seriesIndex,
     this.year,
+    this.description,
+    this.companions = const [],
     required this.parts,
   });
 
