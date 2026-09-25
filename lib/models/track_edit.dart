@@ -21,6 +21,10 @@ class TrackEdit {
   final String? series;
   final double? seriesIndex;
 
+  /// Lyrics chosen or typed by the user (plain text or timed LRC). An empty
+  /// string means "this song has no lyrics" (hides any the file has).
+  final String? lyrics;
+
   const TrackEdit({
     this.title,
     this.artist,
@@ -34,6 +38,7 @@ class TrackEdit {
     this.narrator,
     this.series,
     this.seriesIndex,
+    this.lyrics,
   });
 
   static const empty = TrackEdit();
@@ -50,9 +55,18 @@ class TrackEdit {
       art == null &&
       narrator == null &&
       series == null &&
-      seriesIndex == null;
+      seriesIndex == null &&
+      lyrics == null;
 
-  TrackEdit withoutArt() => TrackEdit(
+  TrackEdit withoutArt() => _copy(keepArt: false);
+
+  /// The same edit without lyrics.
+  TrackEdit withoutLyrics() => _copy(keepLyrics: false);
+
+  /// The same edit with [lyrics] (null removes them).
+  TrackEdit withLyrics(String? lyrics) => _copy(keepLyrics: false, lyrics: lyrics);
+
+  TrackEdit _copy({bool keepArt = true, bool keepLyrics = true, String? lyrics}) => TrackEdit(
         title: title,
         artist: artist,
         album: album,
@@ -61,9 +75,11 @@ class TrackEdit {
         discNumber: discNumber,
         year: year,
         genre: genre,
+        art: keepArt ? art : null,
         narrator: narrator,
         series: series,
         seriesIndex: seriesIndex,
+        lyrics: keepLyrics ? this.lyrics : lyrics,
       );
 
   /// Fields set in [other] win; fields it leaves null keep this edit's value.
@@ -80,6 +96,7 @@ class TrackEdit {
         narrator: other.narrator ?? narrator,
         series: other.series ?? series,
         seriesIndex: other.seriesIndex ?? seriesIndex,
+        lyrics: other.lyrics ?? lyrics,
       );
 
   /// Drops fields that match the file's own values, so a song that's been
@@ -97,6 +114,8 @@ class TrackEdit {
         narrator: narrator == original.narrator ? null : narrator,
         series: series == original.series ? null : series,
         seriesIndex: seriesIndex == original.seriesIndex ? null : seriesIndex,
+        // The file's own lyrics aren't part of a Track, so these always stay.
+        lyrics: lyrics,
       );
 
   /// The song as the user wants to see it.
@@ -135,6 +154,7 @@ class TrackEdit {
         if (narrator != null) 'narrator': narrator,
         if (series != null) 'series': series,
         if (seriesIndex != null) 'seriesIndex': seriesIndex,
+        if (lyrics != null) 'lyrics': lyrics,
       };
 
   factory TrackEdit.fromJson(Map<String, dynamic> j) => TrackEdit(
@@ -150,5 +170,6 @@ class TrackEdit {
         narrator: j['narrator'] as String?,
         series: j['series'] as String?,
         seriesIndex: (j['seriesIndex'] as num?)?.toDouble(),
+        lyrics: j['lyrics'] as String?,
       );
 }

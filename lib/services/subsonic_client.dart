@@ -201,5 +201,59 @@ class SubsonicClient {
     );
   }
 
+  /// A song's lyrics from the server, or null. Uses the OpenSubsonic
+  /// `getLyricsBySongId` call (timed lyrics) when the server has it, else
+  /// the older `getLyrics` (plain, by artist and title).
+  Future<String?> fetchLyrics(Track t) async {
+    if (t.remoteId != null) {
+      try {
+        final body = await _get('getLyricsBySongId', {'id': t.remoteId!});
+        final text = structuredLyricsToText(body['lyricsList'] as Map<String, dynamic>?);
+        if (text != null) return text;
+      } catch (_) {
+        // Not an OpenSubsonic server, or nothing for this song.
+      }
+    }
+    try {
+      final body = await _get('getLyrics', {'artist': t.artist, 'title': t.title});
+      final value = ((body['lyrics'] as Map<String, dynamic>?)?['value'] as String?)?.trim();
+      return (value == null || value.isEmpty) ? null : value;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// OpenSubsonic `lyricsList` to LRC (timed) or plain text. Timed lyrics win.
+  static String? structuredLyricsToText(Map<String, dynamic>? list) {
+    final sets = [
+      for (final s in (list?['structuredLyrics'] as List? ?? const []))
+        if (s is Map<String, dynamic>) s,
+    ];
+    if (sets.isEmpty) return null;
+    sets.sort((a, b) => ((b['synced'] == true) ? 1 : 0) - ((a['synced'] == true) ? 1 : 0));
+    final s = sets.first;
+    // A positive offset means the lines come sooner.
+    final offset = (s['offset'] as num?)?.toInt() ?? 0;
+    final lines = [
+      for (final l in (s['line'] as List? ?? const []))
+        if (l is Map<String, dynamic>) l,
+    ];
+    if (lines.isEmpty) return null;
+    if (s['synced'] == true) {
+      String stamp(int ms) {
+        final d = Duration(milliseconds: ms < 0 ? 0 : ms);
+        final m = d.inMinutes.toString().padLeft(2, '0');
+        final sec = (d.inSeconds % 60).toString().padLeft(2, '0');
+        final cs = ((d.inMilliseconds % 1000) ~/ 10).toString().padLeft(2, '0');
+        return '[$m:$sec.$cs]';
+      }
+
+      return [
+        for (final l in lines) '${stamp(((l['start'] as num?)?.toInt() ?? 0) - offset)}${(l['value'] as String?) ?? ''}',
+      ].join('\n');
+    }
+    return [for (final l in lines) (l['value'] as String?) ?? ''].join('\n');
+  }
+
   void close() => _http.close();
 }
