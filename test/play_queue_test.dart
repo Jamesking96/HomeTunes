@@ -73,4 +73,43 @@ void main() {
     final q = PlayQueue()..setTracks(five);
     expect(q.previous()!.id, 't1');
   });
+
+  group('Song to load ahead (gapless)', () {
+    test('the next song, without moving', () {
+      final q = PlayQueue()..setTracks(five, start: 1);
+      expect(q.peekNextAuto()!.id, 't3');
+      expect(q.current!.id, 't2');
+    });
+
+    test('end of the queue: nothing, or the first song with repeat-all', () {
+      final q = PlayQueue()..setTracks(five, start: 4);
+      expect(q.peekNextAuto(), isNull);
+      q.cycleRepeat(); // all
+      expect(q.peekNextAuto()!.id, 't1');
+    });
+
+    test('repeat-all with shuffle reshuffles at the loop, so it isn\'t known yet', () {
+      final q = PlayQueue(random: Random(3))..setTracks(five, shuffle: true);
+      q.cycleRepeat(); // all
+      q.jumpTo(4);
+      expect(q.peekNextAuto(), isNull);
+    });
+
+    test('matches what actually plays next, after Play next and reordering', () {
+      final q = PlayQueue()..setTracks(five.sublist(0, 3));
+      q.playNext(t('x'));
+      expect(q.peekNextAuto()!.id, 'x');
+      q.moveUpcoming(0, 2);
+      final peeked = q.peekNextAuto();
+      expect(q.next(auto: true), peeked);
+    });
+
+    test('repeat-one: the same song', () {
+      final q = PlayQueue()..setTracks(five);
+      q.cycleRepeat();
+      q.cycleRepeat();
+      expect(q.repeat, RepeatSetting.one);
+      expect(q.peekNextAuto()!.id, 't1');
+    });
+  });
 }

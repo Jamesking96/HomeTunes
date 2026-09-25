@@ -70,6 +70,11 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
   fades out before it pauses. All of these are in Settings → Audiobooks, where the button can
   also be hidden.
   `dart run tool/probe_library.dart <folder>` previews how a folder will be grouped.
+- **Gapless playback** – the next song is loaded while the current one plays, so albums that run
+  straight on (live albums, mixes) have no silence between tracks; audiobook files join up too.
+  Repeat-one loops without a gap. Can be switched off in Settings → Playback.
+- **Even out volume (ReplayGain)** – off, by song or by album, using the loudness info many files
+  carry (Settings → Playback).
 - **System media controls** – Android: media notification, lock screen, Bluetooth/headset buttons,
   and background playback that Android won't kill. Windows: keyboard media keys and the Windows
   media overlay. Back on the Android Home screen hides the app and keeps the music playing.
@@ -188,4 +193,4 @@ tool/patch_platforms.dart    adds Android/macOS/iOS permissions after `flutter c
 - **iOS**: iOS doesn't allow apps to read arbitrary folders; local playback there would need
   import through the Files app. Server streaming works.
 - **Offline copies of server songs** (download for later) aren't implemented.
-- No lyrics, equaliser or gapless playback yet.
+- No lyrics or equaliser yet (planned).
