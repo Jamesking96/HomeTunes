@@ -143,6 +143,46 @@ before changing that area.
   music server" switch (`serverBooks`) and a placeholder for a separate audiobook server (phase E).
 - **About** shows the version (package_info_plus) and the data folder, with "Open folder" on Windows.
 
+## Equaliser (`equaliser` branch, 0.1.10)
+- **Where:** `EqualizerModel` (`equalizer.json`, included in backups) and `models/eq_preset.dart`.
+  The screen is `ui/screens/equalizer_screen.dart`, opened from Settings › Playback, from Now
+  Playing, and from the icon on the Settings › Audiobooks switch.
+- **Presets:**
+  - Built-ins: Flat, Bass boost, Treble boost, Vocal, Rock, Pop, Classical, Spoken word and
+    Headphones. Each one that boosts also turns the overall level down.
+  - Editing a built-in stores an override. It shows "· edited", and "Restore default" or "Restore
+    all presets" removes the override. Moving the sliders back to the original counts as not edited.
+  - Your own presets ("New", copied from the current one) can be renamed and deleted. Deleting one
+    in use falls back to Flat or Spoken word.
+- **Music vs audiobooks:**
+  - `musicPresetId` and `bookPresetId` hold the two choices. `separateBooks` is on by default and is
+    the switch in Settings › Audiobooks. When it's off, books use the music preset.
+  - Choosing a preset switches the equaliser on. It starts off.
+- **How it's heard (`PlayerModel._applyEqualizer`):**
+  - It runs when the equaliser settings change, when switching between music and a book
+    (`_setBook`), and when the file's sample rate changes (`stream.audioParams`).
+  - Calls are coalesced, so dragging a slider doesn't pile up engine calls.
+  - The filter is `format=format=floatp,lavfi=[equalizer=f=…:t=o:w=1:g=…, …]`, with one octave-wide
+    band per non-zero slider.
+- **Why it's built this way (found with `tool/bench/engine_test.dart` on 25 Sep):**
+  - **media_kit's FFmpeg has no `aresample`.** On its own, the lavfi graph fails ("'aresample'
+    filter not present, cannot convert formats") for any input that isn't planar, and mpv silently
+    disables the filter. mpv's own `format=format=floatp` converter goes first to avoid that.
+  - **The engine rejects the whole graph if a band is at or above Nyquist** (e.g. 16 kHz on 22 kHz
+    audiobooks). `eqFilter(sampleRate:)` leaves those bands out. Before the first file's rate is
+    known, all bands are sent; if that fails, the rate event re-sends without them.
+  - **Just setting `af` and reading it back proves nothing.** mpv accepts the text and fails later.
+    The bench plays a tone at 44.1 and 22.05 kHz at 1.5× and checks the log for filter errors.
+  - **The overall level isn't a lavfi `volume` filter** (not certain to be in the Android build).
+    The player sends `volume × 10^(level/20)` to the engine and keeps `PlayerModel.volume` as the
+    user's own setting. The engine volume stream is no longer copied back.
+- **"Isn't available on this device":** if `setProperty('af')` throws, `EqualizerModel.unavailable`
+  is set and the screen says so. A runtime graph failure (as above) wouldn't be caught this way,
+  which is why the bench matters.
+- **Android:** the arm64 `libmpv.so` includes `equalizer` and `scaletempo2`. The equaliser must be
+  heard on the phone before merging. Check it with
+  `adb logcat | Select-String "HomeTunes: equaliser|lavfi|Disabling filter"`.
+
 ## Android fixes worth remembering
 - **Lock screen empty and playback stopping.** The cause was "You must specify an icon resource id
   to build a CustomAction". It's fixed by `res/raw/keep.xml`.

@@ -61,6 +61,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `track_edit.dart` | Your edits to a song, kept apart from the file and laid over it. Null means "use the file's value"; `""` lyrics means "hide lyrics". |
 | `book.dart` | An audiobook made of one or more files. Works out its total length, its chapters across all files, and "time from the start of the book". |
 | `lyrics.dart` | Timed (LRC) and plain lyrics, the LRC parser, and a quick look-up of which line is being sung now. |
+| `eq_preset.dart` | The equaliser's ten bands, a preset (a gain per band plus an overall level), the built-in presets, and the audio-engine filter text a preset turns into. |
 | `playlist.dart` | A named list of song ids. Storing ids means playlists survive rescans and moved files. |
 
 ### State (`lib/state/`): the app's live brain
@@ -72,6 +73,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `play_queue.dart` | The play order with no audio in it: queue, current position, shuffle (keeping the original order), repeat, Play next, reordering, and a peek at what plays next. |
 | `library_index.dart` | Plain functions that group songs into albums and artists (ignoring a leading "The") and run the song, album and artist search. |
 | `book_index.dart` | Decides which files are audiobooks (six rules, first match wins) and groups them into books. Guesses series, number and narrator from folder names; your edits win. Also the Books tab's sort and filters, and book and chapter search. |
+| `equalizer_model.dart` | The equaliser (`equalizer.json`): on/off, the preset for music and for audiobooks, your changes to built-in presets and your own presets. The player listens and applies it live. |
 | `listening_model.dart` | Each book's saved place, finished state and speed (`listening.json`), plus percent done, time left and "Continue listening". |
 | `bookmarks_model.dart` | Audiobook bookmarks with notes (`bookmarks.json`). |
 | `playlists_model.dart` | Playlists and Liked Songs (`playlists.json`). |
@@ -119,7 +121,8 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `book_screen.dart` | One audiobook: details, progress, Play/Resume, description, PDF, bookmarks, chapters, Move to Music. |
 | `playlist_screen.dart` | One playlist or Liked Songs, with drag to reorder. |
 | `queue_screen.dart` | Now playing and up next: drag, swipe to remove, tap to jump. |
-| `now_playing_screen.dart` | The full-screen player. Songs get Like, Lyrics and Queue; books get Bookmark, Speed and Chapters. |
+| `now_playing_screen.dart` | The full-screen player. Songs get Like, Lyrics and Queue; books get Bookmark, Speed and Chapters. Both get the Equaliser button. |
+| `equalizer_screen.dart` | The Equaliser: preset chips, Music/Audiobooks switch, Edit (ten upright band sliders and the overall level), Restore default, and your own presets. |
 | `edit_details.dart` | The song, album and multi-song editor. |
 | `edit_book.dart` | The Edit book dialog (saved as edits on every file of the book). |
 | `lyrics_dialogs.dart` | Show lyrics, find them on LRCLIB with a preview, and edit them. |
@@ -190,6 +193,7 @@ Everything lives in the app's data folder, `…/hometunes/` inside the system's 
 | `listening.json` | Each book's place, finished state and speed | `ListeningModel` |
 | `bookmarks.json` | Audiobook bookmarks and notes | `BookmarksModel` |
 | `lyrics.json` | Lyrics found online, and "nothing found" times so they aren't looked up again too soon | `LyricsModel` |
+| `equalizer.json` | Equaliser on/off, the chosen presets, edited and your own presets | `EqualizerModel` |
 | `art/` | Covers taken from files (`art/custom/` holds the ones you chose) | `local_scanner.dart`, `LibraryModel` |
 | `backups/` | Copies of music files made before writing edits into them | `tag_writer.dart` |
 | `before-restore.htbackup` | Your data from just before the last restore | `app_backup.dart` |
@@ -234,6 +238,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `keep_and_backup_test.dart` | Following moved songs, keeping edits for missing songs, backup round trip and merging |
 | `listening_controls_test.dart` | Skipping across book files, speed, volume wheel, the sleep timer |
 | `settings_test.dart` | Settings search and every Settings page on phone and wide layouts |
+| `equalizer_test.dart` | Preset filter text (including bands left out for low sample rates), editing and restoring presets, your own presets, music vs audiobook presets, saving, and the Equaliser screen |
 
 ## Working with the code
 
