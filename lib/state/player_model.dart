@@ -15,7 +15,9 @@ import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart' show Media, NativePlayer, Player, Playlist, PlaylistMode;
 
 import '../models/book.dart';
+import '../models/eq_preset.dart';
 import '../models/track.dart';
+import 'equalizer_model.dart';
 import 'library_model.dart';
 import 'listening_model.dart';
 import 'play_queue.dart';
@@ -42,6 +44,9 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   /// Remembers the place in audiobooks (null in tests that don't need it).
   final ListeningModel? listening;
+
+  /// The equaliser settings (null in tests that don't need them).
+  final EqualizerModel? equalizer;
   // The media_kit engine. There's only ever one.
   final Player _player = Player();
   final PlayQueue queue = PlayQueue();
@@ -56,7 +61,10 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   @override
   Duration duration = Duration.zero;
   @override
-  double volume = 100; // 0–100
+  double volume = 100; // 0–100, as the listener set it (before the equaliser's overall level)
+  // The equaliser filter last sent to the engine, and the volume scale for its overall level.
+  String? _appliedEq;
+  double _eqLevel = 1.0;
   // A message about the last thing that went wrong (a skipped song, an engine error), or null.
   String? lastError;
 
@@ -88,8 +96,11 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   // Sets the book and caches its chapter list (worked out once, not on every redraw).
   void _setBook(Book? b) {
+    final switching = (_book == null) != (b == null);
     _book = b;
     _chapters = b?.chapters ?? const [];
+    // Music and audiobooks can have different equaliser presets.
+    if (switching) _applyEqualizer();
   }
 
   /// Playback speed (1.0 = normal).
@@ -100,9 +111,11 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   // Saves the book place every 10 seconds (see the constructor).
   Timer? _saveTimer;
 
-  PlayerModel(this.library, {this.listening}) {
+  PlayerModel(this.library, {this.listening, this.equalizer}) {
     library.addListener(_onLibraryChanged);
+    equalizer?.addListener(_applyEqualizer);
     _applyEngineSettings();
+    _applyEqualizer();
     // While a book plays, save the place every 10 seconds.
     _saveTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (book != null && playing) saveBookPlace();
@@ -124,10 +137,6 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         // The engine knows the real length once a file opens; remember it if the tags were wrong.
         duration = v;
         _learnDuration(v);
-        notifyListeners();
-      }),
-      _player.stream.volume.listen((v) {
-        volume = v;
         notifyListeners();
       }),
       _player.stream.completed.listen((done) {
@@ -444,7 +453,62 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     notifyListeners(); // lets the system media controls pick up the new position
   }
   @override
-  Future<void> setVolume(double v) => _player.setVolume(v.clamp(0.0, 100.0)); // engine uses 0–100
+  Future<void> setVolume(double v) async {
+    volume = v.clamp(0.0, 100.0);
+    notifyListeners();
+    // The engine uses 0–100; the equaliser's overall level turns it down a little more.
+    await _player.setVolume(volume * _eqLevel);
+  }
+
+  /// Sends the equaliser preset for what's playing (music or a book) to the
+  /// engine. Only talks to the engine when something actually changed.
+  Future<void> _applyEqualizer() async {
+    // Dragging a slider sends many changes a second: finish one before starting the next,
+    // then catch up with the latest.
+    if (_eqBusy) {
+      _eqAgain = true;
+      return;
+    }
+    _eqBusy = true;
+    try {
+      do {
+        _eqAgain = false;
+        await _sendEqualizer();
+      } while (_eqAgain);
+    } finally {
+      _eqBusy = false;
+    }
+  }
+
+  bool _eqBusy = false;
+  bool _eqAgain = false;
+
+  Future<void> _sendEqualizer() async {
+    final preset = equalizer?.activeFor(book: book != null);
+    final level = eqLevelFactor(preset);
+    if (level != _eqLevel) {
+      _eqLevel = level;
+      try {
+        await _player.setVolume(volume * level);
+      } catch (e) {
+        debugPrint('HomeTunes: couldn\'t set the equaliser level: $e');
+      }
+    }
+    final filter = eqFilter(preset);
+    if (filter == _appliedEq) return;
+    final engine = _player.platform;
+    if (engine is! NativePlayer) return;
+    _appliedEq = filter;
+    try {
+      await engine.setProperty('af', filter);
+      debugPrint('HomeTunes: equaliser ${filter.isEmpty ? 'off' : 'on: $filter'}');
+      equalizer?.reportUnavailable(false);
+    } catch (e) {
+      // e.g. a device whose audio engine lacks the filter: the Equaliser screen says so.
+      debugPrint('HomeTunes: the audio engine refused the equaliser: $e');
+      equalizer?.reportUnavailable(true);
+    }
+  }
 
   void toggleShuffle() {
     if (book != null) return; // books always play in order
@@ -790,6 +854,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     _saveTimer?.cancel();
     saveBookPlace();
     library.removeListener(_onLibraryChanged);
+    equalizer?.removeListener(_applyEqualizer);
     for (final s in _subs) {
       s.cancel();
     }

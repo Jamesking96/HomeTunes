@@ -8,11 +8,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../state/book_index.dart';
+import '../../../state/equalizer_model.dart';
 import '../../../state/library_model.dart';
 import '../../../state/player_model.dart';
 import '../../theme.dart';
 import '../../widgets/listening_controls.dart' show SpeedButton;
 import '../../widgets/track_tile.dart' show askForName;
+import '../equalizer_screen.dart';
 import 'library_settings.dart' show pickFolderWithPermission;
 import 'settings_widgets.dart';
 
@@ -42,6 +44,7 @@ class AudiobookSettings extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
+    final eq = context.watch<EqualizerModel>();
     return SettingsPageList(
       intro: 'Audiobooks have their own tab and never show up with your music. Everything in an audiobook folder '
           'is a book; so are .m4b files and files with an audiobook genre in your music folders.',
@@ -89,6 +92,22 @@ class AudiobookSettings extends StatelessWidget {
           ),
         ),
         // --- Where your audiobooks are: folders and genres ---
+        SettingTarget(
+          'book-eq',
+          child: SwitchListTile(
+            title: const Text('Separate equaliser for audiobooks'),
+            subtitle: Text(eq.separateBooks
+                ? 'Books switch to their own preset (now ${eq.bookPreset.name}) and music switches back.'
+                : 'Books use the same equaliser preset as music.'),
+            value: eq.separateBooks,
+            onChanged: eq.setSeparateBooks,
+            secondary: IconButton(
+              tooltip: 'Open the equaliser',
+              icon: const Icon(Icons.equalizer),
+              onPressed: () => openEqualizer(context, forBooks: true),
+            ),
+          ),
+        ),
         const SettingsGroupTitle('Where your audiobooks are'),
         SettingTarget(
           'book-folders',

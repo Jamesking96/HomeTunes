@@ -34,6 +34,7 @@ class AppBackup {
     'listening.json',
     'bookmarks.json',
     'lyrics.json',
+    'equalizer.json',
   ];
 
   /// Marks a path inside the app's folder in a backup.
@@ -279,6 +280,27 @@ class AppBackup {
       });
     } else if (bly.isNotEmpty) {
       await storage.write('lyrics.json', bly);
+    }
+
+    // ---- equaliser: merging keeps this device's choices and adds the backup's own presets ----
+    final beq = backupFile('equalizer.json');
+    if (merge) {
+      final ceq = await currentFile('equalizer.json');
+      if (ceq.isEmpty) {
+        if (beq.isNotEmpty) await storage.write('equalizer.json', beq);
+      } else {
+        final here = (ceq['custom'] as List? ?? const []);
+        final ids = {for (final c in here) if (c is Map) c['id']};
+        await storage.write('equalizer.json', {
+          ...ceq,
+          'custom': [
+            ...here,
+            for (final c in (beq['custom'] as List? ?? const [])) if (c is Map && !ids.contains(c['id'])) c
+          ],
+        });
+      }
+    } else if (beq.isNotEmpty) {
+      await storage.write('equalizer.json', beq);
     }
 
     return RestoreResult(missingFolders: missingFolders, needsPassword: needsPassword);
