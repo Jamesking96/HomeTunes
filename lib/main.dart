@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 import 'services/media_session.dart';
 import 'services/storage.dart';
 import 'state/bookmarks_model.dart';
+import 'state/equalizer_model.dart';
 import 'state/library_model.dart';
 import 'state/listening_model.dart';
 import 'state/lyrics_model.dart';
@@ -40,8 +41,9 @@ Future<void> main() async {
   final listening = ListeningModel(storage);
   final bookmarks = BookmarksModel(storage);
   final lyrics = LyricsModel(library, storage);
+  final equalizer = EqualizerModel(storage);
   // 2. Load all the saved JSON files at the same time, to keep start-up quick.
-  await Future.wait([library.load(), playlists.load(), listening.load(), bookmarks.load(), lyrics.load()]);
+  await Future.wait([library.load(), playlists.load(), listening.load(), bookmarks.load(), lyrics.load(), equalizer.load()]);
   // Songs in playlists / Liked Songs are kept track of even when their files
   // are missing, and follow them if they move.
   library
@@ -62,7 +64,7 @@ Future<void> main() async {
 
   // The player lives for the whole app, and the system media controls
   // (Android notification/lock screen, Windows media keys) are wired to it.
-  final player = PlayerModel(library, listening: listening);
+  final player = PlayerModel(library, listening: listening, equalizer: equalizer);
   // Save the place in an audiobook whenever the app is put away.
   WidgetsBinding.instance.addObserver(_SaveOnBackground(player));
   if (Platform.isWindows) {
@@ -83,6 +85,7 @@ Future<void> main() async {
     listening: listening,
     bookmarks: bookmarks,
     lyrics: lyrics,
+    equalizer: equalizer,
     player: player,
   ));
 
@@ -119,6 +122,7 @@ class HomeTunesApp extends StatelessWidget {
   final ListeningModel listening;
   final BookmarksModel bookmarks;
   final LyricsModel lyrics;
+  final EqualizerModel equalizer;
   final PlayerModel player;
   const HomeTunesApp({
     super.key,
@@ -127,6 +131,7 @@ class HomeTunesApp extends StatelessWidget {
     required this.listening,
     required this.bookmarks,
     required this.lyrics,
+    required this.equalizer,
     required this.player,
   });
 
@@ -140,6 +145,7 @@ class HomeTunesApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: listening),
         ChangeNotifierProvider.value(value: bookmarks),
         ChangeNotifierProvider.value(value: lyrics),
+        ChangeNotifierProvider.value(value: equalizer),
         ChangeNotifierProvider.value(value: player),
         // These only matter to the UI, so Provider creates (and owns) them itself.
         ChangeNotifierProvider(create: (_) => SleepTimer(player, library)),
