@@ -31,10 +31,16 @@ class BookRules {
   /// The user's "Move to Books" (true) / "Move to Music" (false), by track id.
   final Map<String, bool> overrides;
 
+  /// Every folder that's scanned (music and audiobook folders). Rule 5 only looks at the
+  /// folder names from the scanned folder down, so an "Audiobooks" folder somewhere above it
+  /// doesn't turn all the music below into books. Empty: the whole path is checked.
+  final List<String> roots;
+
   BookRules({
     Iterable<String> genres = defaultBookGenres,
     this.bookFolders = const [],
     this.overrides = const {},
+    this.roots = const [],
   }) : _genres = {for (final g in genres) normalizeGenre(g)}..remove('');
 
   /// True if [t] belongs on the Books tab. The checks run in order and the first that
@@ -56,14 +62,31 @@ class BookRules {
     if (path == null) return (false, 'It\'s music from the server');
     // 4. .m4b is an audiobook-only format.
     if (path.toLowerCase().endsWith('.m4b')) return (true, 'It\'s an .m4b file (an audiobook format)');
-    // 5. Any folder in the path named like "Audio Books" (the file name itself is left out).
-    final dirs = splitPath(path)..removeLast();
+    // 5. Any folder in the path named like "Audio Books" (the file name itself is left out),
+    //    counting from the scanned folder the file is in (its own name included) downwards.
+    //    HomeTunes (0.1.16): it used to check the whole path, so e.g. D:\Audiobooks\Music as a
+    //    music folder turned every song in it into a book.
+    final dirs = _foldersFromRoot(path);
     final named = dirs.where(_bookFolderName.hasMatch).firstOrNull;
     if (named != null) return (true, 'It\'s inside a folder called "$named"');
     // 6. Inside one of the folders the user marked as audiobook folders.
     final folder = bookFolders.where((f) => isInside(path, f)).firstOrNull;
     if (folder != null) return (true, 'It\'s in your audiobook folder $folder');
     return (false, 'None of the audiobook rules apply');
+  }
+
+  /// The folder names of [path] from the deepest scanned folder containing it (that folder's
+  /// own name included) down to the file's folder. The whole path's folders when no scanned
+  /// folder contains it.
+  List<String> _foldersFromRoot(String path) {
+    final parts = splitPath(path)..removeLast();
+    var best = -1;
+    for (final r in roots) {
+      final n = splitPath(r).length;
+      if (n > best && n <= parts.length + 1 && isInside(path, r)) best = n;
+    }
+    // Keep the root's own name (index best - 1) and everything below it.
+    return best <= 0 ? parts : parts.sublist(best - 1);
   }
 }
 

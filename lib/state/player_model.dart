@@ -194,14 +194,36 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   /// When a song's file didn't say how long it is (or said something wrong),
   /// remember the real length the player found, so lists and totals show it.
+  ///
+  /// HomeTunes (0.1.16): the engine's "length" event could arrive just as it moved on to the
+  /// song loaded ahead, before HomeTunes' queue caught up, so the next song's length was saved
+  /// onto the previous one. Now the length is read a few seconds later, and only if the engine
+  /// and the queue still agree on which song is playing.
   void _learnDuration(Duration d) {
     final t = queue.current;
     if (t == null || d <= Duration.zero) return;
-    // Ignore tiny differences (under 2 s) so we don't rewrite the library for nothing.
-    if (!t.hasDuration || (d - t.duration).abs() > const Duration(seconds: 2)) {
-      library.learnDuration(t.id, d);
-    }
+    final id = t.id;
+    _learnTimer?.cancel();
+    _learnTimer = Timer(const Duration(seconds: 3), () {
+      final now = queue.current;
+      final settled = now != null &&
+          now.id == id &&
+          _opening == 0 &&
+          _engineEdits == 0 &&
+          _engineIds.isNotEmpty &&
+          _engineIds.first == id &&
+          _player.state.playlist.index == 0;
+      if (!settled) return;
+      final length = _player.state.duration;
+      if (length <= Duration.zero) return;
+      // Ignore tiny differences (under 2 s) so we don't rewrite the library for nothing.
+      if (!now.hasDuration || (length - now.duration).abs() > const Duration(seconds: 2)) {
+        library.learnDuration(id, length);
+      }
+    });
   }
+
+  Timer? _learnTimer;
 
   @override
   Track? get current => queue.current;
@@ -876,6 +898,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   void dispose() {
     // Save the book place one last time before shutting the engine down.
     _saveTimer?.cancel();
+    _learnTimer?.cancel();
     saveBookPlace();
     library.removeListener(_onLibraryChanged);
     equalizer?.removeListener(_applyEqualizer);

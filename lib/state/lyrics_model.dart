@@ -108,6 +108,25 @@ class LyricsModel extends ChangeNotifier {
         'none': _none,
       });
 
+  /// Files that moved (old id -> new id) keep the lyrics found for them online, and the
+  /// "nothing found" time, so they aren't looked up again (0.1.16; wired up in main.dart).
+  void remapIds(Map<String, String> moved) {
+    var changed = false;
+    for (final e in moved.entries) {
+      final found = _found.remove(e.key);
+      if (found != null) {
+        _found.putIfAbsent(e.value, () => found);
+        changed = true;
+      }
+      final none = _none.remove(e.key);
+      if (none != null) {
+        _none.putIfAbsent(e.value, () => none);
+        changed = true;
+      }
+    }
+    if (changed) _save();
+  }
+
   /// A song's lyrics, or null if it has none (or the user hid them).
   /// With [online] false, only what's on this device is used.
   Future<Lyrics?> lyricsFor(Track t, {bool online = true}) {

@@ -187,6 +187,33 @@ void main() {
       expect(player.paused, isTrue);
     });
 
+    // Repeat-one: the song never changes, it starts again. Going from its last moment back to
+    // its start counts as the end (0.1.16; before, the timer never fired).
+    test('end of song: also pauses when repeat-one starts the song again', () async {
+      await settings.updateListeningSettings(sleepMusicMinutes: LibraryModel.sleepAtEnd, sleepFadeSeconds: 0);
+      timer.start();
+      player.position = m * 3 - const Duration(milliseconds: 400); // the last moment
+      timer.tick();
+      expect(player.paused, isFalse);
+      player.position = const Duration(milliseconds: 100); // looped back to the start
+      timer.tick();
+      await Future<void>.delayed(Duration.zero);
+      expect(player.paused, isTrue);
+    });
+
+    // A seek backwards in the middle of the song isn't the end.
+    test('end of song: seeking back mid-song doesn\'t stop it', () async {
+      await settings.updateListeningSettings(sleepMusicMinutes: LibraryModel.sleepAtEnd, sleepFadeSeconds: 0);
+      timer.start();
+      player.position = m * 2;
+      timer.tick();
+      player.position = s;
+      timer.tick();
+      await Future<void>.delayed(Duration.zero);
+      expect(player.paused, isFalse);
+      expect(timer.active, isTrue);
+    });
+
     // 50 minutes into the book with the chapter ending at 62 minutes = 12 minutes left.
     test('end of chapter: counts down to the chapter end', () async {
       await settings.updateListeningSettings(sleepBookMinutes: LibraryModel.sleepAtEnd, sleepFadeSeconds: 0);

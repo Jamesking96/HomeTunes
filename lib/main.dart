@@ -73,6 +73,7 @@ Future<void> main() async {
       playlists.remapIds(moved);
       listening.remapIds(moved);
       bookmarks.remapIds(moved);
+      lyrics.remapIds(moved);
     })
     // The user chose to forget missing songs: drop them from everything else too.
     ..onIdsForgotten = ((ids) {
@@ -80,6 +81,16 @@ Future<void> main() async {
       listening.removeIds(ids);
       bookmarks.removeIds(ids);
     });
+
+  // Books whose folder moved get a new id: their listening place follows (after each rebuild,
+  // only when the list of books actually changed).
+  var lastBooks = library.books;
+  listening.adoptMoved(lastBooks);
+  library.addListener(() {
+    if (identical(library.books, lastBooks)) return;
+    lastBooks = library.books;
+    listening.adoptMoved(lastBooks);
+  });
 
   // The player lives for the whole app, and the system media controls
   // (Android notification/lock screen, Windows media keys) are wired to it.
@@ -127,8 +138,9 @@ class _SaveOnBackground with WidgetsBindingObserver {
       player.library.refreshMusicAccess();
     } else {
       // Any other state (inactive, paused, hidden, detached) may be the last chance
-      // before the app is closed, so save the book place now.
+      // before the app is closed, so save the book place (and anything else waiting) now.
       player.saveBookPlace();
+      player.library.flushPendingSaves();
     }
   }
 }
