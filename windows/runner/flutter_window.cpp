@@ -1,8 +1,42 @@
 #include "flutter_window.h"
 
+#include <commctrl.h>
+
 #include <optional>
+#include <string>
 
 #include "flutter/generated_plugin_registrant.h"
+
+namespace {
+
+// HomeTunes (0.1.18): keeps Flutter's accessibility (screen reader) layer switched off.
+//
+// Flutter switches its accessibility tree on as soon as any program asks the window what's on
+// screen (WM_GETOBJECT). On some PCs something always asks (security or desktop tools), and
+// Flutter's Windows accessibility bridge then gets confused when parts of the tree move to a new
+// parent (the Home page's lists do this while the library loads): it logs "Failed to update
+// ui::AXTree ... will not be in the tree" and a later update (e.g. moving the window) crashes
+// in flutter_windows.dll (access violation at +0x3c16a in Flutter 3.47.5). Every HomeTunes crash
+// on record was this one. Answering WM_GETOBJECT ourselves with the standard window object
+// means the engine never builds that tree. Start HomeTunes with --screen-reader to turn it back
+// on (e.g. for Narrator), accepting the risk.
+LRESULT CALLBACK KeepAccessibilityOff(HWND hwnd, UINT message, WPARAM wparam,
+                                      LPARAM lparam, UINT_PTR id, DWORD_PTR) {
+  if (message == WM_GETOBJECT) {
+    return DefWindowProc(hwnd, message, wparam, lparam);
+  }
+  if (message == WM_NCDESTROY) {
+    RemoveWindowSubclass(hwnd, KeepAccessibilityOff, id);
+  }
+  return DefSubclassProc(hwnd, message, wparam, lparam);
+}
+
+bool ScreenReaderRequested() {
+  const std::wstring command_line = GetCommandLineW();
+  return command_line.find(L"--screen-reader") != std::wstring::npos;
+}
+
+}  // namespace
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -26,6 +60,10 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
+  if (!ScreenReaderRequested()) {
+    SetWindowSubclass(flutter_controller_->view()->GetNativeWindow(),
+                      KeepAccessibilityOff, 1, 0);
+  }
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
