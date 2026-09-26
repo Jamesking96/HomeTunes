@@ -106,10 +106,16 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
               Expanded(
                 child: lyrics && !wide
                     ? lyricsPanel
-                    : Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Artwork(track: t, size: artSize, radius: 8),
+                    // Swipe the cover left / right: next / previous song, or skip in a book (0.1.17).
+                    : PlayerSwipe(
+                        child: Container(
+                          // The whole area takes the swipe, not just the picture.
+                          color: Colors.transparent,
+                          alignment: Alignment.center,
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Artwork(track: t, size: artSize, radius: 8),
+                          ),
                         ),
                       ),
               ),

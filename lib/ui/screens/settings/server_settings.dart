@@ -111,7 +111,11 @@ class ServerSettingsState extends State<ServerSettings> {
               labelText: 'Server address',
               hintText: 'e.g. http://192.168.1.20:4533',
             ),
+            // Redraw so the plain-http warning below follows what's typed.
+            onChanged: (_) => setState(() {}),
           ),
+          // (0.1.17) Plain http outside the home network: the login could be read on the way.
+          if (isPlainHttpToInternet(_url.text)) _HttpWarning(tryHttps: !_url.text.trim().startsWith('http://')),
           const SizedBox(height: 8),
           TextField(
             controller: _user,
@@ -248,3 +252,30 @@ class _AudiobookServerPreview extends StatelessWidget {
     );
   }
 }
+
+/// The warning under the server address when it would use plain http over the internet.
+/// [tryHttps]: no scheme was typed, so HomeTunes will try https:// first anyway.
+class _HttpWarning extends StatelessWidget {
+  final bool tryHttps;
+  const _HttpWarning({this.tryHttps = false});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.lock_open, size: 16, color: Colors.amber),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              tryHttps
+                  ? 'HomeTunes will try a secure (https) connection first. If the server only offers '
+                      'http, your sign-in could be read by others on the way.'
+                  : 'This address isn\'t secure (http). Outside your home network your sign-in could be '
+                      'read by others on the way. Use https:// if your server supports it.',
+              style: const TextStyle(fontSize: 12, color: Colors.amber),
+            ),
+          ),
+        ]),
+      );
+}
+
