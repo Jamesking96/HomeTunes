@@ -84,20 +84,22 @@ class ListeningModel extends ChangeNotifier {
   /// Reads listening.json (at start-up and after a backup is restored).
   Future<void> load() async {
     _byBook = {};
-    final j = await storage.read(fileName) as Map<String, dynamic>?;
-    final books = j?['books'];
+    final j = await storage.read(fileName);
+    var damaged = j != null && j is! Map;
+    final books = j is Map ? j['books'] : null;
+    if (books != null && books is! Map) damaged = true;
     if (books is Map) {
-      // Read each book on its own so one damaged entry doesn't lose the rest.
+      // Read each book on its own so one damaged entry doesn't lose the rest. If anything was
+      // skipped, a copy of the file is kept before the next save replaces it.
       for (final e in books.entries) {
-        if (e.value is Map<String, dynamic>) {
-          try {
-            _byBook[e.key as String] = BookProgress.fromJson(e.value as Map<String, dynamic>);
-          } catch (_) {
-            // Damaged entry: skip it.
-          }
+        try {
+          _byBook['${e.key}'] = BookProgress.fromJson(e.value as Map<String, dynamic>);
+        } catch (_) {
+          damaged = true; // damaged entry: skip it
         }
       }
     }
+    if (damaged) await storage.keepCopy(fileName);
     notifyListeners();
   }
 

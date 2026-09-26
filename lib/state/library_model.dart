@@ -30,6 +30,53 @@ import 'library_index.dart' as index;
 /// Evening out loudness between songs with ReplayGain information in the files.
 enum ReplayGainMode { off, track, album }
 
+/// Reads values out of a JSON map (settings.json), falling back to the default for any value
+/// that's missing or has the wrong type. Wrong types are noted in [damaged] so a copy of the
+/// file can be kept; missing values are normal (a setting newer than the file) and aren't.
+class _Fields {
+  final Map<String, dynamic> m;
+  bool damaged = false;
+  _Fields(this.m);
+
+  T get<T>(String key, T fallback) {
+    final v = m[key];
+    if (v == null) return fallback;
+    if (v is T) return v;
+    damaged = true;
+    return fallback;
+  }
+
+  /// A whole number (a hand-typed 15.0 is accepted as 15).
+  int integer(String key, int fallback) {
+    final v = m[key];
+    if (v == null) return fallback;
+    if (v is num && v.isFinite) return v.toInt();
+    damaged = true;
+    return fallback;
+  }
+
+  double number(String key, double fallback) {
+    final v = m[key];
+    if (v == null) return fallback;
+    if (v is num && v.isFinite) return v.toDouble();
+    damaged = true;
+    return fallback;
+  }
+
+  /// A list of text values; anything else in the list is dropped (and noted).
+  List<String>? strings(String key) {
+    final v = m[key];
+    if (v == null) return null;
+    if (v is! List) {
+      damaged = true;
+      return null;
+    }
+    final out = [for (final x in v) if (x is String) x];
+    if (out.length != v.length) damaged = true;
+    return out;
+  }
+}
+
 /// Holds the music library: local tracks, server tracks, settings, and the
 /// derived album/artist lists.
 class LibraryModel extends ChangeNotifier {
@@ -214,8 +261,14 @@ class LibraryModel extends ChangeNotifier {
   /// Every folder that's scanned: music and audiobook folders.
   List<String> get _scanFolders => {...folders, ...audiobookFolders}.toList();
 
+  /// Messages about data files that were damaged or recovered (see Storage.problems), or null.
+  /// Kept apart from [error] because scans clear [error] when they start.
+  String? get dataProblem => storage.problems.isEmpty ? null : storage.problems.join(' ');
+
+  /// Dismisses the message in the status strip (the error, and any data file messages).
   void clearError() {
     error = null;
+    storage.problems.clear();
     notifyListeners();
   }
 
@@ -249,50 +302,87 @@ class LibraryModel extends ChangeNotifier {
     _remote = [];
     _missing = [];
     // 1. Settings. Each value falls back to its default if it's missing (e.g. a setting added
-    //    in a newer version than the one that wrote the file).
-    final s = await storage.read('settings.json') as Map<String, dynamic>?;
-    if (s != null) {
-      folders = (s['folders'] as List? ?? const []).cast<String>().toList();
-      if (s['server'] is Map<String, dynamic>) {
-        server = ServerConfig.fromJson(s['server'] as Map<String, dynamic>);
+    //    in a newer version than the one that wrote the file) or has the wrong type.
+    //    HomeTunes: a wrong type used to throw here, before the first screen, so the app
+    //    wouldn't start. Now that one value falls back, and a copy of the file is kept.
+    final raw = await storage.read('settings.json');
+    var settingsDamaged = raw != null && raw is! Map<String, dynamic>;
+    if (raw is Map<String, dynamic>) {
+      final s = _Fields(raw);
+      folders = s.strings('folders') ?? [];
+      final sv = raw['server'];
+      if (sv is Map<String, dynamic>) {
+        try {
+          server = ServerConfig.fromJson(sv);
+        } catch (_) {
+          s.damaged = true;
+        }
       }
-      serverEnabled = (s['serverEnabled'] as bool?) ?? false;
-      onlineCovers = (s['onlineCovers'] as bool?) ?? true;
-      onlineDetails = (s['onlineDetails'] as bool?) ?? true;
-      onlineLyrics = (s['onlineLyrics'] as bool?) ?? true;
-      serverBooks = (s['serverBooks'] as bool?) ?? true;
-      gaplessPlayback = (s['gaplessPlayback'] as bool?) ?? true;
-      replayGain = ReplayGainMode.values.asNameMap()[s['replayGain']] ?? ReplayGainMode.off;
-      audiobookFolders = (s['audiobookFolders'] as List? ?? const []).cast<String>().toList();
-      if (s['bookGenres'] is List) bookGenres = (s['bookGenres'] as List).cast<String>().toList();
-      bookCoversTall = (s['bookCoversTall'] as bool?) ?? false;
-      skipBackSeconds = (s['skipBackSeconds'] as int?) ?? 15;
-      skipForwardSeconds = (s['skipForwardSeconds'] as int?) ?? 30;
-      rewindOnResume = (s['rewindOnResume'] as bool?) ?? true;
-      defaultBookSpeed = (s['defaultBookSpeed'] as num?)?.toDouble() ?? 1.0;
-      sleepButtonShown = (s['sleepButtonShown'] as bool?) ?? true;
-      sleepBookMinutes = (s['sleepBookMinutes'] as int?) ?? 30;
-      sleepMusicMinutes = (s['sleepMusicMinutes'] as int?) ?? 30;
-      sleepFadeSeconds = (s['sleepFadeSeconds'] as int?) ?? 10;
-      final o = s['bookOverrides'];
-      if (o is Map) _kindOverrides = {for (final e in o.entries) e.key as String: e.value == true};
+      serverEnabled = s.get('serverEnabled', false);
+      onlineCovers = s.get('onlineCovers', true);
+      onlineDetails = s.get('onlineDetails', true);
+      onlineLyrics = s.get('onlineLyrics', true);
+      serverBooks = s.get('serverBooks', true);
+      gaplessPlayback = s.get('gaplessPlayback', true);
+      replayGain = ReplayGainMode.values.asNameMap()[raw['replayGain']] ?? ReplayGainMode.off;
+      audiobookFolders = s.strings('audiobookFolders') ?? [];
+      bookGenres = s.strings('bookGenres') ?? List.of(defaultBookGenres);
+      bookCoversTall = s.get('bookCoversTall', false);
+      skipBackSeconds = s.integer('skipBackSeconds', 15);
+      skipForwardSeconds = s.integer('skipForwardSeconds', 30);
+      rewindOnResume = s.get('rewindOnResume', true);
+      defaultBookSpeed = s.number('defaultBookSpeed', 1.0);
+      sleepButtonShown = s.get('sleepButtonShown', true);
+      sleepBookMinutes = s.integer('sleepBookMinutes', 30);
+      sleepMusicMinutes = s.integer('sleepMusicMinutes', 30);
+      sleepFadeSeconds = s.integer('sleepFadeSeconds', 10);
+      final o = raw['bookOverrides'];
+      if (o is Map) _kindOverrides = {for (final e in o.entries) '${e.key}': e.value == true};
+      settingsDamaged = s.damaged;
     }
+    if (settingsDamaged) await storage.keepCopy('settings.json');
     _rebuildClient();
-    // 2. The user's edits.
-    final edits = await storage.read('edits.json') as Map<String, dynamic>?;
-    if (edits != null) {
-      _edits = {
-        for (final e in edits.entries)
-          if (e.value is Map<String, dynamic>) e.key: TrackEdit.fromJson(e.value as Map<String, dynamic>),
-      };
+    // 2. The user's edits. A damaged entry is skipped (and a copy of the file kept), rather
+    //    than losing every edit.
+    final edits = await storage.read('edits.json');
+    var editsDamaged = edits != null && edits is! Map;
+    if (edits is Map) {
+      for (final e in edits.entries) {
+        try {
+          _edits['${e.key}'] = TrackEdit.fromJson(e.value as Map<String, dynamic>);
+        } catch (_) {
+          editsDamaged = true;
+        }
+      }
     }
+    if (editsDamaged) await storage.keepCopy('edits.json');
     // 3. The library as last scanned/synced, so the app opens instantly without rescanning.
-    final lib = await storage.read('library.json') as Map<String, dynamic>?;
-    if (lib != null) {
-      _local = [for (final j in (lib['local'] as List? ?? const [])) Track.fromJson(j as Map<String, dynamic>)];
-      _remote = [for (final j in (lib['remote'] as List? ?? const [])) Track.fromJson(j as Map<String, dynamic>)];
-      _missing = [for (final j in (lib['missing'] as List? ?? const [])) Track.fromJson(j as Map<String, dynamic>)];
+    //    Damaged entries are skipped; the next scan finds those files again.
+    final lib = await storage.read('library.json');
+    var libraryDamaged = lib != null && lib is! Map;
+    List<Track> tracksIn(Object? list) {
+      if (list == null) return [];
+      if (list is! List) {
+        libraryDamaged = true;
+        return [];
+      }
+      final out = <Track>[];
+      for (final j in list) {
+        try {
+          out.add(Track.fromJson(j as Map<String, dynamic>));
+        } catch (_) {
+          libraryDamaged = true;
+        }
+      }
+      return out;
     }
+
+    if (lib is Map) {
+      _local = tracksIn(lib['local']);
+      _remote = tracksIn(lib['remote']);
+      _missing = tracksIn(lib['missing']);
+    }
+    if (libraryDamaged) await storage.keepCopy('library.json');
     _rebuild();
   }
 
