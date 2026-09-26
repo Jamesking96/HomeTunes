@@ -1,6 +1,6 @@
 # HomeTunes Code Guide
 
-25 Sep 2026 · James
+26 Sep 2026 · James (updated for 0.1.13)
 
 HomeTunes is one Flutter (Dart) codebase that runs on Windows and Android. Almost all of the app lives in `lib/`, split into four layers: **models** (plain data), **state** (the app's live brain), **services** (files, network, the OS) and **ui** (what you see). Every source file now opens with a comment saying what it does and why.
 
@@ -11,9 +11,9 @@ The app is built in layers, and each layer only talks to the one below it. Scree
 | Layer | Folder | Its job | Knows about Flutter UI? |
 | --- | --- | --- | --- |
 | UI | `lib/ui/` | Pages, dialogs and widgets. Draws what the state says and passes taps on to it. | Yes |
-| State | `lib/state/` | The app's live brain: the library, the player, playlists, listening places, lyrics, sleep timer. Each is a `ChangeNotifier` that tells the UI when to redraw. | No (only `ChangeNotifier`) |
+| State | `lib/state/` | The app's live brain: the library, the player, playlists and favourites, listening places, lyrics, the equaliser, the sleep timer, what's selected. Each is a `ChangeNotifier` that tells the UI when to redraw. | No (only `ChangeNotifier`) |
 | Services | `lib/services/` | Doing things: reading and writing JSON files, scanning folders, reading and writing tags, talking to Subsonic, LRCLIB, MusicBrainz and Open Library, the Android and Windows media controls. | No |
-| Models | `lib/models/` | Plain data shapes: `Track`, `Book`, `Playlist`, `Lyrics`, `TrackEdit`. They can turn themselves into JSON and back. | No |
+| Models | `lib/models/` | Plain data shapes: `Track`, `Book`, `Playlist`, `Lyrics`, `TrackEdit`, `EqPreset`. They can turn themselves into JSON and back. | No |
 
 **`lib/main.dart` wires it all together.** When the app starts it:
 
@@ -38,7 +38,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 
 | Folder or file | What's in it | Edit by hand? |
 | --- | --- | --- |
-| `lib/` | The app itself (about 14,000 lines of Dart) | Yes: this is the code |
+| `lib/` | The app itself (about 17,000 lines of Dart) | Yes: this is the code |
 | `test/` | Automated tests, plus `test/fixtures/` (tiny tagged MP3, FLAC and M4A files) | Yes |
 | `tool/` | Helper scripts: release build, platform patcher, probes and speed benches | Yes |
 | `packages/` | Two borrowed packages, copied in and patched: `audio_metadata_reader` (reads and writes tags) and `audio_service_win` (Windows media keys). Each has a `HOMETUNES_CHANGES.md` listing what was changed. | Rarely: note any change in `HOMETUNES_CHANGES.md` |
@@ -105,7 +105,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 
 | File | What it does |
 | --- | --- |
-| `shell.dart` | The outer frame. Wide windows get a sidebar and the desktop player bar; phones get a mini player and bottom tabs. Also the scan-progress strip, the multi-select bar and the Back-button rules. |
+| `shell.dart` | The outer frame. Wide windows get a sidebar and the desktop player bar; phones get a mini player and bottom tabs. Also the scan-progress strip, the two selection bars (songs; albums or books, with Edit, favourites and the quick actions) and the Back-button rules. |
 | `nav.dart` | `AppNav`: the current tab, a separate page stack per tab (so album pages open inside the content area while the player stays put), and "open Settings at this setting". |
 | `theme.dart` | The dark theme colours and the time formatters ("3:07", "1 hr 12 min"). |
 
@@ -114,12 +114,12 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | File | What you see |
 | --- | --- |
 | `home_screen.dart` | Home: greeting, Continue listening, quick tiles, recently added, artists. |
-| `library_screen.dart` | Library: Playlists, Artists, Albums and Songs tabs. |
-| `books_screen.dart` | Books: cover grid, search, state chips, author/narrator/series filter, sorting. |
+| `library_screen.dart` | Library: Playlists, Artists, Albums (with All / Favourites chips) and Songs tabs. |
+| `books_screen.dart` | Books: cover grid, search, state chips (including Favourites), author/narrator/series filter, sorting. |
 | `search_screen.dart` | Search as you type across songs, artists, albums, books and chapters. |
-| `album_screen.dart` | One album, split by disc, with prompts to find a missing cover or details online. |
+| `album_screen.dart` | One album, split by disc, with a favourite heart, the ⓘ Details button, and prompts to find a missing cover or details online. |
 | `artist_screen.dart` | One artist: picture, albums, songs. |
-| `book_screen.dart` | One audiobook: details, progress, Play/Resume, description, PDF, bookmarks, chapters, Move to Music. |
+| `book_screen.dart` | One audiobook: details, progress, Play/Resume, favourite heart, description, PDF, bookmarks, chapters, Move to Music, Details. |
 | `playlist_screen.dart` | One playlist or Liked Songs, with drag to reorder. |
 | `queue_screen.dart` | Now playing and up next: drag, swipe to remove, tap to jump. |
 | `now_playing_screen.dart` | The full-screen player. Songs get Like, Lyrics and Queue; books get Bookmark, Speed and Chapters. Both get the Equaliser button. |
@@ -132,7 +132,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 
 ### Settings (`lib/ui/screens/settings/`)
 
-`settings_screen.dart` is the hub: a list of pages with a search box, shown side by side on windows 760 px or wider. `settings_catalog.dart` lists every page and every searchable setting. `settings_widgets.dart` holds the shared building blocks, including the glow that highlights a setting found by search. Then there is one file per page: `library_settings`, `playback_settings`, `sleep_settings`, `audiobook_settings`, `online_settings`, `server_settings`, `edits_settings`, `backup_settings` and `about_settings`.
+`settings_screen.dart` is the hub: a list of pages with a search box, shown side by side on windows 760 px or wider. `settings_catalog.dart` lists every page and every searchable setting. `settings_widgets.dart` holds the shared building blocks, including the glow that highlights a setting found by search. Then there is one file per page: `library_settings`, `playback_settings`, `sleep_settings`, `audiobook_settings`, `online_settings`, `server_settings`, `edits_settings`, `backup_settings` and `about_settings`. Playback opens the Equaliser, and Audiobooks has the switch for a separate audiobook preset.
 
 ### Widgets (`lib/ui/widgets/`)
 
@@ -141,9 +141,9 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `player_controls.dart` | Seek bar, play/pause and skip buttons (music or book mode), like button, phone mini player, desktop player bar, volume. |
 | `listening_controls.dart` | Sleep timer (moon) button, −15/+30 skips, speed button and chooser, chapter list. |
 | `lyrics_view.dart` | The lyrics panel. Timed lyrics highlight the current line and scroll along; tapping a line jumps there. |
-| `track_tile.dart` | A song row, its ⋮ menu, Add to playlist, and the name prompt. |
+| `track_tile.dart` | A song row, its ⋮ menu (right-click opens it too, and it now has Details…), Add to playlist, and the name prompt. |
 | `cards.dart` | Album and artist tiles, the horizontal scrolling shelves on Home, and `SelectableCard` (right-click / press and hold → Select for album and book tiles). |
-| `book_card.dart` | Book covers and tiles with a progress bar. |
+| `book_card.dart` | Book covers and tiles with a progress bar, the favourite heart (top right) and the finished tick (bottom right). |
 | `bookmark_widgets.dart` | Adding, listing and jumping to bookmarks. |
 | `collection_header.dart` | The big header on album, artist and playlist pages with Play and Shuffle. |
 | `quick_actions.dart` | The quick actions for albums and books (edit, cover, favourites, details) used by tile menus and the selection bar. |
@@ -152,7 +152,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 
 ## How things flow
 
-Four everyday journeys through the code. Following one of these in the editor is the quickest way to learn how the pieces connect.
+Everyday journeys through the code. Following one of these in the editor is the quickest way to learn how the pieces connect.
 
 **Scanning your music folders** (`LibraryModel.scanLocal`)
 
@@ -181,6 +181,21 @@ Four everyday journeys through the code. Following one of these in the editor is
 3. `_rebuild()` lays the edit over the song, so every screen shows the new details straight away.
 4. Later, Settings → Your edits can write the edits into the files for real (`tag_writer.dart`). Anything a format can't hold stays as an edit.
 
+**Editing several albums or books at once**
+
+1. Right-click an album or book tile (press and hold on a phone) and choose Select. `SelectableCard` (in `cards.dart`) ticks it in `SelectionModel`, which holds one kind at a time: songs, albums or books.
+2. Each tile knows its `scope`, meaning everything shown with it on that screen, so "Select all" ticks exactly what you can see.
+3. The selection bar (`_GroupSelectionBar` in `shell.dart`) offers Edit albums or Edit books, which open `showEditDetails(..., albumCount: n)` or `showEditBooks`.
+4. A box whose value differs across the selection starts empty with `--:--` as its hint. Only boxes you change are saved, as a `TrackEdit` on every file. Album titles and book titles can't be edited this way, because giving several the same title would merge them.
+
+**Changing the equaliser**
+
+1. The Equaliser screen (`equalizer_screen.dart`) changes `EqualizerModel`, which saves `equalizer.json`.
+2. `PlayerModel` listens. `_applyEqualizer` picks the preset for what's playing (music or book) and turns it into mpv filter text with `eqFilter` (in `eq_preset.dart`).
+3. Changes are coalesced, so dragging a slider doesn't flood the engine. The filter is only re-sent when it actually changes.
+4. Bands at or above half the file's sample rate are left out, because the engine rejects the whole filter otherwise. A new sample rate (`audioParams`) re-sends it.
+5. The overall level isn't a filter. The player turns the engine volume down instead, and keeps your own volume setting separate.
+
 **Playing an audiobook** works the same way through `PlayerModel.playBook`. The music queue is put aside in `_music`, the place is saved every 10 seconds and on pause (`ListeningModel`), and "Back to music" (`resumeMusic`) puts the music queue back.
 
 ## Where the app saves things
@@ -192,7 +207,7 @@ Everything lives in the app's data folder, `…/hometunes/` inside the system's 
 | `settings.json` | Music folders, server details, every switch and setting | `LibraryModel` |
 | `library.json` | Every scanned song (local, server and missing) | `LibraryModel` |
 | `edits.json` | Your edits to songs and books | `LibraryModel` |
-| `playlists.json` | Playlists and Liked Songs | `PlaylistsModel` |
+| `playlists.json` | Playlists, Liked Songs and favourite albums and books (stored as song ids, so they survive regrouping and moved files) | `PlaylistsModel` |
 | `listening.json` | Each book's place, finished state and speed | `ListeningModel` |
 | `bookmarks.json` | Audiobook bookmarks and notes | `BookmarksModel` |
 | `lyrics.json` | Lyrics found online, and "nothing found" times so they aren't looked up again too soon | `LyricsModel` |
@@ -223,7 +238,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 
 ## Tests
 
-`flutter test` runs everything in `test/` (164 tests, all passing on 25 Sep). To run one file: `flutter test test/books_test.dart`. Tests use the tiny tagged files in `test/fixtures/` and fake servers, so they need no internet and don't touch your library.
+`flutter test` runs everything in `test/` (197 tests, all passing when 0.1.13 was merged on 25 Sep). To run one file: `flutter test test/books_test.dart`. Tests use the tiny tagged files in `test/fixtures/` and fake servers, so they need no internet and don't touch your library.
 
 | File | Covers |
 | --- | --- |
@@ -277,6 +292,8 @@ While `flutter run` is going, press `r` to hot reload (keeps the app's state) or
 | Open a new page from somewhere | `AppNav` in `lib/ui/nav.dart` | Use `context.read<AppNav>().push(...)` so the page opens inside the current tab |
 | Add a new saved data file | `lib/services/storage.dart` (read/write) | Add it to `dataFiles` in `app_backup.dart` |
 | Change a borrowed package | `packages/<name>/` | Mark the change `HomeTunes:` and log it in that package's `HOMETUNES_CHANGES.md` |
+| Add or change a built-in equaliser preset | `builtInEqPresets` in `lib/models/eq_preset.dart` | Test it with `tool/bench/engine_test.dart`: mpv can accept a filter and still fail to play it |
+| Add a quick action for albums or books | `albumActions` / `bookActions` in `lib/ui/widgets/quick_actions.dart` | They appear in tile menus and the selection bar's ⋮ |
 | Release a new version | `version:` in `pubspec.yaml` | Always raise the build number after `+`; Android refuses a lower one |
 
 ## Things spotted while commenting
@@ -307,4 +324,5 @@ The comments were added on the branch `docs/code-comments` and merged into `main
 - **What changed:** 104 files, about 2,165 comment lines added. No code was changed. A script confirmed that every original line is still there, untouched, and everything new is a comment. The 61 "removed" lines in git are lines that got a short comment added to the end.
 - **Covered:** everything in `lib/`, `test/` and `tool/`, the setup and build scripts, the installer script, `pubspec.yaml`, and the Windows media-keys plugin in `packages/audio_service_win`. The borrowed tag library `packages/audio_metadata_reader` was left alone, as it's third-party code.
 - **Checks on the PC:** `flutter analyze` reports no issues, and `flutter test` passed all 164 tests. (The handover notes say 165. Comments can't remove a test, so that count is probably out of date.)
+- **Since then:** code added in 0.1.10–0.1.13 (equaliser, editing several albums and books, favourites, quick actions, the Details page) came with the same kind of header and "why" comments.
 - **To see the change:** `git log --oneline` shows the merge; `git show` on the commit "Docs: explanatory comments throughout the code, plus a code guide" shows every comment added.

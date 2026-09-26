@@ -13,7 +13,8 @@ Read the files in this order:
 | `01_ARCHITECTURE.md` | Code map: models, state, services, UI, data files, vendored packages |
 | `02_ENVIRONMENT_AND_WORKFLOW.md` | The user's PC, paths, build/test/install commands, git, known environment traps |
 | `03_FEATURES_AND_DESIGN_NOTES.md` | What each feature does and *why* it's built that way (gapless, books, lyrics, sidecars…) |
-| `04_ROADMAP_AND_OPEN_ITEMS.md` | What's next (settings tidy-up, equaliser, multi-album edit, offline server songs), decisions, known issues |
+| `04_ROADMAP_AND_OPEN_ITEMS.md` | What's done and what's next (offline server songs, audiobook server), decisions, known issues |
+| `05_CODE_GUIDE.md` | A plain-English tour of the code for the user: every folder and file, how the main journeys flow, scripts, tests, where to make common changes, and probable bugs spotted |
 
 ## Status (25 Sep 2026)
 
@@ -33,10 +34,12 @@ Read the files in this order:
   - editing several albums and books at once, with `--:--` (0.1.11)
   - favourite albums and books (0.1.12)
   - quick actions in the right-click menu and the Details page, "where it comes from" (0.1.13)
-- These notes are also in the repo under `docs/ai-context/`. Update them when things change.
+- Every source file has a header comment saying what it does and why (added 25 Sep; keep it up
+  for new files). These notes are also in the repo under `docs/ai-context/`. Update them when things change.
 - **Next:** nothing is agreed yet. The open phases are D (offline server songs, after the server
-  review) and E (the Audiobookshelf connection, which needs a plan). Ask the user.
-  - After them: D offline (after the server review) and E audiobook server. See `04_ROADMAP_AND_OPEN_ITEMS.md`.
+  review) and E (the Audiobookshelf connection, which needs a plan). Ask the user. See
+  `04_ROADMAP_AND_OPEN_ITEMS.md`.
+  - `05_CODE_GUIDE.md` lists probable bugs spotted while commenting the code (none fixed yet).
 
 ## Rules the user cares about (follow these)
 

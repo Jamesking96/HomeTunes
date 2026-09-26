@@ -11,15 +11,15 @@ The plan is published as an artifact (https://claude.ai/artifact/QsNhvBvSRx69PNv
 | 1: gapless + ReplayGain | Done, in `main` |
 | 2: lyrics | Done, in `main` |
 | Book sidecar files | Done, in `main` |
-| A: settings tidy-up | **Done, merged (0.1.9+9).** The phone has build 8, which lacks only the greyed-out Audiobookshelf boxes |
+| A: settings tidy-up | **Done, merged (0.1.9+9)** |
 | B: equaliser (was phase 3) | **Done, merged (0.1.10).** Confirmed on the phone in logcat |
 | C: multi-album + multi-book edit | **Done, merged (0.1.11)** |
 | Favourite albums & books | **Done, merged (0.1.12)** |
 | Quick actions + Details page | **Done, merged (0.1.13)** |
 | D: offline copies of server songs (was phase 4) | After the server review |
-| E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to C and D isn't decided |
+| E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to D isn't decided |
 
-### A: Settings tidy-up (asked for 25 Sep)
+### A: Settings tidy-up (asked for 25 Sep, done in 0.1.9)
 The user wants Settings cleaner and easy to find things in. It used to be one long ListView
 (975 lines). It's now built on `settings-tidy`; see `03_…` → Settings.
 - **Section list:** Library, Playback, **Sleep timer** (its own page, as the user asked), Audiobooks,
@@ -41,7 +41,7 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
   playback settings in Playback, online look-ups in Online lookups. The sleep timer is the
   exception and has its own page.
 
-### B: Equaliser (decided 25 Sep)
+### B: Equaliser (decided 25 Sep, done in 0.1.10)
 - **Presets UI:** the user picks from presets, not raw sliders on the main view. Built-ins: Flat,
   Bass boost, Treble boost, Vocal, Rock, Pop, Classical, Spoken word, Headphones.
 - **Editing a preset:** Edit opens ten bands (31 Hz–16 kHz, ±12 dB) plus an overall level.
@@ -57,13 +57,12 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
 - **Where it lives:** Settings → Playback and a Now Playing button. Presets go into backups. Add
   `SettingTarget`s and catalog entries for search.
 
-### C: Multi-album and multi-book edit (asked for 25 Sep, own branch, a new phase after current work)
+### C: Multi-album and multi-book edit (asked for 25 Sep, done in 0.1.11; how it was built is in `03_…`)
 - **Selecting:**
   - Right-click an album (desktop) or long-press it (phone) → Select. Tapping other albums ticks
     them, and there's a Select all option.
   - Works on the Albums tab, artist pages and search.
-  - Today `SelectionModel` holds only song ids and `AlbumCard` has no menu or long-press. It needs
-    album selection.
+  - Built with `SelectKind` in `SelectionModel` and `SelectableCard` for album and book tiles.
 - **Edit albums** appears in the selection bar. It opens one form covering album artist, artist,
   year, genre and cover.
 - **Differing values:** when the selected albums differ, the field shows **`--:--`** and is left
@@ -71,8 +70,7 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
   are saved, as TrackEdits on every track of those albums.
 - **Album title is excluded**, because the same title would merge albums. The user was told this
   and didn't object.
-- `edit_details.dart` already has a `_mixed` set and a "Mixed - leave blank…" hint for
-  multi-song edit. Reuse it.
+- The old "Mixed" hint in `edit_details.dart` was replaced by `differentMarker` (`--:--`).
 - **Decided (25 Sep):**
   - Song multi-edit switches from "Mixed" to `--:--` too.
   - The Books page gets the same select-and-edit: author, narrator, series, year, genre and cover.
@@ -120,6 +118,11 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
   opt-in "All files access" (MANAGE_EXTERNAL_STORAGE, fine for sideloading) or leaving it as is.
 
 ## Known issues / small things
+- **Probable bugs found while commenting the code (25 Sep, not fixed):** see `05_CODE_GUIDE.md` →
+  "Things spotted while commenting". The ones most likely to matter: a single-song save drops
+  narrator/series edits; year and series number can't be cleared in the book editor; non-Latin
+  titles break MusicBrainz track-number matching; a parent folder named like "Audiobooks" turns
+  everything below it into books.
 - **Dune collection tags are poor.** Many books show as "The New Dune Chronicles", with series
   taken from folder names like "01 - Dune Saga". The data itself is at fault, and the user can fix
   it with Edit book. Smarter guessing from folders would be possible.

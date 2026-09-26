@@ -1,6 +1,6 @@
 # HomeTunes architecture
 
-About 14k lines of Dart in `lib/`, plus two vendored packages in `packages/`. State is handled by
+About 17k lines of Dart in `lib/`, plus two vendored packages in `packages/`. State is handled by
 Provider `ChangeNotifier`s created in `main.dart`, and screens `watch`/`select`/`read` them.
 
 ## Stack
@@ -18,7 +18,7 @@ Provider `ChangeNotifier`s created in `main.dart`, and screens `watch`/`select`/
 ## Layout
 ```
 lib/main.dart            creates Storage + models, wires them together, MultiProvider, MaterialApp(Shell)
-lib/models/              plain data: Track (+Chapter, Album, Artist), TrackEdit, Book (+BookChapter), Playlist, Lyrics
+lib/models/              plain data: Track (+Chapter, Album, Artist), TrackEdit, Book (+BookChapter), Playlist, Lyrics, EqPreset
 lib/services/            no Flutter UI: files, network, platform
 lib/state/               ChangeNotifiers + pure helpers (library_index, book_index, play_queue)
 lib/ui/shell.dart        wide: sidebar + DesktopPlayerBar; phone: MiniPlayer + bottom nav; per-tab Navigators (nav.dart AppNav)
@@ -46,6 +46,8 @@ tool/                    probes, benches, build script, platform patcher
   from the in-file chapters, otherwise one per file.
 - **`Lyrics`** / `LyricLine` (`models/lyrics.dart`): an LRC parser (multiple stamps,
   `[offset:]`, `<word>` tags stripped), plain text, and `lineAt(position)`.
+- **`EqPreset`** (`models/eq_preset.dart`): the ten bands (31 Hz–16 kHz), a preset's gains plus
+  overall level, `builtInEqPresets`, and `eqFilter(preset, sampleRate:)`, which builds the mpv `af` text.
 
 ## State (ChangeNotifiers)
 - **`LibraryModel`** is the core. It owns the settings (`settings.json`), the scanned library
@@ -66,13 +68,15 @@ tool/                    probes, benches, build script, platform patcher
   book plays (`resumeMusic`). It implements `SleepTarget`.
 - **`ListeningModel`** (`listening.json`) stores each book's place, finished state and speed.
 - **`BookmarksModel`** (`bookmarks.json`).
-- **`PlaylistsModel`** (`playlists.json`, includes Liked Songs).
+- **`PlaylistsModel`** (`playlists.json`, includes Liked Songs and `favouriteAlbums` /
+  `favouriteBooks`, both stored as song ids; see `03_…` → Favourites).
 - **`EqualizerModel`** (`equalizer.json`): on/off, the music and audiobook presets, edits to
   built-ins and your own presets. `PlayerModel` listens and applies it (see `03_…` → Equaliser).
 - **`LyricsModel`** (`lyrics.json` = lyrics found online, plus "nothing found" timestamps) decides
   where lyrics come from (see `03_…`).
 - **`SleepTimer`**, **`AppNav`** (per-tab navigators, `openBook/openAlbum/openArtist`, `openSettings(page, setting:)`) and
-  **`SelectionModel`** (multi-select).
+  **`SelectionModel`** (select mode: one `SelectKind` at a time, songs, albums or books, plus the
+  scope that "Select all" covers).
 
 ## Services
 | File | Role |
@@ -84,11 +88,12 @@ tool/                    probes, benches, build script, platform patcher
 | `subsonic_client.dart` | Token auth, `getAlbumList2`/`getAlbum` sync, stream/cover URLs, `fetchLyrics` (OpenSubsonic `getLyricsBySongId`, falls back to `getLyrics`). |
 | `lrclib_client.dart` | LRCLIB `/api/get` and `/api/search`, ranking and matching (length within 3 s). The User-Agent names HomeTunes. |
 | `local_lyrics.dart` | Tag lyrics and a sidecar `.lrc` file (any case of extension), read in an isolate. |
+| `media_details.dart` | For the Details page: `inspectTrackNow` re-reads a file and works out where each shown detail came from (edit, book details file, tags, folder or file name, stand-in, server). Read-only. |
 | `media_session.dart` | Links audio_service to the player (music: prev/next; books: rewind/fast-forward = skip). |
 | `music_permission.dart` | Android READ_MEDIA_AUDIO (SDK ≥33) or storage permission, using the `sdkInt` MethodChannel. |
 | `cover_search.dart`, `music_info.dart` | MusicBrainz / Cover Art Archive look-ups for songs. |
 | `book_info.dart` | Open Library search and covers for books. |
-| `app_backup.dart` | `.htbackup`, a gzip of JSON. `dataFiles` lists what's included, including `lyrics.json`. Paths are made portable (`@app/`). Merge or replace on restore. The password is optional. |
+| `app_backup.dart` | `.htbackup`, a gzip of JSON. `dataFiles` lists what's included, including `lyrics.json` and `equalizer.json`. A merge keeps both sides' favourites and custom equaliser presets. Paths are made portable (`@app/`). Merge or replace on restore. The password is optional. |
 | `track_matching.dart` | Matches moved files to their old ids. |
 
 ## Data files (app support dir `…/hometunes/`)
