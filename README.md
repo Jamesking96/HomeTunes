@@ -14,7 +14,7 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
   and folder names). Rescans only re-read files that changed.
 - **Browse** – Home (quick tiles, recently added, artists), Library tabs for Playlists, Artists,
   Albums and Songs, album pages with multi-disc headings, artist pages.
-- **Search** – instant, across songs, artists and albums; every word must match.
+- **Search** – instant, across songs, artists, albums, audiobooks and chapters; every word must match.
 - **Playback** – queue, play next, add to queue, shuffle, repeat off/all/one, seek, volume,
   full-screen Now Playing, drag-to-reorder / swipe-to-remove queue.
 - **Playlists** – create, rename, delete, reorder, add whole albums; plus **Liked Songs**.
@@ -28,6 +28,18 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
   album-wide details (album, album artist, year, genre, cover) offers to update the rest of its
   album too, and editing an album offers to pull in songs with the same album title that show up
   as a separate album (e.g. "feat." songs with a different album artist).
+- **Edit several albums or books at once** – right-click an album or book tile (press and hold on a
+  phone) → Select, tick more or "Select all", then **Edit albums** / **Edit books** in the bar.
+  Details that differ show `--:--` and are left alone unless you type something. Album and book
+  titles can't be changed this way, since giving several the same title would merge them.
+- **Favourite albums and audiobooks** – the heart on an album or book page, in a tile's menu, or in
+  the selection bar. Favourites show a small heart on the cover, and Library › Albums and the Books
+  tab have a Favourites filter. They're kept in backups.
+- **Quick actions and Details** – right-clicking an album, book or song opens a menu with Edit
+  details, Choose cover, Find cover online, Use the files' own cover, favourites and **Details…**.
+  The Details page shows where something comes from: its folder and files, why it's in Books or
+  Music, where each detail came from (tags, a book details file, the folder name, your edit…) and
+  what the file itself says.
 - **Save edits into files** (Settings) – writes your HomeTunes edits into the MP3/FLAC/M4A/WAV files
   themselves, backing each file up first by default. Fields a format can't hold (e.g. album artist
   in M4A, covers in WAV) stay as HomeTunes edits; OGG/Opus and server songs can't be written.
@@ -87,6 +99,10 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
   Repeat-one loops without a gap. Can be switched off in Settings → Playback.
 - **Even out volume (ReplayGain)** – off, by song or by album, using the loudness info many files
   carry (Settings → Playback).
+- **Equaliser** – presets (Flat, Bass boost, Treble boost, Vocal, Rock, Pop, Classical, Spoken
+  word, Headphones), each editable with ten bands and an overall level, "Restore default", and
+  your own presets. Audiobooks get their own preset (Spoken word unless you choose another).
+  Open it from Now Playing or Settings → Playback.
 - **Lyrics** – the lyrics button in Now Playing (beside the cover on wide windows, in place of it
   on phones). Timed lyrics follow the song, and tapping a line jumps there. They come from the file's
   tags, a `.lrc` file with the same name, your server, or LRCLIB (lrclib.net, switch in Settings →
@@ -188,7 +204,7 @@ in that settings file in plain text, so use an account that only has access to m
 ```
 lib/
   main.dart                  start-up, providers
-  models/                    Track, Album, Artist, Playlist
+  models/                    Track, Album, Artist, Playlist, Book, Lyrics, EqPreset
   services/
     local_scanner.dart       folder walk + tag reading (background isolates)
     subsonic_client.dart     Subsonic REST client
@@ -198,11 +214,14 @@ lib/
     library_index.dart       grouping + search (pure Dart)
     play_queue.dart          queue / shuffle / repeat logic (pure Dart)
     player_model.dart        connects the queue to media_kit audio
-    playlists_model.dart     playlists + Liked Songs
+    playlists_model.dart     playlists, Liked Songs, favourite albums and books
+    equalizer_model.dart     equaliser presets and settings
   ui/                        shell, screens, widgets, theme
 test/                        queue, library, search and Subsonic tests
 tool/patch_platforms.dart    adds Android/macOS/iOS permissions after `flutter create`
 ```
+
+For a full tour of every file, see `docs/ai-context/05_CODE_GUIDE.md`.
 
 ## Known limits (good next steps)
 
@@ -213,7 +232,6 @@ tool/patch_platforms.dart    adds Android/macOS/iOS permissions after `flutter c
 - **iOS**: iOS doesn't allow apps to read arbitrary folders; local playback there would need
   import through the Files app. Server streaming works.
 - **Offline copies of server songs** (download for later) aren't implemented.
-- No equaliser yet (planned).
 - Writing tags uses a patched copy of audio_metadata_reader (`packages/audio_metadata_reader`)
   that keeps lyrics, ReplayGain, comments and other tags it doesn't edit. Version 1.8.0 on its own
   drops them.
