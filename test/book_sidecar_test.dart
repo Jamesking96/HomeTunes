@@ -6,7 +6,9 @@
 // The book, author and narrators are made up.
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/track.dart';
 import 'package:hometunes/services/book_sidecar.dart';
@@ -159,6 +161,35 @@ void main() {
       expect(s.imageIsOwn, isTrue);
       expect(s.companions.map(p.basename), ['The Last Kettle [B01].pdf']);
       expect(s.stamp, isNot(0));
+    });
+
+    // The stamp is saved in library.json and compared on the next run, so it must not depend
+    // on anything random (Object.hash, used before, was seeded differently every run and made
+    // every file beside a cover picture get re-read at each startup).
+    test('the stamp is the same everywhere and changes only when a side file changes', () async {
+      final song = touch('Album/01 Song.mp3');
+      final cover = touch('Album/cover.jpg');
+      final first = findSidecars(song.path, FolderCache()).stamp;
+      expect(first, isNot(0));
+      // Same again, and the same from a background isolate (how scans run).
+      expect(findSidecars(song.path, FolderCache()).stamp, first);
+      final path = song.path;
+      expect(await Isolate.run(() => findSidecars(path, FolderCache()).stamp), first);
+      // It's exactly the md5 recipe, with nothing run-specific mixed in.
+      // (The scanner sees the path as the folder listing gives it, with the platform's slashes.)
+      final line = '${p.normalize(cover.path)}|${cover.statSync().modified.millisecondsSinceEpoch}';
+      final digest = md5.convert(utf8.encode(line)).bytes;
+      var expected = 0;
+      for (var i = 0; i < 6; i++) {
+        expected = (expected << 8) | digest[i];
+      }
+      expect(first, expected);
+      // Changing the cover's date changes the stamp.
+      cover.setLastModifiedSync(DateTime(2020, 1, 2));
+      expect(findSidecars(song.path, FolderCache()).stamp, isNot(first));
+      // No side files at all: 0.
+      final lone = touch('Lone/song.mp3');
+      expect(findSidecars(lone.path, FolderCache()).stamp, 0);
     });
 
     // With two pictures and neither named after the book/folder, it's unclear which is the cover,

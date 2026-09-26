@@ -40,15 +40,37 @@ class PlaylistsModel extends ChangeNotifier {
     liked = [];
     _favAlbums = {};
     _favBooks = {};
-    final j = await storage.read('playlists.json') as Map<String, dynamic>?;
-    if (j != null) {
-      playlists = [
-        for (final p in (j['playlists'] as List? ?? const [])) Playlist.fromJson(p as Map<String, dynamic>),
-      ];
-      liked = (j['liked'] as List? ?? const []).cast<String>().toList();
-      _favAlbums = (j['favouriteAlbums'] as List? ?? const []).cast<String>().toSet();
-      _favBooks = (j['favouriteBooks'] as List? ?? const []).cast<String>().toSet();
+    // HomeTunes: read piece by piece, so one damaged playlist (or a wrong type anywhere) skips
+    // just that piece instead of stopping the app from starting. If anything was skipped, a
+    // copy of the file is kept before the next save replaces it.
+    final j = await storage.read('playlists.json');
+    var damaged = j != null && j is! Map;
+    List<String> ids(Object? v) {
+      if (v == null) return [];
+      if (v is! List) {
+        damaged = true;
+        return [];
+      }
+      final out = [for (final x in v) if (x is String) x];
+      if (out.length != v.length) damaged = true;
+      return out;
     }
+
+    if (j is Map) {
+      final lists = j['playlists'];
+      if (lists != null && lists is! List) damaged = true;
+      for (final p in lists is List ? lists : const []) {
+        try {
+          playlists.add(Playlist.fromJson(p as Map<String, dynamic>));
+        } catch (_) {
+          damaged = true;
+        }
+      }
+      liked = ids(j['liked']);
+      _favAlbums = ids(j['favouriteAlbums']).toSet();
+      _favBooks = ids(j['favouriteBooks']).toSet();
+    }
+    if (damaged) await storage.keepCopy('playlists.json');
     _likedSet = liked.toSet();
     notifyListeners();
   }

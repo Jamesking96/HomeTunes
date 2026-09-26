@@ -174,8 +174,9 @@ class _StatusStrip extends StatelessWidget {
   }
 
   Widget _strip(LibraryModel lib, String? status) {
-    // Progress wins over an old error; with neither, the strip takes no space at all.
-    final text = status ?? lib.error;
+    // Progress wins over an old error, and an error over a message about damaged data files;
+    // with none of them, the strip takes no space at all.
+    final text = status ?? lib.error ?? lib.dataProblem;
     if (text == null) return const SizedBox.shrink();
     final isError = status == null;
     return Material(
