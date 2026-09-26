@@ -89,6 +89,86 @@ void main() {
       );
       expect(m, isEmpty);
     });
+
+    // A whole library moving to a new drive letter: 20,000 songs must be matched quickly (this
+    // runs on the UI thread). Before 0.1.15 it compared every pair, about 400 million times.
+    test('a whole library moving drive is matched quickly', () {
+      const count = 20000;
+      String rel(int i) => 'Artist ${i % 400}\\Album ${i % 1600}\\${(i % 12) + 1} Track $i.mp3';
+      final gone = [for (var i = 0; i < count; i++) local('D:\\Music\\${rel(i)}', title: 'Track $i')];
+      final added = [for (var i = 0; i < count; i++) local('E:\\Music\\${rel(i)}', title: 'Track $i')];
+      final watch = Stopwatch()..start();
+      final m = matchMovedTracks(gone, added);
+      watch.stop();
+      expect(m.length, count);
+      expect(m[gone[123].id], added[123].id);
+      expect(watch.elapsed, lessThan(const Duration(seconds: 3)));
+    });
+
+    // The faster matching must give exactly the same answers as the old compare-everything way,
+    // including ties, renamed files and songs that are already taken.
+    test('gives the same results as comparing every pair', () {
+      // The pre-0.1.15 algorithm, kept here as the reference.
+      Map<String, String> reference(List<Track> gone, List<Track> added) {
+        int shared(List<String> a, List<String> b) {
+          var n = 0;
+          while (n < a.length && n < b.length && a[a.length - 1 - n] == b[b.length - 1 - n]) {
+            n++;
+          }
+          return n;
+        }
+
+        bool close(Track a, Track b) =>
+            !a.hasDuration || !b.hasDuration || (a.duration - b.duration).abs() <= const Duration(seconds: 2);
+        final taken = <String>{};
+        final result = <String, String>{};
+        for (final old in gone) {
+          var best = 0;
+          final ids = <String>[];
+          for (final t in added) {
+            if (taken.contains(t.id)) continue;
+            final n = shared(pathParts(old.path!), pathParts(t.path!));
+            if (n < 2) continue;
+            if (n > best) {
+              best = n;
+              ids
+                ..clear()
+                ..add(t.id);
+            } else if (n == best) {
+              ids.add(t.id);
+            }
+          }
+          if (ids.length == 1) {
+            result[old.id] = ids.single;
+            taken.add(ids.single);
+            continue;
+          }
+          final same = [
+            for (final t in added)
+              if (!taken.contains(t.id) && signature(t) == signature(old) && close(old, t)) t.id
+          ];
+          if (same.length == 1) {
+            result[old.id] = same.single;
+            taken.add(same.single);
+          }
+        }
+        return result;
+      }
+
+      // A deliberately messy mix: repeated folder/file names, copies of the same album, renames,
+      // files with no folder, and a few lengths.
+      final gone = <Track>[];
+      final added = <Track>[];
+      for (var i = 0; i < 300; i++) {
+        final title = 'Song ${i % 37}';
+        final ms = (i % 5) * 60000;
+        gone.add(local('/old/${i % 7}/Album ${i % 11}/${i % 13}.mp3', title: title, n: i % 4, ms: ms));
+        added.add(local('/new/${i % 3}/Album ${i % 11}/${i % 13}.mp3', title: title, n: i % 4, ms: ms + (i % 3) * 1000));
+        if (i % 9 == 0) added.add(local('/renamed/r$i.flac', title: title, n: i % 4, ms: ms));
+        if (i % 17 == 0) added.add(local('lonely$i.mp3', title: title, n: i % 4));
+      }
+      expect(matchMovedTracks(gone, added), reference(gone, added));
+    });
   });
 
   // A real temp library with two tiny WAVs, wired to PlaylistsModel the same way main.dart does:
@@ -199,6 +279,35 @@ void main() {
   });
 
   group('Backup file', () {
+    // A crafted backup mustn't be able to write, or point covers, outside the app's art folder.
+    // "\" counts as a separator on Windows, which the old check missed (0.1.15).
+    test('cover images and app paths from a backup stay inside the app folder', () {
+      final root = p.join(Directory.systemTemp.path, 'ht');
+      final art = p.join(root, 'art');
+      expect(AppBackup.safeArtDestination(root, 'art/abc.img')!.path, p.join(art, 'abc.img'));
+      expect(AppBackup.safeArtDestination(root, 'art/custom/x.png')!.path, p.join(art, 'custom', 'x.png'));
+      for (final bad in [
+        'art/..\\..\\evil.exe',
+        'art/..\\evil.exe',
+        'art/../evil.exe',
+        'art\\..\\evil.exe',
+        'art/C:evil.exe',
+        'art/C:\\Windows\\evil.exe',
+        '/art/x.img',
+        'art//x.img',
+        'art/./x.img',
+        'settings.json',
+        'art',
+      ]) {
+        expect(AppBackup.safeArtDestination(root, bad), isNull, reason: bad);
+      }
+      final ok = AppBackup.fromPortable({'art': '@app/art/custom/x.jpg'}, root) as Map;
+      expect(ok['art'], p.join(root, 'art', 'custom', 'x.jpg'));
+      final crafted = AppBackup.fromPortable({'a': '@app/../../evil.jpg', 'b': '@app/art\\..\\..\\x'}, root) as Map;
+      expect(crafted['a'], '');
+      expect(crafted['b'], '');
+    });
+
     // App-folder paths become "@app/..." so a backup can be restored on another computer or
     // phone where the app folder is somewhere else. Song ids are left as they are.
     test('paths in the app folder are stored relative to it', () {

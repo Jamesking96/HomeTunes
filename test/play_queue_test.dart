@@ -21,6 +21,32 @@ Track t(String id) => Track(
 void main() {
   final five = [for (var i = 1; i <= 5; i++) t('t$i')];
 
+  // "Back to music" after an audiobook saves the queue and puts it back later. The original
+  // order must come back too, so turning shuffle off afterwards restores it (0.1.15).
+  test('a saved shuffled queue comes back whole, and shuffle off restores the original order', () {
+    final q = PlayQueue(random: Random(7))..setTracks(five, start: 0, shuffle: true);
+    q.next();
+    q.repeat = RepeatSetting.all;
+    final playOrder = q.tracks;
+    final original = q.originalTracks;
+    final pos = q.position;
+    expect(original.map((x) => x.id), ['t1', 't2', 't3', 't4', 't5']);
+
+    // A book plays in between (the queue is replaced), then the music is put back.
+    q.setTracks([t('book part 1'), t('book part 2')], shuffle: false);
+    q.restore(playOrder, original, position: pos, shuffle: true, repeat: RepeatSetting.all, label: 'Album · X');
+    expect(q.tracks, playOrder);
+    expect(q.position, pos);
+    expect(q.shuffle, isTrue);
+    expect(q.repeat, RepeatSetting.all);
+    expect(q.contextLabel, 'Album · X');
+
+    final current = q.current!;
+    q.setShuffle(false);
+    expect(q.tracks.map((x) => x.id), ['t1', 't2', 't3', 't4', 't5']);
+    expect(q.current, current);
+  });
+
   // `auto: true` means "the song finished by itself", as opposed to the user pressing Next.
   test('plays in order and stops at the end with repeat off', () {
     final q = PlayQueue()..setTracks(five, start: 3);

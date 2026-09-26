@@ -55,6 +55,10 @@ class SubsonicClient {
   static const apiVersion = '1.16.1';
   static const clientName = 'hometunes';
 
+  /// Most album-list pages read in one sync (500 albums each, so 500,000 albums): a safety
+  /// stop far above any real library.
+  static const maxAlbumPages = 1000;
+
   final ServerConfig config;
   final http.Client _http;
   final Random _random;
@@ -142,17 +146,28 @@ class SubsonicClient {
   /// An album that fails to load is skipped and counted in [SyncResult.failedAlbums].
   Future<SyncResult> fetchAllTracks({void Function(int albumsDone, int albumsTotal)? onProgress}) async {
     // 1. Page through the album list, 500 at a time, until a short page says we're done.
+    // HomeTunes: also stops when a page brings no new albums, or after [maxAlbumPages] pages.
+    // Before 0.1.15 a server that ignores `offset` (returning the same full page every time)
+    // made this loop for ever, filling memory.
     final albumIds = <String>[];
+    final seen = <String>{};
     const page = 500;
-    for (var offset = 0;; offset += page) {
+    for (var n = 0, offset = 0; n < maxAlbumPages; n++, offset += page) {
       final body = await _get('getAlbumList2', {
         'type': 'alphabeticalByName',
         'size': '$page',
         'offset': '$offset',
       });
       final list = (body['albumList2'] as Map<String, dynamic>?)?['album'] as List? ?? const [];
-      albumIds.addAll(list.map((a) => (a as Map<String, dynamic>)['id'].toString()));
-      if (list.length < page) break;
+      var added = 0;
+      for (final a in list) {
+        final id = (a as Map<String, dynamic>)['id'].toString();
+        if (seen.add(id)) {
+          albumIds.add(id);
+          added++;
+        }
+      }
+      if (list.length < page || added == 0) break;
     }
 
     // 2. Fetch each album's songs.
