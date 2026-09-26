@@ -46,6 +46,16 @@ class PlaybackSettings extends StatelessWidget {
         ),
       ),
       SettingTarget(
+        'swipe-to-skip',
+        child: SwitchListTile(
+          title: const Text('Swipe gestures'),
+          subtitle: const Text('On a touch screen, swipe the player left or right to go to the next or previous song. '
+              'In an audiobook it skips forward or back by the lengths set under Audiobooks.'),
+          value: lib.swipeToSkip,
+          onChanged: (v) => lib.updatePlaybackSettings(swipeToSkip: v),
+        ),
+      ),
+      SettingTarget(
         'replaygain',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           ChoiceTile<ReplayGainMode>(
