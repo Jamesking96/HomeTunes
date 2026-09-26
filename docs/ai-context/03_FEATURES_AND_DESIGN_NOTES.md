@@ -10,6 +10,10 @@ before changing that area.
   scans of thousands of files slow; now the first scan of 2,018 files takes about 0.9 s.
 - **Grouping.** Albums group by `albumArtist + album`, and artists by album artist. Searching
   covers songs, albums, artists, books and book chapters.
+- **Library tabs (0.1.18).** Artists, Albums and Songs each have a filter-by-title box (every
+  typed word must be in the title), All / Favourites chips (Liked for songs), a "Show only" sheet
+  (artist, album, genre, decade) and a sort menu, like the Books tab. Choices last while the app
+  is open but aren't saved; the Albums year sorts split the grid by decade.
 - **Edits.** The user can edit a song, a whole album, or a multi-selection. Covers can be picked
   from a file or found online (MusicBrainz / Cover Art Archive), and so can details. Edits are
   stored in `edits.json`; the files are untouched until **Settings → Your edits → Save edits into music files**

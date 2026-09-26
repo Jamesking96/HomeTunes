@@ -48,7 +48,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `pubspec.lock` | The exact package versions last downloaded | No: `flutter pub get` writes it |
 | `analysis_options.yaml` | Lint rules for `flutter analyze` (it skips `packages/` and the platform folders) | Rarely |
 | `setup.ps1`, `setup.sh` | One-time set-up for a fresh copy (see *Scripts and tools*) | Rarely |
-| `android/`, `windows/`, `ios/`, `macos/`, `linux/` | Native projects Flutter builds from. Made by `flutter create`, then adjusted by `tool/patch_platforms.dart`. The Android `MainActivity.kt` holds the Back-button and Android-version code. | Rarely |
+| `android/`, `windows/`, `ios/`, `macos/`, `linux/` | Native projects Flutter builds from. Made by `flutter create`, then adjusted by `tool/patch_platforms.dart`. The Android `MainActivity.kt` holds the Back-button and Android-version code. The Windows runner's `flutter_window.cpp` keeps Flutter's accessibility layer off (see Fixed in 0.1.19). | Rarely |
 | `build/` | Build output. Releases land in `build\dist\`. | No |
 
 ## lib/ file by file
@@ -72,6 +72,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `player_model.dart` | Joins the play queue to the audio engine (media_kit / mpv). Handles gapless (the engine holds only the current song and the next one), book mode (saving your place, skipping across files, chapters, speed per book) and the music queue that waits while a book plays. |
 | `play_queue.dart` | The play order with no audio in it: queue, current position, shuffle (keeping the original order), repeat, Play next, reordering, and a peek at what plays next. |
 | `library_index.dart` | Plain functions that group songs into albums and artists (ignoring a leading "The") and run the song, album and artist search. |
+| `music_filters.dart` | The Artists, Albums and Songs tabs' title box (`titleMatches`), filters (`MusicFilters` with one `FilterField` per artist / album / genre / decade) and sorting (`sortArtists`, `sortAlbums` with decade headings, `sortSongs`). No Flutter, so it's unit tested directly. |
 | `book_index.dart` | Decides which files are audiobooks (six rules, first match wins) and groups them into books. Guesses series, number and narrator from folder names; your edits win. Also the Books tab's sort and filters, and book and chapter search. |
 | `equalizer_model.dart` | The equaliser (`equalizer.json`): on/off, the preset for music and for audiobooks, your changes to built-in presets and your own presets. The player listens and applies it live. |
 | `listening_model.dart` | Each book's saved place, finished state and speed (`listening.json`), plus percent done, time left and "Continue listening". |
@@ -115,7 +116,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | File | What you see |
 | --- | --- |
 | `home_screen.dart` | Home: greeting, Continue listening, quick tiles, recently added, artists. |
-| `library_screen.dart` | Library: Playlists, Artists, Albums (with All / Favourites chips) and Songs tabs. |
+| `library_screen.dart` | Library: Playlists, Artists, Albums and Songs tabs. Artists, Albums and Songs each have a filter-by-title box, All / Favourites (Liked for songs) chips, a filter sheet and a sort menu, sharing `_FilteredTabState`; each tab keeps its choices while you swipe between them. |
 | `books_screen.dart` | Books: cover grid, search, state chips (including Favourites), author/narrator/series filter, sorting. |
 | `search_screen.dart` | Search as you type across songs, artists, albums, books and chapters. |
 | `album_screen.dart` | One album, split by disc, with a favourite heart, the ⓘ Details button, and prompts to find a missing cover or details online. |
@@ -148,6 +149,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `bookmark_widgets.dart` | Adding, listing and jumping to bookmarks. |
 | `collection_header.dart` | The big header on album, artist and playlist pages with Play and Shuffle. |
 | `quick_actions.dart` | The quick actions for albums and books (edit, cover, favourites, details) used by tile menus and the selection bar. |
+| `music_filter_sheet.dart` | The title box / filter / sort bar (`MusicFilterBar`) and the "Show only" sheet (`showMusicFilterSheet`) used by the Library tabs. |
 | `artwork.dart` | Cover images, loaded at a sensible size to save memory. |
 | `music_access_banner.dart` | The amber "can't read your music" card on Android. |
 
@@ -239,7 +241,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 
 ## Tests
 
-`flutter test` runs everything in `test/` (256 tests, all passing on the 0.1.17 branch on 26 Sep). To run one file: `flutter test test/books_test.dart`. Tests use the tiny tagged files in `test/fixtures/` and fake servers, so they need no internet and don't touch your library.
+`flutter test` runs everything in `test/` (266 tests, all passing on the 0.1.18 branch on 26 Sep). To run one file: `flutter test test/books_test.dart`. Tests use the tiny tagged files in `test/fixtures/` and fake servers, so they need no internet and don't touch your library.
 
 | File | Covers |
 | --- | --- |
@@ -250,6 +252,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `library_safety_test.dart` | Offline music folders, failed saves, clearing details, the song editor keeping book details, the Audiobooks-folder rule, lyrics and book places following moved files, the imported-cover race, learned song lengths |
 | `server_security_test.dart` | The server password moving into protected storage (and staying in settings.json if it can't), per-server keys, forgetting, backups with and without it, hiding login details in errors, the plain-http warning |
 | `swipe_test.dart` | Swipe to skip: quick and long swipes, small nudges, taps, mouse drags and the setting |
+| `library_filters_test.dart` | The Library tabs' title box, filters, choice narrowing and sorts, plus the Artists and Albums tabs on screen |
 | `play_queue_test.dart` | Repeat, shuffle, Play next, reordering, the gapless peek |
 | `track_edit_test.dart` | Applying, merging and tidying your edits |
 | `metadata_features_test.dart` | What each file type can store, writing tags into a real WAV with a backup, cover search |
@@ -317,6 +320,10 @@ Reading every file turned up a handful of probable bugs. **None of them were cha
 **Fixed in 0.1.16 (branch `fix/release-c-library-safety`):** a music or audiobook folder that can't be reached (unplugged drive, sleeping network share) keeps its songs and covers as they were, with a message in the status strip and "Not available right now" in Settings, instead of looking empty; failed saves are reported in the status strip (once per file, cleared when that file saves again) and a restore that can't save a file fails instead of reporting success; emptying a detail now removes it (`TrackEdit.cleared`, saved as `"cleared": [...]` in `edits.json`: track and disc number, year and genre in the song editor, year and genre in album edits, number in series and year in the book editor), and older `edits.json` files load unchanged; saving a book file in the song editor keeps its narrator and series; both editors show an error instead of sticking on the spinner; the "Audiobooks folder" rule only looks from the scanned folder down (its own name included); lyrics found online follow moved files; a newly imported cover isn't tidied away before the editor saves it; "End of song" works with repeat-one; learned song lengths are read a few seconds after the song starts (fixing the race), applied together and saved at most every 30 seconds and when the app goes to the background; and book places are looked up without saving anything, with moved books adopted once per library rebuild. Tests: `test/library_safety_test.dart`, plus sleep timer cases in `listening_controls_test.dart`.
 
 **Fixed in 0.1.17 (branch `fix/release-d-windows-and-security`):** the Windows media-keys plugin (`packages/audio_service_win`) no longer sends button presses to Flutter from a background thread (they're queued and run on the platform thread through a window message; the old code logged "sent a message from native to Flutter on a non-platform thread … may result in data loss or crashes"), covers are applied on the platform thread only if no newer song has arrived, and cover paths with `+` or on network shares work (see its `HOMETUNES_CHANGES.md`); the music server's password is kept in the system's protected storage (`services/secret_store.dart`, the `flutter_secure_storage` package; on Windows this needs Visual Studio's "C++ ATL" component) keyed by address and user name, an old plain-text password in `settings.json` is moved there on first start, backups (including the automatic "before restore" one) only include it when asked, an address typed without a scheme is tried with `https://` first, Settings › Servers warns about plain http outside the home network, and login tokens are hidden in error messages (`hideSecrets`). Tests: `test/server_security_test.dart`. New in 0.1.17 too: **swipe to skip** on touch screens (the phone's mini player and the Now Playing cover): swipe left for the next song, right for the previous one, and in an audiobook forward or back by the Settings › Audiobooks skip lengths (`SwipeToSkip` / `PlayerSwipe` in `player_controls.dart`, `PlayerModel.swipe`, the "Swipe gestures" switch in Settings › Playback; mouse drags are ignored). Tests: `test/swipe_test.dart`.
+
+**New in 0.1.18 (branch `feature/library-filters`):** the Artists, Albums and Songs tabs in Your Library can be filtered and sorted like the Books tab: a box at the top filters by title as you type (every word must be in the artist name, album title or song title, in any order); All / Favourites chips (Liked for songs; an artist counts as a favourite when one of their albums is a favourite or one of their songs is liked); a filter sheet to show only one artist, album, genre and/or decade, each list narrowed by the other picks; and a sort menu (artists: name A–Z / Z–A, most albums, most songs, recently added; albums: artist, title, year newest or oldest first with decade headings, recently added; songs: title, artist, album, year, recently added, longest). Shuffle on the Songs tab plays just the songs shown. Code: `state/music_filters.dart`, `ui/widgets/music_filter_sheet.dart`, `ui/screens/library_screen.dart`. Tests: `test/library_filters_test.dart`.
+
+**Fixed in 0.1.19:** the Windows crash when moving the window (and the earlier Liked Songs crash) — every HomeTunes crash on record since 0.1.8 was the same access violation in `flutter_windows.dll` (+0x3c16a in Flutter 3.47.5), inside Flutter's Windows accessibility bridge. Flutter builds its accessibility tree as soon as any program asks the window what's on screen, and on this PC something always asks (a plain `flutter create` app reports semantics enabled too). HomeTunes' tree then trips a Flutter engine bug: while the library loads, the Home page's shelves are re-attached under a new list node and the bridge logs `Failed to update ui::AXTree, error: Nodes left pending by the update: 8 14 19 30` / `… will not be in the tree and is not the new root`; the next update (moving the window, the scan progress line changing) crashes. `windows/runner/flutter_window.cpp` now answers `WM_GETOBJECT` for the Flutter view itself (`KeepAccessibilityOff`, via `SetWindowSubclass` / `comctl32.lib`), so the engine never builds that tree; start HomeTunes with `--screen-reader` to turn it back on for Narrator. Checked by running a debug build that used to crash within seconds of starting: no AXTree errors and no crash through 25 rounds of accessibility queries and window moves (`build\crash\uia_poke.ps1`, not in git). Worth re-checking when Flutter is upgraded: if its bridge is fixed, the block (and the `--screen-reader` switch) can go.
 
 A few existing comments are also out of date (left as they were): `Track` says narrator and series are never read from files (side files set them now); `showEditDetails` says music files are never modified (Settings → Your edits can write them); `SeekBar` says it redraws only from the position stream.
 
