@@ -29,7 +29,7 @@ void main() {
   // PlayerModel uses Flutter services (e.g. platform channels), so the test binding is needed.
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('gapless queue: in order, nothing skipped; Play next and repeat-one still work', () async {
+  test('gapless queue: in order, nothing skipped; Play next, repeat-one and missing files work', () async {
     const lib = String.fromEnvironment('LIBMPV');
     MediaKit.ensureInitialized(libmpv: lib.isEmpty ? null : lib);
     final dir = Directory.systemTemp.createTempSync('hometunes_gapless');
@@ -75,6 +75,30 @@ void main() {
     print('repeat one: $seen, still on ${player.current?.title}, playing ${player.playing}');
     expect(player.current?.title, 'One');
     expect(player.playing, isTrue);
+
+    // 3. (0.1.15) Choosing a song whose file has gone while another plays: the old song must
+    //    stop, not carry on under the new title. Repeat-all is on, so this also checks that the
+    //    stopped engine doesn't keep skipping round the queue.
+    //    A 6-second tone is used so it's still playing when the missing song is chosen.
+    tone(p.join(music.path, '05 Long.wav'), 6.0, 330.0);
+    tone(p.join(music.path, '06 Gone.wav'), 1.0, 880.0);
+    await library.scanLocal();
+    final long = library.tracks.firstWhere((t) => t.title == 'Long');
+    final gone = library.tracks.firstWhere((t) => t.title == 'Gone');
+    player.cycleRepeat(); // off
+    player.cycleRepeat(); // all
+    await player.playTracks([long]);
+    await waitFor(() => player.playing, ms: 3000);
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    expect(player.playing, isTrue);
+    File(gone.path!).deleteSync();
+    await player.playTracks([gone]);
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    // ignore: avoid_print
+    print('missing file: playing ${player.playing}, now showing ${player.current?.title}, error "${player.lastError}"');
+    expect(player.current?.title, 'Gone');
+    expect(player.playing, isFalse, reason: 'the previous song must stop');
+    expect(player.lastError, contains('isn\'t on this device'));
 
     // Short pause lets the engine finish shutting down before the temp files are deleted.
     player.dispose();

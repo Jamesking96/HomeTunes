@@ -25,14 +25,16 @@ import 'sleep_timer.dart';
 
 /// The music queue, kept aside while an audiobook plays.
 // A snapshot of the queue (songs, place, shuffle/repeat, label) so it can be put back exactly.
+// (0.1.15: the original order is kept too, so shuffle can be turned off properly afterwards.)
 class _MusicQueue {
-  final List<Track> tracks;
+  final List<Track> tracks; // play order
+  final List<Track> original; // the order they were queued in
   final int index;
   final Duration position;
   final bool shuffle;
   final RepeatSetting repeat;
   final String? label;
-  const _MusicQueue(this.tracks, this.index, this.position, this.shuffle, this.repeat, this.label);
+  const _MusicQueue(this.tracks, this.original, this.index, this.position, this.shuffle, this.repeat, this.label);
 }
 
 /// Connects the [PlayQueue] to the actual audio engine (media_kit / libmpv).
@@ -147,7 +149,9 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         // tool/bench/engine_test.dart). Only act when nothing was loaded
         // ahead: the queue ended, or gapless is off. Opening a new file can
         // also briefly report the old one as finished; ignore that too.
-        if (done && _opening == 0 && _engineEdits == 0 && _engineIds.length < 2) _advance(auto: true);
+        // An empty engine (stopped because nothing could be played) never moves the queue on:
+        // otherwise a queue of unplayable songs with repeat on could keep skipping for ever.
+        if (done && _opening == 0 && _engineEdits == 0 && _engineIds.length == 1) _advance(auto: true);
       }),
       _player.stream.playlist.listen((pl) {
         // The engine moved on to the song loaded ahead, by itself.
@@ -246,6 +250,14 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
           : 'Can\'t play "${t.title}" right now';
       if (skipsLeft > 0 && queue.next() != null) {
         return _openCurrent(skipsLeft: skipsLeft - 1);
+      }
+      // Nothing playable left. HomeTunes: stop the engine too; before 0.1.15 the previous song
+      // kept playing while the screen showed the unplayable one.
+      _engineIds = [];
+      try {
+        await _player.stop();
+      } catch (e) {
+        debugPrint('HomeTunes: couldn\'t stop the engine: $e');
       }
       notifyListeners();
       return;
@@ -610,6 +622,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     } else if (!queue.isEmpty) {
       _music = _MusicQueue(
         queue.tracks,
+        queue.originalTracks,
         queue.position,
         _player.state.position,
         queue.shuffle,
@@ -679,11 +692,15 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   void _addToWaitingMusic(Track t, {required bool next}) {
     final m = _music;
     if (m == null || m.tracks.isEmpty) {
-      _music = _MusicQueue([t], 0, Duration.zero, queue.shuffle, RepeatSetting.off, null);
+      _music = _MusicQueue([t], [t], 0, Duration.zero, queue.shuffle, RepeatSetting.off, null);
     } else {
       final list = List.of(m.tracks);
       list.insert(next ? m.index + 1 : list.length, t);
-      _music = _MusicQueue(list, m.index, m.position, m.shuffle, m.repeat, m.label);
+      // Same place in the original order: after the song that was playing, or at the end.
+      final original = List.of(m.original);
+      final at = next ? original.indexOf(m.tracks[m.index]) + 1 : original.length;
+      original.insert(at.clamp(0, original.length), t);
+      _music = _MusicQueue(list, original, m.index, m.position, m.shuffle, m.repeat, m.label);
     }
     notifyListeners();
   }
@@ -696,11 +713,9 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     _setBook(null);
     await _applySpeed(1.0);
     _music = null;
-    // The saved list is already in play order (shuffled or not), so load it as it is and then
-    // just put the shuffle/repeat settings back.
-    queue.setTracks(m.tracks, start: m.index, shuffle: false, label: m.label);
-    queue.shuffle = m.shuffle;
-    queue.repeat = m.repeat;
+    // Put the queue back exactly: play order, original order (for turning shuffle off later),
+    // place, shuffle and repeat.
+    queue.restore(m.tracks, m.original, position: m.index, shuffle: m.shuffle, repeat: m.repeat, label: m.label);
     await _openCurrent(startAt: m.position);
   }
 

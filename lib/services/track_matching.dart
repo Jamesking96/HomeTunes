@@ -26,6 +26,21 @@ Map<String, String> matchMovedTracks(Iterable<Track> gone, Iterable<Track> added
   // Split every new path once up front, rather than again for each missing song.
   final addedParts = {for (final t in candidates) t.id: pathParts(t.path!)};
 
+  // HomeTunes: indexes so each missing song only looks at likely candidates. Before 0.1.15 every
+  // missing song was compared with every new one (20,000 moved songs = 400 million comparisons
+  // on the UI thread). A step-1 match needs at least "folder/file name" in common, so candidates
+  // are grouped by their last two path parts; step 2 needs the same details, so they're grouped
+  // by signature. Both keep the original order, so the results are exactly the same as before.
+  final byTail = <String, List<Track>>{};
+  for (final t in candidates) {
+    final key = _tailKey(addedParts[t.id]!);
+    if (key != null) (byTail[key] ??= []).add(t);
+  }
+  final bySignature = <String, List<Track>>{};
+  for (final t in candidates) {
+    (bySignature[signature(t)] ??= []).add(t);
+  }
+
   for (final old in gone) {
     if (!old.isLocal || old.path == null) continue;
     final oldParts = pathParts(old.path!);
@@ -33,7 +48,8 @@ Map<String, String> matchMovedTracks(Iterable<Track> gone, Iterable<Track> added
     // 1. Longest shared path ending.
     var best = 0;
     final bestIds = <String>[];
-    for (final t in candidates) {
+    final tailKey = _tailKey(oldParts);
+    for (final t in tailKey == null ? const <Track>[] : (byTail[tailKey] ?? const <Track>[])) {
       if (taken.contains(t.id)) continue;
       final n = _sharedTail(oldParts, addedParts[t.id]!);
       if (n < 2) continue;  // just the file name matching isn't enough
@@ -54,10 +70,9 @@ Map<String, String> matchMovedTracks(Iterable<Track> gone, Iterable<Track> added
     }
 
     // 2. Same details.
-    final sig = signature(old);
     final same = [
-      for (final t in candidates)
-        if (!taken.contains(t.id) && signature(t) == sig && _closeLength(old, t)) t.id
+      for (final t in bySignature[signature(old)] ?? const <Track>[])
+        if (!taken.contains(t.id) && _closeLength(old, t)) t.id
     ];
     if (same.length == 1) {
       result[old.id] = same.single;
@@ -70,6 +85,11 @@ Map<String, String> matchMovedTracks(Iterable<Track> gone, Iterable<Track> added
 /// Path split into lower-case parts, whichever slashes it uses.
 List<String> pathParts(String path) =>
     path.toLowerCase().split(RegExp(r'[\\/]+')).where((s) => s.isNotEmpty).toList();
+
+/// The last two path parts ("album folder/file name"), the least a step-1 match must share.
+/// Null for a path with fewer than two parts (it can never make a step-1 match).
+String? _tailKey(List<String> parts) =>
+    parts.length < 2 ? null : '${parts[parts.length - 2]}\u0000${parts.last}';
 
 /// How many path parts match, counting back from the file name.
 int _sharedTail(List<String> a, List<String> b) {

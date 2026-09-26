@@ -127,11 +127,9 @@ class AppBackup {
 
     // Cover images first, so the data never points at a picture that isn't there.
     for (final e in backup.art.entries) {
-      final parts = e.key.split('/');
-      // Safety: only write inside art/, and refuse ".." so a crafted backup can't write
-      // files elsewhere on the device.
-      if (parts.isEmpty || parts.first != 'art' || parts.any((s) => s == '..' || s.isEmpty)) continue;
-      final dest = File(p.joinAll([root, ...parts]));
+      final dest = safeArtDestination(root, e.key);
+      // Safety: anything that wouldn't land inside art/ is skipped (see safeArtDestination).
+      if (dest == null) continue;
       if (await dest.exists()) continue;  // files are named by content
       await dest.parent.create(recursive: true);
       await dest.writeAsBytes(base64Decode(e.value), flush: true);
@@ -360,11 +358,38 @@ class AppBackup {
         return appPrefix + p.split(p.relative(s, from: root)).join('/');
       });
 
-  /// Turns "@app/..." back into a path inside [root].
+  /// Turns "@app/..." back into a path inside [root]. A crafted value that would point outside
+  /// the app's folder is dropped (becomes an empty string), so it can't aim a cover edit at an
+  /// arbitrary file on the device.
   static Object? fromPortable(Object? json, String root) => _mapStrings(json, (s) {
         if (!s.startsWith(appPrefix)) return s;
-        return p.joinAll([root, ...s.substring(appPrefix.length).split('/')]);
+        final rel = s.substring(appPrefix.length);
+        if (!_safeRelative(rel)) return '';
+        final dest = p.normalize(p.joinAll([root, ...rel.split('/')]));
+        return p.isWithin(p.normalize(root), dest) ? dest : '';
       });
+
+  /// Where a backup's cover image [key] (e.g. "art/custom/abc.png") should be written inside
+  /// [root], or null if it would land anywhere but inside `art/`.
+  ///
+  /// HomeTunes: before 0.1.15 the check split keys on "/" only. On Windows "\" is a separator
+  /// too, so a crafted key like `art/..\..\x` could write outside the app's folder. Now the key
+  /// must be made of plain names (no "..", no "\", no drive letters), and the final path must
+  /// be inside art/ after normalising.
+  static File? safeArtDestination(String root, String key) {
+    if (!_safeRelative(key)) return null;
+    final parts = key.split('/');
+    if (parts.length < 2 || parts.first != 'art') return null;
+    final artDir = p.normalize(p.join(root, 'art'));
+    final dest = p.normalize(p.joinAll([root, ...parts]));
+    return p.isWithin(artDir, dest) ? File(dest) : null;
+  }
+
+  /// A relative path written with "/" whose parts are all plain names.
+  static bool _safeRelative(String rel) {
+    if (rel.isEmpty || rel.contains('\\') || rel.contains(':') || rel.startsWith('/')) return false;
+    return rel.split('/').every((s) => s.isNotEmpty && s != '.' && s != '..');
+  }
 
   /// Runs [f] on every string anywhere in a JSON tree (values only, not keys).
   static Object? _mapStrings(Object? json, String Function(String) f) {
