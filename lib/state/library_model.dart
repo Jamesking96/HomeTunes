@@ -125,6 +125,10 @@ class LibraryModel extends ChangeNotifier {
   /// Even out volume using ReplayGain info in the files (off / by song / by album).
   ReplayGainMode replayGain = ReplayGainMode.off;
 
+  /// Swipe the player left or right (touch screens) to go to the next or previous song, or to
+  /// skip forward or back in an audiobook (0.1.17).
+  bool swipeToSkip = true;
+
   // ---- audiobook settings ----
 
   /// Folders where everything is an audiobook (scanned as well as [folders]).
@@ -299,6 +303,7 @@ class LibraryModel extends ChangeNotifier {
     serverBooks = true;
     gaplessPlayback = true;
     replayGain = ReplayGainMode.off;
+    swipeToSkip = true;
     audiobookFolders = [];
     bookGenres = List.of(defaultBookGenres);
     bookCoversTall = false;
@@ -339,6 +344,7 @@ class LibraryModel extends ChangeNotifier {
       serverBooks = s.get('serverBooks', true);
       gaplessPlayback = s.get('gaplessPlayback', true);
       replayGain = ReplayGainMode.values.asNameMap()[raw['replayGain']] ?? ReplayGainMode.off;
+      swipeToSkip = s.get('swipeToSkip', true);
       audiobookFolders = s.strings('audiobookFolders') ?? [];
       bookGenres = s.strings('bookGenres') ?? List.of(defaultBookGenres);
       bookCoversTall = s.get('bookCoversTall', false);
@@ -459,6 +465,7 @@ class LibraryModel extends ChangeNotifier {
         'serverBooks': serverBooks,
         'gaplessPlayback': gaplessPlayback,
         'replayGain': replayGain.name,
+        'swipeToSkip': swipeToSkip,
         'audiobookFolders': audiobookFolders,
         'bookGenres': bookGenres,
         'bookCoversTall': bookCoversTall,
@@ -603,9 +610,10 @@ class LibraryModel extends ChangeNotifier {
   }
 
   /// Changes the playback settings (Settings > Playback).
-  Future<void> updatePlaybackSettings({bool? gaplessPlayback, ReplayGainMode? replayGain}) async {
+  Future<void> updatePlaybackSettings({bool? gaplessPlayback, ReplayGainMode? replayGain, bool? swipeToSkip}) async {
     this.gaplessPlayback = gaplessPlayback ?? this.gaplessPlayback;
     this.replayGain = replayGain ?? this.replayGain;
+    this.swipeToSkip = swipeToSkip ?? this.swipeToSkip;
     notifyListeners();
     await _saveSettings();
   }

@@ -7,6 +7,7 @@
 // forward, speed) instead of shuffle / repeat.
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../state/library_model.dart';
@@ -232,7 +233,8 @@ class MiniPlayer extends StatelessWidget {
     final t = p.current;
     // Nothing loaded: no mini player at all.
     if (t == null) return const SizedBox.shrink();
-    return Material(
+    // Swipe left / right for the next / previous song, or to skip in a book (0.1.17).
+    return PlayerSwipe(child: Material(
       color: AppColors.surfaceHigh,
       child: InkWell(
         onTap: () => openNowPlaying(context),
@@ -263,6 +265,84 @@ class MiniPlayer extends StatelessWidget {
           _ThinProgress(),
         ]),
       ),
+    ));
+  }
+}
+
+/// Swipe-to-skip on the player (0.1.17), wired to [PlayerModel.swipe] and the "Swipe to skip"
+/// setting. In an audiobook a short message says how far it skipped.
+class PlayerSwipe extends StatelessWidget {
+  final Widget child;
+  const PlayerSwipe({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = context.select<LibraryModel, bool>((l) => l.swipeToSkip);
+    void go(bool forward) {
+      final p = context.read<PlayerModel>();
+      final lib = context.read<LibraryModel>();
+      final inBook = p.inBook;
+      p.swipe(forward: forward);
+      if (inBook) {
+        final seconds = forward ? lib.skipForwardSeconds : lib.skipBackSeconds;
+        ScaffoldMessenger.maybeOf(context)
+          ?..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+            content: Text(forward ? 'Forward $seconds s' : 'Back $seconds s'),
+            duration: const Duration(milliseconds: 900),
+          ));
+      }
+    }
+
+    return SwipeToSkip(
+      enabled: enabled,
+      onForward: () => go(true),
+      onBack: () => go(false),
+      child: child,
+    );
+  }
+}
+
+/// Calls [onForward] when [child] is swiped to the left and [onBack] when it's swiped to the
+/// right, with a light tap of haptic feedback. Only touch (and stylus) swipes count, so dragging
+/// with a mouse on a PC does nothing, and a swipe has to be quick or long enough to be meant.
+/// Taps still reach [child].
+class SwipeToSkip extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onForward;
+  final VoidCallback onBack;
+  final bool enabled;
+  const SwipeToSkip({super.key, required this.child, required this.onForward, required this.onBack, this.enabled = true});
+
+  /// A swipe counts when it's at least this fast (logical pixels a second)…
+  static const minVelocity = 300.0;
+
+  /// …or at least this long.
+  static const minDistance = 80.0;
+
+  @override
+  State<SwipeToSkip> createState() => _SwipeToSkipState();
+}
+
+class _SwipeToSkipState extends State<SwipeToSkip> {
+  double _dx = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.enabled) return widget.child;
+    return GestureDetector(
+      supportedDevices: const {PointerDeviceKind.touch, PointerDeviceKind.stylus, PointerDeviceKind.invertedStylus},
+      onHorizontalDragStart: (_) => _dx = 0,
+      onHorizontalDragUpdate: (d) => _dx += d.delta.dx,
+      onHorizontalDragEnd: (d) {
+        final v = d.primaryVelocity ?? 0;
+        final forward = v <= -SwipeToSkip.minVelocity || (v.abs() < SwipeToSkip.minVelocity && _dx <= -SwipeToSkip.minDistance);
+        final back = v >= SwipeToSkip.minVelocity || (v.abs() < SwipeToSkip.minVelocity && _dx >= SwipeToSkip.minDistance);
+        if (!forward && !back) return;
+        HapticFeedback.selectionClick();
+        forward ? widget.onForward() : widget.onBack();
+      },
+      child: widget.child,
     );
   }
 }
