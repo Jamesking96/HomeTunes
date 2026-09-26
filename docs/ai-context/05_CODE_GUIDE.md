@@ -238,7 +238,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 
 ## Tests
 
-`flutter test` runs everything in `test/` (214 tests, all passing on the 0.1.14 branch on 26 Sep). To run one file: `flutter test test/books_test.dart`. Tests use the tiny tagged files in `test/fixtures/` and fake servers, so they need no internet and don't touch your library.
+`flutter test` runs everything in `test/` (219 tests, all passing on the 0.1.15 branch on 26 Sep). To run one file: `flutter test test/books_test.dart`. Tests use the tiny tagged files in `test/fixtures/` and fake servers, so they need no internet and don't touch your library.
 
 | File | Covers |
 | --- | --- |
@@ -315,6 +315,8 @@ Reading every file turned up a handful of probable bugs. **None of them were cha
 | `player_model.dart` `_learnDuration` | When the engine moves on by itself, the next song's length may be saved onto the previous song | Unconfirmed race |
 
 **Fixed in 0.1.14 (branch `fix/release-a-data-safety`):** the side-file stamp is now an md5 that stays the same between runs (it used `Object.hash`, which changes every run, so every file beside a cover picture was re-read at each startup); `Storage.write` no longer deletes the old file before the rename, and `Storage.read` recovers from `.tmp`, keeps damaged files as `<name>.corrupt-<date>.json` and reports them in the status strip; tag writing goes into a working copy (`<file>.hometunes-tmp`) that replaces the original only after it's checked; and every model's `load()` reads its file defensively, so a wrong type skips one value or entry instead of stopping the app starting. Tests: `test/data_safety_test.dart` plus new cases in `services_test.dart`, `metadata_features_test.dart` and `book_sidecar_test.dart`.
+
+**Fixed in 0.1.15 (branch `fix/release-b-small-fixes`):** moved-file matching (`track_matching.dart`) looks candidates up by their last two path parts and by signature instead of comparing every pair, with identical results (a whole 20,000-song library changing drive letter is matched almost instantly); choosing a song that can't be played now stops the engine instead of leaving the previous song playing, and a stopped, empty engine never moves the queue on by itself; restoring a backup only writes cover images inside `art/` and ignores `@app/` paths that would point outside the app folder (a `\` in a crafted key used to get past the check on Windows); the Subsonic album sync stops when a page brings no new albums or after 1,000 pages; and "Back to music" after an audiobook puts back the queue's original order too, so turning shuffle off afterwards works. Tests: new cases in `keep_and_backup_test.dart`, `services_test.dart`, `play_queue_test.dart`, and a missing-file step in `tool/bench/player_gapless_test.dart` (real engine).
 
 A few existing comments are also out of date (left as they were): `Track` says narrator and series are never read from files (side files set them now); `showEditDetails` says music files are never modified (Settings → Your edits can write them); `SeekBar` says it redraws only from the position stream.
 

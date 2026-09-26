@@ -165,6 +165,34 @@ void main() {
       expect(client.fetchAllTracks(), throwsA(isA<SubsonicException>()));
     });
 
+    // A server that ignores `offset` returns the same full page every time. The sync must
+    // notice no new albums arrived and stop, instead of asking for ever (0.1.15).
+    test('a server that repeats the same album page doesn\'t loop for ever', () async {
+      var listCalls = 0;
+      final mock = MockClient((req) async {
+        final method = req.url.pathSegments.last;
+        if (method == 'getAlbumList2') {
+          listCalls++;
+          return ok({
+            'albumList2': {
+              'album': [for (var i = 0; i < 500; i++) {'id': 'a$i'}]
+            }
+          });
+        }
+        return ok({
+          'album': {
+            'artist': 'Band',
+            'song': [
+              {'id': 's-${req.url.queryParameters['id']}', 'title': 'T', 'album': 'Rec', 'duration': 60},
+            ]
+          }
+        });
+      });
+      final result = await SubsonicClient(cfg, httpClient: mock).fetchAllTracks();
+      expect(listCalls, 2); // the first page, then a repeat that adds nothing
+      expect(result.tracks, hasLength(500));
+    });
+
     // The server's own error text should reach the user unchanged.
     test('bad login message comes through', () async {
       final mock = MockClient((_) async => http.Response(

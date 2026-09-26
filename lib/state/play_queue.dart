@@ -34,6 +34,32 @@ class PlayQueue {
   String? contextLabel;
 
   List<Track> get tracks => List.unmodifiable(_queue);
+
+  /// The order the songs were queued in (what turning shuffle off goes back to).
+  List<Track> get originalTracks => List.unmodifiable(_original);
+
+  /// Puts back a queue saved earlier with [tracks] and [originalTracks] (used by "Back to music"
+  /// after an audiobook), exactly as it was: play order, original order, place, shuffle, repeat.
+  ///
+  /// HomeTunes: before 0.1.15 the saved play order was loaded as if it were the original order,
+  /// so after a book, turning shuffle off couldn't bring the original order back.
+  void restore(
+    List<Track> playOrder,
+    List<Track> original, {
+    required int position,
+    required bool shuffle,
+    required RepeatSetting repeat,
+    String? label,
+  }) {
+    _queue = List.of(playOrder);
+    // An empty or mismatched original order (shouldn't happen) falls back to the play order.
+    _original = original.length == playOrder.length ? List.of(original) : List.of(playOrder);
+    _pos = _queue.isEmpty ? -1 : position.clamp(0, _queue.length - 1);
+    this.shuffle = shuffle;
+    this.repeat = repeat;
+    contextLabel = label;
+  }
+
   int get position => _pos;
   bool get isEmpty => _queue.isEmpty;
   /// The song playing now, or null when nothing is queued.
