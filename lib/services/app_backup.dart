@@ -50,6 +50,7 @@ class AppBackup {
   static Future<Uint8List> create(
     Storage storage, {
     bool includePassword = false,
+    String? password,
     bool includeCoverCache = true,
   }) async {
     final root = storage.root.path;
@@ -64,6 +65,11 @@ class AppBackup {
     final settings = files['settings.json'];
     if (!includePassword && settings is Map && settings['server'] is Map) {
       (settings['server'] as Map).remove('password');
+    }
+    // Since 0.1.17 the password isn't in settings.json (it's in protected storage), so the caller
+    // hands it over when it should be included.
+    if (includePassword && password != null && password.isNotEmpty && settings is Map && settings['server'] is Map) {
+      (settings['server'] as Map)['password'] = password;
     }
 
     // 3. Cover images, stored as text (base64) keyed by their path under the app folder.

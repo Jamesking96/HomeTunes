@@ -21,6 +21,7 @@ import '../models/track_edit.dart';
 import '../services/app_backup.dart';
 import '../services/local_scanner.dart';
 import '../services/music_permission.dart';
+import '../services/secret_store.dart';
 import '../services/storage.dart';
 import '../services/subsonic_client.dart';
 import '../services/tag_writer.dart';
@@ -84,7 +85,13 @@ class LibraryModel extends ChangeNotifier {
   final Storage storage;
   final LocalScanner _scanner;
 
-  LibraryModel(this.storage) : _scanner = LocalScanner(storage.artDir) {
+  /// Where the server password is kept (see secret_store.dart). Null on platforms without
+  /// protected storage, where it stays in settings.json as before.
+  final SecretStore? secrets;
+
+  LibraryModel(this.storage, {SecretStore? secrets})
+      : _scanner = LocalScanner(storage.artDir),
+        secrets = secrets ?? SecretStore.forPlatform() {
     // Damaged files, recoveries and failed saves show in the status strip as they happen.
     storage.addListener(notifyListeners);
   }
@@ -348,6 +355,10 @@ class LibraryModel extends ChangeNotifier {
       settingsDamaged = s.damaged;
     }
     if (settingsDamaged) await storage.keepCopy('settings.json');
+    // The server password lives in the system's protected storage (0.1.17). A plain-text one in
+    // settings.json (an older version, or a restored backup that included it) is moved there,
+    // and settings.json is saved again without it.
+    final movedPassword = await _loadServerPassword();
     _rebuildClient();
     // 2. The user's edits. A damaged entry is skipped (and a copy of the file kept), rather
     //    than losing every edit.
@@ -391,12 +402,56 @@ class LibraryModel extends ChangeNotifier {
     }
     if (libraryDamaged) await storage.keepCopy('library.json');
     _rebuild();
+    if (movedPassword) await _saveSettings();
+  }
+
+  /// True while the password has to stay in settings.json (no protected storage on this device,
+  /// or saving it there failed), so it isn't lost.
+  bool _passwordInSettings = false;
+
+  /// Fills in [server]'s password from the protected storage, or moves a plain-text one from
+  /// settings.json into it. Returns true when settings.json should be saved again without it.
+  Future<bool> _loadServerPassword() async {
+    final store = secrets;
+    _passwordInSettings = store == null;
+    if (store == null || server.url.trim().isEmpty) return false;
+    final key = SecretStore.serverPasswordKey(server.url, server.username);
+    if (server.password.isNotEmpty) {
+      if (await store.write(key, server.password)) return true;
+      _passwordInSettings = true; // couldn't move it: keep it where it is
+      return false;
+    }
+    final saved = await store.read(key);
+    if (saved != null) server = ServerConfig(url: server.url, username: server.username, password: saved);
+    return false;
+  }
+
+  /// Saves [config]'s password in the protected storage (and forgets [previous]'s, if that was
+  /// a different server or user). Falls back to settings.json if that isn't possible.
+  Future<void> _storeServerPassword(ServerConfig config, {ServerConfig? previous}) async {
+    final store = secrets;
+    if (store == null) {
+      _passwordInSettings = true;
+      return;
+    }
+    final key = SecretStore.serverPasswordKey(config.url, config.username);
+    if (previous != null && previous.url.trim().isNotEmpty) {
+      final oldKey = SecretStore.serverPasswordKey(previous.url, previous.username);
+      if (oldKey != key) await store.delete(oldKey);
+    }
+    if (config.password.isEmpty) {
+      await store.delete(key);
+      _passwordInSettings = false;
+    } else {
+      _passwordInSettings = !await store.write(key, config.password);
+    }
   }
 
   /// Writes every setting to settings.json.
   Future<void> _saveSettings() => storage.write('settings.json', {
         'folders': folders,
-        'server': server.toJson(),
+        // The password only goes in here when it can't be kept in protected storage (0.1.17).
+        'server': _passwordInSettings ? server.toJson() : server.toJsonWithoutPassword(),
         'serverEnabled': serverEnabled,
         'onlineCovers': onlineCovers,
         'onlineDetails': onlineDetails,
@@ -729,21 +784,45 @@ class LibraryModel extends ChangeNotifier {
   // ---- server ----
 
   /// Saves server details after checking they work. Returns an error message or null.
+  ///
+  /// HomeTunes (0.1.17): an address typed without http:// or https:// is tried with https://
+  /// first (so the login token isn't sent in the clear when the server supports it), then
+  /// http://; whichever works is saved with its scheme. The password goes into the system's
+  /// protected storage rather than settings.json.
   Future<String?> connectServer(ServerConfig config) async {
-    // Try the details with a throwaway connection first, so bad details never get saved.
-    final test = SubsonicClient(config);
-    try {
-      await test.ping();
-    } on SubsonicException catch (e) {
-      return e.message;
-    } catch (e) {
-      // e.g. an address that isn't a valid URL at all.
-      return 'That server address doesn\'t look right ($e)';
-    } finally {
-      test.close();
+    final typed = config.url.trim();
+    final hasScheme = typed.startsWith('http://') || typed.startsWith('https://');
+    final attempts = hasScheme
+        ? [config]
+        : [
+            ServerConfig(url: 'https://$typed', username: config.username, password: config.password),
+            ServerConfig(url: 'http://$typed', username: config.username, password: config.password),
+          ];
+    String? lastError;
+    ServerConfig? working;
+    for (final attempt in attempts) {
+      // Try the details with a throwaway connection first, so bad details never get saved.
+      final test = SubsonicClient(attempt);
+      try {
+        await test.ping();
+        working = attempt;
+        break;
+      } on SubsonicException catch (e) {
+        lastError = e.message;
+        // A real answer from the server (e.g. wrong password): no point trying http as well.
+        if (e.fromServer) break;
+      } catch (e) {
+        // e.g. an address that isn't a valid URL at all.
+        lastError = 'That server address doesn\'t look right (${hideSecrets('$e')})';
+      } finally {
+        test.close();
+      }
     }
-    server = config;
+    if (working == null) return lastError;
+    final previous = server;
+    server = working;
     serverEnabled = true;
+    await _storeServerPassword(working, previous: previous);
     _rebuildClient();
     await _saveSettings();
     await syncServer();
@@ -761,6 +840,10 @@ class LibraryModel extends ChangeNotifier {
 
   /// Removes the server's details and its songs.
   Future<void> forgetServer() async {
+    // Its password is removed from the protected storage too.
+    if (server.url.trim().isNotEmpty) {
+      await secrets?.delete(SecretStore.serverPasswordKey(server.url, server.username));
+    }
     server = const ServerConfig(url: '', username: '', password: '');
     serverEnabled = false;
     _remote = [];
@@ -793,7 +876,7 @@ class LibraryModel extends ChangeNotifier {
           status = null;
           // Cancelled by "Forget server" / switching it off: not an error.
           if (!identical(c, _client)) return;
-          error = 'Server sync failed: $e';
+          error = 'Server sync failed: ${hideSecrets('$e')}';
         }
       });
 
@@ -1078,8 +1161,14 @@ class LibraryModel extends ChangeNotifier {
   // ---- backup & restore ----
 
   /// Everything HomeTunes keeps on this device, as one file (see [AppBackup]).
-  Future<Uint8List> createBackup({bool includePassword = false, bool includeCoverCache = true}) =>
-      AppBackup.create(storage, includePassword: includePassword, includeCoverCache: includeCoverCache);
+  /// The server password (kept in protected storage, not settings.json) is added only when
+  /// [includePassword] is set.
+  Future<Uint8List> createBackup({bool includePassword = false, bool includeCoverCache = true}) => AppBackup.create(
+        storage,
+        includePassword: includePassword,
+        password: includePassword ? server.password : null,
+        includeCoverCache: includeCoverCache,
+      );
 
   /// Where the automatic "just before restoring" backup is kept.
   String get beforeRestorePath => p.join(storage.root.path, AppBackup.beforeRestoreName);
@@ -1098,14 +1187,19 @@ class LibraryModel extends ChangeNotifier {
       status = 'Restoring backup…';
       notifyListeners();
       try {
-        // 1. Save everything as it is now, so a bad restore can be undone.
-        final undo = await AppBackup.create(storage, includePassword: true);
+        // 1. Save everything as it is now, so a bad restore can be undone. (Without the server
+        //    password since 0.1.17: it stays in protected storage, so undoing keeps it anyway.)
+        final undo = await AppBackup.create(storage);
         await File(beforeRestorePath).writeAsBytes(undo, flush: true);
         // 2. Write the backup's files, then reload this model and the others from them.
         //    (AppBackup.restore throws if a file can't be saved; the error reaches the caller.)
         result = await AppBackup.restore(storage, backup, merge: merge);
         await load();
         await reloadOthers();
+        // The same server's password is still in protected storage: no need to type it again.
+        if (result.needsPassword && server.password.isNotEmpty) {
+          result = RestoreResult(missingFolders: result.missingFolders, needsPassword: false);
+        }
       } finally {
         status = null;
       }

@@ -17,6 +17,7 @@ import 'package:media_kit/media_kit.dart' show Media, NativePlayer, Player, Play
 import '../models/book.dart';
 import '../models/eq_preset.dart';
 import '../models/track.dart';
+import '../services/subsonic_client.dart' show hideSecrets;
 import 'equalizer_model.dart';
 import 'library_model.dart';
 import 'listening_model.dart';
@@ -167,7 +168,8 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         }
       }),
       _player.stream.error.listen((e) {
-        lastError = e;
+        // Engine errors can quote the stream address, login token included: hide it (0.1.17).
+        lastError = hideSecrets(e);
         notifyListeners();
       }),
     ]);

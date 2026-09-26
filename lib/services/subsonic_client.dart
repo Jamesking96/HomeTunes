@@ -4,6 +4,7 @@
 // and image widgets open. LyricsModel uses fetchLyrics. Every request carries the login as a
 // "token" (md5 of password + random salt), so the password itself never goes over the network.
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
@@ -25,6 +26,9 @@ class ServerConfig {
 
   Map<String, dynamic> toJson() => {'url': url, 'username': username, 'password': password};
 
+  /// For settings.json since 0.1.17: the password is kept in protected storage instead.
+  Map<String, dynamic> toJsonWithoutPassword() => {'url': url, 'username': username};
+
   factory ServerConfig.fromJson(Map<String, dynamic> j) => ServerConfig(
         url: (j['url'] as String?) ?? '',
         username: (j['username'] as String?) ?? '',
@@ -44,7 +48,11 @@ class SyncResult {
 /// A server problem, with a message that can be shown to the user as it is.
 class SubsonicException implements Exception {
   final String message;
-  SubsonicException(this.message);
+
+  /// True when the server itself answered with an error (e.g. wrong password), as opposed to
+  /// not being reachable. Used to decide whether trying http:// after https:// makes sense.
+  final bool fromServer;
+  SubsonicException(this.message, {this.fromServer = false});
   @override
   String toString() => message;
 }
@@ -120,7 +128,8 @@ class SubsonicClient {
     try {
       res = await _http.get(buildUri(method, params)).timeout(const Duration(seconds: 20));
     } catch (e) {
-      throw SubsonicException('Could not reach $baseUrl ($e)');
+      // (The error text can include the full request address, login token and all: hidden.)
+      throw SubsonicException('Could not reach $baseUrl (${hideSecrets('$e')})');
     }
     if (res.statusCode != 200) {
       throw SubsonicException('Server replied ${res.statusCode} for $method');
@@ -134,7 +143,7 @@ class SubsonicClient {
     }
     if (body['status'] != 'ok') {
       final err = body['error'] as Map<String, dynamic>?;
-      throw SubsonicException((err?['message'] as String?) ?? 'Request failed');
+      throw SubsonicException((err?['message'] as String?) ?? 'Request failed', fromServer: true);
     }
     return body;
   }
@@ -289,3 +298,35 @@ class SubsonicClient {
   /// Frees the network connection when the client is no longer needed.
   void close() => _http.close();
 }
+
+/// Removes login details from text that may contain a request address (error messages shown to
+/// the user or logged): the token, salt, password and user parameters become "…".
+/// HomeTunes (0.1.17, code review fix 11).
+String hideSecrets(String text) =>
+    text.replaceAllMapped(RegExp(r'([?&](?:t|s|p|u|apiKey)=)[^&\s,)\]]*'), (m) => '${m[1]}…');
+
+/// True when [url] would send the login in plain http to a server that isn't on the local
+/// network (so anyone along the way could read it). An address with no scheme counts as http,
+/// as that's what HomeTunes falls back to. Used for the warning in Settings › Servers.
+bool isPlainHttpToInternet(String url) {
+  var u = url.trim();
+  if (u.isEmpty || u.startsWith('https://')) return false;
+  if (!u.startsWith('http://')) u = 'http://$u';
+  final host = Uri.tryParse(u)?.host.toLowerCase() ?? '';
+  if (host.isEmpty) return false;
+  if (host == 'localhost' || host.endsWith('.local') || host.endsWith('.lan') || host.endsWith('.home.arpa')) return false;
+  if (!host.contains('.') && !host.contains(':')) return false; // a single name on the home network
+  final ip = InternetAddress.tryParse(host);
+  if (ip != null) {
+    if (ip.isLoopback || ip.isLinkLocal) return false;
+    if (ip.type == InternetAddressType.IPv4) {
+      final b = ip.rawAddress;
+      if (b[0] == 10 || (b[0] == 172 && b[1] >= 16 && b[1] <= 31) || (b[0] == 192 && b[1] == 168)) return false;
+      if (b[0] == 100 && b[1] >= 64 && b[1] <= 127) return false; // Tailscale / CGNAT range
+    } else if ((ip.rawAddress[0] & 0xfe) == 0xfc) {
+      return false; // IPv6 unique local (fc00::/7)
+    }
+  }
+  return true;
+}
+

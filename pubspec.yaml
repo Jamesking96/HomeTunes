@@ -6,7 +6,7 @@ publish_to: 'none'
 # Format is <version>+<build number>: "0.1.9" is the human version (major.minor.patch);
 # "+9" is the build number, which Android uses to tell newer installs from older ones, so it
 # must go up with every release. tool/build_release.ps1 reads this line.
-version: 0.1.16+16
+version: 0.1.17+17
 
 # Minimum Dart and Flutter versions needed to build HomeTunes.
 environment:
@@ -58,6 +58,10 @@ dependencies:
   http: ^1.2.2
   # crypto: md5 hashes (Subsonic login tokens, and naming cached cover images).
   crypto: ^3.0.5
+  # flutter_secure_storage: keeps the music server's password in the system's protected storage
+  # (Windows Credential Manager, Android Keystore) instead of settings.json (0.1.17). On Windows
+  # it needs Visual Studio's "C++ ATL" component.
+  flutter_secure_storage: ^11.2.0
   # package_info_plus: reads the app's own version number for the About page.
   package_info_plus: ^10.2.1
 
