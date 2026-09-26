@@ -7,6 +7,7 @@
 // watches it. The other models (playlists, listening, bookmarks) are told through callbacks set
 // in main.dart when files move or are forgotten, so they can follow. It also holds helpers for
 // covers, backups, writing edits into the files, and turning a song into something playable.
+import 'dart:async';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -83,7 +84,10 @@ class LibraryModel extends ChangeNotifier {
   final Storage storage;
   final LocalScanner _scanner;
 
-  LibraryModel(this.storage) : _scanner = LocalScanner(storage.artDir);
+  LibraryModel(this.storage) : _scanner = LocalScanner(storage.artDir) {
+    // Damaged files, recoveries and failed saves show in the status strip as they happen.
+    storage.addListener(notifyListeners);
+  }
 
   // ---- settings ----
   // (Every setting here is saved in settings.json by _saveSettings, and read back in load.)
@@ -263,12 +267,15 @@ class LibraryModel extends ChangeNotifier {
 
   /// Messages about data files that were damaged or recovered (see Storage.problems), or null.
   /// Kept apart from [error] because scans clear [error] when they start.
-  String? get dataProblem => storage.problems.isEmpty ? null : storage.problems.join(' ');
+  String? get dataProblem {
+    final m = storage.messages;
+    return m.isEmpty ? null : m.join(' ');
+  }
 
   /// Dismisses the message in the status strip (the error, and any data file messages).
   void clearError() {
     error = null;
-    storage.problems.clear();
+    storage.clearMessages();
     notifyListeners();
   }
 
@@ -464,7 +471,7 @@ class LibraryModel extends ChangeNotifier {
     _byId = {for (final t in all) t.id: t};
     // 2. Sort each file into music or audiobook. Server book files are left out entirely
     //    when "Audiobooks from the music server" is off.
-    final rules = bookRules = BookRules(genres: bookGenres, bookFolders: audiobookFolders, overrides: _kindOverrides);
+    final rules = bookRules = BookRules(genres: bookGenres, bookFolders: audiobookFolders, overrides: _kindOverrides, roots: _scanFolders);
     final bookFiles = <Track>[];
     tracks = [];
     for (final t in all) {
@@ -639,11 +646,13 @@ class LibraryModel extends ChangeNotifier {
         error = null;
         status = 'Looking for music…';
         notifyListeners();
+        // Lengths learned while playing go in first, so the scan keeps them.
+        _applyPendingDurations();
         try {
           // Give the scanner what we already know, so unchanged files are reused, not re-read.
           final previous = {for (final t in _local) t.id: t};
           // Progress goes into statusText only (no notifyListeners), so the app isn't redrawn.
-          _local = await _scanner.scan(_scanFolders, previous: previous, onProgress: (done, total) {
+          _local = await _scanAvailable(previous, onProgress: (done, total) {
             status = 'Scanning $done / $total';
           });
           // Follow moved files and keep gone ones that matter, save, then tidy unused covers.
@@ -651,11 +660,71 @@ class LibraryModel extends ChangeNotifier {
           await _saveLibrary();
           await _scanner.removeUnusedArt(_local);
           status = null;
+          if (offlineFolders.isNotEmpty) error = _offlineMessage();
         } catch (e) {
           status = null;
           error = 'Scan failed: $e';
         }
       });
+
+  /// Music or audiobook folders that couldn't be reached at the last scan (a drive that isn't
+  /// plugged in, a network share that's asleep). Their songs are kept as they were.
+  List<String> offlineFolders = [];
+
+  /// How long to wait for a folder (e.g. a sleeping network share) before counting it offline.
+  static const folderCheckTimeout = Duration(seconds: 10);
+
+  /// Scans the folders that can be reached. Songs in folders that can't be reached are kept
+  /// exactly as they were in [previous], instead of counting as gone.
+  ///
+  /// HomeTunes (0.1.16): before, an unplugged drive looked like an empty folder, so its songs
+  /// were dropped (all but those with edits or playlist places), their cached covers deleted,
+  /// and everything read again from scratch when the drive came back.
+  Future<List<Track>> _scanAvailable(Map<String, Track> previous, {void Function(int done, int total)? onProgress}) async {
+    final folders = _scanFolders;
+    final reachable = <String>[];
+    final unreachable = <String>[];
+    for (final f in folders) {
+      (await folderReachable(f) ? reachable : unreachable).add(f);
+    }
+    // A missing folder inside one that can be reached has really gone (its drive is there).
+    offlineFolders = [
+      for (final f in unreachable)
+        if (!reachable.any((r) => isInside(f, r))) f,
+    ];
+    final scanned = await _scanner.scan(reachable, previous: previous, onProgress: onProgress);
+    if (offlineFolders.isEmpty) return scanned;
+    final found = {for (final t in scanned) t.id};
+    final kept = [
+      for (final t in previous.values)
+        if (!found.contains(t.id) && t.path != null && offlineFolders.any((f) => isInside(t.path!, f))) t,
+    ];
+    // Same order as a normal scan: by path.
+    return [...scanned, ...kept]..sort((a, b) => (a.path ?? '').compareTo(b.path ?? ''));
+  }
+
+  /// Whether [folder] exists and can be listed right now. For tests it can be replaced.
+  Future<bool> Function(String folder) folderReachable = _canList;
+
+  static Future<bool> _canList(String folder) async {
+    try {
+      final dir = Directory(folder);
+      if (!await dir.exists()) return false;
+      await dir.list(followLinks: false).take(1).toList().timeout(folderCheckTimeout);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String _offlineMessage() {
+    final names = offlineFolders.join(', ');
+    return offlineFolders.length == 1
+        ? 'Can\'t reach $names right now, so its songs are shown as they were. '
+            'If it\'s gone for good, remove it in Settings.'
+        : 'Can\'t reach $names right now, so their songs are shown as they were. '
+            'If they\'re gone for good, remove them in Settings.';
+  }
 
   // ---- server ----
 
@@ -796,13 +865,35 @@ class LibraryModel extends ChangeNotifier {
     await _saveEdits();
   }
 
-  /// Records a song's real length (found while playing it) and saves it.
+  /// Records a song's real length (found while playing it).
+  ///
+  /// HomeTunes (0.1.16): this used to rebuild the whole library and rewrite all of library.json
+  /// (megabytes for a big library) every time. Now lengths are gathered for a moment and applied
+  /// in one rebuild, and library.json is saved at most every [_librarySaveDelay] (and when the
+  /// app goes to the background, see [flushPendingSaves]).
   Future<void> learnDuration(String id, Duration d) async {
+    _pendingDurations[id] = d;
+    _durationTimer ??= Timer(_durationApplyDelay, _applyPendingDurations);
+  }
+
+  final Map<String, Duration> _pendingDurations = {};
+  Timer? _durationTimer;
+  Timer? _librarySaveTimer;
+  static const _durationApplyDelay = Duration(seconds: 2);
+  static const _librarySaveDelay = Duration(seconds: 30);
+
+  /// Puts gathered lengths into the library (one rebuild) and schedules a save.
+  void _applyPendingDurations() {
+    _durationTimer?.cancel();
+    _durationTimer = null;
+    if (_pendingDurations.isEmpty) return;
+    final learned = Map.of(_pendingDurations);
+    _pendingDurations.clear();
     var changed = false;
-    // Copies the list, swapping in an updated copy of the song (Tracks are never changed in place).
+    // Copies the list, swapping in updated copies of songs (Tracks are never changed in place).
     List<Track> update(List<Track> list) => [
           for (final t in list)
-            if (t.id == id && t.duration != d) (() {
+            if (learned[t.id] case final d? when d != t.duration) (() {
               changed = true;
               return t.copyWith(duration: d);
             })() else t,
@@ -811,7 +902,21 @@ class LibraryModel extends ChangeNotifier {
     _remote = update(_remote);
     if (!changed) return;
     _rebuild();
-    await _saveLibrary();
+    _librarySaveTimer ??= Timer(_librarySaveDelay, () {
+      _librarySaveTimer = null;
+      _saveLibrary();
+    });
+  }
+
+  /// Applies and saves anything waiting (learned lengths). Called when the app goes to the
+  /// background or closes, so nothing learned is lost.
+  Future<void> flushPendingSaves() async {
+    _applyPendingDurations();
+    if (_librarySaveTimer != null) {
+      _librarySaveTimer!.cancel();
+      _librarySaveTimer = null;
+      await _saveLibrary();
+    }
   }
 
   // ---- editing song details ----
@@ -842,13 +947,16 @@ class LibraryModel extends ChangeNotifier {
     await _saveEdits();
   }
 
-  /// Replaces one song's edit completely (the single-song editor, where a
-  /// blank field means "use the file's value").
+  /// Replaces one song's edit (the single-song editor). Lyrics and audiobook details, which
+  /// that editor doesn't show, are kept from the existing edit.
   Future<void> setEdit(String id, TrackEdit edit) async {
     final original = _rawById[id];
     if (original == null) return;
     // The details editor doesn't touch lyrics: keep the song's own.
     if (edit.lyrics == null) edit = edit.withLyrics(_edits[id]?.lyrics);
+    // Nor audiobook details (narrator, series, number in series): keep those too. Before 0.1.16
+    // saving a book file in the song editor lost them.
+    edit = edit.withBookDetailsFrom(_edits[id]);
     final e = edit.normalizedAgainst(original);
     if (e.isEmpty) {
       _edits.remove(id);
@@ -933,16 +1041,30 @@ class LibraryModel extends ChangeNotifier {
     // Name the file after a fingerprint (md5) of its contents: the same picture is stored once.
     final dest = File(p.join(dir.path, '${md5.convert(bytes)}${ext.isEmpty ? '.img' : ext}'));
     if (!await dest.exists()) await dest.writeAsBytes(bytes, flush: true);
+    // Not used by any edit yet (the editor saves it later): protect it from the tidy-up.
+    _justImported[p.normalize(dest.path)] = DateTime.now();
     // Make sure images show the new picture even if an old one was cached.
     PaintingBinding.instance.imageCache.clear();
     return dest.path;
   }
 
+  /// Covers imported but not yet used by any edit, by path. HomeTunes (0.1.16): a cover is copied
+  /// in when it's picked but only saved into an edit when the editor's Save is pressed, so any
+  /// other edit saved in between used to delete it as unused. They're left alone until an edit
+  /// uses them, or for at most [_importGrace].
+  final Map<String, DateTime> _justImported = {};
+  static const _importGrace = Duration(minutes: 30);
+
   /// Deletes custom covers that no edit points at any more.
   Future<void> _removeUnusedCustomArt() async {
     final dir = Directory(_customArtDir);
     if (!await dir.exists()) return;
-    final used = {for (final e in _edits.values) if (e.art != null) p.normalize(e.art!)};
+    final now = DateTime.now();
+    final inEdits = {for (final e in _edits.values) if (e.art != null) p.normalize(e.art!)};
+    // Protection ends once an edit uses the cover (from then on the normal rule applies), or
+    // after [_importGrace] if it's never used.
+    _justImported.removeWhere((path, at) => inEdits.contains(path) || now.difference(at) > _importGrace);
+    final used = {...inEdits, ..._justImported.keys};
     await for (final f in dir.list()) {
       if (f is File && !used.contains(p.normalize(f.path))) {
         // A file that can't be deleted right now (e.g. in use) is left for next time.
@@ -975,14 +1097,18 @@ class LibraryModel extends ChangeNotifier {
       error = null;
       status = 'Restoring backup…';
       notifyListeners();
-      // 1. Save everything as it is now, so a bad restore can be undone.
-      final undo = await AppBackup.create(storage, includePassword: true);
-      await File(beforeRestorePath).writeAsBytes(undo, flush: true);
-      // 2. Write the backup's files, then reload this model and the others from them.
-      result = await AppBackup.restore(storage, backup, merge: merge);
-      await load();
-      await reloadOthers();
-      status = null;
+      try {
+        // 1. Save everything as it is now, so a bad restore can be undone.
+        final undo = await AppBackup.create(storage, includePassword: true);
+        await File(beforeRestorePath).writeAsBytes(undo, flush: true);
+        // 2. Write the backup's files, then reload this model and the others from them.
+        //    (AppBackup.restore throws if a file can't be saved; the error reaches the caller.)
+        result = await AppBackup.restore(storage, backup, merge: merge);
+        await load();
+        await reloadOthers();
+      } finally {
+        status = null;
+      }
     });
     // 3. Rescan (a backup from another computer has different paths) and sync if needed.
     await scanLocal();
@@ -1037,7 +1163,7 @@ class LibraryModel extends ChangeNotifier {
       status = 'Re-reading changed files…';
       notifyListeners();
       final previous = {for (final t in _local) t.id: t};
-      _local = await _scanner.scan(_scanFolders, previous: previous);
+      _local = await _scanAvailable(previous);
       await _reconcile(previous);
       await _saveLibrary();
       await _removeUnusedCustomArt();

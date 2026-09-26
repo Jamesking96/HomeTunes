@@ -103,32 +103,77 @@ class ListeningModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _save() => storage.write(fileName, {
-        'books': {for (final e in _byBook.entries) e.key: e.value.toJson()},
-      });
+  Future<void> _save() {
+    _partIndex = null; // every change to the saved places ends in a save
+    return storage.write(fileName, {
+      'books': {for (final e in _byBook.entries) e.key: e.value.toJson()},
+    });
+  }
 
-  /// The saved place in [b], if any. A book whose folder moved gets a new id,
-  /// so this also finds its old entry through the file it was in.
+  /// The saved place in [b], if any. A book whose folder moved gets a new id, so this also
+  /// finds its old entry through the files it was in.
+  ///
+  /// HomeTunes (0.1.16): this only reads. It used to move the old entry to the new id and save
+  /// listening.json right here, while screens were being drawn, and a miss scanned every saved
+  /// book. Moving entries is now done once per library rebuild by [adoptMoved], and misses use
+  /// an index of saved places by file.
   BookProgress? progressFor(Book b) {
     final direct = _byBook[b.id];
     if (direct != null) return direct;
-    // No entry under this id: look for one whose file belongs to this book.
-    for (final e in _byBook.entries) {
-      if (b.indexOfPart(e.value.partId) >= 0) {
-        // Adopt the old entry under the book's new id.
-        // (We return straight after changing the map, so changing it mid-loop is safe here.)
-        final p = _byBook.remove(e.key)!;
-        _byBook[b.id] = p;
-        _save();
-        return p;
-      }
+    final index = _partIndex ??= {for (final e in _byBook.entries) e.value.partId: e.key};
+    for (final part in b.parts) {
+      final key = index[part.id];
+      if (key != null) return _byBook[key];
     }
     return null;
   }
 
+  /// Saved places by the file they point at (book id), built when needed.
+  Map<String, String>? _partIndex;
+
+  /// Before changing [b]'s saved place: if it's still stored under an old id (the book moved
+  /// and [adoptMoved] hasn't run yet), move it to [b]'s id so there's only ever one entry.
+  void _claim(Book b) {
+    if (_byBook.containsKey(b.id)) return;
+    final index = _partIndex ??= {for (final e in _byBook.entries) e.value.partId: e.key};
+    for (final part in b.parts) {
+      final key = index[part.id];
+      if (key != null) {
+        final p = _byBook.remove(key);
+        if (p != null) _byBook[b.id] = p;
+        _partIndex = null;
+        return;
+      }
+    }
+  }
+
+  /// Moves saved places of books that got a new id (their folder moved or was renamed) to the
+  /// new id, found through the files they point at. Run after each library rebuild (main.dart).
+  /// Returns true if anything moved.
+  bool adoptMoved(Iterable<Book> books) {
+    final current = <String, Book>{for (final b in books) b.id: b};
+    final bookOfPart = <String, String>{for (final b in books) for (final t in b.parts) t.id: b.id};
+    var changed = false;
+    for (final e in _byBook.entries.toList()) {
+      if (current.containsKey(e.key)) continue;
+      final newId = bookOfPart[e.value.partId];
+      if (newId == null || _byBook.containsKey(newId)) continue;
+      _byBook.remove(e.key);
+      _byBook[newId] = e.value;
+      changed = true;
+    }
+    if (changed) {
+      _partIndex = null;
+      notifyListeners();
+      _save();
+    }
+    return changed;
+  }
+
   /// Not started, in progress or finished.
-  BookState stateOf(Book b) {
-    final p = progressFor(b);
+  BookState stateOf(Book b) => _stateFrom(b, progressFor(b));
+
+  static BookState _stateFrom(Book b, BookProgress? p) {
     if (p == null) return BookState.notStarted;
     if (p.finished) return BookState.finished;
     final i = b.indexOfPart(p.partId);
@@ -166,6 +211,7 @@ class ListeningModel extends ChangeNotifier {
   /// Saves the listener's place. Doesn't notify listeners unless something
   /// visible changes (called every few seconds while playing).
   Future<void> record(Book b, String partId, Duration position, {bool? finished}) async {
+    _claim(b);
     final old = progressFor(b);
     final p = BookProgress(
       partId: partId,
@@ -177,6 +223,7 @@ class ListeningModel extends ChangeNotifier {
       speed: old?.speed, // keep the book's chosen speed
     );
     _byBook[b.id] = p;
+    _partIndex = null;
     // Redrawing the whole Books page every few seconds would be wasteful, so only notify when
     // the change is big enough to show (new file, finished state, or a jump of over 30 s).
     final visible = old == null || old.partId != partId || old.finished != p.finished ||
@@ -191,6 +238,7 @@ class ListeningModel extends ChangeNotifier {
   /// Remembers a speed for [b]. If the book has never been played, a place at the very start
   /// is saved along with it, since the speed lives in the book's progress entry.
   Future<void> setSpeed(Book b, double speed) async {
+    _claim(b);
     final old = progressFor(b);
     _byBook[b.id] = old?.copyWith(speed: speed) ??
         BookProgress(partId: b.parts.first.id, position: Duration.zero, updatedMs: now(), speed: speed);
@@ -200,6 +248,7 @@ class ListeningModel extends ChangeNotifier {
 
   /// Marks [b] as finished (placing the listener at the very end), or not finished.
   Future<void> setFinished(Book b, bool finished) async {
+    _claim(b);
     final old = progressFor(b);
     if (finished) {
       _byBook[b.id] = BookProgress(
@@ -220,9 +269,12 @@ class ListeningModel extends ChangeNotifier {
 
   /// Books being listened to, most recent first.
   List<Book> inProgress(Iterable<Book> books) {
-    final list = [for (final b in books) if (stateOf(b) == BookState.inProgress) b];
-    list.sort((a, b) => lastListened(b).compareTo(lastListened(a)));
-    return list;
+    // Each book's place is looked up once, not again for every comparison while sorting.
+    final list = [
+      for (final b in books)
+        if (progressFor(b) case final p? when _stateFrom(b, p) == BookState.inProgress) (b, p.updatedMs),
+    ]..sort((x, y) => y.$2.compareTo(x.$2));
+    return [for (final (b, _) in list) b];
   }
 
   /// When [b] was last listened to (ms since epoch), or 0 if never.

@@ -125,6 +125,14 @@ class AppBackup {
   static Future<RestoreResult> restore(Storage storage, BackupContents backup, {required bool merge}) async {
     final root = storage.root.path;
 
+    // Every file must really be saved: a restore that half-worked must say so (0.1.16; the
+    // results of these writes used to be ignored).
+    Future<void> put(String name, Object json) async {
+      if (!await storage.write(name, json)) {
+        throw FileSystemException('Couldn\'t save the ${Storage.describe(name)} from the backup', name);
+      }
+    }
+
     // Cover images first, so the data never points at a picture that isn't there.
     for (final e in backup.art.entries) {
       final dest = safeArtDestination(root, e.key);
@@ -237,18 +245,18 @@ class AppBackup {
 
     // Save the four main files. The optional files below are only replaced if the backup
     // has them (older backups didn't), so a replace never wipes them for no reason.
-    await storage.write('settings.json', settings);
-    await storage.write('edits.json', edits);
-    await storage.write('playlists.json', playlists);
-    await storage.write('library.json', library);
+    await put('settings.json', settings);
+    await put('edits.json', edits);
+    await put('playlists.json', playlists);
+    await put('library.json', library);
 
     // ---- place in audiobooks: for the same book, the most recent wins ----
     final bb = backupFile('listening.json');
     if (merge) {
       final cb = await currentFile('listening.json');
-      await storage.write('listening.json', {'books': mergeListening(cb['books'], bb['books'])});
+      await put('listening.json', {'books': mergeListening(cb['books'], bb['books'])});
     } else if (bb.isNotEmpty) {
-      await storage.write('listening.json', bb);
+      await put('listening.json', bb);
     }
 
     // ---- bookmarks: merging keeps both sets (same bookmark only once) ----
@@ -256,14 +264,14 @@ class AppBackup {
     if (merge) {
       final cm = await currentFile('bookmarks.json');
       final seen = <Object?>{};
-      await storage.write('bookmarks.json', {
+      await put('bookmarks.json', {
         'bookmarks': [
           for (final b in [...(cm['bookmarks'] as List? ?? const []), ...(bm['bookmarks'] as List? ?? const [])])
             if (b is Map && seen.add(b['id'])) b
         ],
       });
     } else if (bm.isNotEmpty) {
-      await storage.write('bookmarks.json', bm);
+      await put('bookmarks.json', bm);
     }
 
     // ---- lyrics found online: merging keeps both (the backup's win) ----
@@ -272,12 +280,12 @@ class AppBackup {
       final cly = await currentFile('lyrics.json');
       Map<String, dynamic> part(Map<String, dynamic> m, String key) =>
           m[key] is Map ? Map<String, dynamic>.from(m[key] as Map) : <String, dynamic>{};
-      await storage.write('lyrics.json', {
+      await put('lyrics.json', {
         'found': {...part(cly, 'found'), ...part(bly, 'found')},
         'none': {...part(cly, 'none'), ...part(bly, 'none')},
       });
     } else if (bly.isNotEmpty) {
-      await storage.write('lyrics.json', bly);
+      await put('lyrics.json', bly);
     }
 
     // ---- equaliser: merging keeps this device's choices and adds the backup's own presets ----
@@ -285,11 +293,11 @@ class AppBackup {
     if (merge) {
       final ceq = await currentFile('equalizer.json');
       if (ceq.isEmpty) {
-        if (beq.isNotEmpty) await storage.write('equalizer.json', beq);
+        if (beq.isNotEmpty) await put('equalizer.json', beq);
       } else {
         final here = (ceq['custom'] as List? ?? const []);
         final ids = {for (final c in here) if (c is Map) c['id']};
-        await storage.write('equalizer.json', {
+        await put('equalizer.json', {
           ...ceq,
           'custom': [
             ...here,
@@ -298,7 +306,7 @@ class AppBackup {
         });
       }
     } else if (beq.isNotEmpty) {
-      await storage.write('equalizer.json', beq);
+      await put('equalizer.json', beq);
     }
 
     return RestoreResult(missingFolders: missingFolders, needsPassword: needsPassword);

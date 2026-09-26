@@ -6,7 +6,7 @@ publish_to: 'none'
 # Format is <version>+<build number>: "0.1.9" is the human version (major.minor.patch);
 # "+9" is the build number, which Android uses to tell newer installs from older ones, so it
 # must go up with every release. tool/build_release.ps1 reads this line.
-version: 0.1.15+15
+version: 0.1.16+16
 
 # Minimum Dart and Flutter versions needed to build HomeTunes.
 environment:

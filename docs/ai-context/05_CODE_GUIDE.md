@@ -238,7 +238,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 
 ## Tests
 
-`flutter test` runs everything in `test/` (219 tests, all passing on the 0.1.15 branch on 26 Sep). To run one file: `flutter test test/books_test.dart`. Tests use the tiny tagged files in `test/fixtures/` and fake servers, so they need no internet and don't touch your library.
+`flutter test` runs everything in `test/` (241 tests, all passing on the 0.1.16 branch on 26 Sep). To run one file: `flutter test test/books_test.dart`. Tests use the tiny tagged files in `test/fixtures/` and fake servers, so they need no internet and don't touch your library.
 
 | File | Covers |
 | --- | --- |
@@ -246,6 +246,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `scan_test.dart` | The parallel scan finds every file once and in order; progress doesn't redraw the app |
 | `services_test.dart` | Storage under many quick saves, damaged files kept as `.corrupt` copies, recovery from `.tmp`; Subsonic sync with failures (fake server) |
 | `data_safety_test.dart` | Every model loads a hand-edited or wrong-shaped data file without failing, keeps what it can, keeps a copy and reports it |
+| `library_safety_test.dart` | Offline music folders, failed saves, clearing details, the song editor keeping book details, the Audiobooks-folder rule, lyrics and book places following moved files, the imported-cover race, learned song lengths |
 | `play_queue_test.dart` | Repeat, shuffle, Play next, reordering, the gapless peek |
 | `track_edit_test.dart` | Applying, merging and tidying your edits |
 | `metadata_features_test.dart` | What each file type can store, writing tags into a real WAV with a backup, cover search |
@@ -303,20 +304,15 @@ Reading every file turned up a handful of probable bugs. **None of them were cha
 
 | Where | What could go wrong | Likely impact |
 | --- | --- | --- |
-| `edit_details.dart` (single-song save) | Saving a song replaces its whole edit and keeps only lyrics, so any narrator, series or series-number edits on that file are lost | Medium: book details disappear after editing a book file as a song |
-| `edit_book.dart`, `edit_details.dart` | Emptying the year or series number counts as "no change", so they can't be cleared. `_save` has no error handling, so a failed save leaves the dialog stuck on its spinner. | Medium |
 | `music_info.dart` `normalizeTitle` | Keeps only a–z and 0–9, so non-Latin titles (Japanese, Cyrillic…) all become empty and match the first track, which could set wrong track numbers | Medium, for non-Latin albums |
-| `book_index.dart` `isBook` rule 5 | Checks every folder in the full path, so a parent folder whose name looks like "Audiobooks" turns all music below it into books | Low–medium |
 | `audio_service_win_plugin.cpp` | Cover paths containing `+` (e.g. "Rock + Roll") or on a network share probably won't show in the Windows overlay. A quick skip can show the previous song's cover. Button presses are sent to Flutter from a background thread, which may explain occasionally unreliable media keys. | Low–medium, Windows only |
-| `sleep_timer.dart` | "End of song" with repeat-one probably never fires, because the song never changes | Low |
-| `lyrics_model.dart` | Online lyrics in `lyrics.json` aren't moved to the new id when a file moves, so they're looked up again | Low |
-| `library_model.dart` `_saveEdits` | Deletes custom covers no edit points at, so a cover just imported could be removed if another edit saves first | Low (a possible race) |
 | `tag_writer.dart` | Plain `.aac` files are treated as writable like M4A, but they aren't MP4 files, so writing will fail with an error (the original is left untouched) | Low |
-| `player_model.dart` `_learnDuration` | When the engine moves on by itself, the next song's length may be saved onto the previous song | Unconfirmed race |
 
 **Fixed in 0.1.14 (branch `fix/release-a-data-safety`):** the side-file stamp is now an md5 that stays the same between runs (it used `Object.hash`, which changes every run, so every file beside a cover picture was re-read at each startup); `Storage.write` no longer deletes the old file before the rename, and `Storage.read` recovers from `.tmp`, keeps damaged files as `<name>.corrupt-<date>.json` and reports them in the status strip; tag writing goes into a working copy (`<file>.hometunes-tmp`) that replaces the original only after it's checked; and every model's `load()` reads its file defensively, so a wrong type skips one value or entry instead of stopping the app starting. Tests: `test/data_safety_test.dart` plus new cases in `services_test.dart`, `metadata_features_test.dart` and `book_sidecar_test.dart`.
 
 **Fixed in 0.1.15 (branch `fix/release-b-small-fixes`):** moved-file matching (`track_matching.dart`) looks candidates up by their last two path parts and by signature instead of comparing every pair, with identical results (a whole 20,000-song library changing drive letter is matched almost instantly); choosing a song that can't be played now stops the engine instead of leaving the previous song playing, and a stopped, empty engine never moves the queue on by itself; restoring a backup only writes cover images inside `art/` and ignores `@app/` paths that would point outside the app folder (a `\` in a crafted key used to get past the check on Windows); the Subsonic album sync stops when a page brings no new albums or after 1,000 pages; and "Back to music" after an audiobook puts back the queue's original order too, so turning shuffle off afterwards works. Tests: new cases in `keep_and_backup_test.dart`, `services_test.dart`, `play_queue_test.dart`, and a missing-file step in `tool/bench/player_gapless_test.dart` (real engine).
+
+**Fixed in 0.1.16 (branch `fix/release-c-library-safety`):** a music or audiobook folder that can't be reached (unplugged drive, sleeping network share) keeps its songs and covers as they were, with a message in the status strip and "Not available right now" in Settings, instead of looking empty; failed saves are reported in the status strip (once per file, cleared when that file saves again) and a restore that can't save a file fails instead of reporting success; emptying a detail now removes it (`TrackEdit.cleared`, saved as `"cleared": [...]` in `edits.json`: track and disc number, year and genre in the song editor, year and genre in album edits, number in series and year in the book editor), and older `edits.json` files load unchanged; saving a book file in the song editor keeps its narrator and series; both editors show an error instead of sticking on the spinner; the "Audiobooks folder" rule only looks from the scanned folder down (its own name included); lyrics found online follow moved files; a newly imported cover isn't tidied away before the editor saves it; "End of song" works with repeat-one; learned song lengths are read a few seconds after the song starts (fixing the race), applied together and saved at most every 30 seconds and when the app goes to the background; and book places are looked up without saving anything, with moved books adopted once per library rebuild. Tests: `test/library_safety_test.dart`, plus sleep timer cases in `listening_controls_test.dart`.
 
 A few existing comments are also out of date (left as they were): `Track` says narrator and series are never read from files (side files set them now); `showEditDetails` says music files are never modified (Settings → Your edits can write them); `SeekBar` says it redraws only from the position stream.
 

@@ -120,6 +120,10 @@ class AudiobookSettings extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.folder_special_outlined),
                 title: Text(f, maxLines: 2, overflow: TextOverflow.ellipsis),
+                // (0.1.16) A folder that couldn't be reached at the last scan keeps its books.
+                subtitle: lib.offlineFolders.contains(f)
+                    ? const Text('Not available right now: its books are kept as they were')
+                    : null,
                 trailing: IconButton(
                   tooltip: 'Remove folder',
                   icon: const Icon(Icons.close),

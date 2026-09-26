@@ -281,12 +281,27 @@ class _EditDetailsState extends State<_EditDetails> {
     setState(() => _ctrl[f]!.text = choice.value);
   }
 
-  /// Saves the changes. One song and several songs are handled quite differently; see below.
+  /// The Save button. HomeTunes (0.1.16): a failed save used to leave the dialog stuck on its
+  /// spinner; now the error is shown and the dialog stays open so nothing typed is lost.
   Future<void> _save() async {
-    final lib = context.read<LibraryModel>();
+    final messenger = ScaffoldMessenger.maybeOf(context);
     setState(() => _saving = true);
+    try {
+      await _saveChanges();
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      messenger?.showSnackBar(SnackBar(content: Text('Couldn\'t save the changes: $e')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
-    // Blank box = no value (for one song that means "use the file's value").
+  /// Saves the changes. One song and several songs are handled quite differently; see below.
+  Future<void> _saveChanges() async {
+    final lib = context.read<LibraryModel>();
+
+    // Blank box = no value. (For one song, title, artist, album and album artist can't be
+    // blank, so a blank box there means "use the file's value".)
     String? text(_Field f) {
       final v = _ctrl[f]!.text.trim();
       return v.isEmpty ? null : v;
@@ -295,7 +310,9 @@ class _EditDetailsState extends State<_EditDetails> {
     int? number(_Field f) => int.tryParse(_ctrl[f]!.text.trim());
 
     // ---- One song ----
-    // The whole edit is replaced by what's in the boxes (lyrics are kept by setEdit).
+    // The whole edit is replaced by what's in the boxes (lyrics and audiobook details are kept
+    // by setEdit). Track number, disc number, year and genre can be emptied to remove them, even
+    // when the file has a value (0.1.16); "Reset to file details" brings the file's values back.
     if (_single) {
       final t = _tracks.first;
       final original = lib.originalById(t.id);
@@ -323,6 +340,15 @@ class _EditDetailsState extends State<_EditDetails> {
           year: number(_Field.year),
           genre: text(_Field.genre),
           art: _resetCover ? null : (_newCover ?? keptArt),
+          cleared: {
+            for (final (f, name) in const [
+              (_Field.trackNumber, 'trackNumber'),
+              (_Field.discNumber, 'discNumber'),
+              (_Field.year, 'year'),
+              (_Field.genre, 'genre'),
+            ])
+              if (_ctrl[f]!.text.trim().isEmpty) name,
+          },
         ),
       );
       if (alsoAlbum) {
@@ -355,6 +381,11 @@ class _EditDetailsState extends State<_EditDetails> {
       // Reset covers first, so a newly picked cover in the patch wins.
       final ids = [for (final t in _tracks) t.id];
       if (_resetCover) await lib.resetCovers(ids);
+      // A box that showed a value all the songs shared and has been emptied removes that
+      // detail (year and genre only; the others can't be blank). A --:-- box left empty keeps
+      // each song's own value.
+      bool emptied(_Field f) =>
+          _fields.contains(f) && !_mixed.contains(f) && (_initial[f] ?? '').isNotEmpty && _ctrl[f]!.text.trim().isEmpty;
       final patch = TrackEdit(
         artist: changedText(_Field.artist),
         album: changedText(_Field.album),
@@ -362,6 +393,10 @@ class _EditDetailsState extends State<_EditDetails> {
         year: changedNumber(_Field.year),
         genre: changedText(_Field.genre),
         art: _newCover,
+        cleared: {
+          if (emptied(_Field.year)) 'year',
+          if (emptied(_Field.genre)) 'genre',
+        },
       );
       if (!patch.isEmpty) await lib.editMany(ids, patch);
       if (_strays.isNotEmpty && _includeStrays) {
@@ -378,7 +413,6 @@ class _EditDetailsState extends State<_EditDetails> {
         );
       }
     }
-    if (mounted) Navigator.of(context).pop(true);
   }
 
   /// "Reset to file details": removes all the user's edits for these songs.

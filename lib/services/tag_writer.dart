@@ -72,6 +72,8 @@ class TagSupport {
         series: e.series,
         seriesIndex: e.seriesIndex,
         lyrics: lyrics ? null : e.lyrics,
+        // Removing a detail from a file isn't supported, so cleared details stay as edits.
+        cleared: e.cleared,
       );
 }
 

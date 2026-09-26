@@ -65,6 +65,10 @@ class LibrarySettings extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.folder),
               title: Text(f, maxLines: 2, overflow: TextOverflow.ellipsis),
+              // (0.1.16) A folder that couldn't be reached at the last scan keeps its songs.
+              subtitle: lib.offlineFolders.contains(f)
+                  ? const Text('Not available right now: its songs are kept as they were')
+                  : null,
               trailing: IconButton(
                 tooltip: 'Remove folder',
                 icon: const Icon(Icons.close),
