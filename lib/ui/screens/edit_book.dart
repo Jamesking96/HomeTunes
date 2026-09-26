@@ -189,10 +189,24 @@ class _EditBookState extends State<_EditBook> {
     });
   }
 
-  /// Saves only the fields that changed as one edit applied to every file of the book.
+  /// The Save button. HomeTunes (0.1.16): a failed save used to leave the dialog stuck on its
+  /// spinner; now the error is shown and the dialog stays open so nothing typed is lost.
   Future<void> _save() async {
-    final lib = context.read<LibraryModel>();
+    final messenger = ScaffoldMessenger.maybeOf(context);
     setState(() => _saving = true);
+    try {
+      await _saveChanges();
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      messenger?.showSnackBar(SnackBar(content: Text('Couldn\'t save the changes: $e')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// Saves only the fields that changed as one edit applied to every file of the book.
+  Future<void> _saveChanges() async {
+    final lib = context.read<LibraryModel>();
     String? changed(_F f) => _changed(f) ? _text(f) : null;
     // Title and author can't be emptied; narrator and series can ("" = none).
     String? required(_F f) {
@@ -215,13 +229,18 @@ class _EditBookState extends State<_EditBook> {
       year: changed(_F.year) == null ? null : int.tryParse(_text(_F.year)),
       genre: required(_F.genre),
       art: _newCover,
+      // Emptying the number in series or the year removes it (0.1.16; it used to count as
+      // "no change", so they couldn't be cleared).
+      cleared: {
+        if (seriesText != null && seriesText.isEmpty) 'seriesIndex',
+        if (changed(_F.year) == '') 'year',
+      },
     );
     // Order: reset the cover first, so a newly chosen cover (in the patch) wins.
     if (_resetCover) await lib.resetCovers(_ids);
     if (!patch.isEmpty) await lib.editMany(_ids, patch);
     // A new genre could stop the files counting as a book: keep them in Books.
     if (patch.genre != null) await lib.setIsBook(_ids, true);
-    if (mounted) Navigator.of(context).pop(true);
   }
 
   /// "Reset to file details": removes all of the user's edits for this book's files.
