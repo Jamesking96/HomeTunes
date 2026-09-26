@@ -43,7 +43,26 @@ Future<void> main() async {
   final lyrics = LyricsModel(library, storage);
   final equalizer = EqualizerModel(storage);
   // 2. Load all the saved JSON files at the same time, to keep start-up quick.
-  await Future.wait([library.load(), playlists.load(), listening.load(), bookmarks.load(), lyrics.load(), equalizer.load()]);
+  //    HomeTunes: each model reads its file defensively, but as a last resort an unexpected
+  //    error in one of them is reported and that model keeps its defaults, rather than
+  //    stopping the app before its first screen.
+  Future<void> safely(String what, Future<void> Function() load) async {
+    try {
+      await load();
+    } catch (e, st) {
+      debugPrint('HomeTunes: loading $what failed: $e\n$st');
+      storage.report('HomeTunes couldn\'t load your $what, so it started without them.');
+    }
+  }
+
+  await Future.wait([
+    safely('library and settings', library.load),
+    safely('playlists', playlists.load),
+    safely('audiobook places', listening.load),
+    safely('bookmarks', bookmarks.load),
+    safely('saved lyrics', lyrics.load),
+    safely('equaliser settings', equalizer.load),
+  ]);
   // Songs in playlists / Liked Songs are kept track of even when their files
   // are missing, and follow them if they move.
   library

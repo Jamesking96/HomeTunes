@@ -70,21 +70,41 @@ class EqualizerModel extends ChangeNotifier {
     bookPresetId = 'spoken';
     _edited = {};
     _custom = [];
-    final j = await storage.read(fileName) as Map<String, dynamic>?;
-    if (j != null) {
-      enabled = (j['enabled'] as bool?) ?? false;
-      separateBooks = (j['separateBooks'] as bool?) ?? true;
-      musicPresetId = (j['music'] as String?) ?? 'flat';
-      bookPresetId = (j['book'] as String?) ?? 'spoken';
-      for (final e in (j['edited'] as List? ?? const [])) {
-        if (e is! Map<String, dynamic> || builtInEqPreset(e['id'] as String? ?? '') == null) continue;
-        final original = builtInEqPreset(e['id'] as String)!;
-        _edited[original.id] = EqPreset.fromJson(e, builtIn: true).copyWith(name: original.name);
+    final j = await storage.read(fileName);
+    // HomeTunes: a wrong type anywhere used to throw here and stop the app starting. Now each
+    // value and preset is read on its own; anything damaged is skipped and a copy of the file
+    // is kept before the next save replaces it.
+    var damaged = j != null && j is! Map;
+    T value<T>(dynamic v, T fallback) {
+      if (v == null) return fallback;
+      if (v is T) return v;
+      damaged = true;
+      return fallback;
+    }
+
+    if (j is Map) {
+      enabled = value(j['enabled'], false);
+      separateBooks = value(j['separateBooks'], true);
+      musicPresetId = value(j['music'], 'flat');
+      bookPresetId = value(j['book'], 'spoken');
+      for (final e in value<List>(j['edited'], const [])) {
+        try {
+          final original = builtInEqPreset(e['id'] as String);
+          if (original == null) continue;
+          _edited[original.id] = EqPreset.fromJson(e as Map<String, dynamic>, builtIn: true).copyWith(name: original.name);
+        } catch (_) {
+          damaged = true;
+        }
       }
-      for (final c in (j['custom'] as List? ?? const [])) {
-        if (c is Map<String, dynamic> && c['id'] is String) _custom.add(EqPreset.fromJson(c));
+      for (final c in value<List>(j['custom'], const [])) {
+        try {
+          _custom.add(EqPreset.fromJson(c as Map<String, dynamic>));
+        } catch (_) {
+          damaged = true;
+        }
       }
     }
+    if (damaged) await storage.keepCopy(fileName);
     notifyListeners();
   }
 

@@ -73,15 +73,20 @@ class BookmarksModel extends ChangeNotifier {
   /// Reads bookmarks.json (called at start-up and after a backup is restored).
   Future<void> load() async {
     _all = [];
-    final j = await storage.read(fileName) as Map<String, dynamic>?;
-    // One bad entry shouldn't lose all the others, so each is read on its own.
-    for (final b in (j?['bookmarks'] as List? ?? const [])) {
+    final j = await storage.read(fileName);
+    // One bad entry shouldn't lose all the others, so each is read on its own. If anything was
+    // skipped, a copy of the file is kept before the next save replaces it.
+    var damaged = j != null && j is! Map;
+    final list = j is Map ? j['bookmarks'] : null;
+    if (list != null && list is! List) damaged = true;
+    for (final b in list is List ? list : const []) {
       try {
         _all.add(Bookmark.fromJson(b as Map<String, dynamic>));
       } catch (_) {
-        // Damaged entry: skip it.
+        damaged = true; // damaged entry: skip it
       }
     }
+    if (damaged) await storage.keepCopy(fileName);
     notifyListeners();
   }
 

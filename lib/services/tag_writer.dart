@@ -1,7 +1,8 @@
 // Writes the user's edits into the music files themselves ("Save edits into music files").
 // LibraryModel.writeEditsToFiles calls writeTagsToFile once per edited song. Each write runs in
-// a background isolate, can first copy the original into a backup folder, and re-reads the file
-// afterwards to make sure it worked. Tags HomeTunes doesn't manage are kept, thanks to the
+// a background isolate, can first copy the original into a backup folder, and writes into a
+// working copy that is re-read and checked before it replaces the original (so a failed write
+// never harms the original). Tags HomeTunes doesn't manage are kept, thanks to the
 // patched tag library in packages/audio_metadata_reader. Anything a format can't hold (see
 // TagSupport) comes back as a "leftover" and simply stays as a HomeTunes edit.
 import 'dart:io';
@@ -88,8 +89,9 @@ class TagWriteResult {
 
 /// Writes [edit] into the music file at [path], in a background isolate.
 ///
-/// If [backupDir] is given, the original file is copied there first. After
-/// writing, the file is re-read; if that fails the backup is put back.
+/// If [backupDir] is given, the original file is also copied there first. The tags are
+/// written into a working copy beside the file, which is re-read and checked and only then
+/// replaces the original, so a failed write never changes the original.
 Future<TagWriteResult> writeTagsToFile(String path, TrackEdit edit, {String? backupDir}) {
   final job = _WriteJob(path, edit.toJson(), backupDir);
   return Isolate.run(job.run);
@@ -112,12 +114,16 @@ class _WriteJob {
     }
 
     final file = File(path);
-    File? backup;
+    // HomeTunes: the tags are written into a copy beside the original, which only replaces the
+    // original once it has been checked. Before 0.1.14 the original was changed in place, so a
+    // write that failed partway (with "make a backup" off) could leave a damaged music file.
+    final work = File(workingCopyPath(path));
     try {
-      // 2. Safety copy first, under a name that doesn't overwrite an older backup.
+      // 2. Safety copy first, under a name that doesn't overwrite an older backup. (Optional:
+      //    the original is never touched until the new version is known to be good.)
       if (backupDir != null) {
         Directory(backupDir!).createSync(recursive: true);
-        backup = file.copySync(p.join(backupDir!, _uniqueName(backupDir!, p.basename(path))));
+        file.copySync(p.join(backupDir!, _uniqueName(backupDir!, p.basename(path))));
       }
 
       // 3. Load the new cover and check it's a picture the tag formats accept.
@@ -129,13 +135,16 @@ class _WriteJob {
         if (coverMime == null) throw const FormatException('The cover image isn\'t a JPEG or PNG');
       }
 
-      // 4. Write the tags.
-      if (p.extension(path).toLowerCase() == '.wav') ensureRiffInfoChunk(file);
-      updateMetadata(file, (m) => _apply(m, edit, support, coverBytes, coverMime));
+      // 4. Write the tags into a working copy. (The tag library recognises formats by their
+      //    contents, not the file name, so the copy's odd extension doesn't matter, and the
+      //    scanner ignores it because it isn't an audio extension.)
+      file.copySync(work.path);
+      if (p.extension(path).toLowerCase() == '.wav') ensureRiffInfoChunk(work);
+      updateMetadata(work, (m) => _apply(m, edit, support, coverBytes, coverMime));
 
-      // Make sure the file still reads properly and the main changes stuck
+      // Make sure the copy still reads properly and the main changes stuck
       // (e.g. an MP3 with no ID3v2 tag can't take them).
-      final after = readMetadata(file);
+      final after = readMetadata(work);
       String? check(String? wanted, String? got, String name) =>
           (wanted != null && got?.trim() != wanted.trim()) ? name : null;
       final missing = [
@@ -146,18 +155,26 @@ class _WriteJob {
       if (missing.isNotEmpty) {
         throw StateError('The file didn\'t accept the new ${missing.join(', ')}');
       }
+      // 5. All good: swap the checked copy in for the original in one step. If this fails
+      //    (e.g. another program has the file open), the original is still as it was.
+      work.renameSync(path);
       return TagWriteResult(path, ok: true, leftover: leftover);
     } catch (e) {
-      // Put the original back if we changed it and have a copy.
-      if (backup != null) {
-        try {
-          backup.copySync(path);
-        } catch (_) {}
-      }
+      // The original was never changed; just throw the working copy away.
+      try {
+        if (work.existsSync()) work.deleteSync();
+      } catch (_) {}
       return TagWriteResult(path, ok: false, error: '$e', leftover: edit);
     }
   }
 }
+
+/// Where the tags are written before the result replaces the original: beside it, so the
+/// final rename stays on the same drive and happens in one step.
+String workingCopyPath(String path) => '$path.$workingCopyExtension';
+
+/// Ending of the working copies (not an audio extension, so scans never pick them up).
+const workingCopyExtension = 'hometunes-tmp';
 
 /// "song.mp3", or "song (1).mp3", "song (2).mp3"... if that name is already taken.
 String _uniqueName(String dir, String name) {

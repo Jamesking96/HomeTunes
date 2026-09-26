@@ -104,6 +104,44 @@ void main() {
       expect(result.ok, isFalse);
       expect(file.readAsBytesSync(), [1, 2, 3]);
     });
+
+    // The tags go into a working copy that replaces the original only once it's checked, so
+    // the original is never changed by a failed write, backup or not.
+    group('the original is safe', () {
+      File copyFixture(String name) =>
+          File(p.join('test', 'fixtures', name)).copySync(p.join(dir.path, name));
+      void expectNoWorkingCopy(File f) =>
+          expect(File(workingCopyPath(f.path)).existsSync(), isFalse, reason: 'working copy left behind');
+
+      test('a successful write without a backup changes the file and leaves nothing behind', () async {
+        final file = copyFixture('tagged.mp3');
+        final result = await writeTagsToFile(file.path, const TrackEdit(title: 'Brand New'));
+        expect(result.ok, isTrue, reason: result.error);
+        expect(readMetadata(file).title, 'Brand New');
+        expectNoWorkingCopy(file);
+      });
+
+      test('a write that fails after starting leaves the original byte for byte', () async {
+        // Looks like an MP3 by name but has no tag structure the writer understands, so the
+        // write fails after the working copy was made.
+        final file = File(p.join(dir.path, 'broken.mp3'))..writeAsBytesSync(List.generate(4096, (i) => i % 7));
+        final before = file.readAsBytesSync();
+        final result = await writeTagsToFile(file.path, const TrackEdit(title: 'X'));
+        expect(result.ok, isFalse);
+        expect(file.readAsBytesSync(), before);
+        expectNoWorkingCopy(file);
+      });
+
+      test('a bad cover fails the write and leaves a real MP3 untouched (no backup)', () async {
+        final file = copyFixture('tagged.mp3');
+        final before = file.readAsBytesSync();
+        final notAPicture = File(p.join(dir.path, 'cover.jpg'))..writeAsStringSync('not an image');
+        final result = await writeTagsToFile(file.path, TrackEdit(title: 'X', art: notAPicture.path));
+        expect(result.ok, isFalse);
+        expect(file.readAsBytesSync(), before);
+        expectNoWorkingCopy(file);
+      });
+    });
   });
 
   // Covers are looked up on MusicBrainz and the pictures come from the Cover Art Archive.

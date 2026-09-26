@@ -7,6 +7,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/track.dart';
@@ -419,18 +420,7 @@ Sidecars findSidecars(String audioPath, FolderCache folders) {
     }
   }
 
-  // Mix the used files' names and modified times into one number. If any of them is added,
-  // removed or edited, the number changes and the next scan re-reads this track.
-  var stamp = 17;
-  for (final f in used) {
-    int modified;
-    try {
-      modified = f.statSync().modified.millisecondsSinceEpoch;
-    } catch (_) {
-      modified = 0;
-    }
-    stamp = Object.hash(stamp, p.basename(f.path), modified);
-  }
+  final stamp = sidecarStamp(used);
   return Sidecars(
     metadataFile: metadata,
     metadataIsOwn: metadataIsOwn || (metadata != null && audioInFolder <= 1),  // one-file book
@@ -440,6 +430,37 @@ Sidecars findSidecars(String audioPath, FolderCache folders) {
     companions: companions,
     stamp: used.isEmpty ? 0 : stamp,
   );
+}
+
+/// Mixes the side files' paths and modified times into one number, saved with the track as
+/// `sidecarStamp`. If any of them is added, removed or edited, the number changes and the next
+/// scan re-reads the track.
+///
+/// HomeTunes: this must give the same number every time the app runs, because it's compared
+/// with the number saved by an earlier run. `Object.hash` (used before 0.1.14) is seeded
+/// randomly per run, so every file beside a cover picture was re-read on every startup scan.
+/// An md5 of a plain text listing is stable across runs, isolates and platforms.
+int sidecarStamp(List<File> used) {
+  if (used.isEmpty) return 0;
+  final lines = <String>[];
+  for (final f in used) {
+    int modified;
+    try {
+      modified = f.statSync().modified.millisecondsSinceEpoch;
+    } catch (_) {
+      modified = 0;
+    }
+    lines.add('${f.path}|$modified');
+  }
+  // Sorted, so the order the folder happened to be listed in doesn't matter.
+  lines.sort();
+  final digest = md5.convert(utf8.encode(lines.join('\n'))).bytes;
+  // The first 6 bytes: a positive whole number that fits exactly in JSON on every platform.
+  var stamp = 0;
+  for (var i = 0; i < 6; i++) {
+    stamp = (stamp << 8) | digest[i];
+  }
+  return stamp == 0 ? 1 : stamp; // 0 means "no side files"
 }
 
 /// Same list as audioExtensions in local_scanner.dart.
