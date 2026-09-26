@@ -27,9 +27,18 @@
 #include <winrt/Windows.Storage.Streams.h>
 #include <winrt/base.h>
 
+#include <algorithm>
+#include <atomic>
+#include <cctype>
+#include <deque>
+#include <functional>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <sstream>
+#include <string>
 #include <iostream>
+#include <thread>
 #include <fstream>  // std::ifstream
 #include <vector>   // std::vector
 #include <iterator> // std::istreambuf_iterator
@@ -43,6 +52,58 @@ static winrt::Windows::Media::SystemMediaTransportControls smtc{nullptr};
 static winrt::Windows::Media::SystemMediaTransportControlsDisplayUpdater updater{nullptr};
 static std::unique_ptr<flutter::MethodChannel<>> channel;
 static std::string appId;
+
+// ---- HomeTunes (0.1.17): running work on Flutter's platform (main) thread ----
+// Windows reports media-key presses, and the cover finishes loading, on background threads.
+// Flutter only allows channel messages from its platform thread (anything else "may result in
+// data loss or crashes", as its log warns), and the SMTC display updater is shared state, so
+// that work is queued here and run by a window message handled on the platform thread.
+static std::mutex taskMutex;
+static std::deque<std::function<void()>> pendingTasks;
+static HWND flutterView = nullptr;  // the Flutter view; its top-level window gets the message
+static UINT wakeMessage = 0;        // a message id registered with Windows just for this
+static flutter::PluginRegistrarWindows *pluginRegistrar = nullptr;
+static int windowProcDelegateId = -1;
+
+// Queues [task] to run on the platform thread and wakes it up. Safe from any thread.
+static void QueueForPlatformThread(std::function<void()> task)
+{
+  {
+    std::lock_guard<std::mutex> lock(taskMutex);
+    pendingTasks.push_back(std::move(task));
+  }
+  // Looked up each time: at start-up the view isn't inside the app window yet.
+  HWND top = flutterView ? GetAncestor(flutterView, GA_ROOT) : nullptr;
+  if (top != nullptr && wakeMessage != 0)
+  {
+    PostMessage(top, wakeMessage, 0, 0);
+  }
+}
+
+// Runs everything queued (called on the platform thread when the wake message arrives).
+static void RunQueuedTasks()
+{
+  std::deque<std::function<void()>> tasks;
+  {
+    std::lock_guard<std::mutex> lock(taskMutex);
+    tasks.swap(pendingTasks);
+  }
+  for (auto &task : tasks)
+  {
+    try
+    {
+      task();
+    }
+    catch (...)
+    {
+      std::cerr << "audio_service_win: a queued task failed" << std::endl;
+    }
+  }
+}
+
+// Goes up with every new song, so a cover that finishes loading after the song changed is
+// ignored instead of replacing the new song's cover (HomeTunes 0.1.17).
+static std::atomic<uint64_t> coverGeneration{0};
 
 namespace audio_service_win
 {
@@ -76,12 +137,44 @@ namespace audio_service_win
           plugin_pointer->HandleMethodCall(call, std::move(result));
         });
 
+    // HomeTunes: background threads wake the platform thread with this message (see
+    // QueueForPlatformThread). Top-level window messages are delivered on the platform thread.
+    pluginRegistrar = registrar;
+    if (registrar->GetView() != nullptr)
+    {
+      flutterView = registrar->GetView()->GetNativeWindow();
+    }
+    wakeMessage = RegisterWindowMessage(L"HomeTunes.AudioServiceWin.RunTasks");
+    windowProcDelegateId = registrar->RegisterTopLevelWindowProcDelegate(
+        [](HWND, UINT message, WPARAM, LPARAM) -> std::optional<LRESULT>
+        {
+          if (wakeMessage != 0 && message == wakeMessage)
+          {
+            RunQueuedTasks();
+            return 0;
+          }
+          return std::nullopt;
+        });
+
     registrar->AddPlugin(std::move(plugin));
   }
 
   AudioServiceWinPlugin::AudioServiceWinPlugin() {}
 
-  AudioServiceWinPlugin::~AudioServiceWinPlugin() {}
+  AudioServiceWinPlugin::~AudioServiceWinPlugin()
+  {
+    if (pluginRegistrar != nullptr && windowProcDelegateId >= 0)
+    {
+      pluginRegistrar->UnregisterTopLevelWindowProcDelegate(windowProcDelegateId);
+      windowProcDelegateId = -1;
+    }
+    {
+      std::lock_guard<std::mutex> lock(taskMutex);
+      pendingTasks.clear();
+    }
+    flutterView = nullptr;
+    pluginRegistrar = nullptr;
+  }
 
   // Function to setup System Media Transport Controls (SMTC)
   // Creates the hidden MediaPlayer and hooks up the SMTC. Safe to call more than once: it does
@@ -111,10 +204,11 @@ namespace audio_service_win
       // When a media key or overlay button is pressed, turn it into a short name
       // ("play", "next"...) and send it to Dart. Dart only acts on play, pause, stop, next,
       // previous, fastForward and rewind.
-      // (Note: Windows calls this from a background thread, not Flutter's main thread.)
+      // Windows calls this on a background thread, so the message to Dart is queued for the
+      // platform thread (HomeTunes 0.1.17; it used to be sent straight from here).
       smtc.ButtonPressed([](auto const &, winrt::Windows::Media::SystemMediaTransportControlsButtonPressedEventArgs const &args)
                          {
-                           std::string *method = new std::string;
+                           auto method = std::make_shared<std::string>();
                            switch (args.Button())
                            {
                            case winrt::Windows::Media::SystemMediaTransportControlsButton::Play:
@@ -151,10 +245,15 @@ namespace audio_service_win
                              *method = "other";
                              break;
                            }
-                           channel->InvokeMethod(
-                               "onSMTCButtonPressed",
-                               std::make_unique<flutter::EncodableValue>(*method));
-                           delete method; // Clean up the dynamically allocated string
+                           QueueForPlatformThread([method]()
+                                               {
+                                                 if (channel)
+                                                 {
+                                                   channel->InvokeMethod(
+                                                       "onSMTCButtonPressed",
+                                                       std::make_unique<flutter::EncodableValue>(*method));
+                                                 }
+                                               });
                          });
     }
   }
@@ -164,37 +263,46 @@ namespace audio_service_win
 namespace audio_service_win
 {
 
-  // Turns "%20"-style codes in a file:// address back into normal characters (and "+" into a
-  // space), so the cover's real file path can be opened.
-  std::string UrlDecode(const std::string &encoded)
+  // Turns "%20"-style codes back into the characters they stand for. HomeTunes (0.1.17): "+" is
+  // left alone; it used to become a space, so covers in folders like "Rock + Roll" didn't load.
+  // (Dart's Uri.file never writes a space as "+".) The result is UTF-8, as to_hstring expects.
+  std::string PercentDecode(const std::string &encoded)
   {
-    std::ostringstream result;
+    std::string result;
+    result.reserve(encoded.size());
     for (size_t i = 0; i < encoded.size(); ++i)
     {
-      if (encoded[i] == '%' && i + 2 < encoded.size())
+      if (encoded[i] == '%' && i + 2 < encoded.size() && isxdigit(static_cast<unsigned char>(encoded[i + 1])) &&
+          isxdigit(static_cast<unsigned char>(encoded[i + 2])))
       {
-        int value;
-        std::istringstream is(encoded.substr(i + 1, 2));
-        if (is >> std::hex >> value)
-        {
-          result << static_cast<char>(value);
-          i += 2;
-        }
-        else
-        {
-          result << encoded[i];
-        }
-      }
-      else if (encoded[i] == '+')
-      {
-        result << ' ';
+        result.push_back(static_cast<char>(std::stoi(encoded.substr(i + 1, 2), nullptr, 16)));
+        i += 2;
       }
       else
       {
-        result << encoded[i];
+        result.push_back(encoded[i]);
       }
     }
-    return result.str();
+    return result;
+  }
+
+  // "file:///C:/Music/x.jpg" -> "C:\Music\x.jpg", and (HomeTunes 0.1.17) network shares:
+  // "file://server/share/x.jpg" -> "\\server\share\x.jpg" (they used to lose part of the name).
+  // Anything that isn't a file:// address is treated as a plain path.
+  std::string FileUriToPath(const std::string &uri)
+  {
+    std::string path = uri;
+    if (path.rfind("file:///", 0) == 0)
+    {
+      path = path.substr(8); // drive letter paths
+    }
+    else if (path.rfind("file://", 0) == 0)
+    {
+      path = "//" + path.substr(7); // network share: file://server/share/...
+    }
+    path = PercentDecode(path);
+    std::replace(path.begin(), path.end(), '/', '\\');
+    return path;
   }
 
   // Handles each message from Dart: initializeSMTC, setMediaItem, updateState.
@@ -285,42 +393,46 @@ namespace audio_service_win
           updater.MusicProperties().Artist(winrt::to_hstring(artist));
           updater.MusicProperties().AlbumTitle(winrt::to_hstring(album));
 
+          // Every new song gets a new number; a cover that loads late for an older song is
+          // then ignored (HomeTunes 0.1.17: a quick skip used to show the previous cover).
+          const uint64_t generation = ++coverGeneration;
           if (!artUri.empty())
           {
             try
             {
-
-              // Loading the cover can be slow (a download or a file read), so it's done
-              // on a separate thread. The text details are shown straight away (Update()
-              // further down); this thread adds the picture and calls Update() again
-              // once it has loaded.
-              std::thread([artUri]()
+              // Loading the cover can be slow (a download or a file read), so it's done on a
+              // separate thread. The text details are shown straight away (Update() below).
+              // HomeTunes (0.1.17): the loaded picture is handed back to the platform thread,
+              // which applies it only if the song hasn't changed, so the display updater is only
+              // ever touched from one thread.
+              std::thread([artUri, generation]()
                           {
-              // Each new thread must set up Windows' COM system before using WinRT objects.
-              winrt::init_apartment(winrt::apartment_type::multi_threaded);
-              try {
+                // Each new thread must set up Windows' COM system before using WinRT objects.
+                winrt::init_apartment(winrt::apartment_type::multi_threaded);
+                try {
+                  winrt::Windows::Storage::Streams::RandomAccessStreamReference thumbRef{nullptr};
                   // Server covers: let Windows fetch the picture from the web address itself.
                   if (artUri.rfind("http://", 0) == 0 || artUri.rfind("https://", 0) == 0) {
-                      winrt::Windows::Foundation::Uri uri(winrt::to_hstring(artUri));
-                      auto thumbRef = winrt::Windows::Storage::Streams::RandomAccessStreamReference::CreateFromUri(uri);
-                      updater.Thumbnail(thumbRef);
+                    winrt::Windows::Foundation::Uri uri(winrt::to_hstring(artUri));
+                    thumbRef = winrt::Windows::Storage::Streams::RandomAccessStreamReference::CreateFromUri(uri);
                   } else {
-                      // Local covers: "file:///C:/Music/x.jpg" -> "C:\Music\x.jpg"
-                      // (drop the 8 characters of "file:///", use Windows backslashes),
-                      // then undo the %-encoding.
-                      std::string localPath = artUri;
-                      if (localPath.rfind("file://", 0) == 0) {
-                          localPath = localPath.substr(8);
-                          std::replace(localPath.begin(), localPath.end(), '/', '\\');
-                      }
-                      auto storageFile = winrt::Windows::Storage::StorageFile::GetFileFromPathAsync(winrt::to_hstring(UrlDecode(localPath))).get();
-                      auto thumbRef = winrt::Windows::Storage::Streams::RandomAccessStreamReference::CreateFromFile(storageFile);
-                      updater.Thumbnail(thumbRef);
+                    auto storageFile = winrt::Windows::Storage::StorageFile::GetFileFromPathAsync(
+                        winrt::to_hstring(FileUriToPath(artUri))).get();
+                    thumbRef = winrt::Windows::Storage::Streams::RandomAccessStreamReference::CreateFromFile(storageFile);
                   }
-                  updater.Update();
-              } catch (const winrt::hresult_error& e) {
-                  std::cerr << "Failed to set thumbnail: " << e.message().c_str() << std::endl;
-              } })
+                  if (generation == coverGeneration.load()) {
+                    QueueForPlatformThread([thumbRef, generation]() {
+                      if (generation != coverGeneration.load() || !updater) return; // a newer song
+                      updater.Thumbnail(thumbRef);
+                      updater.Update();
+                    });
+                  }
+                } catch (const winrt::hresult_error& e) {
+                  std::cerr << "Failed to set thumbnail: " << winrt::to_string(e.message()) << std::endl;
+                } catch (...) {
+                  std::cerr << "Failed to set thumbnail" << std::endl;
+                }
+                winrt::uninit_apartment(); })
                   .detach();
             }
             catch (...)
@@ -360,6 +472,7 @@ namespace audio_service_win
             break;
           case 2: // Stopped
             smtc.PlaybackStatus(winrt::Windows::Media::MediaPlaybackStatus::Stopped);
+            ++coverGeneration; // a cover still loading must not reappear
             // Stopped: hide the overlay and wipe its details.
             smtc.IsEnabled(false);
             updater.ClearAll();

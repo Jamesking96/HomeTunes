@@ -17,6 +17,7 @@ import 'package:media_kit/media_kit.dart' show Media, NativePlayer, Player, Play
 import '../models/book.dart';
 import '../models/eq_preset.dart';
 import '../models/track.dart';
+import '../services/subsonic_client.dart' show hideSecrets;
 import 'equalizer_model.dart';
 import 'library_model.dart';
 import 'listening_model.dart';
@@ -167,7 +168,8 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         }
       }),
       _player.stream.error.listen((e) {
-        lastError = e;
+        // Engine errors can quote the stream address, login token included: hide it (0.1.17).
+        lastError = hideSecrets(e);
         notifyListeners();
       }),
     ]);
@@ -477,12 +479,20 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   @override
   Future<void> pause() => _player.pause();
 
+  /// A swipe on the player (touch screens): left = next song, or skip forward in a book;
+  /// right = previous song, or skip back in a book (by the Settings > Audiobooks lengths).
+  Future<void> swipe({required bool forward}) {
+    if (inBook) return forward ? skipForward() : skipBack();
+    return forward ? next() : previous(restartFirst: false);
+  }
+
   /// The Next button (also media keys and headset buttons).
   Future<void> next() => _advance(auto: false);
 
   /// Restarts the song if we're more than 3 seconds in, otherwise goes back.
-  Future<void> previous() async {
-    if (position > const Duration(seconds: 3)) {
+  /// With [restartFirst] false (swiping), always goes to the previous song.
+  Future<void> previous({bool restartFirst = true}) async {
+    if (restartFirst && position > const Duration(seconds: 3)) {
       await _player.seek(Duration.zero);
       return;
     }
