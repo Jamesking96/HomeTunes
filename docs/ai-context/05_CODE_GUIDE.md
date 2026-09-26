@@ -238,13 +238,14 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 
 ## Tests
 
-`flutter test` runs everything in `test/` (197 tests, all passing when 0.1.13 was merged on 25 Sep). To run one file: `flutter test test/books_test.dart`. Tests use the tiny tagged files in `test/fixtures/` and fake servers, so they need no internet and don't touch your library.
+`flutter test` runs everything in `test/` (214 tests, all passing on the 0.1.14 branch on 26 Sep). To run one file: `flutter test test/books_test.dart`. Tests use the tiny tagged files in `test/fixtures/` and fake servers, so they need no internet and don't touch your library.
 
 | File | Covers |
 | --- | --- |
 | `library_test.dart` | Album and artist grouping, search, guessing details from file names, Subsonic login |
 | `scan_test.dart` | The parallel scan finds every file once and in order; progress doesn't redraw the app |
-| `services_test.dart` | Storage under many quick saves and damaged files; Subsonic sync with failures (fake server) |
+| `services_test.dart` | Storage under many quick saves, damaged files kept as `.corrupt` copies, recovery from `.tmp`; Subsonic sync with failures (fake server) |
+| `data_safety_test.dart` | Every model loads a hand-edited or wrong-shaped data file without failing, keeps what it can, keeps a copy and reports it |
 | `play_queue_test.dart` | Repeat, shuffle, Play next, reordering, the gapless peek |
 | `track_edit_test.dart` | Applying, merging and tidying your edits |
 | `metadata_features_test.dart` | What each file type can store, writing tags into a real WAV with a backup, cover search |
@@ -310,12 +311,12 @@ Reading every file turned up a handful of probable bugs. **None of them were cha
 | `sleep_timer.dart` | "End of song" with repeat-one probably never fires, because the song never changes | Low |
 | `lyrics_model.dart` | Online lyrics in `lyrics.json` aren't moved to the new id when a file moves, so they're looked up again | Low |
 | `library_model.dart` `_saveEdits` | Deletes custom covers no edit points at, so a cover just imported could be removed if another edit saves first | Low (a possible race) |
-| `storage.dart` write | Deletes the old file, then renames the temp file. A crash between the two leaves only `.tmp`, and the next start treats that data as missing. | Low but serious if hit |
-| `tag_writer.dart` | Plain `.aac` files are treated as writable like M4A, but they aren't MP4 files, so writing will fail with an error (the backup is put back) | Low |
-| `book_sidecar.dart` | The change-check uses `Object.hash`, which Dart doesn't promise is stable between runs, so book extras may be re-read on every scan | Low: slower scans only |
+| `tag_writer.dart` | Plain `.aac` files are treated as writable like M4A, but they aren't MP4 files, so writing will fail with an error (the original is left untouched) | Low |
 | `player_model.dart` `_learnDuration` | When the engine moves on by itself, the next song's length may be saved onto the previous song | Unconfirmed race |
 
-A few existing comments are also out of date (left as they were): `Storage` lists only three data files; `Track` says narrator and series are never read from files (side files set them now); `showEditDetails` says music files are never modified (Settings → Your edits can write them); `SeekBar` says it redraws only from the position stream.
+**Fixed in 0.1.14 (branch `fix/release-a-data-safety`):** the side-file stamp is now an md5 that stays the same between runs (it used `Object.hash`, which changes every run, so every file beside a cover picture was re-read at each startup); `Storage.write` no longer deletes the old file before the rename, and `Storage.read` recovers from `.tmp`, keeps damaged files as `<name>.corrupt-<date>.json` and reports them in the status strip; tag writing goes into a working copy (`<file>.hometunes-tmp`) that replaces the original only after it's checked; and every model's `load()` reads its file defensively, so a wrong type skips one value or entry instead of stopping the app starting. Tests: `test/data_safety_test.dart` plus new cases in `services_test.dart`, `metadata_features_test.dart` and `book_sidecar_test.dart`.
+
+A few existing comments are also out of date (left as they were): `Track` says narrator and series are never read from files (side files set them now); `showEditDetails` says music files are never modified (Settings → Your edits can write them); `SeekBar` says it redraws only from the position stream.
 
 ## About the comments
 
