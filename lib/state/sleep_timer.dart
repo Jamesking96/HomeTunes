@@ -60,6 +60,8 @@ class SleepTimer extends ChangeNotifier {
   Timer? _tick;
   // The last time-left value worked out by tick().
   Duration? _remaining;
+  // For SleepMode.endOfSong: time left in the song at the previous tick (spots repeat-one).
+  Duration? _songLeft;
 
   bool get active => _mode != null;
   SleepMode? get mode => _mode;
@@ -88,6 +90,7 @@ class SleepTimer extends ChangeNotifier {
     } else {
       _mode = SleepMode.endOfSong;
       _trackId = player.current?.id;
+      _songLeft = null;
     }
     // Check four times a second so the fade is smooth; the button itself only redraws when
     // the whole seconds shown change (see tick()).
@@ -120,7 +123,19 @@ class SleepTimer extends ChangeNotifier {
         if (t == null || t.id != _trackId) return null; // the song ended
         // Prefer the length the engine reports; fall back to the tagged length if it's unknown.
         final length = player.duration > Duration.zero ? player.duration : t.duration;
-        return length - player.position;
+        final left = length - player.position;
+        // HomeTunes (0.1.16): with repeat-one the song never changes, it just starts again, so
+        // the check above never saw it end. Moving from its last moments back to its start
+        // counts as the end too. (A seek back to the start in the last 1.5 s would also count.)
+        final before = _songLeft;
+        _songLeft = left;
+        if (before != null &&
+            before <= const Duration(milliseconds: 1500) &&
+            player.position < const Duration(seconds: 2) &&
+            left > before) {
+          return null;
+        }
+        return left;
       case SleepMode.endOfChapter:
         if (!player.inBook) return null;
         if (player.currentChapterIndex > _chapter) return null; // the chapter ended

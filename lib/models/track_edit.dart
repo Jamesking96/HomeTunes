@@ -31,6 +31,16 @@ class TrackEdit {
   /// string means "this song has no lyrics" (hides any the file has).
   final String? lyrics;
 
+  /// Details the user emptied on purpose: shown as blank even though the file has a value
+  /// (e.g. a wrong year). Names from [clearableFields]. A field is never both set and cleared.
+  ///
+  /// HomeTunes (0.1.16): before this, an emptied box meant "no change", so a year or number in
+  /// series couldn't be removed. Only fields that a Track can hold as "none" can be cleared.
+  final Set<String> cleared;
+
+  /// The details that can be cleared (the ones a Track can hold as null).
+  static const clearableFields = {'trackNumber', 'discNumber', 'year', 'genre', 'narrator', 'series', 'seriesIndex'};
+
   const TrackEdit({
     this.title,
     this.artist,
@@ -45,6 +55,7 @@ class TrackEdit {
     this.series,
     this.seriesIndex,
     this.lyrics,
+    this.cleared = const {},
   });
 
   /// An edit that changes nothing.
@@ -64,7 +75,8 @@ class TrackEdit {
       narrator == null &&
       series == null &&
       seriesIndex == null &&
-      lyrics == null;
+      lyrics == null &&
+      cleared.isEmpty;
 
   /// The same edit without the custom cover (goes back to the file's own art).
   TrackEdit withoutArt() => _copy(keepArt: false);
@@ -78,6 +90,7 @@ class TrackEdit {
   // Shared helper for the three methods above: copies every field, optionally dropping
   // the cover and/or swapping the lyrics.
   TrackEdit _copy({bool keepArt = true, bool keepLyrics = true, String? lyrics}) => TrackEdit(
+        cleared: cleared,
         title: title,
         artist: artist,
         album: album,
@@ -93,24 +106,73 @@ class TrackEdit {
         lyrics: keepLyrics ? this.lyrics : lyrics,
       );
 
-  /// Fields set in [other] win; fields it leaves null keep this edit's value.
-  /// Used by LibraryModel.editTracks (e.g. album edits): only the fields the user touched are
-  /// passed in [other]. Note this can't clear a field back to null (null means "keep").
-  TrackEdit mergedWith(TrackEdit other) => TrackEdit(
-        title: other.title ?? title,
-        artist: other.artist ?? artist,
-        album: other.album ?? album,
-        albumArtist: other.albumArtist ?? albumArtist,
-        trackNumber: other.trackNumber ?? trackNumber,
-        discNumber: other.discNumber ?? discNumber,
-        year: other.year ?? year,
-        genre: other.genre ?? genre,
-        art: other.art ?? art,
-        narrator: other.narrator ?? narrator,
-        series: other.series ?? series,
-        seriesIndex: other.seriesIndex ?? seriesIndex,
-        lyrics: other.lyrics ?? lyrics,
-      );
+  /// Fields set in [other] win; fields it leaves null keep this edit's value, unless [other]
+  /// clears them (see [cleared]). Used by LibraryModel.editTracks (e.g. album edits): only the
+  /// fields the user touched are passed in [other].
+  TrackEdit mergedWith(TrackEdit other) {
+    // A field set or cleared by [other] replaces whatever this edit had for it.
+    T? pick<T>(String name, T? mine, T? theirs) => theirs ?? (other.cleared.contains(name) ? null : mine);
+    return TrackEdit(
+      title: other.title ?? title,
+      artist: other.artist ?? artist,
+      album: other.album ?? album,
+      albumArtist: other.albumArtist ?? albumArtist,
+      trackNumber: pick('trackNumber', trackNumber, other.trackNumber),
+      discNumber: pick('discNumber', discNumber, other.discNumber),
+      year: pick('year', year, other.year),
+      genre: pick('genre', genre, other.genre),
+      art: other.art ?? art,
+      narrator: pick('narrator', narrator, other.narrator),
+      series: pick('series', series, other.series),
+      seriesIndex: pick('seriesIndex', seriesIndex, other.seriesIndex),
+      lyrics: other.lyrics ?? lyrics,
+      cleared: {
+        for (final f in cleared)
+          if (other._valueOf(f) == null) f,
+        ...other.cleared,
+      },
+    );
+  }
+
+  /// This edit's value for a clearable field (by name), or null.
+  Object? _valueOf(String field) => switch (field) {
+        'trackNumber' => trackNumber,
+        'discNumber' => discNumber,
+        'year' => year,
+        'genre' => genre,
+        'narrator' => narrator,
+        'series' => series,
+        'seriesIndex' => seriesIndex,
+        _ => null,
+      };
+
+  /// This edit with the audiobook details (narrator, series, number in series, and whether
+  /// they were cleared) taken from [other]. The song editor doesn't show those fields, so a
+  /// save there keeps them instead of losing them (0.1.16).
+  TrackEdit withBookDetailsFrom(TrackEdit? other) {
+    const book = {'narrator', 'series', 'seriesIndex'};
+    return TrackEdit(
+      title: title,
+      artist: artist,
+      album: album,
+      albumArtist: albumArtist,
+      trackNumber: trackNumber,
+      discNumber: discNumber,
+      year: year,
+      genre: genre,
+      art: art,
+      narrator: other?.narrator,
+      series: other?.series,
+      seriesIndex: other?.seriesIndex,
+      lyrics: lyrics,
+      cleared: {
+        for (final f in cleared)
+          if (!book.contains(f)) f,
+        for (final f in other?.cleared ?? const <String>{})
+          if (book.contains(f)) f,
+      },
+    );
+  }
 
   /// Drops fields that match the file's own values, so a song that's been
   /// edited back to how it was has no edit left over.
@@ -129,7 +191,24 @@ class TrackEdit {
         seriesIndex: seriesIndex == original.seriesIndex ? null : seriesIndex,
         // The file's own lyrics aren't part of a Track, so these always stay.
         lyrics: lyrics,
+        // Clearing something the file doesn't have anyway changes nothing.
+        cleared: {
+          for (final f in cleared)
+            if (_trackValue(original, f) != null) f,
+        },
       );
+
+  /// A Track's value for a clearable field (by name).
+  static Object? _trackValue(Track t, String field) => switch (field) {
+        'trackNumber' => t.trackNumber,
+        'discNumber' => t.discNumber,
+        'year' => t.year,
+        'genre' => t.genre,
+        'narrator' => t.narrator,
+        'series' => t.series,
+        'seriesIndex' => t.seriesIndex,
+        _ => null,
+      };
 
   /// The song as the user wants to see it.
   /// Built field by field (not with copyWith) because copyWith only changes a few fields.
@@ -141,19 +220,19 @@ class TrackEdit {
         artist: artist ?? t.artist,
         album: album ?? t.album,
         albumArtist: albumArtist ?? t.albumArtist,
-        trackNumber: trackNumber ?? t.trackNumber,
-        discNumber: discNumber ?? t.discNumber,
-        year: year ?? t.year,
-        genre: genre ?? t.genre,
+        trackNumber: cleared.contains('trackNumber') ? null : (trackNumber ?? t.trackNumber),
+        discNumber: cleared.contains('discNumber') ? null : (discNumber ?? t.discNumber),
+        year: cleared.contains('year') ? null : (year ?? t.year),
+        genre: cleared.contains('genre') ? null : (genre ?? t.genre),
         duration: t.duration,
         path: t.path,
         remoteId: t.remoteId,
         art: art ?? t.art,
         modifiedMs: t.modifiedMs,
         chapters: t.chapters,
-        narrator: narrator ?? t.narrator,
-        series: series ?? t.series,
-        seriesIndex: seriesIndex ?? t.seriesIndex,
+        narrator: cleared.contains('narrator') ? null : (narrator ?? t.narrator),
+        series: cleared.contains('series') ? null : (series ?? t.series),
+        seriesIndex: cleared.contains('seriesIndex') ? null : (seriesIndex ?? t.seriesIndex),
         description: t.description,
         companions: t.companions,
         hasBookInfo: t.hasBookInfo,
@@ -175,6 +254,7 @@ class TrackEdit {
         if (series != null) 'series': series,
         if (seriesIndex != null) 'seriesIndex': seriesIndex,
         if (lyrics != null) 'lyrics': lyrics,
+        if (cleared.isNotEmpty) 'cleared': [...cleared]..sort(),
       };
 
   factory TrackEdit.fromJson(Map<String, dynamic> j) => TrackEdit(
@@ -191,5 +271,9 @@ class TrackEdit {
         series: j['series'] as String?,
         seriesIndex: (j['seriesIndex'] as num?)?.toDouble(),
         lyrics: j['lyrics'] as String?,
+        cleared: {
+          for (final f in (j['cleared'] as List? ?? const []))
+            if (f is String && clearableFields.contains(f)) f,
+        },
       );
 }

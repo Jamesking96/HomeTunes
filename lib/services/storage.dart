@@ -24,7 +24,7 @@ import 'package:path_provider/path_provider.dart';
 ///
 /// Reads and writes to the same file are queued one after another, so quick
 /// successive saves (e.g. liking several songs fast) can't trample each other.
-class Storage {
+class Storage with ChangeNotifier {
   /// The hometunes folder that holds all the JSON files and the art cache.
   final Directory root;
   // For each file name, the last queued read/write. New work is chained after it.
@@ -55,10 +55,29 @@ class Storage {
   /// Folder for cached cover images (see local_scanner.dart).
   String get artDir => p.join(root.path, 'art');
 
+  /// Saves that failed, by file name, with the message to show. Cleared when that file next
+  /// saves successfully (0.1.16: failed saves used to be silent).
+  final Map<String, String> _saveFailures = {};
+
+  /// Everything to tell the user about the data files: damaged or recovered files, and saves
+  /// that are failing. Listeners are told whenever this changes.
+  List<String> get messages => [...problems, ..._saveFailures.values];
+
   /// Adds a message for the user (see [problems]).
   void report(String message) {
     debugPrint('HomeTunes: $message');
-    if (!problems.contains(message)) problems.add(message);
+    if (!problems.contains(message)) {
+      problems.add(message);
+      notifyListeners();
+    }
+  }
+
+  /// The user dismissed the messages. A save that fails again reports itself again.
+  void clearMessages() {
+    if (problems.isEmpty && _saveFailures.isEmpty) return;
+    problems.clear();
+    _saveFailures.clear();
+    notifyListeners();
   }
 
   /// Runs [work] after any earlier read/write of [name] has finished.
@@ -179,9 +198,19 @@ class Storage {
         try {
           await tmp.writeAsString(jsonEncode(json), flush: true);
           await tmp.rename(f.path);
+          // A save that works again clears its failure message.
+          if (_saveFailures.remove(name) != null) notifyListeners();
           return true;
         } catch (e) {
           debugPrint('HomeTunes: could not save $name: $e');
+          // One message per file, kept until that file saves again (not one per attempt).
+          final reason = e is FileSystemException ? (e.osError?.message ?? e.message) : '$e';
+          final message = 'HomeTunes couldn\'t save your ${describe(name)} ($reason). '
+              'Recent changes may be lost when the app closes.';
+          if (_saveFailures[name] != message) {
+            _saveFailures[name] = message;
+            notifyListeners();
+          }
           return false;
         }
       });
