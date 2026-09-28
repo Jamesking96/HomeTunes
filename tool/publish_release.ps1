@@ -49,7 +49,8 @@ $notes += $guide
 $guideFile = Join-Path $env:TEMP 'HomeTunes-README.md'
 [IO.File]::WriteAllText($guideFile, $guide, (New-Object Text.UTF8Encoding $false))
 # JSON bodies are sent as UTF-8 bytes; Windows PowerShell would otherwise mangle non-English characters.
-function Utf8Json($o) { [Text.Encoding]::UTF8.GetBytes(($o | ConvertTo-Json)) }
+# (The leading comma stops PowerShell turning the bytes into a list of separate objects.)
+function Utf8Json($o) { ,[Text.Encoding]::UTF8.GetBytes(($o | ConvertTo-Json)) }
 $json = 'application/json; charset=utf-8'
 
 try {
@@ -60,6 +61,7 @@ try {
     if ($rel.body.StartsWith("## What's new") -and $i -gt 0) { $notes = $rel.body.Substring(0, $i).TrimEnd() + "`n`n---`n`n" + $guide }
   }
   $rel = Invoke-RestMethod -Method Patch -Headers $h -ContentType $json -Body (Utf8Json @{ body = $notes }) "https://api.github.com/repos/$repo/releases/$($rel.id)"
+  if ($rel.body.Trim() -ne $notes.Trim()) { throw 'GitHub did not take the new page text.' }
   "Release $tag already existed: page text updated"
 } catch {
   if ($_.Exception.Response.StatusCode.value__ -ne 404) { throw }
