@@ -48,7 +48,24 @@ class Buffer {
     }
   }
 
+  /// HomeTunes (0.1.21, security review #7): how far past the end of the file a read may
+  /// reach. A slightly damaged file can say a frame is a little longer than what's left (the
+  /// missing part reads as zeros, as before), but a crafted one could claim gigabytes, and the
+  /// list for it was allocated before anything checked.
+  static const _slackPastEnd = 1 << 20;
+
+  /// HomeTunes: throws instead of allocating [size] bytes when that can't be real.
+  void _checkSize(int size) {
+    if (size < 0 || size > remainingBytes + _slackPastEnd) {
+      throw MetadataParserException(
+          track: File(""), message: "A block claims $size bytes, more than the file holds");
+    }
+  }
+
   Uint8List read(int size) {
+    // HomeTunes: small reads come from the buffer and are safe; only a size that doesn't fit in
+    // it can be absurd, so only those are checked (the check asks the file for its length).
+    if (size < 0 || size > _bufferedBytes - _cursor) _checkSize(size);
     fileCursor += size;
 
     // if we read something big (~100kb), we can read it directly from file

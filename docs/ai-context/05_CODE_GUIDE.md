@@ -1,6 +1,6 @@
 # HomeTunes Code Guide
 
-26 Sep 2026 · James (updated for 0.1.13)
+26 Sep 2026 · James (updated for 0.1.13; security fixes added for 0.1.21 on 28 Sep)
 
 HomeTunes is one Flutter (Dart) codebase that runs on Windows and Android. Almost all of the app lives in `lib/`, split into four layers: **models** (plain data), **state** (the app's live brain), **services** (files, network, the OS) and **ui** (what you see). Every source file now opens with a comment saying what it does and why.
 
@@ -103,7 +103,9 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `music_info.dart` | Looks up song and album details, genres and track lists on MusicBrainz (about one request a second). |
 | `book_info.dart` | Looks up book details and covers on Open Library. |
 | `track_matching.dart` | Matches missing songs to files that turned up somewhere else (by the end of the path, then by the song's details). |
-| `secret_store.dart` | Keeps the music server's password in the system's protected storage (Windows Credential Manager, Android Keystore), one entry per server address and user name. |
+| `secret_store.dart` | Keeps the music server's password in the system's protected storage (Windows Credential Manager, Android Keystore, the Linux keyring), one entry per server address and user name. |
+| `path_safety.dart` | `isUsableLocalFile` / `isInsideAny`: checks a path is inside the library folders (or the app's art folder) before it's opened, shown in Explorer, played, read as a cover or written to. Paths from a restored backup can't be trusted. |
+| `server_art_cache.dart` | Downloads server covers into `art/server/` so the system media controls get a `file://` path instead of a server address that carries the login token. |
 
 ### UI frame (`lib/ui/`)
 
@@ -217,7 +219,7 @@ Everything lives in the app's data folder, `…/hometunes/` inside the system's 
 | `bookmarks.json` | Audiobook bookmarks and notes | `BookmarksModel` |
 | `lyrics.json` | Lyrics found online, and "nothing found" times so they aren't looked up again too soon | `LyricsModel` |
 | `equalizer.json` | Equaliser on/off, the chosen presets, edited and your own presets | `EqualizerModel` |
-| `art/` | Covers taken from files (`art/custom/` holds the ones you chose) | `local_scanner.dart`, `LibraryModel` |
+| `art/` | Covers taken from files (`art/custom/` holds the ones you chose; `art/server/` holds server covers for the media controls, left out of backups) | `local_scanner.dart`, `LibraryModel`, `server_art_cache.dart` |
 | `playback-log.txt` | The playback log (last 400 lines). Not in backups | `playback_log.dart` |
 | `backups/` | Copies of music files made before writing edits into them | `tag_writer.dart` |
 | `before-restore.htbackup` | Your data from just before the last restore | `app_backup.dart` |
@@ -232,7 +234,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | --- | --- | --- |
 | `setup.ps1` / `setup.sh` | One-time set-up for a fresh copy: `flutter create` makes the platform folders, `patch_platforms.dart` adjusts them, then `flutter pub get`. Safe to run again. | `.\setup.ps1` |
 | `tool/patch_platforms.dart` | Adjusts the generated platform folders: Android permissions, the background media service, the Back-button code, `compileSdk = 37`, and the rule that keeps the lock-screen icons. Also macOS and iOS settings. | Run by `setup.ps1`; or `dart run tool/patch_platforms.dart` |
-| `tool/build_release.ps1` | Builds Windows, copies in the Visual C++ runtime, then makes a portable zip and (with Inno Setup 6) an installer in `build\dist\`. The version comes from `pubspec.yaml`. | `powershell -ExecutionPolicy Bypass -File tool\build_release.ps1` (add `-SkipBuild` to reuse the last build) |
+| `tool/build_release.ps1` | Builds Windows, copies in the Visual C++ runtime, then makes a portable zip and (with Inno Setup 6) an installer in `build\dist\`. With `-Android` it also builds the APK and refuses one that isn't signed with the release key. The version comes from `pubspec.yaml`. | `powershell -ExecutionPolicy Bypass -File tool\build_release.ps1` (add `-SkipBuild` to reuse the last build, `-Android` for the phone app) |
 | `installer/hometunes.iss` | The Inno Setup recipe: per-user install (no admin), optional desktop icon, leaves your data on uninstall. Its `AppId` must never change. | Used by `build_release.ps1` |
 | `tool/probe_books.dart` | Prints the raw tags, length and chapters of each audio file | `dart run tool/probe_books.dart <folder>` |
 | `tool/probe_book_extras.dart` | Runs the real scanner and book grouping, then shows each book and what came from files beside it | `dart run tool/probe_book_extras.dart <folder>` |
@@ -253,7 +255,8 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `services_test.dart` | Storage under many quick saves, damaged files kept as `.corrupt` copies, recovery from `.tmp`; Subsonic sync with failures (fake server) |
 | `data_safety_test.dart` | Every model loads a hand-edited or wrong-shaped data file without failing, keeps what it can, keeps a copy and reports it |
 | `library_safety_test.dart` | Offline music folders, failed saves, clearing details, the song editor keeping book details, the Audiobooks-folder rule, lyrics and book places following moved files, the imported-cover race, learned song lengths |
-| `server_security_test.dart` | The server password moving into protected storage (and staying in settings.json if it can't), per-server keys, forgetting, backups with and without it, hiding login details in errors, the plain-http warning |
+| `server_security_test.dart` | The server password moving into protected storage (and staying in settings.json if it can't), per-server keys, forgetting, backups never including it (old ones that did still restore), hiding login details in errors, the plain-http warning |
+| `security_fixes_test.dart` | 0.1.21 security fixes: path checks and crafted backups, the tag writer refusing outside files, server covers as files, asking before plain http, size limits for `.lrc` files, backups and the tag parser |
 | `swipe_test.dart` | Swipe to skip: quick and long swipes, small nudges, taps, mouse drags and the setting |
 | `library_filters_test.dart` | The Library tabs' title box, filters, choice narrowing and sorts, plus the Artists and Albums tabs on screen |
 | `play_queue_test.dart` | Repeat, shuffle, Play next, reordering, the gapless peek |
@@ -329,6 +332,19 @@ Reading every file turned up a handful of probable bugs. **None of them were cha
 **Fixed in 0.1.19:** the Windows crash when moving the window (and the earlier Liked Songs crash) — every HomeTunes crash on record since 0.1.8 was the same access violation in `flutter_windows.dll` (+0x3c16a in Flutter 3.47.5), inside Flutter's Windows accessibility bridge. Flutter builds its accessibility tree as soon as any program asks the window what's on screen, and on this PC something always asks (a plain `flutter create` app reports semantics enabled too). HomeTunes' tree then trips a Flutter engine bug: while the library loads, the Home page's shelves are re-attached under a new list node and the bridge logs `Failed to update ui::AXTree, error: Nodes left pending by the update: 8 14 19 30` / `… will not be in the tree and is not the new root`; the next update (moving the window, the scan progress line changing) crashes. `windows/runner/flutter_window.cpp` now answers `WM_GETOBJECT` for the Flutter view itself (`KeepAccessibilityOff`, via `SetWindowSubclass` / `comctl32.lib`), so the engine never builds that tree; start HomeTunes with `--screen-reader` to turn it back on for Narrator. Checked by running a debug build that used to crash within seconds of starting: no AXTree errors and no crash through 25 rounds of accessibility queries and window moves (`build\crash\uia_poke.ps1`, not in git). Worth re-checking when Flutter is upgraded: if its bridge is fixed, the block (and the `--screen-reader` switch) can go.
 
 **Fixed in 0.1.20 (branch `background-playback`):** on the phone, playback stopped a while after locking the screen while the app still showed it playing. Opening each song makes media_kit pause for a moment (`open()` stops, then sets pause, then plays), and that brief `playing: false` went straight to audio_service. With `androidStopForegroundOnPause` Android then drops the app's foreground (background-playback) service, and Android 12+ won't let a locked, backgrounded app start it again, so the app is frozen with the last "playing" state on screen. Now: `PlayerModel.pausedOnPurpose` records whether a pause was asked for (the button, sleep timer, end of the queue or book); `SystemPlayingState` (`state/playback_guard.dart`) only passes a pause nobody asked for to the media controls after 5 seconds; `StallDetector` (checked every 3 s by `PlayerModel._checkProgress`) restarts a song whose position hasn't moved for 10 s while "playing" (not buffering or opening), and if it stalls again within a minute pauses and says "Playback stopped by itself. Press play to carry on."; `checkAfterResume()` does the same check when the app comes back on screen. A new playback log (`services/playback_log.dart`, `playback-log.txt`, last 400 lines, not in backups) records songs opening, play/pause, the app going to the background and back, what the media controls were told, and any recovery; it's shown in Settings › About › Playback log with Copy and Clear. The user confirmed it fixed on the phone (28 Sep). If it comes back, check with adb while locked (`dumpsys activity services com.hometunes.hometunes` should say isForeground=true; logcat should have no ForegroundServiceStartNotAllowedException). Tests: `test/playback_guard_test.dart`.
+
+**Fixed in 0.1.21 (branch `security-fixes`, security review of 28 Sep; details in `claude/06_SECURITY_REVIEW.md`):**
+- **Release signing (#1):** release APKs are signed with HomeTunes' own key, read from `android/key.properties` (gitignored; the key itself is outside the repo). Gradle refuses a release build without it, and `build_release.ps1 -Android` / `publish_release.ps1` refuse a debug-signed APK. Going from 0.1.20 needed one uninstall and restore on the phone.
+- **Login token (#2):** server covers go to the media controls as files downloaded by `ServerArtCache` (`art/server/`), never as the server address. The Windows plugin no longer logs the cover address.
+- **Paths from backups (#3):** `path_safety.dart`. Opening a book's PDF/EPUB, "Show in folder", playing, showing covers and writing tags only use paths inside the library folders (covers: or the app's art folder). `AppBackup.sanitize` drops restored cover edits outside `art/` and companion files that aren't PDF or EPUB.
+- **Plain http (#4):** an address typed without a scheme that only answers over http, on the internet, returns `LibraryModel.httpConsentNeeded`; Settings › Servers asks once and remembers the host (`httpAllowedHost` in settings.json). Home network and Tailscale addresses are unchanged. `usesCleartextTraffic` stays on, on purpose.
+- **Android backup (#5):** `allowBackup="false"` plus `res/xml/data_extraction_rules.xml` (no cloud backup, no device transfer). Also in `patch_platforms.dart`.
+- **Backup password (#6):** the "Include the server password" switch is gone; backups never contain it. Old backups that do still restore it into protected storage.
+- **Size limits (#7):** `.lrc` files over 1 MB are ignored; backups over 256 MB, or unpacking past 512 MB, are refused; the vendored tag parser's `Buffer.read` throws instead of allocating for a block more than 1 MB past the end of the file.
+- **Engine (#8):** media_kit and its libraries were already the newest available; nothing to update. Recheck with `flutter pub outdated` now and then.
+- **Checksums (#9):** `publish_release.ps1` writes `HomeTunes-<ver>-SHA256SUMS.txt`, uploads it and lists the sums at the end of the release page.
+- **Secret store (#10):** the in-memory store is only used under `flutter test` in non-release builds; Linux uses the keyring.
+Tests: `test/security_fixes_test.dart`, plus changes in `server_security_test.dart` and `keep_and_backup_test.dart` (291 tests, all passing on 28 Sep).
 
 A few existing comments are also out of date (left as they were): `Track` says narrator and series are never read from files (side files set them now); `showEditDetails` says music files are never modified (Settings → Your edits can write them); `SeekBar` says it redraws only from the position stream.
 

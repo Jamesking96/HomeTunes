@@ -48,6 +48,16 @@ If they are, don't build the Windows app (`LNK1168`), and don't switch branches 
    adb shell dumpsys package com.hometunes.hometunes | Select-String versionName,versionCode
    ```
    `INSTALL_FAILED_VERSION_DOWNGRADE` means you forgot to raise the `+build` number.
+   **Release signing (since 0.1.21):** release APKs are signed with HomeTunes' own key.
+   `android/key.properties` (gitignored) points at `C:\Users\James.Miller\keys\hometunes-release.jks`;
+   the user keeps the key and its password in their password manager plus an offline copy. Never
+   read or print `key.properties`. Gradle stops a release build if the file is missing.
+   `tool\build_release.ps1 -Android` builds the APK into `build\dist\` and checks the signer.
+   To check by hand: `$env:JAVA_HOME='C:\Program Files\Android\Android Studio\jbr'`, then
+   `& "$env:LOCALAPPDATA\Android\sdk\build-tools\37.0.0\apksigner.bat" verify --print-certs <apk>`
+   should show `CN=James Miller` and SHA-256 `758f6618…ff1030`, never `CN=Android Debug`.
+   (apksigner needs Java; none is on PATH, so use Android Studio's.) An APK signed with a
+   different key can't be installed over the top: `INSTALL_FAILED_UPDATE_INCOMPATIBLE`.
 5. Real-engine checks, when playback logic changes:
    ```
    flutter test tool/bench/engine_test.dart --dart-define=LIBMPV=C:\Users\James.Miller\source\hometunes\build\windows\x64\runner\Release\libmpv-2.dll
@@ -64,7 +74,8 @@ If they are, don't build the Windows app (`LNK1168`), and don't switch branches 
    `main`). **Blur any lyrics in screenshots** (the user's rule: never reproduce copyrighted lyrics).
    **Keep `docs/USER_GUIDE.md` up to date when features or menu names change.** `-UpdateOnly`
    refreshes just the page text and guide of an existing release.
-   It signs in with git's saved GitHub login (there's no `gh` on the PC). Builds are never
+   It refuses a debug-signed APK, and writes `HomeTunes-<ver>-SHA256SUMS.txt` (uploaded, and listed
+   at the end of the page). It signs in with git's saved GitHub login (there's no `gh` on the PC). Builds are never
    committed to git. Downloads: https://github.com/Jamesking96/HomeTunes/releases
 7. Probes (run with `dart run`):
    - `tool/probe_books.dart <folder>`: tags and chapters per file
@@ -80,6 +91,11 @@ If they are, don't build the Windows app (`LNK1168`), and don't switch branches 
 - From the cloud proxy, **deleting remote branches and pushing tags failed with a 403**. Do those
   from the PC's git instead: `git push origin --delete <branch>`, `git branch -d <branch>`.
 - The user asked for only `main` to remain after merges.
+
+## Sending files from a cloud session to the PC
+`device_commit_files` writes a new file reliably, but a second write to the same path in one
+session was silently not applied (28 Sep). Check with `Get-FileHash` after writing; if it didn't
+land, write to `<name>.new` and `Move-Item` it over the original.
 
 ## Debugging notes
 - VS Code F5 (debug) on Windows can close the app a few seconds after the scan finishes. There's

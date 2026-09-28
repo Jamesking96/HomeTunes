@@ -2,17 +2,20 @@
 #
 #   powershell -ExecutionPolicy Bypass -File tool\build_release.ps1
 #   powershell -ExecutionPolicy Bypass -File tool\build_release.ps1 -SkipBuild   # reuse last build
+#   powershell -ExecutionPolicy Bypass -File tool\build_release.ps1 -Android     # also the phone app
 #
 # Output in build\dist\:
 #   HomeTunes-<version>-windows.zip      portable: unzip and run hometunes.exe
 #   HomeTunes-Setup-<version>.exe        installer (needs Inno Setup 6 installed)
+#   HomeTunes-<version>-android.apk      with -Android: signed with the key in android\key.properties
 #
 # Steps: build with Flutter -> copy the Visual C++ runtime DLLs in -> zip -> Inno Setup
 # installer (installer\hometunes.iss). The version number comes from pubspec.yaml, so bump it
 # there before building.
 
 # -SkipBuild: package the existing build\windows\...\Release folder without rebuilding.
-param([switch]$SkipBuild)
+# -Android: also build the phone app and check it's signed with the HomeTunes release key.
+param([switch]$SkipBuild, [switch]$Android)
 $ErrorActionPreference = 'Stop'
 
 # This script lives in tool\, so the project root is its parent folder.
@@ -72,4 +75,39 @@ if ($iscc) {
     Write-Host "Installer: $(Join-Path $dist "HomeTunes-Setup-$version.exe")" -ForegroundColor Green
 } else {
     Write-Warning "Inno Setup 6 not found, so only the zip was made. Install it with:  winget install JRSoftware.InnoSetup"
+}
+
+# 5. Phone app (HomeTunes 0.1.21, security review #1)
+if ($Android) {
+    if (-not (Test-Path (Join-Path $root 'android\key.properties'))) {
+        throw 'android\key.properties is missing, so the APK cannot be signed with the HomeTunes release key.'
+    }
+    Write-Host "Building Android release..." -ForegroundColor Cyan
+    # Gradle fails with "Unable to establish loopback connection" without a short temp folder.
+    New-Item -ItemType Directory -Force 'C:\Temp\ht' | Out-Null
+    $env:JAVA_TOOL_OPTIONS = '-Djdk.net.unixdomain.tmpdir=C:\Temp\ht'
+    $env:GRADLE_OPTS = $env:JAVA_TOOL_OPTIONS
+    flutter build apk --release
+    if ($LASTEXITCODE -ne 0) { throw "flutter build apk failed" }
+    $apk = Join-Path $dist "HomeTunes-$version-android.apk"
+    Copy-Item (Join-Path $root 'build\app\outputs\flutter-apk\app-release.apk') $apk -Force
+    # Refuse a debug-signed APK: it could never update a copy signed with the release key.
+    $apksigner = Get-ChildItem "$env:LOCALAPPDATA\Android\sdk\build-tools\*\apksigner.bat" -ErrorAction SilentlyContinue |
+        Sort-Object { [version]($_.Directory.Name -replace '[^0-9.].*$', '') } | Select-Object -Last 1
+    if ($apksigner) {
+        # apksigner needs Java; Android Studio comes with one.
+        if (-not $env:JAVA_HOME -and -not (Get-Command java -ErrorAction SilentlyContinue)) {
+            $jbr = "$env:ProgramFiles\Android\Android Studio\jbr"
+            if (Test-Path $jbr) { $env:JAVA_HOME = $jbr }
+        }
+        $ErrorActionPreference = 'Continue'
+        $certs = (& $apksigner.FullName verify --print-certs $apk 2>&1 | ForEach-Object { "$_" }) -join "`n"
+        $ErrorActionPreference = 'Stop'
+        if ($LASTEXITCODE -ne 0) { throw "The APK's signature doesn't verify:`n$certs" }
+        if ($certs -match 'CN=Android Debug') { throw 'The APK came out signed with the debug key.' }
+        ($certs -split "`n") | Where-Object { $_ -match 'certificate DN|SHA-256 digest' } | ForEach-Object { Write-Host "  $_" }
+    } else {
+        Write-Warning 'apksigner not found, so the APK signature was not checked.'
+    }
+    Write-Host "APK:       $apk" -ForegroundColor Green
 }
