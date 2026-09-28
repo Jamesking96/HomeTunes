@@ -53,7 +53,13 @@ If they are, don't build the Windows app (`LNK1168`), and don't switch branches 
    flutter test tool/bench/engine_test.dart --dart-define=LIBMPV=C:\Users\James.Miller\source\hometunes\build\windows\x64\runner\Release\libmpv-2.dll
    flutter test tool/bench/player_gapless_test.dart --dart-define=LIBMPV=...same...
    ```
-6. Probes (run with `dart run`):
+6. **Publishing builds for download (GitHub Releases, started 28 Sep with 0.1.20):** once main is
+   merged and pushed and the three files are in `build\dist`, run
+   `powershell -ExecutionPolicy Bypass -File tool\publish_release.ps1 -NotesFile <notes.md>` on the
+   PC. It tags `v<version>`, creates the release and uploads the APK, the installer and the zip.
+   It signs in with git's saved GitHub login (there's no `gh` on the PC). Builds are never
+   committed to git. Downloads: https://github.com/Jamesking96/HomeTunes/releases
+7. Probes (run with `dart run`):
    - `tool/probe_books.dart <folder>`: tags and chapters per file
    - `tool/probe_book_extras.dart <folder>`: books plus what came from sidecars
    - `tool/probe_library.dart <folder>`: grouping

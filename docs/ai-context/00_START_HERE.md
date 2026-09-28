@@ -21,7 +21,9 @@ Read the files in this order:
 - **Everything is in source control.** `main` on GitHub (github.com/Jamesking96/HomeTunes) is
   **0.1.20+20**. There are no other branches.
   - Tests: 274 pass, and `flutter analyze` is clean.
-  - Builds for 0.1.20 are in `build\dist` on the PC.
+  - Builds for 0.1.20 are in `build\dist` on the PC and can be downloaded from the GitHub release
+    (https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.20). Publish each new version
+    the same way (see `02_…` → publishing builds).
 - Built and merged so far:
   - the music library, player, playlists, editing and backups
   - server streaming

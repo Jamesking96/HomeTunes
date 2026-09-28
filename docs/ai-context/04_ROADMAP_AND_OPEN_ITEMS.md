@@ -139,7 +139,7 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
 
 ## Offered earlier, not done (only if the user wants)
 - Delete old installers in `build\dist` (0.1.0/0.1.2/0.1.3).
-- GitHub Releases + Obtainium, so the phone can update itself.
+- Obtainium on the phone, so it updates itself from GitHub Releases (Releases exist since 0.1.20).
 - A sleep-timer button in the Android notification.
 
 ## Source control
