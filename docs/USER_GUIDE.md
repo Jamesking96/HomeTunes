@@ -7,6 +7,8 @@ library of artists, albums, songs and audiobooks. You can also stream from your 
 
 It runs on **Android phones** and **Windows PCs**. There's no iPhone or Mac download.
 
+![The HomeTunes Home screen on a Windows PC, showing Continue listening, Shuffle all, Liked Songs and Recently added albums](images/home-pc.jpg)
+
 ---
 
 ## 1. Which file do I download?
@@ -75,7 +77,7 @@ HomeTunes plays MP3, FLAC, M4A/AAC, OGG, Opus, WAV and M4B files. It never chang
 deletes your music files.
 
 ### Audiobooks
-Audiobooks appear in the **Books** tab. HomeTunes spots them by their genre (such as
+Audiobooks appear in the **Books** tab (called **Audiobooks** on a PC). HomeTunes spots them by their genre (such as
 "Audiobook"), `.m4b` files, or a folder called something like "Audiobooks". To make a whole folder
 count as books, go to **Settings › Audiobooks** and use **Add audiobook folder**. Books remember where
 you got to, and **Continue listening** on the Home screen picks up where you left off.
@@ -89,11 +91,19 @@ Server songs show a small cloud icon and mix in with your own files.
 
 ## 5. Everyday use
 
-The tabs are **Home**, **Search**, **Library**, **Books** and **Settings** (along the bottom on a
-phone, down the side on a PC).
+The main sections are **Home**, **Search**, **Library**, **Books** and **Settings**. On a phone
+they're tabs along the bottom. On a PC they're down the left-hand side, where Library is called
+**Your Library** and Books is called **Audiobooks**, with **Liked Songs** underneath.
 
 - **Play something:** tap a song, album, playlist or book. The player bar at the bottom shows
-  what's playing; tap it for the full **Now Playing** screen with the queue.
+  what's playing; tap it for the full **Now Playing** screen.
+
+  ![The Now Playing screen on a PC, with the album cover, play controls and the lyrics panel](images/now-playing-pc.jpg)
+
+  Under the controls are buttons for the **equaliser**, **lyrics** and the **queue** (what's
+  playing next, which you can reorder).
+- **Lyrics:** HomeTunes shows a song's lyrics when it can find them (in the file, a `.lrc` file
+  next to it, your music server, or online). Timed lyrics scroll along with the song.
 - **On a phone:** swipe the player left or right to skip. The music keeps playing with the screen
   locked, and you can control it from the lock screen, the notification or headphone buttons.
 - **On a PC:** your keyboard's media keys work.

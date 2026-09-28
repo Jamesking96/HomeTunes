@@ -9,7 +9,7 @@
 #
 # What it does: tags the current origin/main as v<version> and pushes the tag, creates the
 # release, then uploads the phone app, the Windows installer, the Windows zip and the user guide
-# (docs\USER_GUIDE.md, attached as HomeTunes-README.md). The release page shows "What's new"
+# (docs\USER_GUIDE.md with its pictures from docs\images, attached as HomeTunes-README.md). The release page shows "What's new"
 # (the text in -NotesFile, if given) followed by the whole user guide. Running it again updates
 # the page text and the guide, and skips builds already uploaded. Use -UpdateOnly to refresh just
 # the text and guide of an existing release.
@@ -43,6 +43,8 @@ git push -q origin $tag 2>&1 | Out-Null
 
 # Page text: what's new in this version, then the user guide (with the version filled in).
 $guide = (Get-Content docs\USER_GUIDE.md -Raw -Encoding UTF8) -replace '<version>', $Version
+# Pictures live in docs\images (committed to main); the release page needs their full address.
+$guide = $guide -replace '\]\(images/', "](https://github.com/$repo/raw/main/docs/images/"
 $notes = ''
 if ($NotesFile) { $notes = "## What's new in $Version`n`n" + (Get-Content $NotesFile -Raw -Encoding UTF8).Trim() + "`n`n---`n`n" }
 $notes += $guide
