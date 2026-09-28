@@ -56,11 +56,34 @@ class ServerSettingsState extends State<ServerSettings> {
       _connecting = true;
       _message = null;
     });
-    final err = await lib.connectServer(
-      // The password isn't trimmed: spaces could be part of it.
-      ServerConfig(url: _url.text.trim(), username: _user.text.trim(), password: _pass.text),
-    );
+    // The password isn't trimmed: spaces could be part of it.
+    final config = ServerConfig(url: _url.text.trim(), username: _user.text.trim(), password: _pass.text);
+    var err = await lib.connectServer(config);
     if (!mounted) return;
+    // 0.1.21 (security review #4): the server didn't answer over https and it's on the internet.
+    // Ask once before using plain http; the answer is remembered for this server.
+    if (err == LibraryModel.httpConsentNeeded) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Connect without encryption?'),
+          content: const Text('This server didn\'t answer over a secure (https) connection. '
+              'HomeTunes can connect over plain http instead, but then your sign-in and what you play '
+              'could be read by others on the way.\n\n'
+              'Only do this if you trust the network between you and the server. '
+              'HomeTunes will remember your answer for this server.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Connect with http')),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      err = ok == true
+          ? await lib.connectServer(config, allowPlainHttp: true)
+          : 'Not connected. Set up https on the server, or connect over your home network or Tailscale.';
+      if (!mounted) return;
+    }
     final n = lib.tracks.where((t) => !t.isLocal).length;
     setState(() {
       _connecting = false;
@@ -269,7 +292,7 @@ class _HttpWarning extends StatelessWidget {
             child: Text(
               tryHttps
                   ? 'HomeTunes will try a secure (https) connection first. If the server only offers '
-                      'http, your sign-in could be read by others on the way.'
+                      'http, it will ask before using it, because your sign-in could be read by others on the way.'
                   : 'This address isn\'t secure (http). Outside your home network your sign-in could be '
                       'read by others on the way. Use https:// if your server supports it.',
               style: const TextStyle(fontSize: 12, color: Colors.amber),

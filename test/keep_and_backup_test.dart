@@ -329,7 +329,7 @@ void main() {
       expect(() => AppBackup.read([1, 2, 3]), throwsFormatException);
     });
 
-    test('the server password is left out unless asked for', () async {
+    test('the server password is never put in a backup (0.1.21)', () async {
       final dir = Directory.systemTemp.createTempSync('hometunes_pw');
       addTearDown(() => dir.deleteSync(recursive: true));
       final storage = Storage.at(dir);
@@ -338,7 +338,6 @@ void main() {
         'server': {'url': 'http://s', 'username': 'u', 'password': 'secret'},
       });
       expect(AppBackup.read(await AppBackup.create(storage)).hasPassword, isFalse);
-      expect(AppBackup.read(await AppBackup.create(storage, includePassword: true)).hasPassword, isTrue);
     });
 
     // The same playlist in both: songs are combined without repeats; new playlists are added.

@@ -437,8 +437,9 @@ namespace audio_service_win
             }
             catch (...)
             {
-              // If thumbnail fails, continue without it
-              std::cerr << "Failed to set thumbnail in Notification: " << artUri << std::endl;
+              // If thumbnail fails, continue without it. HomeTunes (0.1.21): the address isn't
+              // logged; a server cover address carries the login token.
+              std::cerr << "Failed to set thumbnail in Notification" << std::endl;
             }
           }
           updater.Update();

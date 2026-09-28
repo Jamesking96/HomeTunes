@@ -10,6 +10,7 @@ import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
+import 'book_sidecar.dart' show companionExtensions;
 import 'storage.dart';
 
 /// Exports and imports everything HomeTunes keeps on the device, as one file:
@@ -43,16 +44,20 @@ class AppBackup {
   /// Name of the automatic backup taken just before a restore.
   static const beforeRestoreName = 'before-restore.$fileExtension';
 
-  /// Builds a backup of [storage]. The server password is only included when
-  /// [includePassword] is set. [includeCoverCache] adds the covers pulled out
+  /// The largest backup file HomeTunes will open, and the most it may unpack to. A real backup
+  /// is a few MB (mostly covers); these limits stop a damaged or crafted file from using up all
+  /// the memory (0.1.21, security review #7).
+  static const maxFileBytes = 256 << 20;
+  static const maxUnpackedBytes = 512 << 20;
+
+  /// Builds a backup of [storage]. [includeCoverCache] adds the covers pulled out
   /// of music files (they can be re-read by a rescan, so they're optional);
   /// covers chosen or downloaded by the user are always included.
-  static Future<Uint8List> create(
-    Storage storage, {
-    bool includePassword = false,
-    String? password,
-    bool includeCoverCache = true,
-  }) async {
+  ///
+  /// The server password is never included (0.1.21, security review #6: it would be plain text
+  /// in the file). Server covers downloaded for the media controls (art/server) are left out too;
+  /// they're downloaded again when needed.
+  static Future<Uint8List> create(Storage storage, {bool includeCoverCache = true}) async {
     final root = storage.root.path;
     // 1. The data files, with app paths made portable.
     final files = <String, dynamic>{};
@@ -61,15 +66,11 @@ class AppBackup {
       if (j == null) continue;
       files[name] = toPortable(j, root);
     }
-    // 2. Leave the server password out unless the user ticked the box.
+    // 2. Never the server password. (Since 0.1.17 it's normally in protected storage anyway, but
+    //    on a device without that it's still in settings.json.)
     final settings = files['settings.json'];
-    if (!includePassword && settings is Map && settings['server'] is Map) {
+    if (settings is Map && settings['server'] is Map) {
       (settings['server'] as Map).remove('password');
-    }
-    // Since 0.1.17 the password isn't in settings.json (it's in protected storage), so the caller
-    // hands it over when it should be included.
-    if (includePassword && password != null && password.isNotEmpty && settings is Map && settings['server'] is Map) {
-      (settings['server'] as Map)['password'] = password;
     }
 
     // 3. Cover images, stored as text (base64) keyed by their path under the app folder.
@@ -80,7 +81,9 @@ class AppBackup {
       await for (final e in artDir.list(recursive: true)) {
         if (e is! File) continue;
         final rel = p.relative(e.path, from: root);
-        final custom = p.split(rel).contains('custom');
+        final parts = p.split(rel);
+        if (parts.length > 1 && parts[1] == 'server') continue;  // art/server: downloaded again
+        final custom = parts.contains('custom');
         if (!custom && !includeCoverCache) continue;
         art[p.split(rel).join('/')] = base64Encode(await e.readAsBytes());
       }
@@ -98,11 +101,17 @@ class AppBackup {
     return Uint8List.fromList(gzip.encode(utf8.encode(jsonEncode(json))));
   }
 
-  /// Reads a backup file's bytes. Throws [FormatException] if it isn't one.
-  static BackupContents read(List<int> bytes) {
+  /// Reads a backup file's bytes. Throws [FormatException] if it isn't one, or if it's bigger
+  /// than [maxFileBytes] or unpacks to more than [maxUnpacked] (tests pass a smaller limit).
+  static BackupContents read(List<int> bytes, {int maxUnpacked = maxUnpackedBytes}) {
+    if (bytes.length > maxFileBytes) {
+      throw const FormatException('This backup is too large to be a HomeTunes backup.');
+    }
     Object? json;
     try {
-      json = jsonDecode(utf8.decode(gzip.decode(bytes)));
+      json = jsonDecode(utf8.decode(_gunzipCapped(bytes, maxUnpacked)));
+    } on _TooLarge {
+      throw const FormatException('This backup is too large or damaged.');
     } catch (_) {
       throw const FormatException('This isn\'t a HomeTunes backup file.');
     }
@@ -149,11 +158,12 @@ class AppBackup {
       await dest.writeAsBytes(base64Decode(e.value), flush: true);
     }
 
-    // Helpers: one data file from the backup (with paths made local again), and the
-    // same file as it is on this device now. Both give an empty map if missing.
+    // Helpers: one data file from the backup (with paths made local again, and paths that
+    // could be misused taken out, see [sanitize]), and the same file as it is on this device
+    // now. Both give an empty map if missing.
     Map<String, dynamic> backupFile(String name) {
       final j = backup.files[name];
-      return j is Map ? Map<String, dynamic>.from(fromPortable(j, root) as Map) : <String, dynamic>{};
+      return j is Map ? sanitize(name, Map<String, dynamic>.from(fromPortable(j, root) as Map), root) : <String, dynamic>{};
     }
 
     Future<Map<String, dynamic>> currentFile(String name) async {
@@ -366,6 +376,51 @@ class AppBackup {
     return out;
   }
 
+  /// Takes out paths in a restored data file that HomeTunes would act on but that a normal backup
+  /// never contains (0.1.21, security review #3). A backup is just a file, and it could have been
+  /// edited to point HomeTunes at anything on the computer:
+  ///  * edits.json: a custom cover must be inside the app's art folder (every cover the user
+  ///    chooses is copied there first), so any other path is dropped;
+  ///  * library.json: a book's extra files ("companions") must be PDFs or EPUBs.
+  /// Everything else stays; song paths are needed to match songs up, and they're checked again
+  /// before a file is played, opened or written (see path_safety.dart).
+  static Map<String, dynamic> sanitize(String name, Map<String, dynamic> json, String root) {
+    if (name == 'edits.json') {
+      final artDir = p.normalize(p.join(root, 'art'));
+      for (final e in json.values) {
+        if (e is! Map) continue;
+        final art = e['art'];
+        if (art is String && !p.isWithin(artDir, p.normalize(art))) e.remove('art');
+      }
+    } else if (name == 'library.json') {
+      for (final key in const ['local', 'remote', 'missing']) {
+        final list = json[key];
+        if (list is! List) continue;
+        for (final t in list) {
+          if (t is! Map || t['companions'] is! List) continue;
+          t['companions'] = [
+            for (final c in t['companions'] as List)
+              if (c is String && companionExtensions.contains(p.extension(c).toLowerCase())) c
+          ];
+        }
+      }
+    }
+    return json;
+  }
+
+  /// Unpacks gzip data, stopping with [_TooLarge] as soon as the output passes [max] bytes (a
+  /// tiny crafted file can otherwise unpack to gigabytes).
+  static List<int> _gunzipCapped(List<int> bytes, int max) {
+    final out = _CappedSink(max);
+    final input = gzip.decoder.startChunkedConversion(out);
+    const step = 16 << 10;
+    for (var i = 0; i < bytes.length; i += step) {
+      input.add(bytes.sublist(i, i + step > bytes.length ? bytes.length : i + step));
+    }
+    input.close();
+    return out.bytes.takeBytes();
+  }
+
   /// Replaces paths inside [root] with "@app/..." (forward slashes).
   static Object? toPortable(Object? json, String root) => _mapStrings(json, (s) {
         if (!p.isAbsolute(s) || !p.isWithin(root, s)) return s;
@@ -459,4 +514,25 @@ class RestoreResult {
   final bool needsPassword;
 
   const RestoreResult({required this.missingFolders, required this.needsPassword});
+}
+
+/// Thrown by [AppBackup._gunzipCapped] when a backup unpacks to more than the limit.
+class _TooLarge implements Exception {
+  const _TooLarge();
+}
+
+/// Collects unpacked bytes, and gives up once there are too many.
+class _CappedSink implements Sink<List<int>> {
+  final int max;
+  final BytesBuilder bytes = BytesBuilder(copy: false);
+  _CappedSink(this.max);
+
+  @override
+  void add(List<int> chunk) {
+    if (bytes.length + chunk.length > max) throw const _TooLarge();
+    bytes.add(chunk);
+  }
+
+  @override
+  void close() {}
 }

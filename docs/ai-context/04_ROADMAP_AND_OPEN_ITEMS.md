@@ -16,8 +16,33 @@ The plan is published as an artifact (https://claude.ai/artifact/QsNhvBvSRx69PNv
 | C: multi-album + multi-book edit | **Done, merged (0.1.11)** |
 | Favourite albums & books | **Done, merged (0.1.12)** |
 | Quick actions + Details page | **Done, merged (0.1.13)** |
+| Security fixes (all ten, 0.1.21) | **Built on branch `security-fixes` 28 Sep and installed on the phone; not yet committed or merged.** See "Security fixes" below and `06_SECURITY_REVIEW.md` |
 | D: offline copies of server songs (was phase 4) | After the server review |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to D isn't decided |
+
+## Security fixes (28 Sep)
+A security review of 0.1.20 on 28 Sep found 3 medium and 7 low issues; details are in
+`06_SECURITY_REVIEW.md`. The plan was the artifact "HomeTunes Security Fix Plan"
+(https://claude.ai/artifact/PBV5TRiFopdA2mimDTAkLi).
+- **Decisions:** the user chose the recommended option every time:
+  - Switch the release key now.
+  - Android cloud backup off.
+  - Remove the backup password option.
+  - Ask once per server before using http.
+  - Checksums, and no paid Windows code signing.
+- The user asked for all fixes at once, so everything is in **0.1.21** on branch `security-fixes`:
+  - Code, tests and docs are done.
+  - `flutter analyze` is clean and 291 tests pass.
+  - A signed APK, zip and installer are in `build\dist`.
+- **The user created the release key** (`C:\Users\James.Miller\keys\hometunes-release.jks`) and
+  `android/key.properties` on 28 Sep. Never read or print either.
+- **Phone migration to 0.1.21 (one time):** export .htbackup → uninstall 0.1.20 → install 0.1.21 →
+  restore → type the server password. Ask before the install, as always.
+- **Installed on the phone on 28 Sep.** The user restores from their backup, which is on an
+  external hard drive.
+- **Still to do:**
+  - Commit the branch and merge it to `main` when the user asks.
+  - Publish the release when asked.
 
 ### A: Settings tidy-up (asked for 25 Sep, done in 0.1.9)
 The user wants Settings cleaner and easy to find things in. It used to be one long ListView
@@ -134,8 +159,8 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
     short files.
   - The FLAC vendor string is emptied.
   - Neither matters for playback.
-- **iOS:** there's no local folder access, only server streaming. The server password is stored
-  in plain text in the settings file.
+- **iOS:** there's no local folder access, only server streaming. (Since 0.1.17 the server
+  password is kept in the Keychain, not in the settings file.)
 
 ## Offered earlier, not done (only if the user wants)
 - Delete old installers in `build\dist` (0.1.0/0.1.2/0.1.3).
