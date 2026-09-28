@@ -120,7 +120,9 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
       artist: book != null ? book.author : t.artist,
       album: book != null ? book.title : t.album,
       duration: duration,
-      artUri: library.artUriFor(t),
+      // A server cover is downloaded first and passed as a file (0.1.21, security review #2);
+      // _sync runs again when it arrives.
+      artUri: library.artUriFor(t, onDownloaded: _sync),
     );
     // Only resend when something visible changed (new song, or its details edited).
     final old = _shownItem;

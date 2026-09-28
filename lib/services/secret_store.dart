@@ -21,12 +21,18 @@ abstract class SecretStore {
   /// Removes [key] (nothing happens if it isn't there).
   Future<void> delete(String key);
 
-  /// The store for this device: the system's protected storage on Windows, Android, iOS and
-  /// macOS; an in-memory store under `flutter test`; null elsewhere (e.g. Linux while
-  /// developing), where the password stays in settings.json as before.
+  /// The store for this device: the system's protected storage on Windows, Android, iOS, macOS
+  /// and Linux (the desktop keyring, through libsecret); an in-memory store under `flutter test`;
+  /// null anywhere else, where the password stays in settings.json as before. On a Linux machine
+  /// without a keyring, saving fails and LibraryModel keeps the password in settings.json.
+  ///
+  /// HomeTunes (0.1.21, security review #10): the test store is only used in debug builds, so an
+  /// environment variable can't switch a real (release) app to a store that forgets the password.
   static SecretStore? forPlatform() {
-    if (Platform.environment.containsKey('FLUTTER_TEST')) return MemorySecretStore();
-    if (Platform.isWindows || Platform.isAndroid || Platform.isIOS || Platform.isMacOS) return SystemSecretStore();
+    if (!kReleaseMode && Platform.environment.containsKey('FLUTTER_TEST')) return MemorySecretStore();
+    if (Platform.isWindows || Platform.isAndroid || Platform.isIOS || Platform.isMacOS || Platform.isLinux) {
+      return SystemSecretStore();
+    }
     return null;
   }
 

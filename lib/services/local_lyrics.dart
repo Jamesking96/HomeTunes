@@ -38,11 +38,18 @@ String? lrcPathFor(String songPath) {
   return null;
 }
 
-/// A text file as UTF-8 (or Latin-1 if it isn't valid UTF-8), without a BOM.
-String? readTextFile(String? path) {
+/// The largest lyrics file read. Real .lrc files are a few KB; a bigger one is ignored rather
+/// than read into memory whole (0.1.21, security review #7).
+const maxLyricsFileBytes = 1 << 20;
+
+/// A text file as UTF-8 (or Latin-1 if it isn't valid UTF-8), without a BOM. Null if it's
+/// missing, unreadable or bigger than [maxBytes].
+String? readTextFile(String? path, {int maxBytes = maxLyricsFileBytes}) {
   if (path == null) return null;
   try {
-    final bytes = File(path).readAsBytesSync();
+    final file = File(path);
+    if (file.lengthSync() > maxBytes) return null;
+    final bytes = file.readAsBytesSync();
     String text;
     try {
       text = utf8.decode(bytes);

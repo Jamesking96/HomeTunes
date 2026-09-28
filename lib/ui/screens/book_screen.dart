@@ -12,6 +12,8 @@ import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import '../../models/book.dart';
+import '../../services/book_sidecar.dart' show companionExtensions;
+import '../../services/path_safety.dart';
 import '../../state/bookmarks_model.dart';
 import '../../state/library_model.dart';
 import '../../state/listening_model.dart';
@@ -352,8 +354,17 @@ class _AboutState extends State<_About> {
   bool _open = false;
 
   /// Opens a companion file (e.g. a PDF) in the computer's usual app for it.
+  ///
+  /// HomeTunes (0.1.21, security review #3): only a PDF or EPUB that really is inside one of the
+  /// library folders. explorer.exe (and open / xdg-open) will start whatever they're given, and
+  /// the list can come from a restored backup, which could name a program or a network share.
   Future<void> _openFile(String path) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
+    final roots = context.read<LibraryModel>().libraryFolders;
+    if (!isUsableLocalFile(path, roots: roots, extensions: companionExtensions)) {
+      messenger?.showSnackBar(SnackBar(content: Text('${p.basename(path)} isn\'t a PDF or EPUB in your library folders')));
+      return;
+    }
     try {
       if (Platform.isWindows) {
         await Process.start('explorer.exe', [path]);
