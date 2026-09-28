@@ -19,8 +19,7 @@ Read the files in this order:
 ## Status (28 Sep 2026)
 
 - **Everything is in source control.** `main` on GitHub (github.com/Jamesking96/HomeTunes) is
-  **0.1.19+19**. Branch `background-playback` (0.1.20+20, the lock-screen playback fix) is
-  waiting for the user's OK to merge.
+  **0.1.20+20**. There are no other branches.
   - Tests: 274 pass, and `flutter analyze` is clean.
   - Builds for 0.1.20 are in `build\dist` on the PC.
 - Built and merged so far:
@@ -37,6 +36,8 @@ Read the files in this order:
   - quick actions in the right-click menu and the Details page, "where it comes from" (0.1.13)
   - code-review fixes, Windows media keys, swipe to skip, Library filters and the Windows
     accessibility crash fix (0.1.14–0.1.19; see `05_CODE_GUIDE.md`)
+  - the fix for playback stopping on a locked phone, plus a Playback log (0.1.20), confirmed
+    fixed by the user on 28 Sep
 - Every source file has a header comment saying what it does and why (added 25 Sep; keep it up
   for new files). These notes are also in the repo under `docs/ai-context/`. Update them when things change.
 - **Next:** nothing is agreed yet. The open phases are D (offline server songs, after the server
