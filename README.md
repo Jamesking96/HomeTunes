@@ -1,5 +1,9 @@
 # HomeTunes
 
+> **Just want to use it?** Download the app for your phone or PC from the
+> [Releases page](https://github.com/Jamesking96/HomeTunes/releases/latest) and follow the
+> **[download and user guide](docs/USER_GUIDE.md)**. The rest of this page is for developers.
+
 A Spotify-style music player for **your own music files**. Point it at a folder and it builds a
 library of artists, albums and songs from the tags in your files. Optionally, connect a
 **Subsonic-compatible server** (Navidrome, Airsonic-Advanced, Gonic, Ampache…) to stream music you
