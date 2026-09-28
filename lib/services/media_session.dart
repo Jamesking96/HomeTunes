@@ -5,12 +5,16 @@
 // into player calls. For audiobooks the buttons skip back/forward by seconds instead.
 import 'dart:io';
 
+import 'dart:async';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
 
 import '../state/library_model.dart';
 import '../state/play_queue.dart';
+import '../state/playback_guard.dart';
 import '../state/player_model.dart';
+import 'playback_log.dart';
 
 /// Connects HomeTunes' player to the operating system's media controls:
 ///
@@ -34,6 +38,12 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
 
   /// Chapter last shown, so the title follows the book as it plays.
   int _shownChapter = -1;
+
+  /// Keeps "playing" shown through the moment the engine pauses while opening a song, so Android
+  /// keeps the app running with the screen locked (see [SystemPlayingState]).
+  final SystemPlayingState _systemPlaying = SystemPlayingState();
+  Timer? _graceTimer;
+  bool? _lastReported;
 
   MediaSession(this.player, this.library) {
     player.addListener(_sync);
@@ -88,6 +98,18 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
       return;
     }
 
+    // What to tell the system: a pause nobody asked for is hidden for a few seconds.
+    final now = DateTime.now();
+    final playing = _systemPlaying.report(playing: player.playing, pausedOnPurpose: player.pausedOnPurpose, now: now);
+    _graceTimer?.cancel();
+    final ends = _systemPlaying.graceEndsAt;
+    if (ends != null) _graceTimer = Timer(ends.difference(now) + const Duration(milliseconds: 50), _sync);
+    if (playing != _lastReported) {
+      _lastReported = playing;
+      PlaybackLog.add('Media controls told: ${playing ? 'playing' : 'paused'}'
+          '${playing && !player.playing ? ' (the engine paused by itself; waiting a moment)' : ''}');
+    }
+
     final duration = player.duration > Duration.zero ? player.duration : t.duration;  // engine first
     final book = player.book;
     _shownChapter = player.currentChapterIndex;
@@ -118,18 +140,18 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
       controls: book != null
           ? [
               MediaControl.rewind,
-              player.playing ? MediaControl.pause : MediaControl.play,
+              playing ? MediaControl.pause : MediaControl.play,
               MediaControl.fastForward,
             ]
           : [
               MediaControl.skipToPrevious,
-              player.playing ? MediaControl.pause : MediaControl.play,
+              playing ? MediaControl.pause : MediaControl.play,
               MediaControl.skipToNext,
             ],
       androidCompactActionIndices: const [0, 1, 2],  // all three in the small notification
       systemActions: const {MediaAction.seek, MediaAction.seekForward, MediaAction.seekBackward},
       processingState: player.buffering ? AudioProcessingState.buffering : AudioProcessingState.ready,
-      playing: player.playing,
+      playing: playing,
       updatePosition: player.position,
       queueIndex: player.queue.position,
       repeatMode: switch (player.repeat) {

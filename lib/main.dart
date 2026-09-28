@@ -14,6 +14,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
 
 import 'services/media_session.dart';
+import 'services/playback_log.dart';
 import 'services/storage.dart';
 import 'state/bookmarks_model.dart';
 import 'state/equalizer_model.dart';
@@ -36,6 +37,8 @@ Future<void> main() async {
 
   // 1. Open the data folder and create the models (nothing is read from disk yet).
   final storage = await Storage.open();
+  await PlaybackLog.attach(storage.root.path);
+  PlaybackLog.add('HomeTunes started');
   final library = LibraryModel(storage);
   final playlists = PlaylistsModel(storage);
   final listening = ListeningModel(storage);
@@ -133,9 +136,12 @@ class _SaveOnBackground with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    PlaybackLog.add('App ${state.name}${player.playing ? ' (playing)' : ''}');
     if (state == AppLifecycleState.resumed) {
       // Back from the phone's Settings: music access may have been turned on.
       player.library.refreshMusicAccess();
+      // Playback may have been stopped while the app was asleep.
+      player.checkAfterResume();
     } else {
       // Any other state (inactive, paused, hidden, detached) may be the last chance
       // before the app is closed, so save the book place (and anything else waiting) now.
