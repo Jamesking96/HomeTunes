@@ -16,12 +16,13 @@ Read the files in this order:
 | `04_ROADMAP_AND_OPEN_ITEMS.md` | What's done and what's next (offline server songs, audiobook server), decisions, known issues |
 | `05_CODE_GUIDE.md` | A plain-English tour of the code for the user: every folder and file, how the main journeys flow, scripts, tests, where to make common changes, and probable bugs spotted |
 
-## Status (25 Sep 2026)
+## Status (28 Sep 2026)
 
 - **Everything is in source control.** `main` on GitHub (github.com/Jamesking96/HomeTunes) is
-  **0.1.13+13**. There are no other branches.
-  - Tests: 197 pass, and `flutter analyze` is clean.
-  - Builds for 0.1.13 are in `build\dist` on the PC, and 0.1.13 is installed on the phone.
+  **0.1.19+19**. Branch `background-playback` (0.1.20+20, the lock-screen playback fix) is
+  waiting for the user's OK to merge.
+  - Tests: 274 pass, and `flutter analyze` is clean.
+  - Builds for 0.1.20 are in `build\dist` on the PC.
 - Built and merged so far:
   - the music library, player, playlists, editing and backups
   - server streaming
@@ -34,6 +35,8 @@ Read the files in this order:
   - editing several albums and books at once, with `--:--` (0.1.11)
   - favourite albums and books (0.1.12)
   - quick actions in the right-click menu and the Details page, "where it comes from" (0.1.13)
+  - code-review fixes, Windows media keys, swipe to skip, Library filters and the Windows
+    accessibility crash fix (0.1.14–0.1.19; see `05_CODE_GUIDE.md`)
 - Every source file has a header comment saying what it does and why (added 25 Sep; keep it up
   for new files). These notes are also in the repo under `docs/ai-context/`. Update them when things change.
 - **Next:** nothing is agreed yet. The open phases are D (offline server songs, after the server

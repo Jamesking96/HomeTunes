@@ -118,6 +118,9 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
   opt-in "All files access" (MANAGE_EXTERNAL_STORAGE, fine for sideloading) or leaving it as is.
 
 ## Known issues / small things
+- **Lock-screen playback stopping (reported 28 Sep):** fixed on branch `background-playback`
+  (0.1.20), not merged yet, and not yet confirmed on the phone. If it still happens, ask the
+  user for Settings › About › Playback log.
 - **Probable bugs found while commenting the code (25 Sep, not fixed):** see `05_CODE_GUIDE.md` →
   "Things spotted while commenting". The ones most likely to matter: a single-song save drops
   narrator/series edits; year and series number can't be cleared in the book editor; non-Latin
@@ -141,7 +144,7 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
 - A sleep-timer button in the Android notification.
 
 ## Source control
-`main` holds everything (0.1.13+13). The work was built on stacked branches (`equaliser` →
+`main` holds everything up to 0.1.19+19. `background-playback` (0.1.20+20) is waiting for the user's OK. The work was built on stacked branches (`equaliser` →
 `multi-edit` → `favourites` → `details-and-quick-edits`) and merged in one `--no-ff` merge of the
 last one on 25 Sep. The branches were then deleted, so there are no other branches. Builds (`build\dist`) are not in git; they are rebuilt from source with
 the commands in `02_…`. The repo copy of these notes (`docs/ai-context/`) is kept the same as the
