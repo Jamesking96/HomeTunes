@@ -60,6 +60,8 @@ If they are, don't build the Windows app (`LNK1168`), and don't switch branches 
    the user guide. The release page shows "What's new" (the notes file: a few plain-English
    bullets) followed by the whole of `docs/USER_GUIDE.md` (download and install per device, first
    steps, everyday use, backups, troubleshooting), which is also attached as `HomeTunes-README.md`.
+   Screenshots for the guide live in `docs/images/` (1600 px wide JPEGs; the script links them from
+   `main`). **Blur any lyrics in screenshots** (the user's rule: never reproduce copyrighted lyrics).
    **Keep `docs/USER_GUIDE.md` up to date when features or menu names change.** `-UpdateOnly`
    refreshes just the page text and guide of an existing release.
    It signs in with git's saved GitHub login (there's no `gh` on the PC). Builds are never
