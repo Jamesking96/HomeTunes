@@ -8,13 +8,16 @@
 # and push main. The version comes from pubspec.yaml unless -Version is given.
 #
 # What it does: tags the current origin/main as v<version> and pushes the tag, creates the
-# release (with the text in -NotesFile, if given), then uploads the phone app, the Windows
-# installer and the Windows zip from build\dist. Running it again skips anything already there.
+# release, then uploads the phone app, the Windows installer, the Windows zip and the user guide
+# (docs\USER_GUIDE.md, attached as HomeTunes-README.md). The release page shows "What's new"
+# (the text in -NotesFile, if given) followed by the whole user guide. Running it again updates
+# the page text and the guide, and skips builds already uploaded. Use -UpdateOnly to refresh just
+# the text and guide of an existing release.
 #
 # It signs in with the GitHub login git already uses on this PC (Windows Credential Manager),
 # so no extra tools are needed. The login is never printed. The builds themselves are not
 # committed to git: releases keep large files out of the code history.
-param([string]$Version, [string]$NotesFile)
+param([string]$Version, [string]$NotesFile, [switch]$UpdateOnly)
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
 $repo = 'Jamesking96/HomeTunes'
@@ -26,7 +29,7 @@ if (-not $Version) {
 $tag = "v$Version"
 $files = "build\dist\HomeTunes-$Version-android.apk", "build\dist\HomeTunes-Setup-$Version.exe",
          "build\dist\HomeTunes-$Version-windows.zip"
-foreach ($f in $files) { if (-not (Test-Path $f)) { throw "Missing $f - build it first." } }
+if (-not $UpdateOnly) { foreach ($f in $files) { if (-not (Test-Path $f)) { throw "Missing $f - build it first." } } }
 
 $cred = "protocol=https`nhost=github.com`n`n" | git credential fill
 $token = ($cred | Where-Object { $_ -like 'password=*' }) -replace '^password=', ''
@@ -38,22 +41,40 @@ $sha = (git rev-parse origin/main).Trim()
 if (-not (git tag --list $tag)) { git tag -a $tag $sha -m "HomeTunes $Version" }
 git push -q origin $tag 2>&1 | Out-Null
 
-$notes = @"
-**Downloads**
-- **Android phone:** HomeTunes-$Version-android.apk. Open it on the phone to install or update (your library and settings are kept).
-- **Windows PC (installer):** HomeTunes-Setup-$Version.exe
-- **Windows PC (no install):** HomeTunes-$Version-windows.zip. Unzip it and run hometunes.exe.
-"@
-if ($NotesFile) { $notes += "`n`n" + (Get-Content $NotesFile -Raw) }
+# Page text: what's new in this version, then the user guide (with the version filled in).
+$guide = (Get-Content docs\USER_GUIDE.md -Raw -Encoding UTF8) -replace '<version>', $Version
+$notes = ''
+if ($NotesFile) { $notes = "## What's new in $Version`n`n" + (Get-Content $NotesFile -Raw -Encoding UTF8).Trim() + "`n`n---`n`n" }
+$notes += $guide
+$guideFile = Join-Path $env:TEMP 'HomeTunes-README.md'
+[IO.File]::WriteAllText($guideFile, $guide, (New-Object Text.UTF8Encoding $false))
+# JSON bodies are sent as UTF-8 bytes; Windows PowerShell would otherwise mangle non-English characters.
+function Utf8Json($o) { [Text.Encoding]::UTF8.GetBytes(($o | ConvertTo-Json)) }
+$json = 'application/json; charset=utf-8'
 
 try {
   $rel = Invoke-RestMethod -Headers $h "https://api.github.com/repos/$repo/releases/tags/$tag"
-  "Release $tag already exists"
+  if (-not $NotesFile) {
+    # Keep the existing "What's new" part when no new notes are given.
+    $i = $rel.body.IndexOf("`n---`n")
+    if ($rel.body.StartsWith("## What's new") -and $i -gt 0) { $notes = $rel.body.Substring(0, $i).TrimEnd() + "`n`n---`n`n" + $guide }
+  }
+  $rel = Invoke-RestMethod -Method Patch -Headers $h -ContentType $json -Body (Utf8Json @{ body = $notes }) "https://api.github.com/repos/$repo/releases/$($rel.id)"
+  "Release $tag already existed: page text updated"
 } catch {
-  $body = @{ tag_name = $tag; name = "HomeTunes $Version"; body = $notes; make_latest = 'true' } | ConvertTo-Json
-  $rel = Invoke-RestMethod -Method Post -Headers $h -ContentType 'application/json' -Body $body "https://api.github.com/repos/$repo/releases"
+  if ($_.Exception.Response.StatusCode.value__ -ne 404) { throw }
+  $rel = Invoke-RestMethod -Method Post -Headers $h -ContentType $json `
+    -Body (Utf8Json @{ tag_name = $tag; name = "HomeTunes $Version"; body = $notes; make_latest = 'true' }) "https://api.github.com/repos/$repo/releases"
   "Release $tag created"
 }
+
+# The guide is replaced each time, so it always matches the page.
+$old = $rel.assets | Where-Object { $_.name -eq 'HomeTunes-README.md' }
+if ($old) { Invoke-RestMethod -Method Delete -Headers $h "https://api.github.com/repos/$repo/releases/assets/$($old.id)" | Out-Null }
+$url = "https://uploads.github.com/repos/$repo/releases/$($rel.id)/assets?name=HomeTunes-README.md"
+Invoke-RestMethod -Method Post -Headers $h -ContentType 'text/markdown; charset=utf-8' -InFile $guideFile $url | Out-Null
+'Uploaded: HomeTunes-README.md (user guide)'
+if ($UpdateOnly) { "Page: $($rel.html_url)"; return }
 
 foreach ($f in $files) {
   $name = Split-Path $f -Leaf

@@ -24,6 +24,8 @@ Read the files in this order:
   - Builds for 0.1.20 are in `build\dist` on the PC and can be downloaded from the GitHub release
     (https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.20). Publish each new version
     the same way (see `02_…` → publishing builds).
+  - `docs/USER_GUIDE.md` is the user-facing download and how-to guide shown on every release, and
+    `README.md` links to it. Update it when features or menu names change.
 - Built and merged so far:
   - the music library, player, playlists, editing and backups
   - server streaming

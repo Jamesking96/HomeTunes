@@ -56,7 +56,12 @@ If they are, don't build the Windows app (`LNK1168`), and don't switch branches 
 6. **Publishing builds for download (GitHub Releases, started 28 Sep with 0.1.20):** once main is
    merged and pushed and the three files are in `build\dist`, run
    `powershell -ExecutionPolicy Bypass -File tool\publish_release.ps1 -NotesFile <notes.md>` on the
-   PC. It tags `v<version>`, creates the release and uploads the APK, the installer and the zip.
+   PC. It tags `v<version>`, creates the release and uploads the APK, the installer, the zip and
+   the user guide. The release page shows "What's new" (the notes file: a few plain-English
+   bullets) followed by the whole of `docs/USER_GUIDE.md` (download and install per device, first
+   steps, everyday use, backups, troubleshooting), which is also attached as `HomeTunes-README.md`.
+   **Keep `docs/USER_GUIDE.md` up to date when features or menu names change.** `-UpdateOnly`
+   refreshes just the page text and guide of an existing release.
    It signs in with git's saved GitHub login (there's no `gh` on the PC). Builds are never
    committed to git. Downloads: https://github.com/Jamesking96/HomeTunes/releases
 7. Probes (run with `dart run`):
