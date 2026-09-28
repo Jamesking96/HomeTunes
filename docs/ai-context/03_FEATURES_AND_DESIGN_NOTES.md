@@ -272,6 +272,12 @@ before changing that area.
 - **Tests:** `test/details_test.dart`.
 
 ## Android fixes worth remembering
+- **Playback stopping a while after locking the phone, with the screen still saying playing
+  (0.1.20).** The brief pause media_kit makes while opening each song was passed to Android,
+  which dropped the background-playback service; a locked phone can't start it again. A pause
+  nobody asked for is now hidden from the media controls for 5 s, a watchdog restarts playback
+  that stops by itself, and Settings › About › Playback log shows what happened. See
+  `05_CODE_GUIDE.md` → "Fixed in 0.1.20".
 - **Lock screen empty and playback stopping.** The cause was "You must specify an icon resource id
   to build a CustomAction". It's fixed by `res/raw/keep.xml`.
 - **Scanning found nothing on Android 13+.** It must request READ_MEDIA_AUDIO alone. Asking for
