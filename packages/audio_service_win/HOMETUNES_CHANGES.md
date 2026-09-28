@@ -24,3 +24,8 @@ Added in HomeTunes 0.1.17 (code review release D, fix 9):
 5. Cover paths: `+` is no longer decoded as a space (covers in folders like "Rock + Roll" work),
    and `file://server/share/...` becomes `\\server\share\...` (network-share covers work).
 
+Added in HomeTunes 0.1.21 (security review #2):
+
+6. The "Failed to set thumbnail in Notification" message no longer prints the cover address.
+   A music-server cover address carries the login token. (HomeTunes now passes server covers as
+   downloaded files anyway, see `lib/services/server_art_cache.dart`.)

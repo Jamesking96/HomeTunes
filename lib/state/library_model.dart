@@ -21,7 +21,9 @@ import '../models/track_edit.dart';
 import '../services/app_backup.dart';
 import '../services/local_scanner.dart';
 import '../services/music_permission.dart';
+import '../services/path_safety.dart';
 import '../services/secret_store.dart';
+import '../services/server_art_cache.dart';
 import '../services/storage.dart';
 import '../services/subsonic_client.dart';
 import '../services/tag_writer.dart';
@@ -169,6 +171,14 @@ class LibraryModel extends ChangeNotifier {
   SubsonicClient? _client;
   SubsonicClient? get client => _client;
 
+  /// Downloaded server covers for the system media controls (0.1.21, security review #2).
+  ServerArtCache? _serverArt;
+  String get _serverArtDir => p.join(storage.artDir, 'server');
+
+  /// The server address (host, lower case) the user agreed may be reached over plain http even
+  /// though it's on the internet (0.1.21, security review #4). Null when they haven't.
+  String? httpAllowedHost;
+
   // ---- data ----
   // Songs from the scanned folders and from the server, as read (edits not applied yet).
   List<Track> _local = [];
@@ -276,6 +286,14 @@ class LibraryModel extends ChangeNotifier {
   /// Every folder that's scanned: music and audiobook folders.
   List<String> get _scanFolders => {...folders, ...audiobookFolders}.toList();
 
+  /// The folders whose files HomeTunes may open, show in Explorer or write tags into: the music
+  /// and audiobook folders. (0.1.21, security review #3: paths from a restored backup are only
+  /// used when they're inside one of these.)
+  List<String> get libraryFolders => _scanFolders;
+
+  /// Where a cover picture may come from: the library folders and HomeTunes' own art folder.
+  List<String> get coverFolders => [..._scanFolders, storage.artDir];
+
   /// Messages about data files that were damaged or recovered (see Storage.problems), or null.
   /// Kept apart from [error] because scans clear [error] when they start.
   String? get dataProblem {
@@ -297,6 +315,7 @@ class LibraryModel extends ChangeNotifier {
     folders = [];
     server = const ServerConfig(url: '', username: '', password: '');
     serverEnabled = false;
+    httpAllowedHost = null;
     onlineCovers = true;
     onlineDetails = true;
     onlineLyrics = true;
@@ -338,6 +357,8 @@ class LibraryModel extends ChangeNotifier {
         }
       }
       serverEnabled = s.get('serverEnabled', false);
+      final allowed = raw['httpAllowedHost'];
+      httpAllowedHost = allowed is String && allowed.isNotEmpty ? allowed : null;
       onlineCovers = s.get('onlineCovers', true);
       onlineDetails = s.get('onlineDetails', true);
       onlineLyrics = s.get('onlineLyrics', true);
@@ -459,6 +480,7 @@ class LibraryModel extends ChangeNotifier {
         // The password only goes in here when it can't be kept in protected storage (0.1.17).
         'server': _passwordInSettings ? server.toJson() : server.toJsonWithoutPassword(),
         'serverEnabled': serverEnabled,
+        if (httpAllowedHost != null) 'httpAllowedHost': httpAllowedHost,
         'onlineCovers': onlineCovers,
         'onlineDetails': onlineDetails,
         'onlineLyrics': onlineLyrics,
@@ -519,7 +541,9 @@ class LibraryModel extends ChangeNotifier {
   /// Syncs check `identical(c, _client)` to notice the connection was replaced mid-sync.
   void _rebuildClient() {
     _client?.close();
-    _client = serverEnabled && server.isComplete ? SubsonicClient(server) : null;
+    _serverArt?.close();
+    final c = _client = serverEnabled && server.isComplete ? SubsonicClient(server) : null;
+    _serverArt = c == null ? null : ServerArtCache(_serverArtDir, c);
   }
 
   /// Works out everything the screens show from the raw songs, the edits and the settings.
@@ -797,7 +821,13 @@ class LibraryModel extends ChangeNotifier {
   /// first (so the login token isn't sent in the clear when the server supports it), then
   /// http://; whichever works is saved with its scheme. The password goes into the system's
   /// protected storage rather than settings.json.
-  Future<String?> connectServer(ServerConfig config) async {
+  ///
+  /// HomeTunes (0.1.21, security review #4): when https doesn't answer and the address is on the
+  /// internet (not the home network or Tailscale), http isn't tried on its own any more: the
+  /// login would travel where others could read it. [httpConsentNeeded] comes back instead, and
+  /// Settings asks; calling again with [allowPlainHttp] (the user said yes) tries http and
+  /// remembers the answer for that server. An address typed with http:// is the user's choice.
+  Future<String?> connectServer(ServerConfig config, {bool allowPlainHttp = false}) async {
     final typed = config.url.trim();
     final hasScheme = typed.startsWith('http://') || typed.startsWith('https://');
     final attempts = hasScheme
@@ -809,6 +839,10 @@ class LibraryModel extends ChangeNotifier {
     String? lastError;
     ServerConfig? working;
     for (final attempt in attempts) {
+      if (!hasScheme && attempt.url.startsWith('http://') && isPlainHttpToInternet(attempt.url)) {
+        final host = _hostOf(attempt.url);
+        if (!allowPlainHttp && host != httpAllowedHost) return httpConsentNeeded;
+      }
       // Try the details with a throwaway connection first, so bad details never get saved.
       final test = SubsonicClient(attempt);
       try {
@@ -827,6 +861,9 @@ class LibraryModel extends ChangeNotifier {
       }
     }
     if (working == null) return lastError;
+    if (!hasScheme && working.url.startsWith('http://') && isPlainHttpToInternet(working.url)) {
+      httpAllowedHost = _hostOf(working.url);
+    }
     final previous = server;
     server = working;
     serverEnabled = true;
@@ -836,6 +873,12 @@ class LibraryModel extends ChangeNotifier {
     await syncServer();
     return null;
   }
+
+  /// What [connectServer] returns when the server only answered over plain http on the
+  /// internet, and the user hasn't agreed to that yet.
+  static const httpConsentNeeded = 'HTTP_CONSENT_NEEDED';
+
+  static String _hostOf(String url) => Uri.tryParse(url)?.host.toLowerCase() ?? '';
 
   /// The server on/off switch. Turning it on syncs, if we don't have its songs yet.
   Future<void> setServerEnabled(bool on) async {
@@ -854,8 +897,10 @@ class LibraryModel extends ChangeNotifier {
     }
     server = const ServerConfig(url: '', username: '', password: '');
     serverEnabled = false;
+    httpAllowedHost = null;
     _remote = [];
     _rebuildClient();
+    await ServerArtCache.clear(_serverArtDir);
     await _saveSettings();
     await _saveLibrary();
     _rebuild();
@@ -1169,14 +1214,10 @@ class LibraryModel extends ChangeNotifier {
   // ---- backup & restore ----
 
   /// Everything HomeTunes keeps on this device, as one file (see [AppBackup]).
-  /// The server password (kept in protected storage, not settings.json) is added only when
-  /// [includePassword] is set.
-  Future<Uint8List> createBackup({bool includePassword = false, bool includeCoverCache = true}) => AppBackup.create(
-        storage,
-        includePassword: includePassword,
-        password: includePassword ? server.password : null,
-        includeCoverCache: includeCoverCache,
-      );
+  /// The server password is never included (0.1.21, security review #6): it would be readable
+  /// by anyone with the file. After restoring on another device it's typed in once.
+  Future<Uint8List> createBackup({bool includeCoverCache = true}) =>
+      AppBackup.create(storage, includeCoverCache: includeCoverCache);
 
   /// Where the automatic "just before restoring" backup is kept.
   String get beforeRestorePath => p.join(storage.root.path, AppBackup.beforeRestoreName);
@@ -1248,7 +1289,8 @@ class LibraryModel extends ChangeNotifier {
         status = 'Writing tags ${++done} / ${tracks.length}';
         final edit = _edits[t.id];
         if (edit == null || t.path == null) continue;
-        final r = await writeTagsToFile(t.path!, edit, backupDir: backupDir);
+        final r = await writeTagsToFile(t.path!, edit,
+            backupDir: backupDir, libraryRoots: _scanFolders, artRoots: [storage.artDir]);
         results.add(r);
         // Written: whatever the file now holds is no longer needed as an edit; anything the
         // format couldn't hold (the leftover) stays as an edit. A failed write changes nothing.
@@ -1285,8 +1327,9 @@ class LibraryModel extends ChangeNotifier {
     // Null means "can't play this right now"; the player then skips the song.
     if (t.isLocal) {
       // The file may have gone since the last scan (deleted, drive unplugged).
+      // 0.1.21: only files inside the library folders (a restored backup could name any path).
       final path = t.path;
-      return path != null && File(path).existsSync() ? path : null;
+      return path != null && isInsideAny(path, _scanFolders) && File(path).existsSync() ? path : null;
     }
     final c = _client;
     if (c == null || t.remoteId == null) return null;
@@ -1294,18 +1337,29 @@ class LibraryModel extends ChangeNotifier {
   }
 
   /// Cover art location for the system media controls (notification, lock screen).
-  Uri? artUriFor(Track t, {int size = 512}) {
+  ///
+  /// For a server song whose cover isn't downloaded yet this returns null, starts the download,
+  /// and calls [onDownloaded] once the file is there (the media session then asks again).
+  Uri? artUriFor(Track t, {int size = 512, void Function()? onDownloaded}) {
     final art = t.art;
     if (art == null) return null;
-    if (_artIsFile(t)) return Uri.file(art);
-    final c = _client;
-    return c == null ? null : Uri.parse(c.coverArtUrl(art, size: size));
+    if (_artIsFile(t)) return isInsideAny(art, coverFolders) ? Uri.file(art) : null;
+    // 0.1.21 (security review #2): a server cover is handed over as a file downloaded by
+    // ServerArtCache, never as the server address, which carries the login token.
+    final cache = _serverArt;
+    if (cache == null) return null;
+    final file = cache.cachedFile(art, size: size);
+    if (file != null) return Uri.file(file);
+    cache.fetch(art, size: size).then((got) {
+      if (got != null) onDownloaded?.call();
+    });
+    return null;
   }
 
   /// The cover image to show in the app: a file on disk, or the server's cover picture.
   ImageProvider? artFor(Track? t, {int size = 512}) {
     if (t == null || t.art == null) return null;
-    if (_artIsFile(t)) return FileImage(File(t.art!));
+    if (_artIsFile(t)) return isInsideAny(t.art!, coverFolders) ? FileImage(File(t.art!)) : null;
     final c = _client;
     if (c == null) return null;
     return NetworkImage(c.coverArtUrl(t.art!, size: size));

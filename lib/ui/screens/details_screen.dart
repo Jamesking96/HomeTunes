@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import '../../models/book.dart';
 import '../../models/track.dart';
 import '../../services/media_details.dart';
+import '../../services/path_safety.dart';
 import '../../state/library_model.dart';
 import '../theme.dart';
 
@@ -164,7 +165,12 @@ class _FolderLine extends StatelessWidget {
           Expanded(child: SelectableText(folder)),
           if (Platform.isWindows)
             TextButton(
-              onPressed: () => Process.run('explorer', ['/select,', firstFile]),
+              onPressed: () {
+                // 0.1.21 (security review #3): only files inside the library folders.
+                final roots = context.read<LibraryModel>().libraryFolders;
+                if (!isUsableLocalFile(firstFile, roots: roots)) return;
+                Process.run('explorer', ['/select,', p.normalize(firstFile)]);
+              },
               child: const Text('Show in folder'),
             ),
         ]),

@@ -24,6 +24,12 @@ marked **Latest**. Under **Assets**, pick the file for your device:
 
 Ignore the two "Source code" files. They're the code for developers, not the app.
 
+**Checking a download (optional):** the release page ends with a **Checksums (SHA-256)** list, also
+attached as `HomeTunes-<version>-SHA256SUMS.txt`. On Windows, open PowerShell in your Downloads
+folder and run `Get-FileHash HomeTunes-Setup-<version>.exe` (use the name of the file you
+downloaded). The long code it prints should match that file's line in the list. If it doesn't,
+delete the file and download it again.
+
 ---
 
 ## 2. Installing on an Android phone
@@ -40,6 +46,17 @@ Ignore the two "Source code" files. They're the code for developers, not the app
 
 **Updating:** download the newer `.apk` and install it the same way, over the top. Don't uninstall
 first: your library, playlists, places in books and settings are all kept.
+
+**Coming from 0.1.20 or earlier:** version 0.1.21 is signed with HomeTunes' own key instead of a
+temporary one, so Android won't install it over an older version (it says the app conflicts
+with an existing one). This happens only once:
+1. In the old version, go to **Settings › Backup & restore › Export** and save the file in
+   **Downloads**.
+2. Uninstall HomeTunes, then install the new `.apk`.
+3. Open it, go to **Settings › Backup & restore › Restore**, pick the file and choose **Replace**.
+4. If you use a music server, type its password again in **Settings › Servers**.
+
+After that, every update installs over the top as normal.
 
 ---
 
@@ -87,6 +104,11 @@ If you run a music server such as Navidrome, go to **Settings › Servers › Mu
 address (for example `http://192.168.1.20:4533`), your username and password, then **Connect**.
 Server songs show a small cloud icon and mix in with your own files.
 
+If you type an address without `http://` or `https://`, HomeTunes tries a secure (https)
+connection first. If the server is on the internet and only answers over plain http, HomeTunes
+asks before using it, because your sign-in could then be read on the way. Addresses on your home
+network (and Tailscale addresses) connect without asking.
+
 ---
 
 ## 5. Everyday use
@@ -128,7 +150,14 @@ they're tabs along the bottom. On a PC they're down the left-hand side, where Li
 **Settings › Backup & restore** saves everything HomeTunes keeps (folders, playlists, likes,
 favourites, your edits, places in books, bookmarks, equaliser and settings) into one `.htbackup`
 file. Restore it on another phone or PC to carry it all across, then point HomeTunes at the music
-folders on that device. Your server password is only included if you tick the box.
+folders on that device.
+
+Your music server password is **never** put in the backup file, so it can't be read by anyone who
+gets hold of the file. After restoring on a new device, type it in once under **Settings ›
+Servers**. (Restoring on the same device keeps it.)
+
+On Android, HomeTunes doesn't use Google's automatic app backup. When you move to a new phone,
+use a HomeTunes backup file as described above.
 
 ---
 

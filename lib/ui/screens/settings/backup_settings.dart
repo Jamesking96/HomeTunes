@@ -29,7 +29,6 @@ class BackupSettings extends StatefulWidget {
 }
 
 class BackupSettingsState extends State<BackupSettings> {
-  bool _includePassword = false; // off by default: it would be stored as plain text
   bool _includeCoverCache = true;
   bool _working = false; // true while exporting/reading/restoring; disables the buttons
 
@@ -47,7 +46,6 @@ class BackupSettingsState extends State<BackupSettings> {
     setState(() => _working = true);
     try {
       final bytes = await lib.createBackup(
-        includePassword: _includePassword,
         includeCoverCache: _includeCoverCache,
       );
       // The picker is given the bytes and writes the file itself (on Android the app can't
@@ -195,7 +193,7 @@ class BackupSettingsState extends State<BackupSettings> {
     final lib = context.watch<LibraryModel>();
     final busy = _working || lib.busy;
     return SettingsPageList(
-      intro: 'Save everything HomeTunes keeps – music and audiobook folders, server, playlists, Liked Songs, song and '
+      intro: 'Save everything HomeTunes keeps – music and audiobook folders, server (not its password), playlists, Liked Songs, song and '
             'book edits, covers, your place in each audiobook, bookmarks, equaliser presets, settings and the library – to one file, '
             'to restore later or move to another PC or phone.',
       children: [
@@ -206,15 +204,8 @@ class BackupSettingsState extends State<BackupSettings> {
         value: _includeCoverCache,
         onChanged: busy ? null : (v) => setState(() => _includeCoverCache = v),
       )),
-      // Only offered when there's a password to include (so it isn't in the search catalog).
-      if (lib.server.password.isNotEmpty)
-        SwitchListTile(
-          title: const Text('Include the server password'),
-          subtitle: const Text('It\'s stored in the backup file as plain text, so only turn this on if you '
-              'keep the file somewhere private.'),
-          value: _includePassword,
-          onChanged: busy ? null : (v) => setState(() => _includePassword = v),
-        ),
+      // 0.1.21 (security review #6): the server password is never put in a backup (it would be
+      // plain text in the file), so it's typed in again after restoring on another device.
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Wrap(spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [

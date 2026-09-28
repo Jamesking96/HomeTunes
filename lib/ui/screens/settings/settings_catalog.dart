@@ -48,7 +48,7 @@ class SettingInfo {
 }
 
 /// Every setting that's always shown on its page. (Settings that only appear
-/// in some situations, like "Include the server password", aren't listed.)
+/// in some situations aren't listed.)
 const settingsCatalog = <SettingInfo>[
   SettingInfo('music-folders', SettingsPage.library, 'Music folders', 'add folder rescan scan location library'),
   SettingInfo('gapless', SettingsPage.playback, 'Gapless playback', 'gap silence live album mix'),

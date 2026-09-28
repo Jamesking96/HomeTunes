@@ -13,6 +13,7 @@ import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/track_edit.dart';
+import 'path_safety.dart';
 
 /// Which tag fields each file type can store.
 class TagSupport {
@@ -94,8 +95,14 @@ class TagWriteResult {
 /// If [backupDir] is given, the original file is also copied there first. The tags are
 /// written into a working copy beside the file, which is re-read and checked and only then
 /// replaces the original, so a failed write never changes the original.
-Future<TagWriteResult> writeTagsToFile(String path, TrackEdit edit, {String? backupDir}) {
-  final job = _WriteJob(path, edit.toJson(), backupDir);
+///
+/// HomeTunes (0.1.21, security review #3): when [libraryRoots] is given, the music file must be
+/// inside one of them, and a custom cover must be inside one of them or [artRoots] (the app's own
+/// art folder). Paths can come from a restored backup, which could have been edited to point at
+/// any file on the computer. LibraryModel always passes both; tests may leave them out.
+Future<TagWriteResult> writeTagsToFile(String path, TrackEdit edit,
+    {String? backupDir, List<String>? libraryRoots, List<String> artRoots = const []}) {
+  final job = _WriteJob(path, edit.toJson(), backupDir, libraryRoots, artRoots);
   return Isolate.run(job.run);
 }
 
@@ -104,7 +111,9 @@ class _WriteJob {
   final String path;
   final Map<String, dynamic> editJson;
   final String? backupDir;
-  _WriteJob(this.path, this.editJson, this.backupDir);
+  final List<String>? libraryRoots;
+  final List<String> artRoots;
+  _WriteJob(this.path, this.editJson, this.backupDir, this.libraryRoots, this.artRoots);
 
   TagWriteResult run() {
     // 1. Work out what this file type can take.
@@ -113,6 +122,17 @@ class _WriteJob {
     final leftover = support.leftover(edit);  // what stays as a HomeTunes edit
     if (!support.anything) {
       return TagWriteResult(path, ok: false, error: 'This file type can\'t be written', leftover: edit);
+    }
+    final roots = libraryRoots;
+    if (roots != null) {
+      if (!isUsableLocalFile(path, roots: roots)) {
+        return TagWriteResult(path, ok: false, error: 'This file isn\'t in one of your library folders', leftover: edit);
+      }
+      final art = edit.art;
+      if (support.cover && art != null && !isUsableLocalFile(art, roots: [...roots, ...artRoots])) {
+        return TagWriteResult(path,
+            ok: false, error: 'The cover picture isn\'t in your library folders or HomeTunes\' own folder', leftover: edit);
+      }
     }
 
     final file = File(path);

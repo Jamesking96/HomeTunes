@@ -2,6 +2,7 @@
 // in the system's protected storage instead of settings.json, old plain-text passwords are moved
 // there, backups only include it when asked, login details are hidden in error messages, and
 // plain-http addresses outside the home network are recognised for the warning.
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -76,12 +77,31 @@ void main() {
     expect(secrets.values, isEmpty);
   });
 
-  test('backups only include the password when asked', () async {
+  test('backups never include the password (0.1.21)', () async {
     await oldSettings();
     final lib = LibraryModel(storage, secrets: secrets);
     await lib.load();
     expect(AppBackup.read(await lib.createBackup()).hasPassword, isFalse);
-    expect(AppBackup.read(await lib.createBackup(includePassword: true)).hasPassword, isTrue);
+  });
+
+  test('an old backup that has a password still restores it into protected storage', () async {
+    await oldSettings();
+    final lib = LibraryModel(storage, secrets: secrets);
+    await lib.load();
+    // A backup made by 0.1.20 or earlier with "Include the server password" ticked.
+    final bytes = await lib.createBackup();
+    final json = jsonDecode(utf8.decode(gzip.decode(bytes))) as Map<String, dynamic>;
+    ((json['files'] as Map)['settings.json'] as Map)['server'] = {
+      'url': 'http://music.test', 'username': 'me', 'password': 'from-backup',
+    };
+    final old = AppBackup.read(gzip.encode(utf8.encode(jsonEncode(json))));
+    expect(old.hasPassword, isTrue);
+    secrets.values.clear();
+    await lib.restoreBackup(old, merge: false, reloadOthers: () async {});
+    expect(lib.server.password, 'from-backup');
+    expect(secrets.values[key], 'from-backup');
+    final saved = await storage.read('settings.json') as Map<String, dynamic>;
+    expect((saved['server'] as Map).containsKey('password'), isFalse);
   });
 
   test('restoring a backup of the same server doesn\'t ask for the password again', () async {

@@ -50,6 +50,23 @@ void _android() {
   if (!s.contains('usesCleartextTraffic')) {
     s = s.replaceFirst('<application', '<application\n        android:usesCleartextTraffic="true"');
   }
+  // HomeTunes (0.1.21, security review #5): no Google cloud backup and no copying during
+  // new-phone setup. People move their data with a HomeTunes backup (.htbackup) instead.
+  if (!s.contains('android:allowBackup')) {
+    s = s.replaceFirst('<application',
+        '<application\n        android:allowBackup="false"\n        android:fullBackupContent="false"\n        android:dataExtractionRules="@xml/data_extraction_rules"');
+  }
+  final rules = File('android/app/src/main/res/xml/data_extraction_rules.xml');
+  if (!rules.existsSync()) {
+    rules.parent.createSync(recursive: true);
+    const domains = ['root', 'file', 'database', 'sharedpref', 'external'];
+    String block(String tag) =>
+        '    <$tag>\n${domains.map((d) => '        <exclude domain="$d" path="." />').join('\n')}\n    </$tag>';
+    rules.writeAsStringSync('<?xml version="1.0" encoding="utf-8"?>\n'
+        '<!-- HomeTunes: nothing goes to cloud backup or device transfer (see patch_platforms.dart). -->\n'
+        '<data-extraction-rules>\n${block('cloud-backup')}\n${block('device-transfer')}\n</data-extraction-rules>\n');
+    stdout.writeln('  android: data_extraction_rules.xml added');
+  }
   // Lets Android 10 read the music folder by file path in the old way.
   if (!s.contains('requestLegacyExternalStorage')) {
     s = s.replaceFirst('<application', '<application\n        android:requestLegacyExternalStorage="true"');
@@ -87,7 +104,17 @@ void _android() {
   final g = File('android/app/build.gradle.kts');
   if (g.existsSync()) {
     final gs = g.readAsStringSync();
-    final fixed = gs.replaceFirst(RegExp(r'compileSdk\s*=\s*[^\n]+'), 'compileSdk = 37');
+    var fixed = gs.replaceFirst(RegExp(r'compileSdk\s*=\s*[^\n]+'), 'compileSdk = 37');
+    // HomeTunes (0.1.21, security review #1): sign release builds with the key named in
+    // android/key.properties (never committed), never with the debug key.
+    if (!fixed.contains('key.properties')) {
+      fixed = 'import java.util.Properties\n\n$fixed'
+          .replaceFirst('android {', '${_signingSetup}android {')
+          .replaceFirst(RegExp(r'signingConfig\s*=\s*signingConfigs\.getByName\("debug"\)'),
+              'if (keystorePropertiesFile.exists()) signingConfig = signingConfigs.getByName("release")')
+          .replaceFirst('    buildTypes {', '$_signingConfigs    buildTypes {');
+      stdout.writeln('  android: release signing set up (needs android/key.properties)');
+    }
     if (fixed != gs) {
       g.writeAsStringSync(fixed);
       stdout.writeln('  android: compileSdk set to 37');
@@ -107,6 +134,36 @@ void _android() {
     stdout.writeln('  android: keep.xml added for media control icons');
   }
 }
+
+/// Reads android/key.properties (see android/app/build.gradle.kts for its format).
+const _signingSetup = '''val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+}
+
+gradle.taskGraph.whenReady {
+    val wantsRelease = allTasks.any { it.project == project && it.name.contains("Release") }
+    if (wantsRelease && !keystorePropertiesFile.exists()) {
+        throw GradleException("android/key.properties is missing, so this release build can't be signed with the HomeTunes release key.")
+    }
+}
+
+''';
+
+/// The "release" signing config, made from android/key.properties.
+const _signingConfigs = '''    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
+''';
 
 /// MainActivity must extend AudioServiceActivity (so the media notification and
 /// the app share one Flutter engine), and provides the "move to background"
