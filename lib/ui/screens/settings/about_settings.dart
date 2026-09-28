@@ -4,9 +4,11 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
+import '../../../services/playback_log.dart';
 import '../../../state/library_model.dart';
 import '../../theme.dart';
 import 'settings_widgets.dart';
@@ -60,6 +62,66 @@ class AboutSettings extends StatelessWidget {
               : null,
         ),
       ),
+      SettingTarget(
+        'playback-log',
+        child: ListTile(
+          leading: const Icon(Icons.receipt_long_outlined),
+          title: const Text('Playback log'),
+          subtitle: const Text('What the player did recently: songs opening, playing and pausing, the app going to '
+              'the background, and any problem it fixed. Useful if playback stops by itself.'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PlaybackLogScreen())),
+        ),
+      ),
     ]);
+  }
+}
+
+/// The playback log, newest at the bottom, with Copy and Clear.
+class PlaybackLogScreen extends StatefulWidget {
+  const PlaybackLogScreen({super.key});
+
+  @override
+  State<PlaybackLogScreen> createState() => _PlaybackLogScreenState();
+}
+
+class _PlaybackLogScreenState extends State<PlaybackLogScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final lines = PlaybackLog.lines;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Playback log'),
+        actions: [
+          IconButton(
+            tooltip: 'Copy',
+            icon: const Icon(Icons.copy),
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: lines.join('\n')));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Playback log copied')));
+              }
+            },
+          ),
+          IconButton(
+            tooltip: 'Clear',
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () => setState(PlaybackLog.clear),
+          ),
+        ],
+      ),
+      body: lines.isEmpty
+          ? const Center(child: Text('Nothing logged yet', style: TextStyle(color: AppColors.textDim)))
+          : ListView.builder(
+              reverse: true, // newest at the bottom, scrolled to the end
+              padding: const EdgeInsets.all(12),
+              itemCount: lines.length,
+              itemBuilder: (_, i) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: SelectableText(lines[lines.length - 1 - i],
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+              ),
+            ),
+    );
   }
 }

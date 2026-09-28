@@ -17,11 +17,13 @@ import 'package:media_kit/media_kit.dart' show Media, NativePlayer, Player, Play
 import '../models/book.dart';
 import '../models/eq_preset.dart';
 import '../models/track.dart';
+import '../services/playback_log.dart';
 import '../services/subsonic_client.dart' show hideSecrets;
 import 'equalizer_model.dart';
 import 'library_model.dart';
 import 'listening_model.dart';
 import 'play_queue.dart';
+import 'playback_guard.dart';
 import 'sleep_timer.dart';
 
 /// The music queue, kept aside while an audiobook plays.
@@ -111,6 +113,16 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// Playback speed (1.0 = normal).
   double speed = 1.0;
 
+  /// The listener paused (or the sleep timer, or the queue/book ended), as opposed to the engine
+  /// stopping by itself for a moment while a file opens. The system media controls are told
+  /// about a pause at once only when this is true (see [SystemPlayingState]).
+  bool pausedOnPurpose = true;
+
+  // Watches for playback that has quietly stopped (see [StallDetector]).
+  final StallDetector _stall = StallDetector();
+  Timer? _watchdog;
+  DateTime? _lastRestart;
+
   /// The music queue waiting while a book plays.
   _MusicQueue? _music;
   // Saves the book place every 10 seconds (see the constructor).
@@ -125,11 +137,18 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     _saveTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (book != null && playing) saveBookPlace();
     });
+    // Every few seconds, check that "playing" really means the position is moving.
+    _watchdog = Timer.periodic(const Duration(seconds: 3), (_) => _checkProgress());
     // Listen to the engine's events and copy them into our own fields for the UI.
     _subs.addAll([
       _player.stream.playing.listen((v) {
         // Going from playing to paused is a good moment to save the book place.
         final paused = playing && !v;
+        if (v != playing) {
+          PlaybackLog.add(v
+              ? 'Playing'
+              : (_opening > 0 ? 'Paused for a moment while opening a file' : 'Paused${pausedOnPurpose ? '' : ' (not asked for)'}'));
+        }
         playing = v;
         if (paused) saveBookPlace();
         notifyListeners();
@@ -258,8 +277,11 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     // Skip at most once round the whole queue (all songs unavailable).
     skipsLeft ??= queue.tracks.length - 1;
     final t = queue.current;
+    // Opening a song means the listener wants it to play.
+    pausedOnPurpose = false;
     // Nothing left to play: stop the engine and empty it.
     if (t == null) {
+      pausedOnPurpose = true;
       await _player.stop();
       _engineIds = [];
       notifyListeners();
@@ -277,6 +299,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
       }
       // Nothing playable left. HomeTunes: stop the engine too; before 0.1.15 the previous song
       // kept playing while the screen showed the unplayable one.
+      pausedOnPurpose = true;
       _engineIds = [];
       try {
         await _player.stop();
@@ -287,6 +310,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
       return;
     }
     lastError = null;
+    PlaybackLog.add('Opening "${t.title}"${startAt != null && startAt > Duration.zero ? ' at ${startAt.inSeconds} s' : ''}');
     // Show the tagged length straight away; the engine's real length arrives a moment later.
     duration = t.duration;
     notifyListeners();
@@ -441,11 +465,15 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
       if (book != null && auto && prev != null) {
         // The end of the book.
         await listening?.record(book!, prev.id, prev.duration, finished: true);
+        pausedOnPurpose = true;
+        PlaybackLog.add('End of the book');
         await _player.pause();
         notifyListeners();
         return;
       }
       // End of queue: stop at the start of the last song, like most players.
+      pausedOnPurpose = true;
+      PlaybackLog.add('End of the queue');
       await _player.pause();
       await _player.seek(Duration.zero);
       notifyListeners();
@@ -467,17 +495,68 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// The play/pause button.
   Future<void> togglePlay() async {
     if (queue.current == null) return;
+    pausedOnPurpose = _player.state.playing;
     await _player.playOrPause();
   }
 
   /// Resume (used by lock-screen / headset / media-key controls).
   Future<void> play() async {
     if (queue.current == null) return;
+    pausedOnPurpose = false;
     await _player.play();
   }
 
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> pause() {
+    pausedOnPurpose = true;
+    return _player.pause();
+  }
+
+  // ---- keeping "playing" honest ----
+
+  /// Called every few seconds: if the screen says playing but the position hasn't moved for a
+  /// while (and it isn't buffering or opening), playback has quietly stopped, for example after
+  /// the phone put the app to sleep. Restart the song where it was; if that doesn't help within
+  /// a minute, pause and say so, rather than pretending to play.
+  Future<void> _checkProgress() async {
+    final stuck = _stall.check(
+      playing: playing,
+      busy: buffering || _opening > 0 || queue.current == null,
+      position: _player.state.position,
+      now: DateTime.now(),
+    );
+    if (stuck) await _recoverStall();
+  }
+
+  Future<void> _recoverStall() async {
+    final at = _player.state.position;
+    final now = DateTime.now();
+    final again = _lastRestart != null && now.difference(_lastRestart!) < const Duration(minutes: 1);
+    if (again) {
+      PlaybackLog.add('Still not moving after restarting: showing paused');
+      pausedOnPurpose = true;
+      lastError = 'Playback stopped by itself. Press play to carry on.';
+      await _player.pause();
+      notifyListeners();
+      return;
+    }
+    _lastRestart = now;
+    PlaybackLog.add('Playing, but stuck at ${at.inSeconds} s: restarting the song there');
+    _stall.reset();
+    await _openCurrent(startAt: at);
+  }
+
+  /// When the app comes back to the screen: check playback really is moving (it may have been
+  /// stopped while the app was asleep).
+  Future<void> checkAfterResume() async {
+    if (!playing) return;
+    final before = _player.state.position;
+    await Future<void>.delayed(const Duration(seconds: 3));
+    if (playing && !buffering && _opening == 0 && queue.current != null && _player.state.position == before) {
+      PlaybackLog.add('Back on screen, but playback isn\'t moving');
+      await _recoverStall();
+    }
+  }
 
   /// A swipe on the player (touch screens): left = next song, or skip forward in a book;
   /// right = previous song, or skip back in a book (by the Settings > Audiobooks lengths).
@@ -909,6 +988,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     // Save the book place one last time before shutting the engine down.
     _saveTimer?.cancel();
     _learnTimer?.cancel();
+    _watchdog?.cancel();
     saveBookPlace();
     library.removeListener(_onLibraryChanged);
     equalizer?.removeListener(_applyEqualizer);

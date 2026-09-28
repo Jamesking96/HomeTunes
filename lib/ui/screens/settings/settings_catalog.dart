@@ -79,6 +79,7 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('backup-import', SettingsPage.backup, 'Import backup', 'restore backup file'),
   SettingInfo('backup-covers', SettingsPage.backup, 'Include cover images from music files', 'art backup size'),
   SettingInfo('version', SettingsPage.about, 'Version', 'app number update'),
+  SettingInfo('playback-log', SettingsPage.about, 'Playback log', 'diagnostics problem stops stopped debug report'),
   SettingInfo('data-folder', SettingsPage.about, 'Where HomeTunes keeps its data', 'data folder location files'),
 ];
 
