@@ -7,7 +7,7 @@ The user asked for all fixes at once, so the planned 0.1.21–0.1.23 split was c
 `flutter analyze` is clean and `flutter test` passes (291 tests, new ones in `test/security_fixes_test.dart`).
 The signed APK and the Windows zip and installer are built in `build\dist\`. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21".
 - **Installed on the Pixel 8 on 28 Sep (18:24).** 0.1.20 was uninstalled first; the user's backup is on an external hard drive. The app starts cleanly, and `ALLOW_BACKUP` is gone from its flags. The user restores the backup and types the server password.
-- **Not done yet:** the branch isn't committed or merged.
+- **Merged and released on 28 Sep:** merged into `main` (merge 9258ebe), the branch was deleted, and the release was published as [v0.1.21](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.21) with a SHA-256 checksum file.
 - **Release key:** `CN=James Miller`, SHA-256 `758f6618fcb4b2832114d53b7ec887d03cfa4d923976ff602a2988d2c0ff1030`. The key is at `C:\Users\James.Miller\keys\hometunes-release.jks`, and `android/key.properties` is gitignored. Never read or print either.
 - **Accepted as they are:**
   - `usesCleartextTraffic` stays on, because LAN servers need http. The risk is covered by #4.

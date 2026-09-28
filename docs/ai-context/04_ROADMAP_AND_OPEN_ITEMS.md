@@ -16,7 +16,7 @@ The plan is published as an artifact (https://claude.ai/artifact/QsNhvBvSRx69PNv
 | C: multi-album + multi-book edit | **Done, merged (0.1.11)** |
 | Favourite albums & books | **Done, merged (0.1.12)** |
 | Quick actions + Details page | **Done, merged (0.1.13)** |
-| Security fixes (all ten, 0.1.21) | **Built on branch `security-fixes` 28 Sep and installed on the phone; not yet committed or merged.** See "Security fixes" below and `06_SECURITY_REVIEW.md` |
+| Security fixes (all ten, 0.1.21) | **Done: merged, installed on the phone, released as v0.1.21 (28 Sep).** See "Security fixes" below and `06_SECURITY_REVIEW.md` |
 | D: offline copies of server songs (was phase 4) | After the server review |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to D isn't decided |
 
@@ -40,9 +40,8 @@ A security review of 0.1.20 on 28 Sep found 3 medium and 7 low issues; details a
   restore → type the server password. Ask before the install, as always.
 - **Installed on the phone on 28 Sep.** The user restores from their backup, which is on an
   external hard drive.
-- **Still to do:**
-  - Commit the branch and merge it to `main` when the user asks.
-  - Publish the release when asked.
+- **Merged into `main` and published** as GitHub release v0.1.21 on 28 Sep, with checksums. The
+  `security-fixes` branch was deleted.
 
 ### A: Settings tidy-up (asked for 25 Sep, done in 0.1.9)
 The user wants Settings cleaner and easy to find things in. It used to be one long ListView
@@ -168,7 +167,7 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
 - A sleep-timer button in the Android notification.
 
 ## Source control
-`main` holds everything (0.1.20+20); there are no other branches. The work was built on stacked branches (`equaliser` →
+`main` holds everything (0.1.21+21); there are no other branches. The work was built on stacked branches (`equaliser` →
 `multi-edit` → `favourites` → `details-and-quick-edits`) and merged in one `--no-ff` merge of the
 last one on 25 Sep. The branches were then deleted, so there are no other branches. Builds (`build\dist`) are not in git; they are rebuilt from source with
 the commands in `02_…`. The repo copy of these notes (`docs/ai-context/`) is kept the same as the
