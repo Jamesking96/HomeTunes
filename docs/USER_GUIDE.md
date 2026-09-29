@@ -58,6 +58,10 @@ with an existing one). This happens only once:
 
 After that, every update installs over the top as normal.
 
+**Updating:** go to **Settings › About › Check for updates** (from version 0.1.23). If there's a
+newer version, **Open download page** takes you to it in your browser: download the `.apk` and
+open it to install over the top.
+
 ---
 
 ## 3. Installing on a Windows PC
@@ -70,7 +74,9 @@ After that, every update installs over the top as normal.
    choose otherwise.
 4. Start HomeTunes from the Start menu.
 
-**Updating:** run the newer installer. Your library and settings are kept.
+**Updating:** from version 0.1.23, go to **Settings › About › Check for updates**. If there's a
+newer version, say **Update**: HomeTunes downloads it, checks the file, closes, updates itself
+and opens again. (Or run the newer installer yourself.) Your library and settings are kept.
 **Uninstalling:** Windows Settings › Apps › HomeTunes › Uninstall.
 
 ### Without installing (zip)
@@ -78,6 +84,9 @@ After that, every update installs over the top as normal.
 2. Right-click it › **Extract All…**, and choose where to put the folder.
 3. Open the folder and double-click `hometunes.exe`. Keep all the files together; the app needs
    them.
+
+A copy run from the zip can tell you when there's a new version, but can't update itself: it
+opens the download page instead.
 
 ---
 
@@ -141,6 +150,12 @@ they're tabs along the bottom. On a PC they're down the left-hand side, where Li
   your own. Audiobooks can use their own preset automatically.
 - **Sleep timer:** the moon button next to the play controls stops playback after a set time or at the end of the chapter or song.
   Options are in **Settings › Sleep timer**.
+- **Volume:** the slider in the player bar on a PC, under the play controls on Now Playing (with the
+  cover or the lyrics showing), and the speaker button in the phone's mini player, which opens a
+  small slider.
+- **Updates:** HomeTunes looks for a new version once a day and shows a notice with an **Update…**
+  button if there is one. Check any time in **Settings › About › Check for updates**, where
+  there's also a switch to turn the daily check off.
 - **Settings search:** type in the box at the top of Settings to find any option.
 
 ---

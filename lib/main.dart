@@ -11,6 +11,7 @@ import 'package:audio_service_win/audio_service_win.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import 'services/media_session.dart';
@@ -25,7 +26,9 @@ import 'state/player_model.dart';
 import 'state/playlists_model.dart';
 import 'state/selection_model.dart';
 import 'state/sleep_timer.dart';
+import 'state/update_model.dart';
 import 'ui/nav.dart';
+import 'ui/screens/settings/update_ui.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
 
@@ -45,6 +48,7 @@ Future<void> main() async {
   final bookmarks = BookmarksModel(storage);
   final lyrics = LyricsModel(library, storage);
   final equalizer = EqualizerModel(storage);
+  final updates = UpdateModel(storage, readVersion: () async => (await PackageInfo.fromPlatform()).version);
   // 2. Load all the saved JSON files at the same time, to keep start-up quick.
   //    HomeTunes: each model reads its file defensively, but as a last resort an unexpected
   //    error in one of them is reported and that model keeps its defaults, rather than
@@ -65,6 +69,7 @@ Future<void> main() async {
     safely('bookmarks', bookmarks.load),
     safely('saved lyrics', lyrics.load),
     safely('equaliser settings', equalizer.load),
+    safely('update settings', updates.load),
   ]);
   // Songs in playlists / Liked Songs are kept track of even when their files
   // are missing, and follow them if they move.
@@ -120,7 +125,15 @@ Future<void> main() async {
     lyrics: lyrics,
     equalizer: equalizer,
     player: player,
+    updates: updates,
   ));
+
+  // Look for a newer HomeTunes once a day, a little after start-up so it doesn't compete with
+  // the scan; if there is one, a notice with an Update… button appears (0.1.23).
+  Future<void>.delayed(const Duration(seconds: 8), () async {
+    final found = await updates.checkIfDue();
+    if (found != null) showUpdateNotice(found);
+  });
 
   // Android: can we read the music files? (Shows a banner with a fix if not.)
   await library.refreshMusicAccess(rescanIfNewlyAllowed: false);
@@ -161,6 +174,7 @@ class HomeTunesApp extends StatelessWidget {
   final LyricsModel lyrics;
   final EqualizerModel equalizer;
   final PlayerModel player;
+  final UpdateModel updates;
   const HomeTunesApp({
     super.key,
     required this.library,
@@ -170,6 +184,7 @@ class HomeTunesApp extends StatelessWidget {
     required this.lyrics,
     required this.equalizer,
     required this.player,
+    required this.updates,
   });
 
   @override
@@ -184,6 +199,7 @@ class HomeTunesApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: lyrics),
         ChangeNotifierProvider.value(value: equalizer),
         ChangeNotifierProvider.value(value: player),
+        ChangeNotifierProvider.value(value: updates),
         // These only matter to the UI, so Provider creates (and owns) them itself.
         ChangeNotifierProvider(create: (_) => SleepTimer(player, library)),
         ChangeNotifierProvider(create: (_) => AppNav()),
@@ -192,6 +208,9 @@ class HomeTunesApp extends StatelessWidget {
       child: MaterialApp(
         title: 'HomeTunes',
         debugShowCheckedModeBanner: false,
+        // Let the start-up update notice (and its dialog) be shown from outside the tree.
+        scaffoldMessengerKey: appMessengerKey,
+        navigatorKey: appNavigatorKey,
         theme: buildTheme(),
         scrollBehavior: appScrollBehavior,
         home: const Shell(),
