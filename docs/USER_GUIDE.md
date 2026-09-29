@@ -98,6 +98,11 @@ opens the download page instead.
 2. Choose the folder where your music is kept. HomeTunes reads the details (artist, album, cover
    art…) from your files. The progress shows at the bottom of the screen.
 3. Add more folders the same way. After adding new music to a folder, press **Rescan**.
+4. Each folder has an options button (sliders icon). It opens **Folder options**, where you can
+   **Rescan this folder** on its own, and under **File types** untick any kind of file you don't
+   want from that folder (say, WAV copies). Unticked types disappear from your library at once;
+   nothing is deleted, and ticking them again brings them back. Audiobook folders have the same
+   options.
 
 HomeTunes plays MP3, FLAC, M4A/AAC, OGG, Opus, WAV and M4B files. It never changes, moves or
 deletes your music files.
@@ -155,7 +160,8 @@ they're tabs along the bottom. On a PC they're down the left-hand side, where Li
   your own. Audiobooks can use their own preset automatically.
 - **Sleep timer:** the moon button next to the play controls stops playback after a set time or at the end of the chapter or song.
   Options are in **Settings › Sleep timer**.
-- **Volume:** the slider in the player bar on a PC, under the play controls on Now Playing (with the
+- **Volume:** click the speaker icon beside any volume slider to mute; click it again to go back
+  to the volume you had. The slider is in the player bar on a PC, under the play controls on Now Playing (with the
   cover or the lyrics showing), and the speaker button in the phone's mini player, which opens a
   small slider.
 - **Updates:** HomeTunes looks for a new version once a day and shows a notice with an **Update…**

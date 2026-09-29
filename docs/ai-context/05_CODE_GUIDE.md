@@ -361,6 +361,8 @@ Tests: `test/security_fixes_test.dart`, plus changes in `server_security_test.da
 
 **New in 0.1.26 (branch `feature/ui-feedback`):** the queue opens as a drawer from the right (`openQueueDrawer`, `QueuePanel`, `QueueList` in `queue_screen.dart`); on an artist page an album's songs open in place under its row (`AlbumSongsPanel` in `artist_screen.dart`, `AlbumCard.onTap` / `highlighted`, and "Open album page" via `SelectableCard.onOpenPage`); every album cover shows a play button on mouse hover (`HoverPlayCover` in `cards.dart`); Settings pages are in A–Z order and Library is shown as "Folders & scanning", with the audiobook folders (`AudiobookFoldersSection` in `library_settings.dart`) there as well as under Audiobooks. Tests: `test/ui_feedback_test.dart`; pictures: `flutter test tool/ui_preview_test.dart`.
 
+**New in 0.1.27 (branch `feature/folder-options`):** each folder row has a Folder options button (`FolderOptionsButton` / `showFolderOptions` in `library_settings.dart`) with **Rescan this folder** (`LibraryModel.scanFolder`) and **File types** tick boxes (`formatsIn`, `formatShown`, `setFormatShown`, `hiddenFormats` in settings.json; `_rebuild` leaves unticked types out). The speaker icon beside any volume slider mutes and unmutes (`PlayerModel.toggleMute` / `muteToggle`). Tests: `test/folder_options_test.dart`.
+
 A few existing comments are also out of date (left as they were): `Track` says narrator and series are never read from files (side files set them now); `showEditDetails` says music files are never modified (Settings → Your edits can write them); `SeekBar` says it redraws only from the position stream.
 
 ## About the comments

@@ -22,6 +22,7 @@ The plan is published as an artifact (https://claude.ai/artifact/QsNhvBvSRx69PNv
 | Colour themes (0.1.24) | **Done: merged, released as v0.1.24 (29 Sep).** See `03_…` → Colour themes |
 | Advanced appearance (0.1.25) | **Built 29 Sep** on `feature/advanced-themes`: saved themes with every colour (light too), text size, corners. Waiting for the user to try it. See `03_…` → Advanced appearance |
 | Queue drawer, artist albums in place, Settings A–Z (0.1.26) | **Built 29 Sep** on `feature/ui-feedback` (on top of 0.1.25); waiting for the user. See `03_…` |
+| Folder options + mute (0.1.27) | **Built 29 Sep** on `feature/folder-options` (on top of 0.1.26); waiting for the user |
 | D: offline copies of server songs (was phase 4) | After the server review |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to D isn't decided |
 

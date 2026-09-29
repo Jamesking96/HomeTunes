@@ -180,6 +180,30 @@ before changing that area.
 - **Don't take screenshots of the user's desktop or launch the app on their screen** to check the
   look: on 29 Sep that captured a game the user was playing. Use the off-screen preview instead.
 
+## Folder options and mute (`feature/folder-options`, 0.1.27, asked for 29 Sep 19:33)
+- **Folder options:** every music and audiobook folder row (Folders & scanning, and the shared
+  audiobook list under Audiobooks) has a sliders button (`FolderOptionsButton`) that opens
+  `showFolderOptions` (library_settings.dart):
+  - **Rescan this folder** → `LibraryModel.scanFolder(folder)`: scans only that folder, replaces
+    the songs inside it and keeps everything else, then reconciles/saves like a full scan. An
+    unreachable folder keeps what it had and says so.
+  - **File types**: an ExpansionTile (the "drop-down") listing every type found in that folder
+    at the last scan (`formatsIn`, with file counts), each with a tick box. Unticking adds it to
+    `hiddenFormats[folder]` (settings.json `hiddenFormats`, so in backups); `_rebuild` leaves
+    those files out of `raw`, so they vanish at once without a rescan and come back when ticked.
+    They stay in `_local`, which is how the list still knows about them. A file belongs to the
+    innermost folder that holds it (`ownerFolder`), so an audiobook folder inside a music folder
+    has its own choices. Removing a folder forgets its choices. Types are stored as switched
+    **off**, so a new type that turns up later shows until unticked.
+  - Audiobook folders got both options (the user asked for the rescan; file types came with
+    the same window).
+- **Mute:** the speaker icon beside every volume slider (`VolumeControl`: player bar, Now
+  Playing, the mini player's pop-up) is a button: `PlayerModel.toggleMute` goes to 0 and
+  remembers the volume; clicking again puts it back (to 50% if it was dragged to 0 by hand).
+  The icon is in the highlight colour while muted.
+- **Tests:** `test/folder_options_test.dart` (real scans of the sample files). Picture:
+  `tool/ui_preview_test.dart` → `ui-folder-options.png`.
+
 ## Queue drawer, artist albums in place, Settings order (`feature/ui-feedback`, 0.1.26, asked for 29 Sep 19:13)
 - **The user's choices:** the queue is a **drawer from the side on the phone too**; the tab is
   called **Folders & scanning**; the audiobook folders are shown **in both places** (the same

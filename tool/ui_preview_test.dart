@@ -133,5 +133,41 @@ void main() {
     nav.openSettings('library');
     await tester.pumpAndSettle();
     await shoot('ui-settings');
+
+    // 4. A folder's options (0.1.27), for a real folder of sample files, with FLAC switched off.
+    final music = Directory('${dir.path}\\Music')..createSync();
+    for (final (from, to) in [
+      ('tagged.mp3', 'a.mp3'), ('tagged_v24.mp3', 'b.mp3'), ('tagged.flac', 'c.flac'), ('tagged.m4a', 'd.m4a'),
+    ]) {
+      File('test\\fixtures\\$from').copySync('${music.path}\\$to');
+    }
+    Directory('${dir.path}\\data').createSync();
+    final real = LibraryModel(Storage.at(Directory('${dir.path}\\data')))..folders = [music.path];
+    await tester.runAsync(real.scanLocal);
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: real),
+        ChangeNotifierProvider.value(value: nav),
+        ChangeNotifierProvider(create: (_) => PlaylistsModel(Storage.at(dir))),
+        ChangeNotifierProvider<PlayerModel>.value(value: _Player()),
+        ChangeNotifierProvider(create: (_) => SelectionModel()),
+        ChangeNotifierProvider(create: (_) => EqualizerModel(Storage.at(dir))),
+        ChangeNotifierProvider(create: (_) => UpdateModel(Storage.at(dir), readVersion: () async => '0.1.27')),
+      ],
+      child: RepaintBoundary(
+        key: key,
+        child: MaterialApp(debugShowCheckedModeBanner: false, theme: buildTheme(), home: const SettingsScreen()),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    nav.openSettings('library');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Folder options').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('File types'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('FLAC'));
+    await tester.pumpAndSettle();
+    await shoot('ui-folder-options');
   });
 }

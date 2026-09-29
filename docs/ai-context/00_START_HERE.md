@@ -65,6 +65,9 @@ Read the files in this order:
   not merged: queue as a side drawer, artist-page albums open in place (+ Open album page,
   hover play), Settings in A–Z order with **Folders & scanning** (music + audiobook folders).
   337 tests pass. The user wants 0.1.25 and 0.1.26 released together once tried. See `03_…`.
+- **Then 0.1.27, branch `feature/folder-options` (on top of `feature/ui-feedback`)**: folder
+  options (rescan one folder, file-type tick boxes) for music and audiobook folders, and the
+  speaker icon as a mute toggle. 345 tests pass. Release 0.1.25–0.1.27 together once tried.
 - **Next after that:** nothing is agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user. See
   `04_ROADMAP_AND_OPEN_ITEMS.md`.

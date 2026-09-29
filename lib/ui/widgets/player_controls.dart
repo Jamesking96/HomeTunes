@@ -485,7 +485,16 @@ class VolumeControl extends StatelessWidget {
         message: 'Volume ${volume.round()}% – scroll to change',
         waitDuration: const Duration(milliseconds: 800),
         child: Row(mainAxisSize: sliderWidth == null ? MainAxisSize.max : MainAxisSize.min, children: [
-          Icon(iconFor(volume), size: 20, color: AppColors.textDim),
+          // The speaker icon is a quick mute / unmute (0.1.27).
+          IconButton(
+            key: const ValueKey('mute-toggle'),
+            tooltip: volume <= 0 ? 'Unmute' : 'Mute',
+            visualDensity: VisualDensity.compact,
+            iconSize: 20,
+            color: volume <= 0 ? Theme.of(context).colorScheme.primary : AppColors.textDim,
+            icon: Icon(iconFor(volume)),
+            onPressed: () => context.read<PlayerModel>().toggleMute(),
+          ),
           if (sliderWidth == null)
             Expanded(child: Slider(value: volume, max: 100, onChanged: p.setVolume))
           else
