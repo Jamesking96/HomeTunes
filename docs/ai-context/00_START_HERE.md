@@ -78,6 +78,10 @@ Read the files in this order:
   sections (every version since the old one), plus **Settings › About › What's new in this
   version**. 358 tests pass, analyze clean. 0.1.23/0.1.24 copies don't record their version,
   so after updating they show just 0.1.28's page (which covers 0.1.25–0.1.28). See `03_…`.
+- **In progress (29 Sep): 0.1.29, branch `feature/theme-sharing`**, not merged: a "Colour code"
+  box in every colour picker (type or paste `#FF7A59`), and sharing themes: Share… gives a
+  theme code to copy or a `.hometunes-theme` file, and Import a theme reads either. 371 tests
+  pass, analyze clean. Waiting for the user to try it. See `03_…` → Colour codes and sharing.
 - **Next after that:** nothing is agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user. See
   `04_ROADMAP_AND_OPEN_ITEMS.md`.

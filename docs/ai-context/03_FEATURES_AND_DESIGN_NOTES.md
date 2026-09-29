@@ -306,6 +306,33 @@ before changing that area.
   tool/probe_update_test.dart` reads the real latest release, downloads its installer and checks
   the checksum (nothing is installed). Passed on 29 Sep against v0.1.21.
 
+## Colour codes and sharing themes (`feature/theme-sharing`, 0.1.29, asked for 29 Sep)
+- **What the user asked for:** type or paste a colour's hex code when choosing colours in
+  Appearance, and export / import themes so they can be shared between friends.
+- **Colour code box** (`_ColourPicker` in `appearance_settings.dart`): a "Colour code" field
+  under the preview, with a paste button. `parseColourCode` (`ui/theme.dart`) accepts `#FF7A59`,
+  `ff7a59`, `#F75`, `0xFF7A59`, with spaces/quotes/`;` around it. A typed code is returned
+  exactly (`_typedColour`, not via HSL rounding). Sliders and suggestions rewrite the box. In
+  Your own the usual limits still apply (bright highlight, dark background): a code outside
+  them is adjusted and the helper line says "#FFFFFF changed to #xxxxxx so it stays easy to
+  read". Enter in the box = "Use this colour".
+- **Sharing** (`ui/screens/settings/theme_sharing.dart`): only the name and the eight colours
+  (`sharedThemeJson`: `hometunesTheme: 1` + `AppPalette.toJson()` without `id`).
+  - **Theme code:** `HOMETUNES-THEME:` + base64url of that JSON, no `=` padding, so chat apps
+    keep it in one piece. `readSharedTheme` finds the code anywhere in pasted text (a whole
+    message works), or reads raw JSON (a file).
+  - **File:** `<name>.hometunes-theme`, pretty JSON, saved with `FilePicker.saveFile(bytes:)`
+    like backups; opened with `FilePicker.pickFile`, refused over 64 KB.
+  - **Checks:** 64 KB limit, every colour must be `#RRGGBB` (`AppPalette.fromJson`), the name has
+    control characters removed and is cut to 40 characters, a newer `hometunesTheme` version
+    that can't be read says "made by a newer version". Messages are plain English.
+  - **Adding** (`addSharedTheme`): new id, name made unique ("Sunset (2)"); if a saved theme
+    already has exactly the same colours, that one is used instead of adding a copy.
+- **Where in the UI:** each saved theme's ⋮ has **Share…**; Your own has **Share these colours**
+  (shared as "My colours"); Advanced has **Import a theme** (paste / Open a file… → preview with
+  a readability note → **Add and use**).
+- **Tests:** `test/theme_sharing_test.dart`. Pictures: `flutter test tool/theme_sharing_preview_test.dart`.
+
 ## What's new after an update (`feature/whats-new`, 0.1.28, asked for 29 Sep)
 - **What the user asked for:** the first time the app opens after an update, a pop-up listing
   the changes between the old build and the new one, compiled from the "What's new in x"
