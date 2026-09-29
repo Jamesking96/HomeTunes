@@ -187,6 +187,8 @@ they're tabs along the bottom. On a PC they're down the left-hand side, where Li
   file…** and send the file. Your friend goes to **Settings › Appearance › Import a theme**,
   pastes the code (the whole message is fine) or chooses **Open a file…**, sees the theme, and
   taps **Add and use**. Only the theme's name and colours are shared.
+- **Licences:** HomeTunes is free and open source under the MIT License. **Settings › About ›
+  Licences** lists it and the licences of everything it's built with.
 - **Notices:** the messages that pop up at the bottom of the screen have a **✕** to close them
   straight away (beside **Undo** when there is one).
 - **Settings search:** type in the box at the top of Settings to find any option. The Settings

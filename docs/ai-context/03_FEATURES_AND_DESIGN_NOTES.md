@@ -306,6 +306,44 @@ before changing that area.
   tool/probe_update_test.dart` reads the real latest release, downloads its installer and checks
   the checksum (nothing is installed). Passed on 29 Sep against v0.1.21.
 
+## Licence (`feature/licence`, 0.1.31, asked for 30 Sep)
+- **The user's choice (30 Sep):** **MIT**, like Nora, copyright **"Copyright (c) 2026
+  Jamesking96"** (their GitHub name). Compared first: Harmonoid uses PolyForm Strict (personal,
+  non-commercial use only; no changes or redistribution); Nora uses MIT.
+- **Why MIT is allowed:** every Dart package is MIT or BSD (checked 30 Sep). The bundled audio
+  engine (libmpv + FFmpeg n6.0 from media-kit's prebuilt "audio" builds) is **LGPL-3.0-or-later**:
+  the binaries themselves say `-Dgpl=false`, `--disable-gpl --enable-version3`, "libavcodec
+  license: LGPL version 3 or later" (Windows `libmpv-2.dll`: mpv v0.36.0-403-g652a1dd907,
+  release 2023-09-24; Android `libmpv.so`: mpv 0.35.1, v1.1.8). LGPL is fine with MIT as long as
+  it stays a separate replaceable library and its notice + LGPL + GPL texts ship with the app.
+  **Never add a GPL library, or swap in a GPL libmpv build (e.g. the "video" builds with GPL
+  parts), without revisiting this.**
+- **Files:** `LICENSE` (standard MIT text so GitHub detects it), `THIRD_PARTY_NOTICES.md`
+  (engine versions, source links, replaceability; vendored packages; pub packages with
+  licences; VC++ runtime; online services), `licenses/LGPL-3.0.txt` + `GPL-3.0.txt` (official
+  GNU copies, SHA-256 3972dc97… / e3a994d8…).
+- **In the app:** Settings › About › **Licences** → Flutter's `showLicensePage` (lists every
+  package, including HomeTunes' own LICENSE, plus the engine). `services/app_licences.dart`
+  `registerAppLicences()` (called in `main`) adds the libmpv/FFmpeg notice with the LGPL text,
+  and the GPL text, from the bundled assets.
+- **Downloads:** `tool/build_release.ps1` copies `LICENSE.txt`, `THIRD_PARTY_NOTICES.md` and
+  `licenses\` next to `hometunes.exe`, so the zip and installer both have them. The installer
+  shows Jamesking96 as publisher, with the GitHub links and copyright line. The APK carries them
+  in its assets and the Licences page.
+- **Engine source on every release (the user's choice, 30 Sep):** `tool/engine_source.ps1` makes
+  `build\dist\HomeTunes-audio-engine-source.zip` (17.5 MB): mpv at commit 652a1dd9 (Windows) and
+  v0.35.1 (Android), FFmpeg 6.0 (official tarball, matches ffmpeg.org's checksum), GNU FriBidi
+  1.0.13 (LGPL-2.1+, only in the Windows dll), and snapshots of both media-kit build repos
+  (win32 master at f5a6f879, the last commit before its 2023-09-24 build; android v1.1.8), with
+  a README listing sources and SHA-256s. Versions were read from the binaries themselves (the
+  win32 build scripts don't pin versions). `publish_release.ps1` adds the zip to every new
+  release (and its checksum); `tool/attach_engine_source.ps1` added it to all older releases
+  on 30 Sep. Permissive libraries inside (mbedtls, libxml2, libass, HarfBuzz, FreeType, zlib…)
+  don't need their source shipped.
+- **When dependencies change:** update `THIRD_PARTY_NOTICES.md`, the engine versions in
+  `app_licences.dart` and the list in `tool/engine_source.ps1` (then delete the old zip in
+  build\dist so it's remade) if media_kit's libs change. Tests: `test/licences_test.dart`.
+
 ## ✕ on notices (`feature/notice-close`, 0.1.30, asked for 29 Sep)
 - **What the user asked for:** a close button on the notices at the bottom of the screen, next
   to Undo, to get rid of them quickly.
