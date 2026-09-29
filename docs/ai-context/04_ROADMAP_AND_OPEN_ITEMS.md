@@ -17,6 +17,8 @@ The plan is published as an artifact (https://claude.ai/artifact/QsNhvBvSRx69PNv
 | Favourite albums & books | **Done, merged (0.1.12)** |
 | Quick actions + Details page | **Done, merged (0.1.13)** |
 | Security fixes (all ten, 0.1.21) | **Done: merged, installed on the phone, released as v0.1.21 (28 Sep).** See "Security fixes" below and `06_SECURITY_REVIEW.md` |
+| Volume everywhere (0.1.22) | **Built 29 Sep** on `feature/volume-everywhere`; not merged yet |
+| Check for updates (0.1.23) | **Built 29 Sep** on `feature/update-check` (on top of the volume branch); not merged yet. See `03_…` → Updates |
 | D: offline copies of server songs (was phase 4) | After the server review |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to D isn't decided |
 
@@ -164,6 +166,7 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
 ## Offered earlier, not done (only if the user wants)
 - Delete old installers in `build\dist` (0.1.0/0.1.2/0.1.3).
 - Obtainium on the phone, so it updates itself from GitHub Releases (Releases exist since 0.1.20).
+  (0.1.23's Check for updates only opens the download page on the phone, by the user's choice.)
 - A sleep-timer button in the Android notification.
 
 ## Source control
