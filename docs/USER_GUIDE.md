@@ -27,8 +27,8 @@ Ignore the two "Source code" files. They're the code for developers, not the app
 **Checking a download (optional):** the release page ends with a **Checksums (SHA-256)** list, also
 attached as `HomeTunes-<version>-SHA256SUMS.txt`. On Windows, open PowerShell in your Downloads
 folder and run `Get-FileHash HomeTunes-Setup-<version>.exe` (use the name of the file you
-downloaded). The long code it prints should match that file's line in the list. If it doesn't,
-delete the file and download it again.
+downloaded). The long code it prints should match that file's line in the list (capital or small
+letters don't matter). If it doesn't, delete the file and download it again.
 
 ---
 
@@ -44,23 +44,23 @@ delete the file and download it again.
 5. Open HomeTunes. When it asks to access **music and audio**, tap **Allow**. Without this it
    can't see your music.
 
-**Updating:** download the newer `.apk` and install it the same way, over the top. Don't uninstall
-first: your library, playlists, places in books and settings are all kept.
-
 **Coming from 0.1.20 or earlier:** version 0.1.21 is signed with HomeTunes' own key instead of a
 temporary one, so Android won't install it over an older version (it says the app conflicts
 with an existing one). This happens only once:
-1. In the old version, go to **Settings › Backup & restore › Export** and save the file in
+1. In the old version, go to **Settings › Backup & restore**, export a backup and save the file in
    **Downloads**.
 2. Uninstall HomeTunes, then install the new `.apk`.
-3. Open it, go to **Settings › Backup & restore › Restore**, pick the file and choose **Replace**.
+3. Open it, go to **Settings › Backup & restore › Import backup…**, pick the file and choose
+   **Replace**.
 4. If you use a music server, type its password again in **Settings › Servers**.
 
 After that, every update installs over the top as normal.
 
 **Updating:** go to **Settings › About › Check for updates** (from version 0.1.23). If there's a
-newer version, **Open download page** takes you to it in your browser: download the `.apk` and
-open it to install over the top.
+newer version, tap **Update…** then **Open download page** to go to it in your browser: download
+the `.apk` and open it to install over the top. (Or download the newer `.apk` from the Releases
+page yourself.) Don't uninstall first: your library, playlists, places in books and settings are
+all kept.
 
 ---
 
@@ -71,13 +71,15 @@ open it to install over the top.
 2. If Windows shows **"Windows protected your PC"**, click **More info › Run anyway**. The app
    isn't signed with a paid certificate, so Windows doesn't recognise it yet.
 3. Follow the steps. No administrator password is needed; it installs just for you unless you
-   choose otherwise.
+   choose otherwise. You can tick **Create a desktop shortcut** if you want one.
 4. Start HomeTunes from the Start menu.
 
 **Updating:** from version 0.1.23, go to **Settings › About › Check for updates**. If there's a
-newer version, say **Update**: HomeTunes downloads it, checks the file, closes, updates itself
-and opens again. (Or run the newer installer yourself.) Your library and settings are kept.
-**Uninstalling:** Windows Settings › Apps › HomeTunes › Uninstall.
+newer version, click **Update…** and then **Update**: HomeTunes downloads it, checks the file,
+closes, updates itself and opens again. (Or run the newer installer yourself.) Your library and
+settings are kept.
+**Uninstalling:** Windows Settings › Apps › HomeTunes › Uninstall. This removes the program only:
+your library, playlists and settings stay on the PC, so reinstalling picks up where you left off.
 
 ### Without installing (zip)
 1. Download `HomeTunes-<version>-windows.zip`.
@@ -93,8 +95,8 @@ opens the download page instead.
 ## 4. First steps
 
 ### Add your music
-1. The Home screen says **No music yet**. Tap **Add music**
-   (or go to **Settings › Folders & scanning › Music folders › Add folder**).
+1. The Home screen says **No music yet**. Tap **Add music**, which opens **Settings › Folders &
+   scanning**, then tap **Add folder** under **Music folders**.
 2. Choose the folder where your music is kept. HomeTunes reads the details (artist, album, cover
    art…) from your files. The progress shows at the bottom of the screen.
 3. Add more folders the same way. After adding new music to a folder, press **Rescan**.
@@ -113,10 +115,17 @@ Audiobooks appear in the **Books** tab (called **Audiobooks** on a PC). HomeTune
 count as books, go to **Settings › Folders & scanning** (or **Settings › Audiobooks**) and use **Add audiobook folder**. Books remember where
 you got to, and **Continue listening** on the Home screen picks up where you left off.
 
+If something lands in the wrong place, a song's menu has **Move to Books**, and a book's page has
+**Move to Music…**. While a book plays, Now Playing has skip back and forward buttons, a speed
+button, **Chapters** and **Bookmarks** (and a button to bookmark the spot you're at). Skip
+lengths, speed for new books and book cover shape are in **Settings › Audiobooks**.
+
 ### Music from your own server (optional)
 If you run a music server such as Navidrome, go to **Settings › Servers › Music server**, enter its
 address (for example `http://192.168.1.20:4533`), your username and password, then **Connect**.
-Server songs show a small cloud icon and mix in with your own files.
+Server songs show a small cloud icon and mix in with your own files. Audiobooks on the server
+show in the Books tab too (switch **Audiobooks from the music server** off on the same page to
+keep them out).
 
 If you type an address without `http://` or `https://`, HomeTunes tries a secure (https)
 connection first. If the server is on the internet and only answers over plain http, HomeTunes
@@ -129,7 +138,8 @@ network (and Tailscale addresses) connect without asking.
 
 The main sections are **Home**, **Search**, **Library**, **Books** and **Settings**. On a phone
 they're tabs along the bottom. On a PC they're down the left-hand side, where Library is called
-**Your Library** and Books is called **Audiobooks**, with **Liked Songs** underneath.
+**Your Library** and Books is called **Audiobooks**, with **Liked Songs** and your playlists
+underneath.
 
 - **Play something:** tap a song, album, playlist or book. The player bar at the bottom shows
   what's playing; tap it for the full **Now Playing** screen.
@@ -141,6 +151,8 @@ they're tabs along the bottom. On a PC they're down the left-hand side, where Li
   looking at; tap outside it, swipe it away or press its ✕ to close it.
 - **Lyrics:** HomeTunes shows a song's lyrics when it can find them (in the file, a `.lrc` file
   next to it, your music server, or online). Timed lyrics scroll along with the song.
+- **Going online:** HomeTunes can look up missing covers, song details and lyrics online. Each
+  can be switched off in **Settings › Online lookups**; only names (artist, album, song) are sent.
 - **On a phone:** swipe the player left or right to skip. The music keeps playing with the screen
   locked, and you can control it from the lock screen, the notification or headphone buttons.
 - **On a PC:** your keyboard's media keys work.
@@ -151,8 +163,10 @@ they're tabs along the bottom. On a PC they're down the left-hand side, where Li
 - **Search:** finds songs, artists, albums, books and chapters. Every word you type must match.
 - **Playlists and favourites:** make playlists in **Library**, like songs with the heart, and
   heart whole albums or books. Library tabs have filters and sorting, including **Favourites**.
-- **Menus:** right-click (PC) or press and hold (phone) on an album, book or song for quick
-  actions: edit details, choose a cover, favourite, and **Details…** (where it came from).
+- **Menus:** right-click (PC) or press and hold (phone) on an album or book for quick actions:
+  **Edit details…**, **Choose cover…**, **Add to favourites** and **Details…** (where it came
+  from). A song's menu has **Go to album**, **Go to artist**, **Edit details…**, **Lyrics** and
+  **Details…**, among others.
 - **Fix wrong details:** use **Edit details**. Select several albums or books to edit them together.
   Your changes are kept by HomeTunes and don't touch the files, unless you choose to save
   them into the files in **Settings › Your edits**.
@@ -175,9 +189,10 @@ they're tabs along the bottom. On a PC they're down the left-hand side, where Li
   and **Your own**, where you pick a highlight colour and a background colour. Tap a theme and
   the whole app changes straight away. Your choice is included in backups.
   Under **Advanced** you can make as many themes of your own as you like, choosing every colour
-  (background, panels, text, grey text, highlight, slider and play button), including light
-  themes with dark text. HomeTunes warns you if something would be hard to read. Each of your
-  themes has **Edit** and **Delete** buttons (Delete is also inside the theme editor).
+  (background, panels, raised panels, text, grey text, highlight, slider track and play button),
+  including light themes with dark text. HomeTunes warns you if something would be hard to read.
+  Each of your themes has **Edit** and **Delete** buttons (Delete is also inside the theme editor),
+  and its **⋮** menu can also **Duplicate…** it.
   **Reset to default colours** puts "Your own" back to how it started (with Undo). **Advanced**
   also has **Text size** and **Corners** (from square to extra round).
   In any colour picker you can also type or paste a colour code such as `#FF7A59` into
@@ -202,11 +217,13 @@ they're tabs along the bottom. On a PC they're down the left-hand side, where Li
 **Settings › Backup & restore** saves everything HomeTunes keeps (folders, playlists, likes,
 favourites, your edits, places in books, bookmarks, equaliser and settings) into one `.htbackup`
 file. Restore it on another phone or PC to carry it all across, then point HomeTunes at the music
-folders on that device.
+folders on that device. Use **Export backup…** to make the file and **Import backup…** to restore
+it. When restoring you choose **Replace** (this device's HomeTunes data becomes the backup's) or
+**Merge** (the backup's playlists, likes and edits are added to what's already there).
 
 Your music server password is **never** put in the backup file, so it can't be read by anyone who
 gets hold of the file. After restoring on a new device, type it in once under **Settings ›
-Servers**. (Restoring on the same device keeps it.)
+Servers**. (Restoring on the same device, with the same server, keeps it.)
 
 On Android, HomeTunes doesn't use Google's automatic app backup. When you move to a new phone,
 use a HomeTunes backup file as described above.

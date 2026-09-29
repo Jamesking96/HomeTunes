@@ -1,6 +1,6 @@
 # HomeTunes Code Guide
 
-26 Sep 2026 · James (updated for 0.1.13; security fixes added for 0.1.21 on 28 Sep)
+26 Sep 2026 · James (checked against the code and updated for 0.1.31 on 30 Sep)
 
 HomeTunes is one Flutter (Dart) codebase that runs on Windows and Android. Almost all of the app lives in `lib/`, split into four layers: **models** (plain data), **state** (the app's live brain), **services** (files, network, the OS) and **ui** (what you see). Every source file now opens with a comment saying what it does and why.
 
@@ -11,18 +11,19 @@ The app is built in layers, and each layer only talks to the one below it. Scree
 | Layer | Folder | Its job | Knows about Flutter UI? |
 | --- | --- | --- | --- |
 | UI | `lib/ui/` | Pages, dialogs and widgets. Draws what the state says and passes taps on to it. | Yes |
-| State | `lib/state/` | The app's live brain: the library, the player, playlists and favourites, listening places, lyrics, the equaliser, the sleep timer, what's selected. Each is a `ChangeNotifier` that tells the UI when to redraw. | No (only `ChangeNotifier`) |
-| Services | `lib/services/` | Doing things: reading and writing JSON files, scanning folders, reading and writing tags, talking to Subsonic, LRCLIB, MusicBrainz and Open Library, the Android and Windows media controls. | No |
+| State | `lib/state/` | The app's live brain: the library, the player, playlists and favourites, listening places, lyrics, the equaliser, the sleep timer, what's selected, update checks. Each is a `ChangeNotifier` that tells the UI when to redraw. | No (only `ChangeNotifier`) |
+| Services | `lib/services/` | Doing things: reading and writing JSON files, scanning folders, reading and writing tags, talking to Subsonic, LRCLIB, MusicBrainz, Open Library and GitHub (updates), the Android and Windows media controls. | No |
 | Models | `lib/models/` | Plain data shapes: `Track`, `Book`, `Playlist`, `Lyrics`, `TrackEdit`, `EqPreset`. They can turn themselves into JSON and back. | No |
 
 **`lib/main.dart` wires it all together.** When the app starts it:
 
-1. Opens the data folder (`Storage`) and creates every model.
-2. Loads all the saved JSON files at the same time.
+1. Adds the audio engine's licence notice to the licence page (`registerAppLicences`), opens the data folder (`Storage`) and the playback log, and creates every model.
+2. Loads all the saved JSON files at the same time. If one fails to load, that model starts with its defaults and a message says so, instead of the app not starting.
 3. Links the models, so that when a file moves or is forgotten, playlists, bookmarks and listening places follow it.
 4. Starts the system media controls (notification, lock screen, Windows media keys).
-5. Hands every model to the UI through Provider's `MultiProvider`, then shows `Shell`, the outer frame.
-6. Starts a background scan of your music folders.
+5. Hands every model to the UI through Provider's `MultiProvider` (in `HomeTunesApp`, which also applies the colour theme and text size), then shows `Shell`, the outer frame.
+6. On the first start after an update, shows "What's new" (after 1.5 seconds). After 8 seconds, runs the once-a-day update check.
+7. Starts a background scan of your music folders.
 
 **How screens reach the models.** Provider makes each model available anywhere in the widget tree. A screen uses one of three calls:
 
@@ -38,17 +39,22 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 
 | Folder or file | What's in it | Edit by hand? |
 | --- | --- | --- |
-| `lib/` | The app itself (about 17,000 lines of Dart) | Yes: this is the code |
+| `lib/` | The app itself (about 24,500 lines of Dart) | Yes: this is the code |
 | `test/` | Automated tests, plus `test/fixtures/` (tiny tagged MP3, FLAC and M4A files) | Yes |
-| `tool/` | Helper scripts: release build, platform patcher, probes and speed benches | Yes |
+| `tool/` | Helper scripts: release build and publishing, safe branch switching, platform patcher, probes, speed benches and off-screen preview pictures | Yes |
 | `packages/` | Two borrowed packages, copied in and patched: `audio_metadata_reader` (reads and writes tags) and `audio_service_win` (Windows media keys). Each has a `HOMETUNES_CHANGES.md` listing what was changed. | Rarely: note any change in `HOMETUNES_CHANGES.md` |
 | `installer/hometunes.iss` | The Inno Setup script that builds the Windows installer | Rarely |
-| `docs/ai-context/` | Handover notes (architecture, workflow, features, roadmap) and this guide | Yes, when things change |
-| `pubspec.yaml` | The app's name, version, and the packages it uses | Yes: version bumps, new packages |
+| `docs/ai-context/` | Handover notes (architecture, workflow, features, roadmap, security review) and this guide | Yes, when things change |
+| `docs/USER_GUIDE.md`, `docs/images/` | The user guide (download and how-to), with its two pictures. `publish_release.ps1` attaches it to every release, and `README.md` links to it. | Yes, when features or menu names change |
+| `README.md` | The project's front page on GitHub | Yes, when things change |
+| `LICENSE` | HomeTunes' own licence: MIT, "Copyright (c) 2026 Jamesking96" (0.1.31) | Rarely |
+| `THIRD_PARTY_NOTICES.md`, `licenses/` | Other people's software HomeTunes includes, and the LGPL 3.0 and GPL 3.0 texts the audio engine (libmpv with FFmpeg) needs. The two texts are bundled into the app for Settings › About › Licences, and `build_release.ps1` copies all of these next to the Windows exe. | Rarely: update when a bundled library changes |
+| `.vscode/launch.json` | VS Code's F5 choices: Windows, the Pixel 8 (debug or release), or both at once | Rarely |
+| `pubspec.yaml` | The app's name, version, the packages it uses, and the bundled licence texts (`assets:`) | Yes: version bumps, new packages |
 | `pubspec.lock` | The exact package versions last downloaded | No: `flutter pub get` writes it |
 | `analysis_options.yaml` | Lint rules for `flutter analyze` (it skips `packages/` and the platform folders) | Rarely |
 | `setup.ps1`, `setup.sh` | One-time set-up for a fresh copy (see *Scripts and tools*) | Rarely |
-| `android/`, `windows/`, `ios/`, `macos/`, `linux/` | Native projects Flutter builds from. Made by `flutter create`, then adjusted by `tool/patch_platforms.dart`. The Android `MainActivity.kt` holds the Back-button and Android-version code. The Windows runner's `flutter_window.cpp` keeps Flutter's accessibility layer off (see Fixed in 0.1.19). | Rarely |
+| `android/`, `windows/`, `ios/`, `macos/`, `linux/` | Native projects Flutter builds from. Made by `flutter create`, then adjusted by `tool/patch_platforms.dart`. The Android `MainActivity.kt` holds the Back-button, Android-version and "open a web page" (`openUrl`, for updates) code. The Windows runner's `flutter_window.cpp` keeps Flutter's accessibility layer off (see Fixed in 0.1.19). | Rarely |
 | `build/` | Build output. Releases land in `build\dist\`. | No |
 
 ## lib/ file by file
@@ -68,8 +74,8 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 
 | File | What it does |
 | --- | --- |
-| `library_model.dart` | **The core.** Owns settings, the scanned library and your edits. Runs scans and server syncs one at a time, then rebuilds the song, album, artist and book lists. Also follows moved files, keeps "missing" songs, custom covers, backup and restore, and writing edits into files. |
-| `player_model.dart` | Joins the play queue to the audio engine (media_kit / mpv). Handles gapless (the engine holds only the current song and the next one), book mode (saving your place, skipping across files, chapters, speed per book) and the music queue that waits while a book plays. |
+| `library_model.dart` | **The core.** Owns settings (including the look: themes, text size, corners), the scanned library and your edits. Runs scans (all folders, or one with `scanFolder`) and server syncs one at a time, then rebuilds the song, album, artist and book lists. Also follows moved files, keeps "missing" songs, custom covers, backup and restore, and writing edits into files. |
+| `player_model.dart` | Joins the play queue to the audio engine (media_kit / mpv). Handles gapless (the engine holds only the current song and the next one), book mode (saving your place, skipping across files, chapters, speed per book), the music queue that waits while a book plays, swipe to skip, mute, and the checks that keep background playback going on the phone. |
 | `play_queue.dart` | The play order with no audio in it: queue, current position, shuffle (keeping the original order), repeat, Play next, reordering, and a peek at what plays next. |
 | `library_index.dart` | Plain functions that group songs into albums and artists (ignoring a leading "The") and run the song, album and artist search. |
 | `music_filters.dart` | The Artists, Albums and Songs tabs' title box (`titleMatches`), filters (`MusicFilters` with one `FilterField` per artist / album / genre / decade) and sorting (`sortArtists`, `sortAlbums` with decade headings, `sortSongs`). No Flutter, so it's unit tested directly. |
@@ -82,7 +88,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `lyrics_model.dart` | Picks a song's lyrics from five sources in order: your edit, the file or `.lrc`, saved online finds, the server, LRCLIB. Caches finds and "nothing found" in `lyrics.json`. |
 | `sleep_timer.dart` | The sleep timer: minutes, or end of chapter or song. Fades the volume out, then pauses and saves the book's place. |
 | `selection_model.dart` | What's ticked in select mode: songs, albums or audiobooks (one kind at a time), plus what "Select all" covers. |
-| `update_model.dart` | Check for updates (0.1.23): where the check has got to, the newest release found, download progress, the once-a-day check and its switch (`updates.json`). |
+| `update_model.dart` | Check for updates (0.1.23): where the check has got to, the newest release found, download progress, the once-a-day check and its switch (`updates.json`). Since 0.1.28 it also remembers the version that last ran, so it knows when to show "What's new" and fetches the release notes for it. |
 
 ### Services (`lib/services/`): files, network and the OS
 
@@ -108,6 +114,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `path_safety.dart` | `isUsableLocalFile` / `isInsideAny`: checks a path is inside the library folders (or the app's art folder) before it's opened, shown in Explorer, played, read as a cover or written to. Paths from a restored backup can't be trusted. |
 | `server_art_cache.dart` | Downloads server covers into `art/server/` so the system media controls get a `file://` path instead of a server address that carries the login token. |
 | `update_checker.dart` | Reads the latest GitHub release, compares versions, and on an installed Windows copy downloads the installer, checks it against the release's SHA256SUMS file and runs it silently; otherwise opens the download page in the browser (0.1.23). |
+| `app_licences.dart` | Adds the audio engine's LGPL notice and the LGPL and GPL texts (bundled from `licenses/`) to Flutter's licence page, Settings › About › Licences (0.1.31). Flutter lists the Dart packages and HomeTunes' own MIT licence by itself. |
 
 ### UI frame (`lib/ui/`)
 
@@ -115,7 +122,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | --- | --- |
 | `shell.dart` | The outer frame. Wide windows get a sidebar and the desktop player bar; phones get a mini player and bottom tabs. Also the scan-progress strip, the two selection bars (songs; albums or books, with Edit, favourites and the quick actions) and the Back-button rules. |
 | `nav.dart` | `AppNav`: the current tab, a separate page stack per tab (so album pages open inside the content area while the player stays put), and "open Settings at this setting". |
-| `theme.dart` | The colour themes (`AppPalette`: Default, Midnight, Forest, Your own), `AppColors` (the current theme's colours), the Material theme, and the time formatters ("3:07", "1 hr 12 min"). |
+| `theme.dart` | The colour themes (`AppPalette`: Default, Midnight, Forest, Your own, and saved themes from Advanced), `AppColors` (the current theme's colours), `AppShape` (corner roundness), the text-size choices, the readability check, the Material theme (`buildTheme`, which also gives every notice its ✕), and the time formatters ("3:07", "1 hr 12 min"). Read `AppColors` in `build`, never in a `const`. |
 
 ### Screens (`lib/ui/screens/`)
 
@@ -140,17 +147,21 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 
 ### Settings (`lib/ui/screens/settings/`)
 
-`settings_screen.dart` is the hub: a list of pages with a search box, shown side by side on windows 760 px or wider. `settings_catalog.dart` lists every page and every searchable setting. `settings_widgets.dart` holds the shared building blocks, including the glow that highlights a setting found by search. Then there is one file per page: `library_settings`, `playback_settings`, `sleep_settings`, `audiobook_settings`, `online_settings`, `server_settings`, `edits_settings`, `backup_settings` and `about_settings`. Playback opens the Equaliser, and Audiobooks has the switch for a separate audiobook preset. `update_ui.dart` (0.1.23) holds the About page's "Check for updates" rows, the "Update to HomeTunes x?" dialog and the start-up notice.
+`settings_screen.dart` is the hub: a list of pages with a search box, shown side by side on windows 760 px or wider. `settings_catalog.dart` lists every page (the `SettingsPage` list, kept in A–Z order by title) and every searchable setting. `settings_widgets.dart` holds the shared building blocks, including the glow that highlights a setting found by search. Then there is one file per page: `about_settings`, `appearance_settings`, `audiobook_settings`, `backup_settings`, `library_settings` (shown as "Folders & scanning"; it also has the Folder options and `AudiobookFoldersSection`, which Audiobooks shows too), `online_settings`, `playback_settings`, `server_settings`, `sleep_settings` and `edits_settings` ("Your edits"). Playback opens the Equaliser, and Audiobooks has the switch for a separate audiobook preset. About has the version, updates, What's new, the Playback log, Licences and the data folder. Three more files belong to pages:
+
+- `update_ui.dart` (0.1.23): the About page's "Check for updates" rows, the "Update to HomeTunes x?" dialog and the start-up notice.
+- `whats_new_ui.dart` (0.1.28): the "What's new" pop-up after an update, built from the GitHub release pages, and About's "What's new in this version" row.
+- `theme_sharing.dart` (0.1.29): Share… (a theme code to copy, or a `.hometunes-theme` file) and Import a theme, used by Appearance. Only the theme's name and colours are shared, and anything read back is checked.
 
 ### Widgets (`lib/ui/widgets/`)
 
 | File | What it is |
 | --- | --- |
-| `player_controls.dart` | Seek bar, play/pause and skip buttons (music or book mode), like button, phone mini player, desktop player bar, volume (`VolumeControl`, and `VolumeButton` with its pop-up slider for the mini player), and swipe to skip (`SwipeToSkip`, `PlayerSwipe`). |
+| `player_controls.dart` | Seek bar, play/pause and skip buttons (music or book mode), like button, phone mini player, desktop player bar, volume (`VolumeControl`, whose speaker icon mutes and unmutes, and `VolumeButton` with its pop-up slider for the mini player), and swipe to skip (`SwipeToSkip`, `PlayerSwipe`). |
 | `listening_controls.dart` | Sleep timer (moon) button, −15/+30 skips, speed button and chooser, chapter list. |
 | `lyrics_view.dart` | The lyrics panel. Timed lyrics highlight the current line and scroll along; tapping a line jumps there. |
 | `track_tile.dart` | A song row, its ⋮ menu (right-click opens it too, and it now has Details…), Add to playlist, and the name prompt. |
-| `cards.dart` | Album and artist tiles, the horizontal scrolling shelves on Home, and `SelectableCard` (right-click / press and hold → Select for album and book tiles). |
+| `cards.dart` | Album and artist tiles (album covers show a play button on mouse hover, `HoverPlayCover`), the horizontal scrolling shelves on Home, and `SelectableCard` (right-click / press and hold → Select for album and book tiles, plus "Open album page" on an artist page). |
 | `book_card.dart` | Book covers and tiles with a progress bar, the favourite heart (top right) and the finished tick (bottom right). |
 | `bookmark_widgets.dart` | Adding, listing and jumping to bookmarks. |
 | `collection_header.dart` | The big header on album, artist and playlist pages with Play and Shuffle. |
@@ -167,12 +178,12 @@ Everyday journeys through the code. Following one of these in the editor is the 
 
 1. The job joins the queue in `_enqueue`, so scans and server syncs never run at the same time.
 2. It checks Android's music permission first. Without it, a scan would find nothing and wrongly empty the library.
-3. `LocalScanner.scan` (in `local_scanner.dart`) walks the folders, then reads tags in up to 6 background workers. Files with the same modified time as last scan are reused, not re-read.
+3. `_scanAvailable` hands the folders it can reach to `LocalScanner.scan` (in `local_scanner.dart`), which walks them, then reads tags in up to 6 background workers. Files with the same modified time as last scan are reused, not re-read. A folder that can't be reached (unplugged drive, sleeping network share) keeps its songs as they were.
 4. Scan progress goes into `statusText` only, so the whole app isn't redrawn for every file.
 5. `_reconcile` follows moved files (`track_matching.dart`) and keeps missing songs that still have edits or playlist places. It then tells the other models through `onIdsRemapped`.
 6. The result is saved to `library.json`, unused covers are tidied away, and `_rebuild()` runs.
 
-**`_rebuild()`: the heart of the library.** It lays your edits over the scanned songs, sorts each file into music or audiobook (`BookRules` in `book_index.dart`), groups albums and artists (`library_index.dart`) and books (`groupBooks`), then calls `notifyListeners()` so every screen redraws.
+**`_rebuild()`: the heart of the library.** It leaves out file types you've unticked in a folder's File types, lays your edits over the scanned songs, sorts each file into music or audiobook (`BookRules` in `book_index.dart`), groups albums and artists (`library_index.dart`) and books (`groupBooks`), then calls `notifyListeners()` so every screen redraws.
 
 **Pressing play on a song**
 
@@ -213,7 +224,7 @@ Everything lives in the app's data folder, `…/hometunes/` inside the system's 
 
 | File or folder | Holds | Owned by |
 | --- | --- | --- |
-| `settings.json` | Music folders, server details, every switch and setting | `LibraryModel` |
+| `settings.json` | Music folders, server details (normally not the password, which is in the system's protected storage), your colour themes, text size and corners, every switch and setting | `LibraryModel` |
 | `library.json` | Every scanned song (local, server and missing) | `LibraryModel` |
 | `edits.json` | Your edits to songs and books | `LibraryModel` |
 | `playlists.json` | Playlists, Liked Songs and favourite albums and books (stored as song ids, so they survive regrouping and moved files) | `PlaylistsModel` |
@@ -223,9 +234,12 @@ Everything lives in the app's data folder, `…/hometunes/` inside the system's 
 | `equalizer.json` | Equaliser on/off, the chosen presets, edited and your own presets | `EqualizerModel` |
 | `art/` | Covers taken from files (`art/custom/` holds the ones you chose; `art/server/` holds server covers for the media controls, left out of backups) | `local_scanner.dart`, `LibraryModel`, `server_art_cache.dart` |
 | `playback-log.txt` | The playback log (last 400 lines). Not in backups | `playback_log.dart` |
-| `updates.json` | The daily update check switch and when it last ran. Not in backups (it belongs to the device) | `UpdateModel` |
-| `backups/` | Copies of music files made before writing edits into them | `tag_writer.dart` |
-| `before-restore.htbackup` | Your data from just before the last restore | `app_backup.dart` |
+| `updates.json` | The daily update check switch, when it last ran, and the version that last ran (for "What's new"). Not in backups (it belongs to the device) | `UpdateModel` |
+| `backups/` | Copies of music files made before writing edits into them, one dated folder per run | `LibraryModel`, `tag_writer.dart` |
+| `before-restore.htbackup` | Your data from just before the last restore | `LibraryModel`, `app_backup.dart` |
+| `<name>.corrupt-<date>.json` | A damaged data file, kept before it's replaced (the newest 3 of each) | `Storage` |
+
+The server password is normally not in this folder: it's in Windows Credential Manager, the Android Keystore or the Linux keyring (`secret_store.dart`), and only stays in `settings.json` if that storage isn't available. A downloaded update installer goes in a `HomeTunes-update` folder in the system's temp folder.
 
 **Rule to remember:** if you add a new data file, add it to `dataFiles` in `app_backup.dart` so backups include it.
 
@@ -236,21 +250,26 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | Script | What it does | How to run it |
 | --- | --- | --- |
 | `setup.ps1` / `setup.sh` | One-time set-up for a fresh copy: `flutter create` makes the platform folders, `patch_platforms.dart` adjusts them, then `flutter pub get`. Safe to run again. | `.\setup.ps1` |
-| `tool/patch_platforms.dart` | Adjusts the generated platform folders: Android permissions, the background media service, the Back-button code, `compileSdk = 37`, and the rule that keeps the lock-screen icons. Also macOS and iOS settings. | Run by `setup.ps1`; or `dart run tool/patch_platforms.dart` |
-| `tool/build_release.ps1` | Builds Windows, copies in the Visual C++ runtime, then makes a portable zip and (with Inno Setup 6) an installer in `build\dist\`. With `-Android` it also builds the APK and refuses one that isn't signed with the release key. The version comes from `pubspec.yaml`. | `powershell -ExecutionPolicy Bypass -File tool\build_release.ps1` (add `-SkipBuild` to reuse the last build, `-Android` for the phone app) |
-| `installer/hometunes.iss` | The Inno Setup recipe: per-user install (no admin), optional desktop icon, leaves your data on uninstall. Its `AppId` must never change. | Used by `build_release.ps1` |
-| `tool/probe_books.dart` | Prints the raw tags, length and chapters of each audio file | `dart run tool/probe_books.dart <folder>` |
+| `tool/patch_platforms.dart` | Adjusts the generated platform folders: Android permissions, the background media service, the Back-button code, `compileSdk = 37`, release signing from `android/key.properties`, no Android cloud backup (`allowBackup="false"` and `data_extraction_rules.xml`), and the rule that keeps the lock-screen icons. Also macOS and iOS settings. | Run by `setup.ps1`; or `dart run tool/patch_platforms.dart` |
+| `tool/build_release.ps1` | Builds Windows, copies in the Visual C++ runtime and the licence files (`LICENSE.txt`, `THIRD_PARTY_NOTICES.md`, `licenses\`), then makes a portable zip and (with Inno Setup 6) an installer in `build\dist\`. With `-Android` it also builds the APK and refuses one that isn't signed with the release key. The version comes from `pubspec.yaml`. | `powershell -ExecutionPolicy Bypass -File tool\build_release.ps1` (add `-SkipBuild` to reuse the last build, `-Android` for the phone app) |
+| `tool/engine_source.ps1` | Makes `build\dist\HomeTunes-audio-engine-source.zip`: the source code of the audio engine's LGPL parts (mpv, FFmpeg, FriBidi) at the exact versions built into HomeTunes, plus the scripts that built them. Made once and reused; `publish_release.ps1` runs it. Update its list if media_kit's engine files change. | `powershell -ExecutionPolicy Bypass -File tool\engine_source.ps1` (`-Force` to remake it) |
+| `tool/attach_engine_source.ps1` | Adds that zip to releases already on GitHub that don't have it (used once on 30 Sep for the older releases). | `powershell -ExecutionPolicy Bypass -File tool\attach_engine_source.ps1` (`-Tags v0.1.30` for just some) |
+| `tool/publish_release.ps1` | Puts the finished builds on GitHub as a release: tags `origin/main` as `v<version>`, uploads the APK, installer, zip, the audio engine's source zip, the user guide (as `HomeTunes-README.md`) and `HomeTunes-<ver>-SHA256SUMS.txt`. The page shows "What's new in x" from `-NotesFile`, then the user guide. Refuses a debug-signed APK. Installed copies rely on its file names and checksum file to update themselves. | `powershell -ExecutionPolicy Bypass -File tool\publish_release.ps1 -NotesFile <notes.md>` (`-Version` to override, `-UpdateOnly` to refresh just the page text and guide) |
+| `tool/switch_branch.ps1` | Switches git branches only when nothing is unsaved and no debug run is going. Use it instead of a bare `git checkout`. | `powershell -ExecutionPolicy Bypass -File tool\switch_branch.ps1 <branch>` (`-New [-From <base>]` to create one, `-Force` only for your own unsaved changes) |
+| `installer/hometunes.iss` | The Inno Setup recipe: per-user install (no admin), optional desktop icon, leaves your data on uninstall, and `/RELAUNCH=1` to reopen HomeTunes after a self-update. Its `AppId` must never change. | Used by `build_release.ps1` |
+| `tool/probe_books.dart` | Prints the raw tags, length and chapters of each audio file (the first 12 unless you say) | `dart run tool/probe_books.dart <folder or file> [max files]` |
 | `tool/probe_book_extras.dart` | Runs the real scanner and book grouping, then shows each book and what came from files beside it | `dart run tool/probe_book_extras.dart <folder>` |
 | `tool/probe_library.dart` | Shows how a folder will be grouped into books, with series and chapters | `dart run tool/probe_library.dart <folder>` |
 | `tool/probe_lyrics.dart` | Checks the live LRCLIB look-up. Prints counts only, never lyrics. | `dart run tool/probe_lyrics.dart "Title" "Artist" [seconds]` |
-| `tool/bench_scan.dart` | Times tag reading with one worker against several, and a rescan where nothing changed | `dart run tool/bench_scan.dart` |
+| `tool/bench_scan.dart` | Times tag reading with one worker against several, and a rescan where nothing changed | `dart run tool/bench_scan.dart <folder> [files to read, default 400]` |
 | `tool/bench/engine_test.dart`, `player_gapless_test.dart` | Checks the real mpv engine and the app's player with generated test tones: gapless, Play next, repeat-one, equaliser and ReplayGain filters | `flutter test tool/bench/engine_test.dart --dart-define=LIBMPV=<path to libmpv-2.dll>` (the DLL is in `build\windows\x64\runner\Release\` after a Windows build) |
 | `tool/probe_update_test.dart` | Live check of Check for updates: reads the real latest release, downloads its Windows installer and checks its checksum. Installs nothing. | `flutter test tool/probe_update_test.dart` |
-| `tool/bench/library_scan_test.dart` | Times a first scan and a rescan through `LibraryModel` and counts screen updates | `flutter test tool/bench/library_scan_test.dart` |
+| `tool/bench/library_scan_test.dart` | Times a first scan and a rescan through `LibraryModel` and counts screen updates | `flutter test tool/bench/library_scan_test.dart --dart-define=FOLDER=F:\Music` |
+| `tool/theme_preview_test.dart`, `ui_preview_test.dart`, `whats_new_preview_test.dart`, `theme_sharing_preview_test.dart`, `notice_close_preview_test.dart` | Draw screens off-screen and save pictures to `C:\Temp\ht\preview`, so changes can be checked without opening a window: each colour theme (0.1.24), the queue drawer and artist page (0.1.26), the What's new pop-up (0.1.28), sharing themes (0.1.29) and a notice with its ✕ (0.1.30). Nothing is shown on screen. | `flutter test tool/theme_preview_test.dart` (and so on) |
 
 ## Tests
 
-`flutter test` runs everything in `test/` (266 tests, all passing on the 0.1.18 branch on 26 Sep). To run one file: `flutter test test/books_test.dart`. Tests use the tiny tagged files in `test/fixtures/` and fake servers, so they need no internet and don't touch your library.
+`flutter test` runs everything in `test/` (the scripts in `tool/` aren't part of it). To run one file: `flutter test test/books_test.dart`. Tests use the tiny tagged files in `test/fixtures/` and fake servers, so they need no internet and don't touch your library.
 
 | File | Covers |
 | --- | --- |
@@ -273,12 +292,20 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `book_edit_bookmarks_test.dart` | Narrator and series edits, editing a whole book, bookmarks, Open Library, Books sort and filter |
 | `keep_and_backup_test.dart` | Following moved songs, keeping edits for missing songs, backup round trip and merging |
 | `listening_controls_test.dart` | Skipping across book files, speed, volume wheel, the sleep timer |
-| `settings_test.dart` | Settings search and every Settings page on phone and wide layouts |
+| `settings_test.dart` | Settings search, the pages staying in A–Z order, and every Settings page on phone and wide layouts |
 | `details_test.dart` | Where details come from (tags, folder and file names, book details file, edits, server) and why something is a book |
 | `favourites_test.dart` | Favourite albums and books: saving, surviving moves and backups, the tile menu and heart |
 | `multi_edit_test.dart` | Selecting albums and books, the tiles' Select menu, and editing several albums, books or songs with `--:--` |
-| `update_test.dart` | Check for updates: version comparison, reading the release and checksum file, which links may be downloaded, the daily check and its switch, a wrong checksum being refused (fake GitHub) |
+| `update_test.dart` | Check for updates: version comparison, reading the release and checksum file, the "What's new" text, which links may be downloaded, the daily check and its switch, a wrong checksum being refused (fake GitHub) |
+| `whats_new_test.dart` | "What's new" after an update: which releases are listed, noticing the first start after an update (and not on a fresh install), and the pop-up (fake GitHub) |
 | `equalizer_test.dart` | Preset filter text (including bands left out for low sample rates), editing and restoring presets, your own presets, music vs audiobook presets, saving, and the Equaliser screen |
+| `playback_guard_test.dart` | The locked-phone fix: the 5-second wait before telling the phone "paused", the stall detector, and the playback log |
+| `theme_test.dart` | Colour themes: the ready-made ones, "Your own" staying readable, saving the choice, the Appearance page, the colour picker, and the whole app redrawing in the new colours |
+| `theme_sharing_test.dart` | Typing or pasting a colour code, theme codes and files, reading them back safely, importing without clashing with your own themes, and the Share / Import dialogs |
+| `ui_feedback_test.dart` | The queue drawer, an artist page's albums opening in place with "Open album page", and the hover play button |
+| `folder_options_test.dart` | Rescanning one folder, a folder's File types tick boxes, and the speaker icon as mute / unmute |
+| `notice_close_test.dart` | Every notice at the bottom of the screen has a ✕ in every kind of theme, and closing it doesn't do the Undo |
+| `licences_test.dart` | The MIT `LICENSE`, the bundled LGPL and GPL texts, and what Settings › About › Licences adds |
 
 ## Working with the code
 
@@ -304,25 +331,31 @@ While `flutter run` is going, press `r` to hot reload (keeps the app's state) or
 | --- | --- | --- |
 | Change how a page looks | The page's file in `lib/ui/screens/` | Shared pieces (song rows, covers, player bar) are in `lib/ui/widgets/` |
 | Add a new setting | The page's file in `lib/ui/screens/settings/`, plus a field and setter in `LibraryModel` | Wrap it in a `SettingTarget` and add an entry to `settingsCatalog` so search finds it. Save it in `settings.json`. |
+| Add a new Settings page | `SettingsPage` in `settings_catalog.dart`, plus a new page file | Keep the list in A–Z order by title: `settings_test.dart` checks it |
+| Change colours or add a ready-made theme | `builtInPalettes` in `lib/ui/theme.dart` | Read `AppColors` in `build`, never in a `const`; check it with `tool/theme_preview_test.dart` |
 | Add a field to songs | `lib/models/track.dart` | Add it to `toJson`, `fromJson`, `copyWith` **and** `TrackEdit.applyTo`, which builds a Track by hand |
 | Change what counts as an audiobook | `BookRules.isBook` in `lib/state/book_index.dart` | Six rules, first match wins |
 | Change play order, shuffle or repeat | `lib/state/play_queue.dart` | Pure logic with no audio, well covered by `play_queue_test.dart` |
 | Change how songs play | `lib/state/player_model.dart` | Keep the gapless rule: the engine only ever holds the current song and the next |
 | Open a new page from somewhere | `AppNav` in `lib/ui/nav.dart` | Use `context.read<AppNav>().push(...)` so the page opens inside the current tab |
-| Add a new saved data file | `lib/services/storage.dart` (read/write) | Add it to `dataFiles` in `app_backup.dart` |
+| Add a new saved data file | `lib/services/storage.dart` (read/write) | Add it to `dataFiles` in `app_backup.dart` (unless it belongs to the device, like `updates.json`), and give it a plain name in `Storage.describe` for error messages |
 | Change a borrowed package | `packages/<name>/` | Mark the change `HomeTunes:` and log it in that package's `HOMETUNES_CHANGES.md` |
 | Add or change a built-in equaliser preset | `builtInEqPresets` in `lib/models/eq_preset.dart` | Test it with `tool/bench/engine_test.dart`: mpv can accept a filter and still fail to play it |
 | Add a quick action for albums or books | `albumActions` / `bookActions` in `lib/ui/widgets/quick_actions.dart` | They appear in tile menus and the selection bar's ⋮ |
-| Release a new version | `version:` in `pubspec.yaml` | Always raise the build number after `+`; Android refuses a lower one |
+| Release a new version | `version:` in `pubspec.yaml` | Always raise the build number after `+`; Android refuses a lower one. Build with `build_release.ps1`, then publish with `publish_release.ps1 -NotesFile …` so installed copies can update themselves and show "What's new" |
 
 ## Things spotted while commenting
 
-Reading every file turned up a handful of probable bugs. **None of them were changed.** The comments only describe the code. These come from reading the code, not from running it, so each one is worth confirming before fixing. Most likely to affect you first:
+Reading every file (25 Sep) turned up a list of probable bugs. The comments only described the code; the fixes came afterwards, in the code-review releases 0.1.14–0.1.16 (below). Two are **still open** (checked against the code on 30 Sep). They come from reading the code, not from running it, so each is worth confirming before fixing:
 
 | Where | What could go wrong | Likely impact |
 | --- | --- | --- |
 | `music_info.dart` `normalizeTitle` | Keeps only a–z and 0–9, so non-Latin titles (Japanese, Cyrillic…) all become empty and match the first track, which could set wrong track numbers | Medium, for non-Latin albums |
 | `tag_writer.dart` | Plain `.aac` files are treated as writable like M4A, but they aren't MP4 files, so writing will fail with an error (the original is left untouched) | Low |
+
+### What each release fixed or added (0.1.14 onwards)
+
+Kept because it explains why parts of the code are built the way they are. The newest user-facing details are in `03_FEATURES_AND_DESIGN_NOTES.md`.
 
 **Fixed in 0.1.14 (branch `fix/release-a-data-safety`):** the side-file stamp is now an md5 that stays the same between runs (it used `Object.hash`, which changes every run, so every file beside a cover picture was re-read at each startup); `Storage.write` no longer deletes the old file before the rename, and `Storage.read` recovers from `.tmp`, keeps damaged files as `<name>.corrupt-<date>.json` and reports them in the status strip; tag writing goes into a working copy (`<file>.hometunes-tmp`) that replaces the original only after it's checked; and every model's `load()` reads its file defensively, so a wrong type skips one value or entry instead of stopping the app starting. Tests: `test/data_safety_test.dart` plus new cases in `services_test.dart`, `metadata_features_test.dart` and `book_sidecar_test.dart`.
 
@@ -330,7 +363,7 @@ Reading every file turned up a handful of probable bugs. **None of them were cha
 
 **Fixed in 0.1.16 (branch `fix/release-c-library-safety`):** a music or audiobook folder that can't be reached (unplugged drive, sleeping network share) keeps its songs and covers as they were, with a message in the status strip and "Not available right now" in Settings, instead of looking empty; failed saves are reported in the status strip (once per file, cleared when that file saves again) and a restore that can't save a file fails instead of reporting success; emptying a detail now removes it (`TrackEdit.cleared`, saved as `"cleared": [...]` in `edits.json`: track and disc number, year and genre in the song editor, year and genre in album edits, number in series and year in the book editor), and older `edits.json` files load unchanged; saving a book file in the song editor keeps its narrator and series; both editors show an error instead of sticking on the spinner; the "Audiobooks folder" rule only looks from the scanned folder down (its own name included); lyrics found online follow moved files; a newly imported cover isn't tidied away before the editor saves it; "End of song" works with repeat-one; learned song lengths are read a few seconds after the song starts (fixing the race), applied together and saved at most every 30 seconds and when the app goes to the background; and book places are looked up without saving anything, with moved books adopted once per library rebuild. Tests: `test/library_safety_test.dart`, plus sleep timer cases in `listening_controls_test.dart`.
 
-**Fixed in 0.1.17 (branch `fix/release-d-windows-and-security`):** the Windows media-keys plugin (`packages/audio_service_win`) no longer sends button presses to Flutter from a background thread (they're queued and run on the platform thread through a window message; the old code logged "sent a message from native to Flutter on a non-platform thread … may result in data loss or crashes"), covers are applied on the platform thread only if no newer song has arrived, and cover paths with `+` or on network shares work (see its `HOMETUNES_CHANGES.md`); the music server's password is kept in the system's protected storage (`services/secret_store.dart`, the `flutter_secure_storage` package; on Windows this needs Visual Studio's "C++ ATL" component) keyed by address and user name, an old plain-text password in `settings.json` is moved there on first start, backups (including the automatic "before restore" one) only include it when asked, an address typed without a scheme is tried with `https://` first, Settings › Servers warns about plain http outside the home network, and login tokens are hidden in error messages (`hideSecrets`). Tests: `test/server_security_test.dart`. New in 0.1.17 too: **swipe to skip** on touch screens (the phone's mini player and the Now Playing cover): swipe left for the next song, right for the previous one, and in an audiobook forward or back by the Settings › Audiobooks skip lengths (`SwipeToSkip` / `PlayerSwipe` in `player_controls.dart`, `PlayerModel.swipe`, the "Swipe gestures" switch in Settings › Playback; mouse drags are ignored). Tests: `test/swipe_test.dart`.
+**Fixed in 0.1.17 (branch `fix/release-d-windows-and-security`):** the Windows media-keys plugin (`packages/audio_service_win`) no longer sends button presses to Flutter from a background thread (they're queued and run on the platform thread through a window message; the old code logged "sent a message from native to Flutter on a non-platform thread … may result in data loss or crashes"), covers are applied on the platform thread only if no newer song has arrived, and cover paths with `+` or on network shares work (see its `HOMETUNES_CHANGES.md`); the music server's password is kept in the system's protected storage (`services/secret_store.dart`, the `flutter_secure_storage` package; on Windows this needs Visual Studio's "C++ ATL" component) keyed by address and user name, an old plain-text password in `settings.json` is moved there on first start, backups (including the automatic "before restore" one) only included it when asked (0.1.21 removed that choice: backups never include it now), an address typed without a scheme is tried with `https://` first, Settings › Servers warns about plain http outside the home network, and login tokens are hidden in error messages (`hideSecrets`). Tests: `test/server_security_test.dart`. New in 0.1.17 too: **swipe to skip** on touch screens (the phone's mini player and the Now Playing cover): swipe left for the next song, right for the previous one, and in an audiobook forward or back by the Settings › Audiobooks skip lengths (`SwipeToSkip` / `PlayerSwipe` in `player_controls.dart`, `PlayerModel.swipe`, the "Swipe gestures" switch in Settings › Playback; mouse drags are ignored). Tests: `test/swipe_test.dart`.
 
 **New in 0.1.18 (branch `feature/library-filters`):** the Artists, Albums and Songs tabs in Your Library can be filtered and sorted like the Books tab: a box at the top filters by title as you type (every word must be in the artist name, album title or song title, in any order); All / Favourites chips (Liked for songs; an artist counts as a favourite when one of their albums is a favourite or one of their songs is liked); a filter sheet to show only one artist, album, genre and/or decade, each list narrowed by the other picks; and a sort menu (artists: name A–Z / Z–A, most albums, most songs, recently added; albums: artist, title, year newest or oldest first with decade headings, recently added; songs: title, artist, album, year, recently added, longest). Shuffle on the Songs tab plays just the songs shown. Code: `state/music_filters.dart`, `ui/widgets/music_filter_sheet.dart`, `ui/screens/library_screen.dart`. Tests: `test/library_filters_test.dart`.
 
@@ -338,7 +371,7 @@ Reading every file turned up a handful of probable bugs. **None of them were cha
 
 **Fixed in 0.1.20 (branch `background-playback`):** on the phone, playback stopped a while after locking the screen while the app still showed it playing. Opening each song makes media_kit pause for a moment (`open()` stops, then sets pause, then plays), and that brief `playing: false` went straight to audio_service. With `androidStopForegroundOnPause` Android then drops the app's foreground (background-playback) service, and Android 12+ won't let a locked, backgrounded app start it again, so the app is frozen with the last "playing" state on screen. Now: `PlayerModel.pausedOnPurpose` records whether a pause was asked for (the button, sleep timer, end of the queue or book); `SystemPlayingState` (`state/playback_guard.dart`) only passes a pause nobody asked for to the media controls after 5 seconds; `StallDetector` (checked every 3 s by `PlayerModel._checkProgress`) restarts a song whose position hasn't moved for 10 s while "playing" (not buffering or opening), and if it stalls again within a minute pauses and says "Playback stopped by itself. Press play to carry on."; `checkAfterResume()` does the same check when the app comes back on screen. A new playback log (`services/playback_log.dart`, `playback-log.txt`, last 400 lines, not in backups) records songs opening, play/pause, the app going to the background and back, what the media controls were told, and any recovery; it's shown in Settings › About › Playback log with Copy and Clear. The user confirmed it fixed on the phone (28 Sep). If it comes back, check with adb while locked (`dumpsys activity services com.hometunes.hometunes` should say isForeground=true; logcat should have no ForegroundServiceStartNotAllowedException). Tests: `test/playback_guard_test.dart`.
 
-**Fixed in 0.1.21 (branch `security-fixes`, security review of 28 Sep; details in `claude/06_SECURITY_REVIEW.md`):**
+**Fixed in 0.1.21 (branch `security-fixes`, security review of 28 Sep; summary in `04_ROADMAP_AND_OPEN_ITEMS.md` → Security):**
 - **Release signing (#1):** release APKs are signed with HomeTunes' own key, read from `android/key.properties` (gitignored; the key itself is outside the repo). Gradle refuses a release build without it, and `build_release.ps1 -Android` / `publish_release.ps1` refuse a debug-signed APK. Going from 0.1.20 needed one uninstall and restore on the phone.
 - **Login token (#2):** server covers go to the media controls as files downloaded by `ServerArtCache` (`art/server/`), never as the server address. The Windows plugin no longer logs the cover address.
 - **Paths from backups (#3):** `path_safety.dart`. Opening a book's PDF/EPUB, "Show in folder", playing, showing covers and writing tags only use paths inside the library folders (covers: or the app's art folder). `AppBackup.sanitize` drops restored cover edits outside `art/` and companion files that aren't PDF or EPUB.
@@ -349,11 +382,11 @@ Reading every file turned up a handful of probable bugs. **None of them were cha
 - **Engine (#8):** media_kit and its libraries were already the newest available; nothing to update. Recheck with `flutter pub outdated` now and then.
 - **Checksums (#9):** `publish_release.ps1` writes `HomeTunes-<ver>-SHA256SUMS.txt`, uploads it and lists the sums at the end of the release page.
 - **Secret store (#10):** the in-memory store is only used under `flutter test` in non-release builds; Linux uses the keyring.
-Tests: `test/security_fixes_test.dart`, plus changes in `server_security_test.dart` and `keep_and_backup_test.dart` (291 tests, all passing on 28 Sep).
+Tests: `test/security_fixes_test.dart`, plus changes in `server_security_test.dart` and `keep_and_backup_test.dart`.
 
 **New in 0.1.22 (branch `feature/volume-everywhere`):** a volume slider on Now Playing, under the play buttons (so it's there with the cover or the lyrics; Now Playing covers the desktop player bar), and a speaker button in the phone's mini player that opens a small slider (`VolumeButton`, a `MenuAnchor`). `VolumeControl` takes a `sliderWidth` (null fills the row) and `iconFor(volume)`.
 
-**New in 0.1.23 (branch `feature/update-check`, stacked on the volume branch):** Settings › About › **Check for updates** and a daily check with a switch; a notice with **Update…** when one is found. On an installed Windows copy, Update downloads the installer, checks its SHA-256 against the release's checksum file, closes HomeTunes and the installer updates and restarts it (`/RELAUNCH=1`, see `installer/hometunes.iss`). The phone and the zip copy open the download page. Code: `services/update_checker.dart`, `state/update_model.dart`, `ui/screens/settings/update_ui.dart`, the `openUrl` method in `MainActivity.kt`. Tests: `test/update_test.dart` (306 tests passing on 29 Sep); live probe `tool/probe_update_test.dart`.
+**New in 0.1.23 (branch `feature/update-check`, stacked on the volume branch):** Settings › About › **Check for updates** and a daily check with a switch; a notice with **Update…** when one is found. On an installed Windows copy, Update downloads the installer, checks its SHA-256 against the release's checksum file, closes HomeTunes and the installer updates and restarts it (`/RELAUNCH=1`, see `installer/hometunes.iss`). The phone and the zip copy open the download page. Code: `services/update_checker.dart`, `state/update_model.dart`, `ui/screens/settings/update_ui.dart`, the `openUrl` method in `MainActivity.kt`. Tests: `test/update_test.dart`; live probe `tool/probe_update_test.dart`.
 
 **New in 0.1.24 (branch `feature/themes`):** colour themes in Settings › Appearance (`appearance_settings.dart`): Default, Midnight, Forest and Your own (highlight + background). `theme.dart` now has `AppPalette` and `AppColors` getters that read the current theme, so **don't use `AppColors` inside `const`**; read it in `build`. `main.dart` rebuilds the Material theme and redraws everything when the theme changes (`RedrawOnThemeChange`). Tests: `test/theme_test.dart`; off-screen pictures of each theme: `flutter test tool/theme_preview_test.dart`.
 
@@ -363,14 +396,16 @@ Tests: `test/security_fixes_test.dart`, plus changes in `server_security_test.da
 
 **New in 0.1.27 (branch `feature/folder-options`):** each folder row has a Folder options button (`FolderOptionsButton` / `showFolderOptions` in `library_settings.dart`) with **Rescan this folder** (`LibraryModel.scanFolder`) and **File types** tick boxes (`formatsIn`, `formatShown`, `setFormatShown`, `hiddenFormats` in settings.json; `_rebuild` leaves unticked types out). The speaker icon beside any volume slider mutes and unmutes (`PlayerModel.toggleMute` / `muteToggle`). Tests: `test/folder_options_test.dart`.
 
+**New in 0.1.28:** the first start after an update shows a "What's new" pop-up built from the "What's new in x" sections of every GitHub release page since the version that ran before, and Settings › About has **What's new in this version** (`whats_new_ui.dart`; `UpdateModel.lastRunVersion`, `justUpdated`, `fetchWhatsNew`). Copies older than 0.1.28 never recorded their version, so after updating from one only the new version's own page shows. Tests: `test/whats_new_test.dart`; picture: `flutter test tool/whats_new_preview_test.dart`.
+
+**New in 0.1.29:** a Colour code box in every colour picker (type or paste `#FF7A59`), and sharing themes: Share… gives a theme code to copy or a `.hometunes-theme` file, and Import a theme reads either (`theme_sharing.dart`). Tests: `test/theme_sharing_test.dart`; pictures: `flutter test tool/theme_sharing_preview_test.dart`.
+
+**New in 0.1.30:** every notice at the bottom of the screen has a ✕ beside Undo, set once for the whole app in `buildTheme` (`showCloseIcon` in `theme.dart`). Tests: `test/notice_close_test.dart`; picture: `flutter test tool/notice_close_preview_test.dart`.
+
+**New in 0.1.31:** HomeTunes is MIT-licensed (`LICENSE`). `THIRD_PARTY_NOTICES.md` and `licenses/` cover the audio engine (libmpv with FFmpeg, LGPL 3.0), Settings › About › Licences adds the engine's notice to Flutter's licence page (`app_licences.dart`), and the Windows downloads carry the licence files. Every release also gets `HomeTunes-audio-engine-source.zip`, the engine's LGPL source (`tool/engine_source.ps1`). Tests: `test/licences_test.dart`.
+
 A few existing comments are also out of date (left as they were): `Track` says narrator and series are never read from files (side files set them now); `showEditDetails` says music files are never modified (Settings → Your edits can write them); `SeekBar` says it redraws only from the position stream.
 
 ## About the comments
 
-The comments were added on the branch `docs/code-comments` and merged into `main` on 25 Sep 2026, together with this guide (`docs/ai-context/05_CODE_GUIDE.md`).
-
-- **What changed:** 104 files, about 2,165 comment lines added. No code was changed. A script confirmed that every original line is still there, untouched, and everything new is a comment. The 61 "removed" lines in git are lines that got a short comment added to the end.
-- **Covered:** everything in `lib/`, `test/` and `tool/`, the setup and build scripts, the installer script, `pubspec.yaml`, and the Windows media-keys plugin in `packages/audio_service_win`. The borrowed tag library `packages/audio_metadata_reader` was left alone, as it's third-party code.
-- **Checks on the PC:** `flutter analyze` reports no issues, and `flutter test` passed all 164 tests. (The handover notes say 165. Comments can't remove a test, so that count is probably out of date.)
-- **Since then:** code added in 0.1.10–0.1.13 (equaliser, editing several albums and books, favourites, quick actions, the Details page) came with the same kind of header and "why" comments.
-- **To see the change:** `git log --oneline` shows the merge; `git show` on the commit "Docs: explanatory comments throughout the code, plus a code guide" shows every comment added.
+The header and "why" comments were added on the branch `docs/code-comments` and merged into `main` on 25 Sep 2026, together with this guide. That change added comments only (about 2,165 lines across 104 files) and no code; a script checked every original line was untouched. It covered everything in `lib/`, `test/` and `tool/`, the setup and build scripts, the installer script, `pubspec.yaml` and the Windows media-keys plugin, but not the borrowed tag library `packages/audio_metadata_reader`, which is third-party code. Every file added since has come with the same kind of header comment; keep that up for new files. To see the original change, run `git show` on the commit "Docs: explanatory comments throughout the code, plus a code guide".

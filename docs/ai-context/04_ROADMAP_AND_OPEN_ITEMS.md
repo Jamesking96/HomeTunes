@@ -4,121 +4,56 @@
 The plan is published as an artifact (https://claude.ai/artifact/QsNhvBvSRx69PNvz3ULyjp), updated
 25 Sep 2026 (version 5) with the user's answers and two new pieces of work. Agreed order:
 **A settings tidy-up → B equaliser → C multi-album (and book) edit → D offline server songs.**
+A, B and C are finished; D and E are still open.
+
+Finished work has a one-line row here. How each piece was built is in `03_FEATURES_AND_DESIGN_NOTES.md`
+(`03_…`), and the fix-by-fix history of 0.1.14–0.1.24 is in `05_CODE_GUIDE.md` → "Things spotted
+while commenting".
 
 | Phase | Status |
 |---|---|
 | 0: engine check | Done. The arm64 `libmpv.so` has lavfi `equalizer` and `scaletempo2`, but no `superequalizer` or rubberband. The equaliser was confirmed running on the phone (logcat, 25 Sep). |
-| 1: gapless + ReplayGain | Done, in `main` |
-| 2: lyrics | Done, in `main` |
-| Book sidecar files | Done, in `main` |
-| A: settings tidy-up | **Done, merged (0.1.9+9)** |
-| B: equaliser (was phase 3) | **Done, merged (0.1.10).** Confirmed on the phone in logcat |
-| C: multi-album + multi-book edit | **Done, merged (0.1.11)** |
-| Favourite albums & books | **Done, merged (0.1.12)** |
-| Quick actions + Details page | **Done, merged (0.1.13)** |
-| Security fixes (all ten, 0.1.21) | **Done: merged, installed on the phone, released as v0.1.21 (28 Sep).** See "Security fixes" below and `06_SECURITY_REVIEW.md` |
-| Volume everywhere (0.1.22) | **Done: merged, released in v0.1.23 (29 Sep)** |
-| Check for updates (0.1.23) | **Done: merged, installed on the phone, released as v0.1.23 (29 Sep).** See `03_…` → Updates |
-| Colour themes (0.1.24) | **Done: merged, released as v0.1.24 (29 Sep).** See `03_…` → Colour themes |
-| Advanced appearance (0.1.25) | **Built 29 Sep** on `feature/advanced-themes`: saved themes with every colour (light too), text size, corners. Waiting for the user to try it. See `03_…` → Advanced appearance |
-| Queue drawer, artist albums in place, Settings A–Z (0.1.26) | **Built 29 Sep** on `feature/ui-feedback` (on top of 0.1.25); waiting for the user. See `03_…` |
-| Folder options + mute (0.1.27) | **Built 29 Sep** on `feature/folder-options` (on top of 0.1.26); waiting for the user |
+| 1: gapless + ReplayGain | Done |
+| 2: lyrics | Done. See `03_…` → Lyrics |
+| Book sidecar files | Done. See `03_…` → Book sidecar files |
+| A: settings tidy-up | Done (0.1.9). See `03_…` → Settings |
+| B: equaliser (was phase 3) | Done (0.1.10), confirmed on the phone in logcat. See `03_…` → Equaliser |
+| C: multi-album + multi-book edit | Done (0.1.11). See `03_…` → Editing several albums, books or songs |
+| Favourite albums & books | Done (0.1.12) |
+| Quick actions + Details page | Done (0.1.13) |
+| Code-review fixes, Windows media keys, swipe to skip, Library filters, Windows accessibility crash fix | Done (0.1.14–0.1.19). See `05_CODE_GUIDE.md` |
+| Lock-screen playback fix + Playback log | Done (0.1.20), confirmed by the user on 28 Sep |
+| Security fixes (all ten) | Done, released as v0.1.21 (28 Sep). See "Security" below |
+| Volume everywhere (0.1.22) | Done, released in v0.1.23 (29 Sep) |
+| Check for updates (0.1.23) | Done, released as v0.1.23 (29 Sep). See `03_…` → Updates |
+| Colour themes (0.1.24) | Done, released as v0.1.24 (29 Sep). See `03_…` → Colour themes |
+| Advanced appearance (0.1.25) | Done, released in v0.1.28 (29 Sep). See `03_…` → Advanced appearance |
+| Queue drawer, artist albums in place, Settings A–Z (0.1.26) | Done, released in v0.1.28 (29 Sep) |
+| Folder options + mute (0.1.27) | Done, released in v0.1.28 (29 Sep) |
+| What's new after an update (0.1.28) | Done, released as v0.1.28 (29 Sep) |
+| Colour codes and sharing themes (0.1.29) | Done, released in v0.1.30 (29 Sep) |
+| ✕ on notices (0.1.30) | Done, released as v0.1.30 (29 Sep) |
+| MIT licence + third-party notices (0.1.31) | **Merged (30 Sep), not released yet.** Rebuild before releasing. See `03_…` → Licence |
 | D: offline copies of server songs (was phase 4) | After the server review |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to D isn't decided |
-
-## Security fixes (28 Sep)
-A security review of 0.1.20 on 28 Sep found 3 medium and 7 low issues; details are in
-`06_SECURITY_REVIEW.md`. The plan was the artifact "HomeTunes Security Fix Plan"
-(https://claude.ai/artifact/PBV5TRiFopdA2mimDTAkLi).
-- **Decisions:** the user chose the recommended option every time:
-  - Switch the release key now.
-  - Android cloud backup off.
-  - Remove the backup password option.
-  - Ask once per server before using http.
-  - Checksums, and no paid Windows code signing.
-- The user asked for all fixes at once, so everything is in **0.1.21** on branch `security-fixes`:
-  - Code, tests and docs are done.
-  - `flutter analyze` is clean and 291 tests pass.
-  - A signed APK, zip and installer are in `build\dist`.
-- **The user created the release key** (`C:\Users\James.Miller\keys\hometunes-release.jks`) and
-  `android/key.properties` on 28 Sep. Never read or print either.
-- **Phone migration to 0.1.21 (one time):** export .htbackup → uninstall 0.1.20 → install 0.1.21 →
-  restore → type the server password. Ask before the install, as always.
-- **Installed on the phone on 28 Sep.** The user restores from their backup, which is on an
-  external hard drive.
-- **Merged into `main` and published** as GitHub release v0.1.21 on 28 Sep, with checksums. The
-  `security-fixes` branch was deleted.
-
-### A: Settings tidy-up (asked for 25 Sep, done in 0.1.9)
-The user wants Settings cleaner and easy to find things in. It used to be one long ListView
-(975 lines). It's now built on `settings-tidy`; see `03_…` → Settings.
-- **Section list:** Library, Playback, **Sleep timer** (its own page, as the user asked), Audiobooks,
-  Online lookups, Music server, Your edits (save edits into files), Backup & restore, About (new:
-  version and data folder).
-- **Layout:** two panes on wide windows (sections on the left, the open page on the right). On
-  phones it's a list, and each section opens its own page.
-- **Search box:** type a word, see the matching settings, and tap one to jump to it.
-- **Servers (asked for 25 Sep):** "Music server" was renamed **Servers**. It has two groups:
-  - **Music server:** the Subsonic connection as before.
-  - **Audiobooks:**
-    - a new **"Audiobooks from the music server"** switch (`LibraryModel.serverBooks`, default on).
-      When it's off, server tracks classed as books are dropped in `_rebuild`, and server music is
-      unaffected.
-    - an "Audiobook server" block. At the user's request it shows greyed-out boxes (server type,
-      address, username, password, Connect) under a "coming in a later update" notice. It's
-      `_AudiobookServerPreview` in `server_settings.dart`, and phase E makes it work.
-- **No behaviour changes.** Keep the user's placement rule: book settings go in Audiobooks,
-  playback settings in Playback, online look-ups in Online lookups. The sleep timer is the
-  exception and has its own page.
-
-### B: Equaliser (decided 25 Sep, done in 0.1.10)
-- **Presets UI:** the user picks from presets, not raw sliders on the main view. Built-ins: Flat,
-  Bass boost, Treble boost, Vocal, Rock, Pop, Classical, Spoken word, Headphones.
-- **Editing a preset:** Edit opens ten bands (31 Hz–16 kHz, ±12 dB) plus an overall level.
-- **Restore defaults** (the user asked for this): an edited built-in shows "edited".
-  "Restore default" works per preset, and there's a "Restore all presets" option.
-- **Your own presets:** users can add their own (+ New), rename and delete them. Built-ins can only
-  be restored.
-- **Audiobooks:** books switch automatically to their own preset (default Spoken word, and the user
-  can choose another). A switch in **Settings → Audiobooks** turns this off.
-- **Implementation (built):** see `03_…` → Equaliser. It uses mpv `af` = `format=format=floatp,lavfi=[equalizer…]`,
-  leaves out bands at or above half the file's sample rate, and does the overall level by scaling
-  the player volume.
-- **Where it lives:** Settings → Playback and a Now Playing button. Presets go into backups. Add
-  `SettingTarget`s and catalog entries for search.
-
-### C: Multi-album and multi-book edit (asked for 25 Sep, done in 0.1.11; how it was built is in `03_…`)
-- **Selecting:**
-  - Right-click an album (desktop) or long-press it (phone) → Select. Tapping other albums ticks
-    them, and there's a Select all option.
-  - Works on the Albums tab, artist pages and search.
-  - Built with `SelectKind` in `SelectionModel` and `SelectableCard` for album and book tiles.
-- **Edit albums** appears in the selection bar. It opens one form covering album artist, artist,
-  year, genre and cover.
-- **Differing values:** when the selected albums differ, the field shows **`--:--`** and is left
-  as it is unless changed. Each field has an undo button to go back to `--:--`. Only changed fields
-  are saved, as TrackEdits on every track of those albums.
-- **Album title is excluded**, because the same title would merge albums. The user was told this
-  and didn't object.
-- The old "Mixed" hint in `edit_details.dart` was replaced by `differentMarker` (`--:--`).
-- **Decided (25 Sep):**
-  - Song multi-edit switches from "Mixed" to `--:--` too.
-  - The Books page gets the same select-and-edit: author, narrator, series, year, genre and cover.
 
 ### E: Audiobook server (asked for 25 Sep)
 - **User's answer:** books should come from **both** the music server and, optionally, a separate
   audiobook server.
 - **Server software the user runs or plans to run:** Navidrome, Audiobookshelf, and Jellyfin/Plex.
+- **What's already there:** Settings › Servers has an "Audiobooks from the music server" switch
+  (`LibraryModel.serverBooks`, default on) and a greyed-out "Audiobook server" block (server type,
+  address, username, password, Connect) under a "coming in a later update" notice. It's
+  `_AudiobookServerPreview` in `server_settings.dart`, and phase E makes it work.
 - **Plan needed:**
   - An Audiobookshelf client (API-token login, libraries, items, chapters, covers, streaming, and
     maybe syncing listening progress with ABS).
-  - Where it sits in Settings › Servers (the "Audiobook server" tile is the placeholder).
+  - Where it sits in Settings › Servers (the "Audiobook server" block is the placeholder).
   - How ABS books join `groupBooks`.
   - Jellyfin/Plex later.
-- **Still open for D:** whether the Navidrome server can transcode.
 
 ### D: Offline server songs
-- **Needs first:** the server review.
+- **Needs first:** the server review (below), including whether the Navidrome server can transcode.
 - **Downloading:** download a song, album, playlist or Liked Songs. A "Keep offline" option
   follows albums and playlists. The quality is either the original or a server-converted copy.
 - **Downloads screen:** progress, pause/retry, space used, delete.
@@ -129,32 +64,44 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
 - **Open questions (ask when we get there):** the quality choice, and whether to add crossfade
   (it would need two players).
 
-## Working agreements added 25 Sep
-- **Ask before every phone install.** The phone is normally plugged in, but may have been removed.
-- **Server questions and "All files access" on Android:** ask when they're needed, not before.
-- Flutter is back on the PC at `C:\Users\James.Miller\flutter`.
-- **Editing code:**
-  - This session edited code in a cloud clone and pushed the branch. The PC then pulled it to
-    analyze, test and build.
-  - Dependency changes (`flutter pub add`) were made and committed on the PC, because the cloud
-    has no Flutter.
-
 ## Needs reviewing with the user (when needed)
 - **Server review (partly answered 25 Sep):**
   - The user runs or plans Navidrome, Audiobookshelf, and Jellyfin/Plex.
   - How audiobooks on the server should work: `bookKey` for server files uses album + author.
   - Whether the server can transcode.
-- **Android and sidecar files:** the media permission hides jpg/json/txt/pdf. Options are an
-  opt-in "All files access" (MANAGE_EXTERNAL_STORAGE, fine for sideloading) or leaving it as is.
+- **Android and sidecar files:** the app only asks for the media permission (`READ_MEDIA_AUDIO`),
+  which hides jpg/json/txt/pdf. Options are an opt-in "All files access"
+  (MANAGE_EXTERNAL_STORAGE, fine for sideloading) or leaving it as is.
+
+## Security
+A security review of 0.1.20 on 28 Sep found 3 medium and 7 low issues. All ten were fixed in 0.1.21
+and released as v0.1.21 on 28 Sep. The plan was the artifact "HomeTunes Security Fix Plan"
+(https://claude.ai/artifact/PBV5TRiFopdA2mimDTAkLi); the user took the recommended option each
+time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the code comments say
+"security review #n".
+- **Release key:** release APKs are signed with HomeTunes' own key (`CN=James Miller`, SHA-256
+  `758f6618fcb4b2832114d53b7ec887d03cfa4d923976ff602a2988d2c0ff1030`), not the debug key. The key is at
+  `C:\Users\James.Miller\keys\hometunes-release.jks` and is read through `android/key.properties`,
+  which is never committed. **Never read or print either.** The build refuses a release APK without
+  it, and `publish_release.ps1` refuses a debug-signed APK. Changing the key again would force every
+  phone to uninstall and restore.
+- **Accepted as they are:**
+  - `usesCleartextTraffic` stays on, because home-network servers need http. Plain http to an
+    internet server is only used after the user agrees once for that server (`httpAllowedHost`).
+  - The Windows build isn't code-signed (no paid certificate); SHA-256 checksums are published
+    with every release instead.
+  - The playback engine (media_kit's libmpv/FFmpeg) parses untrusted media. On 28 Sep its
+    libraries were already the newest available. Recheck with `flutter pub outdated` now and then.
+- **Not covered by the review (possible future work):** `MainActivity.kt`, the iOS and Linux
+  runners, most of the vendored tag parsers (only skimmed), and any testing by running the app.
 
 ## Known issues / small things
-- **Lock-screen playback stopping (reported 28 Sep):** fixed in 0.1.20 and confirmed by the
-  user. If it ever comes back, ask for Settings › About › Playback log.
-- **Probable bugs found while commenting the code (25 Sep, not fixed):** see `05_CODE_GUIDE.md` →
-  "Things spotted while commenting". The ones most likely to matter: a single-song save drops
-  narrator/series edits; year and series number can't be cleared in the book editor; non-Latin
-  titles break MusicBrainz track-number matching; a parent folder named like "Audiobooks" turns
-  everything below it into books.
+- **Lock-screen playback stopping:** fixed in 0.1.20 and confirmed by the user. If it ever comes
+  back, ask for Settings › About › Playback log.
+- **Probable bugs still open** (found while commenting the code, not fixed; see `05_CODE_GUIDE.md`
+  → "Things spotted while commenting"): non-Latin titles break MusicBrainz track-number matching
+  (`normalizeTitle` keeps only a–z and 0–9), and plain `.aac` files are treated as writable like
+  M4A. The others from that list were fixed in 0.1.16.
 - **Dune collection tags are poor.** Many books show as "The New Dune Chronicles", with series
   taken from folder names like "01 - Dune Saga". The data itself is at fault, and the user can fix
   it with Edit book. Smarter guessing from folders would be possible.
@@ -169,13 +116,14 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
 
 ## Offered earlier, not done (only if the user wants)
 - Delete old installers in `build\dist` (0.1.0/0.1.2/0.1.3).
-- Obtainium on the phone, so it updates itself from GitHub Releases (Releases exist since 0.1.20).
-  (0.1.23's Check for updates only opens the download page on the phone, by the user's choice.)
+- Obtainium on the phone, so it updates itself from GitHub Releases. (Releases are published with
+  `tool/publish_release.ps1`; the phone's own Check for updates only opens the download page, by
+  the user's choice. Windows installed copies update themselves.)
 - A sleep-timer button in the Android notification.
 
 ## Source control
-`main` holds everything released (0.1.24+24); `feature/advanced-themes` (0.1.25) is waiting for the user. The work was built on stacked branches (`equaliser` →
-`multi-edit` → `favourites` → `details-and-quick-edits`) and merged in one `--no-ff` merge of the
-last one on 25 Sep. The branches were then deleted, so there are no other branches. Builds (`build\dist`) are not in git; they are rebuilt from source with
-the commands in `02_…`. The repo copy of these notes (`docs/ai-context/`) is kept the same as the
-project copy.
+`main` is **0.1.31+31** (merged 30 Sep, not released yet); the latest release is **v0.1.30**.
+There are no other branches. Each feature gets its own branch, merged into `main` with
+`--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
+git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
+repo copy of these notes (`docs/ai-context/`) is kept the same as the project copy.
