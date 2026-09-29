@@ -284,6 +284,21 @@ Color? colourFromHex(Object? s) {
   return v == null ? null : Color(0xFF000000 | v);
 }
 
+/// A colour code typed or pasted by the user (0.1.29): "#FF7A59", "ff7a59", the short "#F75",
+/// or "0xFF7A59", with spaces or quotes around it ignored. Null if it isn't one.
+Color? parseColourCode(String input) {
+  var t = input.trim().replaceAll(RegExp('^["\']+|["\';,]+\$'), '').trim();
+  if (t.startsWith('#')) {
+    t = t.substring(1);
+  } else if (t.toLowerCase().startsWith('0x')) {
+    t = t.substring(2);
+  }
+  if (!RegExp(r'^[0-9a-fA-F]+$').hasMatch(t)) return null;
+  if (t.length == 3) t = [for (final ch in t.split('')) '$ch$ch'].join();
+  if (t.length != 6) return null;
+  return Color(0xFF000000 | int.parse(t, radix: 16));
+}
+
 /// The current theme's colours, for the spots the Material theme doesn't cover.
 class AppColors {
   /// Set by HomeTunesApp from the saved choice.
