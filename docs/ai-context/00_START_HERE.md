@@ -19,12 +19,15 @@ Read the files in this order:
 ## Status (29 Sep 2026)
 
 - **Everything is in source control.** `main` on GitHub (github.com/Jamesking96/HomeTunes) is
-  **0.1.27+27** (0.1.25–0.1.27 merged and pushed on 29 Sep, **not released, no tag yet**: the
-  user asked to hold the release). There are no other branches.
-  - Tests: 345 pass, and `flutter analyze` is clean.
-  - The latest GitHub release is still v0.1.24. Builds for 0.1.27 are in `build\dist` on the PC,
-    ready for `tool\publish_release.ps1` when the user says to release (rebuild first if code
-    changed since). Publish each new version the same way (see `02_…` → publishing builds).
+  **0.1.28+28**, **released as v0.1.28 on 29 Sep** (0.1.25–0.1.28 in one release; notes in
+  the release page cover all four). There are no other branches.
+  - Tests: 358 pass, and `flutter analyze` is clean.
+  - Builds for 0.1.28 are in `build\dist` on the PC and on the GitHub release
+    (https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.28). The live update check
+    (`tool/probe_update_test.dart`) found it and the installer's checksum matched. Publish each
+    new version the same way, always with `-NotesFile` (see `02_…` → publishing builds).
+  - Not yet updated: the PC's installed copy (0.1.24) and the phone (0.1.23). Updating either
+    should show the new "What's new" pop-up with 0.1.28's notes.
   - `README.md` was brought up to date for 0.1.27 on 29 Sep.
   - `docs/USER_GUIDE.md` is the user-facing download and how-to guide shown on every release, and
     `README.md` links to it. Update it when features or menu names change.
@@ -59,8 +62,8 @@ Read the files in this order:
 - **0.1.24 (29 Sep): colour themes, merged, pushed and released as v0.1.24.** Settings ›
   Appearance with Default / Midnight / Forest / Your own. 316 tests pass. The user approved it.
   See `03_…` → Colour themes. This is the first release 0.1.23 can update to by itself.
-- **0.1.25–0.1.27 below were merged into `main` and pushed on 29 Sep (not released); their
-  branches were deleted.**
+- **0.1.25–0.1.28 below were merged into `main` and released together as v0.1.28 on 29 Sep;
+  their branches were deleted.**
 - **0.1.25: advanced appearance**: saved themes with every colour (light themes too), text size, corners, plus
   `tool\switch_branch.ps1` and rule 13. Started by another session, finished by this one.
   325 tests pass, analyze clean. Waiting for the user to try it. See `03_…` → Advanced appearance.
@@ -70,12 +73,11 @@ Read the files in this order:
 - **0.1.27**: folder options (rescan one folder, file-type tick boxes) for music and audiobook
   folders, and the speaker icon as a mute toggle. 345 tests pass. Release 0.1.25–0.1.27
   together when the user says so (the phone still has 0.1.23).
-- **In progress (29 Sep): 0.1.28, branch `feature/whats-new`**, not merged: the first start
+- **0.1.28 (merged and released 29 Sep, with 0.1.25–0.1.27)**: the first start
   after an update shows a "What's new" pop-up compiled from the release pages' "What's new in x"
   sections (every version since the old one), plus **Settings › About › What's new in this
-  version**. 358 tests pass, analyze clean. Waiting for the user to try it. When releasing
-  0.1.25–0.1.28 together, the notes file should cover all four (0.1.23/0.1.24 copies only
-  know their old version from 0.1.28 on, so they'll show just 0.1.28's page). See `03_…`.
+  version**. 358 tests pass, analyze clean. 0.1.23/0.1.24 copies don't record their version,
+  so after updating they show just 0.1.28's page (which covers 0.1.25–0.1.28). See `03_…`.
 - **Next after that:** nothing is agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user. See
   `04_ROADMAP_AND_OPEN_ITEMS.md`.
