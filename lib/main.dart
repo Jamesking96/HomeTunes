@@ -30,6 +30,7 @@ import 'state/update_model.dart';
 import 'ui/nav.dart';
 import 'ui/screens/settings/appearance_settings.dart';
 import 'ui/screens/settings/update_ui.dart';
+import 'ui/screens/settings/whats_new_ui.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
 
@@ -128,6 +129,12 @@ Future<void> main() async {
     player: player,
     updates: updates,
   ));
+
+  // First start after an update: show what changed since the version that ran before
+  // (0.1.28, whats_new_ui.dart), once the first screen has settled.
+  if (updates.justUpdated) {
+    Future<void>.delayed(const Duration(milliseconds: 1500), () => showWhatsNewAfterUpdate(updates));
+  }
 
   // Look for a newer HomeTunes once a day, a little after start-up so it doesn't compete with
   // the scan; if there is one, a notice with an Update… button appears (0.1.23).

@@ -167,6 +167,10 @@ they're tabs along the bottom. On a PC they're down the left-hand side, where Li
 - **Updates:** HomeTunes looks for a new version once a day and shows a notice with an **Update…**
   button if there is one. Check any time in **Settings › About › Check for updates**, where
   there's also a switch to turn the daily check off.
+- **What's new:** the first time HomeTunes opens after an update, it shows what changed, taken
+  from the release pages: everything since the version you had, newest first (it needs the
+  internet; if it can't connect, **Open release page** shows the same list in your browser). To
+  see it again, go to **Settings › About › What's new in this version**.
 - **Colours:** **Settings › Appearance** has three ready-made themes (Default, Midnight and Forest)
   and **Your own**, where you pick a highlight colour and a background colour. Tap a theme and
   the whole app changes straight away. Your choice is included in backups.

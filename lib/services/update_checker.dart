@@ -40,10 +40,15 @@ class ReleaseInfo {
   /// The "What's new" text from the release page, as plain text (may be empty).
   final String whatsNew;
 
+  /// The same "What's new" text with its markdown kept (bullets, **bold**), for showing it
+  /// formatted (0.1.28). Empty if the release page has no "What's new" part.
+  final String notes;
+
   /// Download links by file name.
   final Map<String, Uri> assets;
 
-  const ReleaseInfo({required this.version, required this.page, required this.whatsNew, required this.assets});
+  const ReleaseInfo(
+      {required this.version, required this.page, required this.whatsNew, this.notes = '', required this.assets});
 
   /// Reads GitHub's release JSON. Null if it isn't a usable release.
   static ReleaseInfo? fromJson(Object? json) {
@@ -71,6 +76,7 @@ class ReleaseInfo {
       version: version,
       page: page,
       whatsNew: body is String ? whatsNewFrom(body) : '',
+      notes: body is String ? whatsNewNotes(body) : '',
       assets: assets,
     );
   }
@@ -84,13 +90,37 @@ class ReleaseInfo {
 
 /// The "What's new" part of a release page as plain text: everything before the first `---`
 /// line, without its heading and without markdown bold/code marks.
-String whatsNewFrom(String body) {
+String whatsNewFrom(String body) => whatsNewNotes(body).replaceAll('**', '').replaceAll('`', '').trim();
+
+/// The "What's new in x" part of a release page (everything before the first `---` line)
+/// without its heading, markdown kept. Empty if the page doesn't start with that heading.
+String whatsNewNotes(String body) {
   final text = body.replaceAll('\r\n', '\n');
   if (!text.trimLeft().startsWith("## What's new")) return '';
   final cut = text.indexOf('\n---\n');
   final part = cut < 0 ? text : text.substring(0, cut);
   final lines = part.trim().split('\n').skip(1); // drop the "## What's new in x" heading
-  return lines.join('\n').replaceAll('**', '').replaceAll('`', '').trim();
+  return lines.join('\n').trim();
+}
+
+/// The releases whose "What's new" should be shown after updating from [from] to [to]:
+/// every release newer than [from], up to and including [to], newest first. With no [from]
+/// (the old version isn't known), just [to]'s own release. Releases without notes are left out.
+List<ReleaseInfo> releasesSince(Iterable<ReleaseInfo> all, {String? from, required String to}) {
+  final picked = [
+    for (final r in all)
+      if (r.notes.isNotEmpty &&
+          !isNewerVersion(r.version, to) &&
+          (from == null ? !isNewerVersion(to, r.version) : isNewerVersion(r.version, from)))
+        r,
+  ];
+  picked.sort((a, b) => isNewerVersion(a.version, b.version) ? -1 : (isNewerVersion(b.version, a.version) ? 1 : 0));
+  // One entry per version (a tag like v0.1.27 and 0.1.27 would otherwise both show).
+  final seen = <String>{};
+  return [
+    for (final r in picked)
+      if (seen.add(parseVersion(r.version)!.join('.'))) r,
+  ];
 }
 
 /// "0.1.23" or "0.1.23+23" as numbers ([0, 1, 23]); the build part after "+" is ignored.
@@ -161,6 +191,28 @@ class UpdateChecker {
     final info = ReleaseInfo.fromJson(_decode(r.body));
     if (info == null) throw const UpdateException('The latest release on GitHub couldn\'t be read.');
     return info;
+  }
+
+  /// The most recent published releases (up to 50, newest first), for the "What's new" list
+  /// shown after an update (0.1.28). Drafts, pre-releases and odd tags are left out.
+  Future<List<ReleaseInfo>> fetchReleases() async {
+    final http.Response r;
+    try {
+      r = await client
+          .get(Uri.parse('https://api.github.com/repos/$releasesRepo/releases?per_page=50'), headers: _headers)
+          .timeout(const Duration(seconds: 20));
+    } catch (_) {
+      throw const UpdateException('Couldn\'t reach GitHub. Check the internet connection.');
+    }
+    if (r.statusCode == 403 || r.statusCode == 429) {
+      throw const UpdateException('GitHub is busy right now. Try again in a little while.');
+    }
+    if (r.statusCode != 200) throw UpdateException('GitHub didn\'t answer as expected (error ${r.statusCode}).');
+    final list = _decode(r.body);
+    if (list is! List) throw const UpdateException('The list of releases on GitHub couldn\'t be read.');
+    return [
+      for (final j in list) ?ReleaseInfo.fromJson(j),
+    ];
   }
 
   static Object? _decode(String s) {
