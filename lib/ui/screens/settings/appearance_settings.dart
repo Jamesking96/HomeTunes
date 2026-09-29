@@ -141,11 +141,33 @@ class AppearanceSettings extends StatelessWidget {
             },
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
             child: Text(
               'Choosing a colour here switches to "Your own". Backgrounds stay dark and highlights stay '
               'bright, so text is always easy to read. For full control, use Advanced below.',
               style: TextStyle(color: AppColors.textDim, fontSize: 12),
+            ),
+          ),
+          // Back to the colours "Your own" starts with (0.1.25). Only when something was chosen.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 16, 8),
+            child: TextButton.icon(
+              key: const ValueKey('reset-custom'),
+              icon: const Icon(Icons.restart_alt),
+              label: const Text('Reset to default colours'),
+              onPressed: lib.customAccent == null && lib.customBackground == null
+                  ? null
+                  : () {
+                      final messenger = ScaffoldMessenger.maybeOf(context);
+                      final before = (lib.customAccent, lib.customBackground);
+                      lib.resetCustomColours(); // the screen changes at once; the file save carries on
+                      messenger
+                        ?..hideCurrentSnackBar()
+                        ..showSnackBar(SnackBar(
+                          content: const Text('"Your own" is back to its default colours'),
+                          action: SnackBarAction(label: 'Undo', onPressed: () => lib.restoreCustomColours(before)),
+                        ));
+                    },
             ),
           ),
         ]),
@@ -161,35 +183,39 @@ class AppearanceSettings extends StatelessWidget {
               title: Text(p.name),
               subtitle: Text(p.id == lib.themeId ? 'In use' : (p.isLight ? 'Light theme' : 'Dark theme')),
               onTap: () => lib.setTheme(id: p.id),
-              trailing: PopupMenuButton<String>(
-                tooltip: 'More',
-                onSelected: (a) async {
-                  switch (a) {
-                    case 'edit':
-                      await openThemeEditor(context, p);
-                    case 'copy':
-                      await openThemeEditor(context, p.copyWith(id: newThemeId(), name: '${p.name} copy'));
-                    case 'delete':
-                      final ok = await showDialog<bool>(
-                        context: context,
-                        builder: (c) => AlertDialog(
-                          title: Text('Delete "${p.name}"?'),
-                          content: const Text('The theme is removed. If it\'s in use, HomeTunes goes back to Default.'),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-                            FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Delete')),
-                          ],
-                        ),
-                      );
-                      if (ok == true) await lib.deleteTheme(p.id);
-                  }
-                },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'edit', child: Text('Edit…')),
-                  PopupMenuItem(value: 'copy', child: Text('Duplicate…')),
-                  PopupMenuItem(value: 'delete', child: Text('Delete')),
-                ],
-              ),
+              // Edit and Delete are buttons you can see; Duplicate (and both again) are in ⋮.
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                IconButton(
+                  key: ValueKey('edit-theme:${p.id}'),
+                  tooltip: 'Edit theme',
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () => openThemeEditor(context, p),
+                ),
+                IconButton(
+                  key: ValueKey('delete-theme:${p.id}'),
+                  tooltip: 'Delete theme',
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => confirmDeleteTheme(context, p),
+                ),
+                PopupMenuButton<String>(
+                  tooltip: 'More',
+                  onSelected: (a) async {
+                    switch (a) {
+                      case 'edit':
+                        await openThemeEditor(context, p);
+                      case 'copy':
+                        await openThemeEditor(context, p.copyWith(id: newThemeId(), name: '${p.name} copy'));
+                      case 'delete':
+                        await confirmDeleteTheme(context, p);
+                    }
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'edit', child: Text('Edit…')),
+                    PopupMenuItem(value: 'copy', child: Text('Duplicate…')),
+                    PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  ],
+                ),
+              ]),
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
@@ -236,6 +262,28 @@ class AppearanceSettings extends StatelessWidget {
       const SizedBox(height: 16),
     ]);
   }
+}
+
+/// Asks, then deletes a saved theme. Returns true if it was deleted.
+Future<bool> confirmDeleteTheme(BuildContext context, AppPalette p) async {
+  final lib = context.read<LibraryModel>();
+  final inUse = lib.themeId == p.id;
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (c) => AlertDialog(
+      title: Text('Delete "${p.name}"?'),
+      content: Text(inUse
+          ? 'This theme is in use, so HomeTunes goes back to Default. This can\'t be undone.'
+          : 'The theme is removed. This can\'t be undone.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+        FilledButton(key: const ValueKey('confirm-delete'), onPressed: () => Navigator.pop(c, true), child: const Text('Delete')),
+      ],
+    ),
+  );
+  if (ok != true) return false;
+  lib.deleteTheme(p.id); // the screen changes at once; the file save carries on
+  return true;
 }
 
 /// A fresh id for a saved theme.
@@ -493,6 +541,24 @@ class _ThemeEditorState extends State<ThemeEditor> {
                     if (c != null) setState(() => _p = s.$4(_p, c));
                   },
                 ),
+              // Delete, for a theme that's already saved (not a new one that hasn't been yet).
+              if (context.select<LibraryModel, bool>((l) => l.savedThemes.any((t) => t['id'] == widget.start.id))) ...[
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    key: const ValueKey('editor-delete'),
+                    style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Delete this theme'),
+                    onPressed: () async {
+                      if (await confirmDeleteTheme(context, widget.start) && context.mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  ),
+                ),
+              ],
             ]),
           ),
         ),

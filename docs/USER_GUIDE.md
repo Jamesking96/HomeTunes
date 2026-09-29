@@ -161,7 +161,9 @@ they're tabs along the bottom. On a PC they're down the left-hand side, where Li
   the whole app changes straight away. Your choice is included in backups.
   Under **Advanced** you can make as many themes of your own as you like, choosing every colour
   (background, panels, text, grey text, highlight, slider and play button), including light
-  themes with dark text. HomeTunes warns you if something would be hard to read. **Advanced**
+  themes with dark text. HomeTunes warns you if something would be hard to read. Each of your
+  themes has **Edit** and **Delete** buttons (Delete is also inside the theme editor).
+  **Reset to default colours** puts "Your own" back to how it started (with Undo). **Advanced**
   also has **Text size** and **Corners** (from square to extra round).
 - **Settings search:** type in the box at the top of Settings to find any option.
 
