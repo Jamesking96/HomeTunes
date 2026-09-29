@@ -68,7 +68,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   ),
             filled: true,
             fillColor: AppColors.surfaceHigh,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
+            border: OutlineInputBorder(borderRadius: AppShape.circular(28), borderSide: BorderSide.none),
             contentPadding: EdgeInsets.zero,
           ),
         ),

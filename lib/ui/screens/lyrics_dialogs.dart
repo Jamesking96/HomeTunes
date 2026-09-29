@@ -153,7 +153,7 @@ class _LrclibDialogState extends State<_LrclibDialog> {
         ),
         Expanded(
           child: Container(
-            decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: AppColors.bg, borderRadius: AppShape.circular(8)),
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
@@ -279,7 +279,7 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(color: AppColors.surfaceHigh, borderRadius: BorderRadius.circular(999)),
+        decoration: BoxDecoration(color: AppColors.surfaceHigh, borderRadius: AppShape.circular(999)),
         child: Text(text, style: TextStyle(fontSize: 11, color: AppColors.textDim)),
       );
 }

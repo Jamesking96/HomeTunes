@@ -136,6 +136,13 @@ class LibraryModel extends ChangeNotifier {
   String? customAccent;
   String? customBackground;
 
+  /// Settings › Appearance › Advanced (0.1.25): the user's saved themes, as saved (each a map of
+  /// id, name and "#RRGGBB" colours; ui/theme.dart AppPalette.fromJson reads them), the text size
+  /// (a multiple of the system size) and how rounded corners are (0 = square, 1 = as designed).
+  List<Map<String, dynamic>> savedThemes = [];
+  double textSize = 1.0;
+  double cornerRoundness = 1.0;
+
   // ---- audiobook settings ----
 
   /// Folders where everything is an audiobook (scanned as well as [folders]).
@@ -342,6 +349,10 @@ class LibraryModel extends ChangeNotifier {
     themeId = 'default';
     customAccent = null;
     customBackground = null;
+    savedThemes = [];
+    textSize = 1.0;
+    cornerRoundness = 1.0;
+    hiddenFormats = {};
     _kindOverrides = {};
     _edits = {};
     _local = [];
@@ -390,6 +401,23 @@ class LibraryModel extends ChangeNotifier {
       final accent = raw['customAccent'], background = raw['customBackground'];
       customAccent = accent is String && _hexColour.hasMatch(accent) ? accent.toUpperCase() : null;
       customBackground = background is String && _hexColour.hasMatch(background) ? background.toUpperCase() : null;
+      final saved = raw['savedThemes'];
+      if (saved is List) {
+        savedThemes = [
+          for (final t in saved)
+            if (t is Map && t['id'] is String) Map<String, dynamic>.from(t),
+        ];
+      }
+      textSize = s.number('textSize', 1.0).clamp(0.8, 1.5).toDouble();
+      cornerRoundness = s.number('cornerRoundness', 1.0).clamp(0.0, 2.0).toDouble();
+      final hidden = raw['hiddenFormats'];
+      if (hidden is Map) {
+        hiddenFormats = {
+          for (final e in hidden.entries)
+            if (e.value is List)
+              '${e.key}': [for (final f in e.value as List) if (f is String && f.isNotEmpty) f.toLowerCase()],
+        }..removeWhere((_, v) => v.isEmpty);
+      }
       final o = raw['bookOverrides'];
       if (o is Map) _kindOverrides = {for (final e in o.entries) '${e.key}': e.value == true};
       settingsDamaged = s.damaged;
@@ -515,8 +543,64 @@ class LibraryModel extends ChangeNotifier {
         'theme': themeId,
         if (customAccent != null) 'customAccent': customAccent,
         if (customBackground != null) 'customBackground': customBackground,
+        if (savedThemes.isNotEmpty) 'savedThemes': savedThemes,
+        'textSize': textSize,
+        'cornerRoundness': cornerRoundness,
+        if (hiddenFormats.isNotEmpty) 'hiddenFormats': hiddenFormats,
         'bookOverrides': _kindOverrides,
       });
+
+  /// Adds a saved theme, or replaces the one with the same id (Settings › Appearance ›
+  /// Advanced). [use] switches to it.
+  Future<void> saveTheme(Map<String, dynamic> theme, {bool use = true}) async {
+    final id = theme['id'];
+    if (id is! String) return;
+    final i = savedThemes.indexWhere((t) => t['id'] == id);
+    savedThemes = [...savedThemes];
+    if (i < 0) {
+      savedThemes.add(Map.of(theme));
+    } else {
+      savedThemes[i] = Map.of(theme);
+    }
+    if (use) themeId = id;
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// "Your own" back to its starting colours (the Default theme's highlight and background).
+  /// Returns what it had, as (accent, background), so the change can be undone.
+  Future<(String?, String?)> resetCustomColours() async {
+    final before = (customAccent, customBackground);
+    customAccent = null;
+    customBackground = null;
+    notifyListeners();
+    await _saveSettings();
+    return before;
+  }
+
+  /// Puts "Your own" colours back after [resetCustomColours] (Undo).
+  Future<void> restoreCustomColours((String?, String?) colours) async {
+    customAccent = colours.$1;
+    customBackground = colours.$2;
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Removes a saved theme; if it was in use, goes back to Default.
+  Future<void> deleteTheme(String id) async {
+    savedThemes = [for (final t in savedThemes) if (t['id'] != id) t];
+    if (themeId == id) themeId = 'default';
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Text size and corner roundness (Settings › Appearance › Advanced).
+  Future<void> setLook({double? textSize, double? cornerRoundness}) async {
+    this.textSize = (textSize ?? this.textSize).clamp(0.8, 1.5).toDouble();
+    this.cornerRoundness = (cornerRoundness ?? this.cornerRoundness).clamp(0.0, 2.0).toDouble();
+    notifyListeners();
+    await _saveSettings();
+  }
 
   /// "#RRGGBB".
   static final _hexColour = RegExp(r'^#[0-9A-Fa-f]{6}$');
@@ -581,7 +665,12 @@ class LibraryModel extends ChangeNotifier {
   /// times rather than once per batch of files.
   void _rebuild() {
     // 1. All songs (server ones only while the server is on), then the user's edits on top.
-    final raw = [..._local, if (serverEnabled) ..._remote];
+    //    File types switched off in a folder's options are left out (0.1.27); they stay in
+    //    _local so the folder still knows which types it has.
+    final raw = [
+      if (hiddenFormats.isEmpty) ..._local else for (final t in _local) if (!_formatHidden(t)) t,
+      if (serverEnabled) ..._remote,
+    ];
     _rawById = {for (final t in raw) t.id: t};
     final all = [for (final t in raw) _edits[t.id]?.applyTo(t) ?? t];
     _byId = {for (final t in all) t.id: t};
@@ -646,6 +735,7 @@ class LibraryModel extends ChangeNotifier {
   /// Stops scanning an audiobook folder. The rescan drops its files from the library.
   Future<void> removeAudiobookFolder(String path) async {
     audiobookFolders = audiobookFolders.where((f) => f != path).toList();
+    hiddenFormats = {...hiddenFormats}..remove(path);
     await _saveSettings();
     await scanLocal();
   }
@@ -723,9 +813,106 @@ class LibraryModel extends ChangeNotifier {
   /// they're in a playlist or have edits).
   Future<void> removeFolder(String path) async {
     folders = folders.where((f) => f != path).toList();
+    hiddenFormats = {...hiddenFormats}..remove(path);
     await _saveSettings();
     await scanLocal();
   }
+
+  // ---- one folder's options (Settings › Folders & scanning, 0.1.27) ----
+
+  /// File types switched off per folder: folder path → extensions, lower case without the dot
+  /// ("wav"). Anything not listed shows, so a type that turns up later shows until switched off.
+  Map<String, List<String>> hiddenFormats = {};
+
+  /// "flac" for ".../song.FLAC"; "" when there's no extension.
+  static String formatOf(String path) => p.extension(path).replaceFirst('.', '').toLowerCase();
+
+  /// The folder whose options apply to a file: the innermost music or audiobook folder that
+  /// holds it (an audiobook folder inside a music folder has its own options).
+  String? ownerFolder(String path) {
+    String? best;
+    for (final f in _scanFolders) {
+      if (isInside(path, f) && (best == null || splitPath(f).length > splitPath(best).length)) best = f;
+    }
+    return best;
+  }
+
+  bool _formatHidden(Track t) {
+    final path = t.path;
+    if (!t.isLocal || path == null) return false;
+    final owner = ownerFolder(path);
+    return owner != null && (hiddenFormats[owner]?.contains(formatOf(path)) ?? false);
+  }
+
+  /// The file types found in [folder] at the last scan (switched off ones included), with how
+  /// many files of each, A–Z.
+  Map<String, int> formatsIn(String folder) {
+    final counts = <String, int>{};
+    for (final t in _local) {
+      final path = t.path;
+      if (path != null && ownerFolder(path) == folder) {
+        final f = formatOf(path);
+        counts[f] = (counts[f] ?? 0) + 1;
+      }
+    }
+    return {for (final k in counts.keys.toList()..sort()) k: counts[k]!};
+  }
+
+  /// Whether files of [format] in [folder] are shown.
+  bool formatShown(String folder, String format) => !(hiddenFormats[folder]?.contains(format) ?? false);
+
+  /// Switches one file type in one folder on or off. Takes effect at once (no rescan needed).
+  Future<void> setFormatShown(String folder, String format, bool shown) async {
+    final set = {...?hiddenFormats[folder]};
+    shown ? set.remove(format) : set.add(format);
+    hiddenFormats = {...hiddenFormats};
+    if (set.isEmpty) {
+      hiddenFormats.remove(folder);
+    } else {
+      hiddenFormats[folder] = set.toList()..sort();
+    }
+    _rebuild(); // the screens change at once; the settings file is saved after
+    await _saveSettings();
+  }
+
+  /// Rescans just [folder] (its options window). Songs elsewhere are left as they are.
+  Future<void> scanFolder(String folder) => _enqueue(() async {
+        musicAccess = await checkAccess();
+        if (musicAccess != MusicAccess.allowed) {
+          error = _noAccessMessage;
+          return;
+        }
+        if (!await folderReachable(folder)) {
+          error = 'Can\'t reach $folder right now, so what was found there before is kept.';
+          return;
+        }
+        error = null;
+        final name = p.basename(folder);
+        status = 'Scanning $name…';
+        notifyListeners();
+        _applyPendingDurations();
+        try {
+          final previous = {for (final t in _local) t.id: t};
+          final scanned = await _scanner.scan([folder], previous: previous, onProgress: (done, total) {
+            status = 'Scanning $name: $done / $total';
+          });
+          final found = {for (final t in scanned) t.id};
+          // Everything outside the folder stays; everything inside comes from this scan.
+          _local = [
+            for (final t in _local)
+              if (!found.contains(t.id) && !(t.path != null && isInside(t.path!, folder))) t,
+            ...scanned,
+          ]..sort((a, b) => (a.path ?? '').compareTo(b.path ?? ''));
+          offlineFolders = [for (final f in offlineFolders) if (f != folder) f];
+          await _reconcile(previous);
+          await _saveLibrary();
+          await _scanner.removeUnusedArt(_local);
+          status = null;
+        } catch (e) {
+          status = null;
+          error = 'Scan failed: $e';
+        }
+      });
 
   /// Scans and syncs run one after another, never at the same time.
   Future<void> _jobs = Future.value();

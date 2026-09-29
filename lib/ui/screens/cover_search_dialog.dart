@@ -142,13 +142,13 @@ class _CoverSearchDialogState extends State<_CoverSearchDialog> {
         itemBuilder: (_, i) {
           final c = results[i];
           return InkWell(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: AppShape.circular(6),
             onTap: () => _choose(c),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               AspectRatio(
                 aspectRatio: 1,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: AppShape.circular(6),
                   child: Image.memory(c.thumbnail, fit: BoxFit.cover, gaplessPlayback: true),
                 ),
               ),

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/track.dart';
+import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
 import '../../state/selection_model.dart';
 import '../nav.dart';
@@ -15,7 +16,8 @@ import '../../state/library_model.dart';
 import 'artwork.dart';
 import 'quick_actions.dart';
 
-/// Album tile for grids and carousels.
+/// Album tile for grids and carousels. Hovering over the cover with a mouse shows a round
+/// play button that plays the album straight away (0.1.26).
 class AlbumCard extends StatelessWidget {
   final Album album;
   /// Fixed width for shelves; null lets a grid decide.
@@ -24,16 +26,31 @@ class AlbumCard extends StatelessWidget {
   final bool showArtist;
   /// The keys of all the albums shown alongside this one, for "Select all".
   final List<String> scope;
-  const AlbumCard({super.key, required this.album, this.width, this.showArtist = true, this.scope = const []});
+  /// What a tap does instead of opening the album page (the artist page shows the songs in
+  /// place). When set, the right-click / press-and-hold menu gets "Open album page".
+  final VoidCallback? onTap;
+  /// Outlined in the highlight colour (the album whose songs are showing).
+  final bool highlighted;
+  const AlbumCard({
+    super.key,
+    required this.album,
+    this.width,
+    this.showArtist = true,
+    this.scope = const [],
+    this.onTap,
+    this.highlighted = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final favourite = context.select<PlaylistsModel, bool>((p) => p.isFavouriteAlbum(album));
+    void openPage() => context.read<AppNav>().openAlbum(album);
     final card = SelectableCard(
       id: album.key,
       kind: SelectKind.albums,
       scope: scope,
       favourite: favourite,
+      highlighted: highlighted,
       actionsFor: (keys) {
         final lib = context.read<LibraryModel>();
         // Just this one: use it as shown. Several: look each one up.
@@ -42,11 +59,23 @@ class AlbumCard extends StatelessWidget {
             : [for (final k in keys) lib.albumByKey(k)].whereType<Album>().toList();
         return albumActions(context, albums);
       },
-      onOpen: () => context.read<AppNav>().openAlbum(album),
+      onOpen: onTap ?? openPage,
+      onOpenPage: onTap == null ? null : openPage,
+      openPageLabel: 'Open album page',
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          AspectRatio(aspectRatio: 1, child: ArtworkFill(track: album.artTrack)),
+          AspectRatio(
+            aspectRatio: 1,
+            child: HoverPlayCover(
+              key: ValueKey('hover-play:${album.key}'),
+              tooltip: 'Play ${album.title}',
+              onPlay: () => context
+                  .read<PlayerModel>()
+                  .playTracks(album.tracks, label: 'Album · ${album.title}'),
+              child: ArtworkFill(track: album.artTrack),
+            ),
+          ),
           const SizedBox(height: 8),
           Text(album.title, maxLines: 1, overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -78,6 +107,12 @@ class SelectableCard extends StatefulWidget {
   final bool favourite;
   /// The quick actions for these ids (this one, or everything selected).
   final List<QuickAction> Function(List<String> ids)? actionsFor;
+  /// When a tap does something other than open the page, this opens it from the menu
+  /// ([openPageLabel], e.g. "Open album page").
+  final VoidCallback? onOpenPage;
+  final String openPageLabel;
+  /// Outlined in the highlight colour without being selected (e.g. its songs are showing).
+  final bool highlighted;
   const SelectableCard({
     super.key,
     required this.id,
@@ -87,6 +122,9 @@ class SelectableCard extends StatefulWidget {
     required this.child,
     this.favourite = false,
     this.actionsFor,
+    this.onOpenPage,
+    this.openPageLabel = 'Open page',
+    this.highlighted = false,
   });
 
   @override
@@ -119,6 +157,12 @@ class _SelectableCardState extends State<SelectableCard> {
     }
     final others = widget.scope.length;
     await showQuickActions(context, at, widget.actionsFor?.call([widget.id]) ?? const [], header: [
+      if (widget.onOpenPage != null)
+        PopupMenuItem(
+          key: const ValueKey('menu-open-page'),
+          value: () async => widget.onOpenPage!(),
+          child: menuRow(Icons.open_in_new, widget.openPageLabel),
+        ),
       PopupMenuItem(
         value: () async => sel.start(widget.id, kind: widget.kind, scope: widget.scope),
         child: menuRow(Icons.check_box_outlined, 'Select'),
@@ -139,12 +183,12 @@ class _SelectableCardState extends State<SelectableCard> {
     return Stack(children: [
       Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: selected ? accent : Colors.transparent, width: 2),
-          color: selected ? accent.withValues(alpha: 0.12) : null,
+          borderRadius: AppShape.circular(8),
+          border: Border.all(color: selected || widget.highlighted ? accent : Colors.transparent, width: 2),
+          color: selected || widget.highlighted ? accent.withValues(alpha: 0.12) : null,
         ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppShape.circular(8),
           onTapDown: (d) => _at = d.globalPosition,
           onTap: selecting ? () => context.read<SelectionModel>().toggle(widget.id, kind: widget.kind) : widget.onOpen,
           onLongPress: _menu,
@@ -177,14 +221,75 @@ class _SelectableCardState extends State<SelectableCard> {
               height: 22,
               decoration: BoxDecoration(
                 color: selected ? accent : Colors.black54,
-                borderRadius: BorderRadius.circular(5),
+                borderRadius: AppShape.circular(5),
                 border: Border.all(color: selected ? accent : Colors.white, width: 2),
               ),
-              child: selected ? const Icon(Icons.check, size: 16, color: Colors.black) : null,
+              child: selected ? Icon(Icons.check, size: 16, color: AppColors.current.onAccent) : null,
             ),
           ),
         ),
     ]);
+  }
+}
+
+/// A cover that shows a round play button in its corner while the mouse is over it (0.1.26).
+/// Touch screens have no hover, so there it's just the cover.
+class HoverPlayCover extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onPlay;
+  final String tooltip;
+  const HoverPlayCover({super.key, required this.child, required this.onPlay, this.tooltip = 'Play'});
+
+  @override
+  State<HoverPlayCover> createState() => _HoverPlayCoverState();
+}
+
+class _HoverPlayCoverState extends State<HoverPlayCover> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: Stack(fit: StackFit.expand, children: [
+        widget.child,
+        Positioned(
+          right: 8,
+          bottom: 8,
+          // Hidden (and not clickable) until hovered; slides up a little as it appears.
+          child: IgnorePointer(
+            ignoring: !_hover,
+            child: AnimatedSlide(
+              offset: _hover ? Offset.zero : const Offset(0, 0.25),
+              duration: const Duration(milliseconds: 150),
+              child: AnimatedOpacity(
+                opacity: _hover ? 1 : 0,
+                duration: const Duration(milliseconds: 150),
+                child: Tooltip(
+                  message: widget.tooltip,
+                  child: Material(
+                    key: const ValueKey('hover-play-button'),
+                    color: accent,
+                    shape: const CircleBorder(),
+                    elevation: 4,
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: widget.onPlay,
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Icon(Icons.play_arrow_rounded, size: 26, color: AppColors.current.onAccent),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ]),
+    );
   }
 }
 
@@ -199,7 +304,7 @@ class ArtistCard extends StatelessWidget {
     // Artists have no picture of their own, so borrow the first album's cover (cut to a circle).
     final art = artist.albums.isEmpty ? null : artist.albums.first.artTrack;
     final card = InkWell(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: AppShape.circular(8),
       onTap: () => context.read<AppNav>().openArtist(artist.name),
       child: Padding(
         padding: const EdgeInsets.all(8),

@@ -16,11 +16,31 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
 - **Library** – scans MP3, FLAC, M4A/AAC, OGG, Opus and WAV; reads title/artist/album/album-artist/
   track/disc/year tags and embedded cover art (falls back to `cover.jpg`/`folder.jpg`, then to file
   and folder names). Rescans only re-read files that changed.
+  `dart run tool/probe_library.dart <folder>` previews how a folder will be grouped.
+- **Folders & scanning** (Settings) – music and audiobook folders in one place. Each folder has an
+  options button (⋮) to **rescan just that folder** and a **File types** list: untick a format
+  (e.g. WAV) and that folder's files of that type are left out of the library until ticked again.
 - **Browse** – Home (quick tiles, recently added, artists), Library tabs for Playlists, Artists,
-  Albums and Songs, album pages with multi-disc headings, artist pages.
+  Albums and Songs, album pages with multi-disc headings. On an artist page, clicking an album
+  opens its songs right underneath the row it's in (with Play, Shuffle and Open album page);
+  right-click → **Open album page** goes straight to the full page. Album covers show a play
+  button when you hover over them.
 - **Search** – instant, across songs, artists, albums, audiobooks and chapters; every word must match.
-- **Playback** – queue, play next, add to queue, shuffle, repeat off/all/one, seek, volume,
-  full-screen Now Playing, drag-to-reorder / swipe-to-remove queue.
+- **Playback** – queue, play next, add to queue, shuffle, repeat off/all/one, seek, full-screen
+  Now Playing. The queue opens as a drawer from the side (drag to reorder, swipe to remove).
+- **Volume everywhere** – the volume slider is in the player bar, Now Playing (lyrics view too)
+  and, on the mini player, behind a speaker button. Clicking the speaker icon anywhere mutes, and
+  clicking again brings back the previous volume.
+- **Themes and appearance** (Settings › Appearance) – the Default look plus two ready-made dark
+  themes (Midnight and Forest), **Your own** (pick an accent and background colour, with "Reset to
+  default colours"), and **advanced themes**: every colour (background, panels, text, faded text,
+  slider track, play button…) editable, dark or light, saved by name, edited and deleted later.
+  The editor warns about hard-to-read combinations. Text size and corner roundness are adjustable
+  too. Themes are kept in backups.
+- **Updates** (Settings › About) – "Check for updates" looks at the latest GitHub release. On
+  Windows the installer is downloaded, its checksum verified, installed quietly and HomeTunes
+  reopens; the portable zip and Android open the download page instead. An optional quiet check
+  at start-up (at most once a day) shows a banner when a new version is out.
 - **Playlists** – create, rename, delete, reorder, add whole albums; plus **Liked Songs**.
 - **Server streaming** – Subsonic API with token auth; server songs show a small cloud icon and can
   be switched off in Settings at any time.
@@ -59,16 +79,16 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
 - **Songs that aren't on the device** – if a song's file is deleted, moved or on a drive that's
   unplugged, its edits and playlist / Liked Songs places are kept, and it's skipped when playing.
   When the file comes back – even in a different folder or on another device – the next scan
-  picks it up again (matched by path, or by title/artist/album/track). Settings → Music folders
-  lists these songs and can forget them.
-- **Backup & restore** (Settings) – exports everything HomeTunes keeps (music folders, server,
-  switches, playlists, Liked Songs, edits, covers, library cache) to one `.htbackup` file, and
-  imports it on the same or another PC/phone, replacing or merging. The server password is only
-  included if you switch that on. The data from just before a restore is kept as
+  picks it up again (matched by path, or by title/artist/album/track). Settings → Folders &
+  scanning lists these songs and can forget them.
+- **Backup & restore** (Settings) – exports everything HomeTunes keeps (folders, server, switches,
+  themes, playlists, Liked Songs, edits, covers, library cache) to one `.htbackup` file, and
+  imports it on the same or another PC/phone, replacing or merging. The server password is never
+  included; you type it again after restoring. The data from just before a restore is kept as
   `before-restore.htbackup` in the app's data folder.
 - **Audiobooks** – a separate Books tab. A file is a book when it's an `.m4b`, has an audiobook genre
   ("Audiobook", "Audio Book", "Spoken Word"… editable), sits in a folder named like "Audiobooks", or
-  is in an audiobook folder chosen in Settings → Audiobooks; "Move to Books" / "Move to Music" fixes
+  is in an audiobook folder (Settings → Audiobooks or Folders & scanning); "Move to Books" / "Move to Music" fixes
   any file by hand. Books are grouped per `.m4b` file or per folder + album; series, number and
   narrator are read from folder names like `Harry Potter Audio Books 1-7; Read by Stephen Fry` /
   `Book 01 - …`. HomeTunes remembers your place in every book (resuming a few seconds back), and
@@ -95,9 +115,8 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
   Your own edits still win. `dart run tool/probe_book_extras.dart <folder>` shows what's picked up.
 - **Sleep timer** – the moon button beside play/pause: one tap starts it, another stops it. Books
   and music have their own length (minutes, or end of chapter / end of song), and the volume
-  fades out before it pauses. All of these are in Settings → Audiobooks, where the button can
+  fades out before it pauses. All of these are in Settings → Sleep timer, where the button can
   also be hidden.
-  `dart run tool/probe_library.dart <folder>` previews how a folder will be grouped.
 - **Gapless playback** – the next song is loaded while the current one plays, so albums that run
   straight on (live albums, mixes) have no silence between tracks; audiobook files join up too.
   Repeat-one loops without a gap. Can be switched off in Settings → Playback.
@@ -123,7 +142,7 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
 
 ### One-time setup of your PC
 
-- **Flutter 3.38+**: https://docs.flutter.dev/get-started/install — then run `flutter doctor`.
+- **Flutter 3.47+** (Dart 3.10+): https://docs.flutter.dev/get-started/install — then run `flutter doctor`.
 - **Windows builds**:
   - Turn on Developer Mode (`start ms-settings:developers`); Flutter plugins need it.
   - Visual Studio 2022 with the **Desktop development with C++** workload
@@ -167,6 +186,26 @@ time: **More info → Run anyway**. Bump `version:` in `pubspec.yaml` for each r
 installer upgrades cleanly. Always raise the build number after the `+` too (e.g. `0.1.5+4` →
 `0.1.6+5`): Android refuses to install a build whose number is lower than the one on the phone (the installer's AppId in `installer/hometunes.iss` must never change).
 
+Add `-Android` to also build a signed `HomeTunes-<version>-android.apk` (needs
+`android/key.properties`; keep the same key, or phones can't update). `-SkipBuild` repackages an
+existing build.
+
+### Publishing a release
+
+```
+powershell -ExecutionPolicy Bypass -File tool\publish_release.ps1
+```
+
+Uploads the files in `build\dist\` for the current version to a GitHub release with a
+`HomeTunes-<version>-SHA256SUMS.txt`. The in-app update check reads the latest release and
+checks the installer against that file, so only publish finished builds. Re-running it
+resumes an interrupted upload.
+
+### Switching branches safely
+
+`tool\switch_branch.ps1 <branch>` (`-New` to create one) refuses to switch while there are unsaved
+changes or a `flutter run` is going, so work in progress is never carried onto another branch.
+
 ### Starting from the source zip instead of this repo
 
 The zip has no platform folders. Run `setup.ps1` (Windows) or `setup.sh` once: it runs
@@ -188,7 +227,7 @@ The zip has no platform folders. Run `setup.ps1` (Windows) or `setup.sh` once: i
 
 ## Using a server
 
-Settings → *Music server*. Enter the address (e.g. `http://192.168.1.20:4533`), username and
+Settings → *Servers*. Enter the address (e.g. `http://192.168.1.20:4533`), username and
 password, then **Connect**. HomeTunes checks the login, then downloads the song list. Use
 **Sync now** after adding music to the server.
 
@@ -200,8 +239,13 @@ you can run on a spare PC, NAS or Raspberry Pi and point at the same music folde
 Library cache, playlists and settings are JSON files in the app's support folder
 (on Windows, a `hometunes` folder under `%APPDATA%`). Your music files are only ever read,
 never changed (unless you use *Save edits into files*, whose file backups go in the `backups`
-folder there; those aren't part of an exported HomeTunes backup). The server password is stored
-in that settings file in plain text, so use an account that only has access to music.
+folder there; those aren't part of an exported HomeTunes backup). Update-check settings are in
+`updates.json` there and aren't backed up; downloaded installers go in a `HomeTunes-update`
+folder in the system's temp folder.
+
+The server password is not in those files: it's kept in the system's protected storage (Windows
+Credential Manager, the Android Keystore, the macOS Keychain or the Linux keyring) and is never
+put in a backup.
 
 ## Project layout
 
@@ -213,24 +257,38 @@ lib/
     local_scanner.dart       folder walk + tag reading (background isolates)
     subsonic_client.dart     Subsonic REST client
     storage.dart             JSON file storage
+    secret_store.dart        server password in the system's protected storage
+    app_backup.dart          .htbackup export / import
+    update_checker.dart      GitHub release check, verified installer download
   state/
-    library_model.dart       library, folders, server settings
+    library_model.dart       library, folders, file-type filters, server, theme settings
     library_index.dart       grouping + search (pure Dart)
     play_queue.dart          queue / shuffle / repeat logic (pure Dart)
-    player_model.dart        connects the queue to media_kit audio
+    player_model.dart        connects the queue to media_kit audio; volume and mute
     playlists_model.dart     playlists, Liked Songs, favourite albums and books
     equalizer_model.dart     equaliser presets and settings
-  ui/                        shell, screens, widgets, theme
-test/                        queue, library, search and Subsonic tests
-tool/patch_platforms.dart    adds Android/macOS/iOS permissions after `flutter create`
+    update_model.dart        update check state and the daily check
+  ui/
+    theme.dart               colour palettes, built-in themes, text size and corners
+    screens/                 pages, incl. settings/ (one file per Settings tab)
+    widgets/                 player bar, volume control, cards, dialogs
+test/                        unit and widget tests (flutter test)
+tool/
+  build_release.ps1          Windows installer + zip (and -Android APK)
+  publish_release.ps1        GitHub release upload with checksums
+  switch_branch.ps1          safe branch switching
+  patch_platforms.dart       adds Android/macOS/iOS permissions after `flutter create`
+  probe_*.dart               command-line checks for scanning, books, lyrics, updates
+installer/hometunes.iss      Inno Setup script
+docs/USER_GUIDE.md           download and user guide
 ```
 
 For a full tour of every file, see `docs/ai-context/05_CODE_GUIDE.md`.
 
 ## Known limits (good next steps)
 
-- **Server password** is stored in plain text in the app's settings file (and in an exported
-  backup if you choose to include it).
+- **Automatic updates** install themselves only with the Windows installer; the portable zip and
+  Android open the download page. Builds aren't code-signed, so SmartScreen warns on first run.
 - **Hot restart on Android** (debug only) disconnects the media notification until the app is
   fully restarted; this doesn't affect installed builds.
 - **iOS**: iOS doesn't allow apps to read arbitrary folders; local playback there would need

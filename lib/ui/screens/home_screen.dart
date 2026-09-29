@@ -4,7 +4,7 @@
 //
 // It watches LibraryModel, PlaylistsModel and ListeningModel, so it refreshes as scans finish
 // or you like songs. With an empty library it shows a single "Add music" button instead, which
-// jumps straight to Settings > Library > Music folders.
+// jumps straight to Settings > Folders & scanning > Music folders.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -169,7 +169,7 @@ class _QuickTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.surfaceHigh,
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: AppShape.circular(6),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -180,7 +180,7 @@ class _QuickTile extends StatelessWidget {
                 ? ArtworkFill(track: track, radius: 0)
                 : Container(
                     color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
-                    child: Icon(icon, color: Colors.white),
+                    child: Icon(icon, color: AppColors.current.onAccent),
                   ),
           ),
           const SizedBox(width: 10),

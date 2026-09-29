@@ -148,7 +148,7 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
             const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: AppColors.surface, borderRadius: AppShape.circular(12)),
               child: _editing
                   ? _BandSliders(preset: current, onChanged: (g) => eq.adjust(current.id, gains: g))
                   : _Curve(preset: current, color: eq.enabled ? accent : AppColors.textDim),
@@ -228,7 +228,7 @@ class _Notice extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         margin: const EdgeInsets.only(top: 8),
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(8)),
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: AppShape.circular(8)),
         child: Row(children: [
           Icon(icon, size: 18, color: AppColors.textDim),
           const SizedBox(width: 10),
