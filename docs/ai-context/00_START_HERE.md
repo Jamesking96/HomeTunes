@@ -19,11 +19,13 @@ Read the files in this order:
 ## Status (29 Sep 2026)
 
 - **Everything is in source control.** `main` on GitHub (github.com/Jamesking96/HomeTunes) is
-  **0.1.24+24**. There are no other branches.
-  - Tests: 316 pass, and `flutter analyze` is clean.
-  - Builds for 0.1.24 are in `build\dist` on the PC and can be downloaded from the GitHub release
-    (https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.24). Publish each new version
-    the same way (see `02_…` → publishing builds).
+  **0.1.27+27** (0.1.25–0.1.27 merged and pushed on 29 Sep, **not released, no tag yet**: the
+  user asked to hold the release). There are no other branches.
+  - Tests: 345 pass, and `flutter analyze` is clean.
+  - The latest GitHub release is still v0.1.24. Builds for 0.1.27 are in `build\dist` on the PC,
+    ready for `tool\publish_release.ps1` when the user says to release (rebuild first if code
+    changed since). Publish each new version the same way (see `02_…` → publishing builds).
+  - `README.md` was brought up to date for 0.1.27 on 29 Sep.
   - `docs/USER_GUIDE.md` is the user-facing download and how-to guide shown on every release, and
     `README.md` links to it. Update it when features or menu names change.
 - Built and merged so far:
@@ -57,17 +59,17 @@ Read the files in this order:
 - **0.1.24 (29 Sep): colour themes, merged, pushed and released as v0.1.24.** Settings ›
   Appearance with Default / Midnight / Forest / Your own. 316 tests pass. The user approved it.
   See `03_…` → Colour themes. This is the first release 0.1.23 can update to by itself.
-- **In progress (29 Sep): advanced appearance, 0.1.25, branch `feature/advanced-themes`**, not
-  merged: saved themes with every colour (light themes too), text size, corners, plus
+- **0.1.25–0.1.27 below were merged into `main` and pushed on 29 Sep (not released); their
+  branches were deleted.**
+- **0.1.25: advanced appearance**: saved themes with every colour (light themes too), text size, corners, plus
   `tool\switch_branch.ps1` and rule 13. Started by another session, finished by this one.
   325 tests pass, analyze clean. Waiting for the user to try it. See `03_…` → Advanced appearance.
-- **In progress (29 Sep): 0.1.26, branch `feature/ui-feedback` (on top of `feature/advanced-themes`)**,
-  not merged: queue as a side drawer, artist-page albums open in place (+ Open album page,
+- **0.1.26**: queue as a side drawer, artist-page albums open in place (+ Open album page,
   hover play), Settings in A–Z order with **Folders & scanning** (music + audiobook folders).
   337 tests pass. The user wants 0.1.25 and 0.1.26 released together once tried. See `03_…`.
-- **Then 0.1.27, branch `feature/folder-options` (on top of `feature/ui-feedback`)**: folder
-  options (rescan one folder, file-type tick boxes) for music and audiobook folders, and the
-  speaker icon as a mute toggle. 345 tests pass. Release 0.1.25–0.1.27 together once tried.
+- **0.1.27**: folder options (rescan one folder, file-type tick boxes) for music and audiobook
+  folders, and the speaker icon as a mute toggle. 345 tests pass. Release 0.1.25–0.1.27
+  together when the user says so (the phone still has 0.1.23).
 - **Next after that:** nothing is agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user. See
   `04_ROADMAP_AND_OPEN_ITEMS.md`.
