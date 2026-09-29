@@ -78,10 +78,10 @@ class _PlaylistsTab extends StatelessWidget {
           width: 52,
           height: 52,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: AppShape.circular(4),
             gradient: LinearGradient(colors: [accent, accent.withValues(alpha: 0.35)]),
           ),
-          child: const Icon(Icons.favorite, color: Colors.white),
+          child: Icon(Icons.favorite, color: AppColors.current.onAccent),
         ),
         title: const Text('Liked Songs', style: TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text('${pl.liked.length} songs'),

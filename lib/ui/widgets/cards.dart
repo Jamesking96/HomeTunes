@@ -139,12 +139,12 @@ class _SelectableCardState extends State<SelectableCard> {
     return Stack(children: [
       Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppShape.circular(8),
           border: Border.all(color: selected ? accent : Colors.transparent, width: 2),
           color: selected ? accent.withValues(alpha: 0.12) : null,
         ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppShape.circular(8),
           onTapDown: (d) => _at = d.globalPosition,
           onTap: selecting ? () => context.read<SelectionModel>().toggle(widget.id, kind: widget.kind) : widget.onOpen,
           onLongPress: _menu,
@@ -177,10 +177,10 @@ class _SelectableCardState extends State<SelectableCard> {
               height: 22,
               decoration: BoxDecoration(
                 color: selected ? accent : Colors.black54,
-                borderRadius: BorderRadius.circular(5),
+                borderRadius: AppShape.circular(5),
                 border: Border.all(color: selected ? accent : Colors.white, width: 2),
               ),
-              child: selected ? const Icon(Icons.check, size: 16, color: Colors.black) : null,
+              child: selected ? Icon(Icons.check, size: 16, color: AppColors.current.onAccent) : null,
             ),
           ),
         ),
@@ -199,7 +199,7 @@ class ArtistCard extends StatelessWidget {
     // Artists have no picture of their own, so borrow the first album's cover (cut to a circle).
     final art = artist.albums.isEmpty ? null : artist.albums.first.artTrack;
     final card = InkWell(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: AppShape.circular(8),
       onTap: () => context.read<AppNav>().openArtist(artist.name),
       child: Padding(
         padding: const EdgeInsets.all(8),

@@ -165,7 +165,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             isDense: true,
             prefixIcon: const Icon(Icons.search),
             hintText: 'Search settings',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            border: OutlineInputBorder(borderRadius: AppShape.circular(8)),
             suffixIcon: _query.isEmpty
                 ? null
                 : IconButton(

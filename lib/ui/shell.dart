@@ -87,7 +87,7 @@ class Shell extends StatelessWidget {
           Expanded(
             child: Row(children: [
               const _Sidebar(),
-              const VerticalDivider(width: 1, color: Colors.black),
+              VerticalDivider(width: 1, color: AppColors.divider),
               Expanded(child: body),
             ]),
           ),
@@ -214,11 +214,11 @@ class _Sidebar extends StatelessWidget {
 
     // One sidebar entry; the selected tab is shown in white, the rest dimmed.
     Widget item(int i, IconData icon, String label) => ListTile(
-          leading: Icon(icon, color: nav.tab == i ? Colors.white : null),
+          leading: Icon(icon, color: nav.tab == i ? AppColors.text : null),
           title: Text(label,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
-                color: nav.tab == i ? Colors.white : AppColors.textDim,
+                color: nav.tab == i ? AppColors.text : AppColors.textDim,
               )),
           onTap: () => nav.selectTab(i),
         );

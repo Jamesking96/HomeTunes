@@ -169,7 +169,7 @@ class _QuickTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.surfaceHigh,
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: AppShape.circular(6),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -180,7 +180,7 @@ class _QuickTile extends StatelessWidget {
                 ? ArtworkFill(track: track, radius: 0)
                 : Container(
                     color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
-                    child: Icon(icon, color: Colors.white),
+                    child: Icon(icon, color: AppColors.current.onAccent),
                   ),
           ),
           const SizedBox(width: 10),

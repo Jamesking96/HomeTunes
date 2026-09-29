@@ -31,13 +31,14 @@ void main() {
         await loader.load();
       }
     });
+    // ignore: invalid_use_of_visible_for_testing_member
     PackageInfo.setMockInitialValues(
         appName: 'HomeTunes', packageName: 'x', version: '0.1.24', buildNumber: '24', buildSignature: '');
     Directory(out).createSync(recursive: true);
     final dir = Directory.systemTemp.createTempSync('hometunes_preview');
     final lib = LibraryModel(Storage.at(dir));
     final nav = AppNav();
-    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.physicalSize = const Size(1280, 1100);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final key = GlobalKey();
@@ -47,8 +48,16 @@ void main() {
       ('midnight', null, null),
       ('forest', null, null),
       ('custom', '#E35BD8', '#1A1020'),
+      ('light', null, null), // a saved light theme (Advanced), with square corners and larger text
     ]) {
-      await tester.runAsync(() => lib.setTheme(id: t.$1, accent: t.$2, background: t.$3));
+      if (t.$1 == 'light') {
+        await tester.runAsync(() async {
+          await lib.saveTheme(lightStarter.copyWith(id: 'saved:preview', name: 'Daylight').toJson());
+          await lib.setLook(textSize: 1.15, cornerRoundness: 0);
+        });
+      } else {
+        await tester.runAsync(() => lib.setTheme(id: t.$1, accent: t.$2, background: t.$3));
+      }
       await tester.pumpWidget(MultiProvider(
         providers: [
           ChangeNotifierProvider.value(value: lib),
@@ -56,15 +65,17 @@ void main() {
           ChangeNotifierProvider(create: (_) => EqualizerModel(Storage.at(dir))),
           ChangeNotifierProvider(create: (_) => UpdateModel(Storage.at(dir), readVersion: () async => '0.1.24')),
         ],
-        child: Selector<LibraryModel, AppPalette>(
-          selector: (_, l) => paletteOfSettings(l),
-          builder: (context, palette, _) {
-            AppColors.current = palette;
+        child: Selector<LibraryModel, AppLook>(
+          selector: (_, l) => lookOfSettings(l),
+          builder: (context, look, _) {
+            AppColors.current = look.palette;
+            AppShape.scale = look.corners;
             return RepaintBoundary(
               key: key,
               child: MaterialApp(
                 debugShowCheckedModeBanner: false,
-                theme: buildTheme(palette),
+                theme: buildTheme(look.palette, look.corners),
+                builder: (context, child) => withTextSize(context, look.textSize, child!),
                 home: const SettingsScreen(),
               ),
             );
@@ -74,13 +85,26 @@ void main() {
       await tester.pumpAndSettle();
       nav.openSettings('appearance');
       await tester.pumpAndSettle();
-      final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-      await tester.runAsync(() async {
-        final image = await boundary.toImage();
-        final png = await image.toByteData(format: ui.ImageByteFormat.png);
-        File('$out\\theme-${t.$1}.png').writeAsBytesSync(png!.buffer.asUint8List());
-      });
+      Future<void> shoot(String name) => tester.runAsync(() async {
+            final b = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+            final image = await b.toImage();
+            final png = await image.toByteData(format: ui.ImageByteFormat.png);
+            File('$out\\$name.png').writeAsBytesSync(png!.buffer.asUint8List());
+          });
+      await shoot('theme-${t.$1}');
+      if (t.$1 == 'light') {
+        // The Advanced theme editor for the same theme.
+        await tester.tap(find.text('Daylight').last);
+        await tester.pumpAndSettle();
+        final more = find.byTooltip('More').last;
+        await tester.tap(more);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Edit…'));
+        await tester.pumpAndSettle();
+        await shoot('theme-editor');
+      }
     }
     AppColors.current = defaultPalette;
+    AppShape.scale = 1.0;
   });
 }

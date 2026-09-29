@@ -42,14 +42,14 @@ class PlaylistScreen extends StatelessWidget {
             child: CollectionHeader(
             art: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: AppShape.circular(6),
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [accent, accent.withValues(alpha: 0.3)],
                 ),
               ),
-              child: const Icon(Icons.favorite, size: 72, color: Colors.white),
+              child: Icon(Icons.favorite, size: 72, color: AppColors.current.onAccent),
             ),
             kind: 'Playlist',
             title: 'Liked Songs',
