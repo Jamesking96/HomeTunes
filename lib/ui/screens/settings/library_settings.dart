@@ -35,6 +35,115 @@ Future<String?> pickFolderWithPermission(BuildContext context, String title) asy
   return FilePicker.getDirectoryPath(dialogTitle: title);
 }
 
+/// The small options button on each folder row (0.1.27): opens [showFolderOptions].
+class FolderOptionsButton extends StatelessWidget {
+  final String folder;
+  const FolderOptionsButton({super.key, required this.folder});
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+        key: ValueKey('folder-options:$folder'),
+        tooltip: 'Folder options',
+        icon: const Icon(Icons.tune),
+        onPressed: () => showFolderOptions(context, folder),
+      );
+}
+
+/// A folder's options window: rescan just this folder, and choose which file types found in
+/// it are included (all are, until switched off).
+Future<void> showFolderOptions(BuildContext context, String folder) =>
+    showDialog<void>(context: context, builder: (_) => _FolderOptions(folder: folder));
+
+class _FolderOptions extends StatelessWidget {
+  final String folder;
+  const _FolderOptions({required this.folder});
+
+  @override
+  Widget build(BuildContext context) {
+    final lib = context.watch<LibraryModel>();
+    final formats = lib.formatsIn(folder);
+    final hidden = [for (final f in formats.keys) if (!lib.formatShown(folder, f)) f];
+    final isBooks = lib.audiobookFolders.contains(folder) && !lib.folders.contains(folder);
+    String label(String f) => f.isEmpty ? '(no extension)' : f.toUpperCase();
+    final summary = formats.isEmpty
+        ? 'None found yet'
+        : hidden.isEmpty
+            ? 'All ${formats.length} included'
+            : '${formats.length - hidden.length} of ${formats.length} included · ${hidden.map(label).join(', ')} left out';
+
+    return AlertDialog(
+      title: const Text('Folder options'),
+      content: SizedBox(
+        width: 460,
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(folder, style: TextStyle(color: AppColors.textDim, fontSize: 13)),
+            const SizedBox(height: 12),
+            // 1. Rescan just this folder.
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.refresh),
+              title: const Text('Rescan this folder'),
+              subtitle: ValueListenableBuilder<String?>(
+                valueListenable: lib.statusText,
+                builder: (_, status, _) => Text(lib.busy
+                    ? (status ?? 'Working…')
+                    : 'Looks for new, changed and removed ${isBooks ? 'audiobook files' : 'songs'} in this folder only'),
+              ),
+              trailing: FilledButton(
+                key: const ValueKey('rescan-folder'),
+                onPressed: lib.busy ? null : () => lib.scanFolder(folder),
+                child: const Text('Rescan'),
+              ),
+            ),
+            const Divider(),
+            // 2. Which file types to include: a drop-down list with a tick box for each.
+            Theme(
+              // No divider lines around the drop-down.
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                key: const ValueKey('format-filter'),
+                tilePadding: EdgeInsets.zero,
+                leading: const Icon(Icons.filter_list),
+                title: const Text('File types'),
+                subtitle: Text(summary),
+                children: [
+                  if (formats.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text('Rescan the folder to see which file types it has.',
+                          style: TextStyle(color: AppColors.textDim)),
+                    ),
+                  for (final e in formats.entries)
+                    CheckboxListTile(
+                      key: ValueKey('format:${e.key}'),
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: Text(label(e.key)),
+                      subtitle: Text('${e.value} file${e.value == 1 ? '' : 's'}'),
+                      value: lib.formatShown(folder, e.key),
+                      onChanged: (on) => lib.setFormatShown(folder, e.key, on ?? true),
+                    ),
+                  if (formats.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        'Unticked types are left out of your library straight away. Nothing is deleted, '
+                        'and ticking them again brings them back.',
+                        style: TextStyle(color: AppColors.textDim, fontSize: 12),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ]),
+        ),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
+    );
+  }
+}
+
 /// The audiobook folders list with its Add button and book count. Shown on both Settings ›
 /// Folders & scanning and Settings › Audiobooks; it's one setting.
 class AudiobookFoldersSection extends StatelessWidget {
@@ -70,12 +179,15 @@ class AudiobookFoldersSection extends StatelessWidget {
           subtitle: lib.offlineFolders.contains(f)
               ? const Text('Not available right now: its books are kept as they were')
               : null,
-          trailing: IconButton(
-            tooltip: 'Remove folder',
-            icon: const Icon(Icons.close),
-            // Folder buttons are disabled while a scan/sync is running.
-            onPressed: lib.busy ? null : () => lib.removeAudiobookFolder(f),
-          ),
+          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            FolderOptionsButton(folder: f),
+            IconButton(
+              tooltip: 'Remove folder',
+              icon: const Icon(Icons.close),
+              // Folder buttons are disabled while a scan/sync is running.
+              onPressed: lib.busy ? null : () => lib.removeAudiobookFolder(f),
+            ),
+          ]),
         ),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -129,11 +241,14 @@ class LibrarySettings extends StatelessWidget {
               subtitle: lib.offlineFolders.contains(f)
                   ? const Text('Not available right now: its songs are kept as they were')
                   : null,
-              trailing: IconButton(
-                tooltip: 'Remove folder',
-                icon: const Icon(Icons.close),
-                onPressed: lib.busy ? null : () => lib.removeFolder(f),
-              ),
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                FolderOptionsButton(folder: f),
+                IconButton(
+                  tooltip: 'Remove folder',
+                  icon: const Icon(Icons.close),
+                  onPressed: lib.busy ? null : () => lib.removeFolder(f),
+                ),
+              ]),
             ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
