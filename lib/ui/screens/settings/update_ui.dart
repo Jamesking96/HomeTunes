@@ -16,6 +16,7 @@ import '../../../state/player_model.dart';
 import '../../../state/update_model.dart';
 import '../../theme.dart';
 import 'settings_widgets.dart';
+import 'whats_new_ui.dart';
 
 /// Given to MaterialApp so the start-up notice can be shown from outside the widget tree.
 final appMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -220,14 +221,15 @@ class _UpdateDialog extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 520),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           if (u.currentVersion != null) Text('You have ${u.currentVersion}.', style: dim),
-          if (latest.whatsNew.isNotEmpty) ...[
+          if (latest.notes.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Text('What\'s new', style: TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
             Flexible(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 260),
-                child: SingleChildScrollView(child: Text(latest.whatsNew, style: const TextStyle(fontSize: 13))),
+                // Bullets and bold as on the release page (0.1.28, whats_new_ui.dart).
+                child: SingleChildScrollView(child: NotesText(latest.notes)),
               ),
             ),
           ],

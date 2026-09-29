@@ -5,7 +5,15 @@
 // [autoCheck] off). The work itself is in services/update_checker.dart. Its own small file,
 // updates.json, holds the switch and when the last check ran; it isn't part of backups, since
 // it belongs to this device.
+//
+// 0.1.28: updates.json also remembers the version that last ran ([lastRunVersion]). When a
+// newer version starts for the first time, [justUpdated] is true and main.dart shows the
+// "What's new" list (ui/screens/settings/whats_new_ui.dart): the release notes of every
+// version since [updatedFrom], read from the GitHub release pages.
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 
 import '../services/storage.dart';
 import '../services/update_checker.dart';
@@ -49,6 +57,16 @@ class UpdateModel extends ChangeNotifier {
   /// What went wrong, in plain words, when [stage] is failed.
   String? error;
 
+  /// The version that ran last time (saved once "What's new" has been dealt with).
+  String? lastRunVersion;
+
+  /// True on the first start after updating: show "What's new".
+  bool justUpdated = false;
+
+  /// The version this copy was updated from, when known. Null after updating from a version
+  /// older than 0.1.28, which didn't record it; then only this version's notes are shown.
+  String? updatedFrom;
+
   bool get busy =>
       stage == UpdateStage.checking || stage == UpdateStage.downloading || stage == UpdateStage.installing;
 
@@ -67,13 +85,66 @@ class UpdateModel extends ChangeNotifier {
       if (a is bool) autoCheck = a;
       final l = raw['lastCheck'];
       if (l is String) lastCheck = DateTime.tryParse(l);
+      final v = raw['lastRunVersion'];
+      if (v is String && parseVersion(v) != null) lastRunVersion = v;
     }
+    await _noticeUpdate(usedBefore: raw is Map<String, dynamic>);
     notifyListeners();
+  }
+
+  /// Sets [justUpdated] when this version is newer than the one that ran last time.
+  Future<void> _noticeUpdate({required bool usedBefore}) async {
+    final current = currentVersion;
+    if (current == null || parseVersion(current) == null) return;
+    final last = lastRunVersion;
+    if (last != null) {
+      if (isNewerVersion(current, last)) {
+        justUpdated = true;
+        updatedFrom = last;
+      } else if (last != current) {
+        await markWhatsNewSeen(); // went back to an older version: nothing to show
+      }
+      return;
+    }
+    // Nothing recorded: either a brand-new install (nothing to show) or an update from a
+    // version before 0.1.28. updates.json (0.1.23+) or settings.json existing means the app
+    // has been used before.
+    // (Only checked for, not read: LibraryModel reads it at the same time.)
+    if (!usedBefore) {
+      try {
+        usedBefore = await File(p.join(storage.root.path, 'settings.json')).exists();
+      } catch (_) {}
+    }
+    if (usedBefore) {
+      justUpdated = true;
+      updatedFrom = null;
+    } else {
+      await markWhatsNewSeen();
+    }
+  }
+
+  /// Remembers this version as seen, so "What's new" isn't shown again.
+  Future<void> markWhatsNewSeen() async {
+    justUpdated = false;
+    if (currentVersion == null) return;
+    lastRunVersion = currentVersion;
+    await _save();
+  }
+
+  /// The releases to list in "What's new" after this update, newest first (empty if none of
+  /// them has notes, e.g. a build that was never published). Throws [UpdateException] if
+  /// GitHub can't be reached.
+  Future<List<ReleaseInfo>> fetchWhatsNew({bool thisVersionOnly = false}) async {
+    final current = currentVersion;
+    if (current == null) return const [];
+    final all = await checker.fetchReleases();
+    return releasesSince(all, from: thisVersionOnly ? null : updatedFrom, to: current);
   }
 
   Future<void> _save() => storage.write(file, {
         'autoCheck': autoCheck,
         if (lastCheck != null) 'lastCheck': lastCheck!.toIso8601String(),
+        if (lastRunVersion != null) 'lastRunVersion': lastRunVersion,
       });
 
   Future<void> setAutoCheck(bool on) async {
