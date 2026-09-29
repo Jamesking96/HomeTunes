@@ -43,6 +43,13 @@ before changing that area.
     `NativePlayer.setProperty` and only reapplied when they change.
   - Settings → Playback: gapless on/off, ReplayGain off/track/album.
 - The mouse wheel over the volume control changes the volume.
+- **Volume everywhere (0.1.22, asked for 29 Sep).** `VolumeControl` is in the desktop player bar
+  (120 px), across Now Playing under the play buttons (`sliderWidth: null`, fills the row), and in
+  the phone mini player as `VolumeButton`: a speaker icon whose `MenuAnchor` pop-up holds a 200 px
+  slider (the user picked the pop-up over an always-visible row). Now Playing is pushed on the
+  root navigator and covers the desktop bar, which is why it needed its own slider: it's there
+  with the cover and with the lyrics. On Android this is HomeTunes' own level, on top of the
+  phone's volume buttons.
 - **Media controls.** On Android: notification, lock screen and headset buttons. On Windows: media
   keys and the overlay. For books, rewind and fast-forward do the skip amounts. Back on the
   Android Home screen keeps playing.
@@ -146,6 +153,40 @@ before changing that area.
 - **Servers:** the music server, then an Audiobooks group. That group has the "Audiobooks from the
   music server" switch (`serverBooks`) and a placeholder for a separate audiobook server (phase E).
 - **About** shows the version (package_info_plus) and the data folder, with "Open folder" on Windows.
+  Since 0.1.23 it also has **Check for updates** and **Check for updates automatically** (see
+  below).
+
+## Updates (`feature/update-check`, 0.1.23, asked for 29 Sep)
+- **The user's choices (29 Sep):** a "Check for updates" button in Settings › About **plus** a quiet
+  check at most once a day with a switch to turn it off; on the phone, just **open the download
+  page** (not download-and-install); on Windows it updates itself.
+- **Where things are:** `services/update_checker.dart` (GitHub, versions, checksums, installer),
+  `state/update_model.dart` (`UpdateModel`, `updates.json`: `autoCheck` + `lastCheck`; not in
+  backups, it's per device), `ui/screens/settings/update_ui.dart` (About rows, the question
+  dialog, the start-up notice). `main.dart` runs `checkIfDue()` 8 s after start; a find shows a
+  SnackBar with **Update…** through `appMessengerKey` / `appNavigatorKey` on MaterialApp.
+- **The check:** `GET api.github.com/repos/Jamesking96/HomeTunes/releases/latest` (unauthenticated;
+  the repo's releases are public; 60 requests an hour per IP is plenty). Drafts and pre-releases are
+  never offered. `isNewerVersion` compares the numbers (0.1.10 > 0.1.9) and ignores the `+build`.
+  The dialog shows the release page's "What's new" part (text before the first `---`).
+- **Windows, installed copy** (`unins000.exe` next to the exe): downloads
+  `HomeTunes-Setup-<v>.exe` and `HomeTunes-<v>-SHA256SUMS.txt` from the release (only
+  `https://github.com/Jamesking96/HomeTunes/releases/download/…` links), refuses and deletes the
+  installer if its SHA-256 doesn't match, runs it detached with
+  `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /RELAUNCH=1`, then HomeTunes pauses,
+  saves the book place and pending saves, and exits. `installer/hometunes.iss` has a `[Run]` entry
+  with `Check: RelaunchAfterUpdate` (silent + `/RELAUNCH=1`) that starts HomeTunes again
+  (`runasoriginaluser`). The checksum only protects against a broken or tampered download on the
+  way; it comes from the same release, so it doesn't protect against a compromised GitHub account.
+- **The zip copy and the phone** open the release page in the browser (`openInBrowser`: Windows
+  `rundll32 url.dll,FileProtocolHandler`; Android the `openUrl` method on the `hometunes/app`
+  channel in `MainActivity.kt`, https only).
+- **First time:** 0.1.21 and 0.1.22 have no updater, so 0.1.23 has to be installed by hand once.
+  From then on each release updates itself, as long as it's published with
+  `tool/publish_release.ps1` (the asset names and the SHA256SUMS file are what the app looks for).
+- **Tests:** `test/update_test.dart` (fake GitHub). Live check: `flutter test
+  tool/probe_update_test.dart` reads the real latest release, downloads its installer and checks
+  the checksum (nothing is installed). Passed on 29 Sep against v0.1.21.
 
 ## Equaliser (`equaliser` branch, 0.1.10)
 - **Where:** `EqualizerModel` (`equalizer.json`, included in backups) and `models/eq_preset.dart`.

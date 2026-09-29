@@ -44,7 +44,16 @@ Read the files in this order:
     fixed by the user on 28 Sep
 - Every source file has a header comment saying what it does and why (added 25 Sep; keep it up
   for new files). These notes are also in the repo under `docs/ai-context/`. Update them when things change.
-- **Next:** nothing is agreed yet. The open phases are D (offline server songs, after the server
+- **In progress (29 Sep), waiting for the user's OK to merge:** two stacked branches, not yet
+  merged or pushed:
+  - `feature/volume-everywhere` (0.1.22): volume on Now Playing (cover and lyrics) and a speaker
+    button with a pop-up slider in the phone's mini player.
+  - `feature/update-check` (0.1.23, built on the volume branch): Settings › About › Check for
+    updates + a daily check; Windows installs itself, the phone opens the download page. See
+    `03_…` → Updates.
+  - 306 tests pass, analyze is clean, and 0.1.23 builds (installer, zip, signed APK) are in
+    `build\dist`. Not yet tried by the user or installed on the phone.
+- **Next after that:** nothing is agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user. See
   `04_ROADMAP_AND_OPEN_ITEMS.md`.
   - `05_CODE_GUIDE.md` lists probable bugs spotted while commenting the code (none fixed yet).
