@@ -13,19 +13,29 @@ before changing that area.
 - **Library tabs (0.1.18).** Artists, Albums and Songs each have a filter-by-title box (every
   typed word must be in the title), All / Favourites chips (Liked for songs), a "Show only" sheet
   (artist, album, genre, decade) and a sort menu, like the Books tab. Choices last while the app
-  is open but aren't saved; the Albums year sorts split the grid by decade.
+  is open but aren't saved; the Albums year sorts split the grid by decade. The logic is in
+  `state/music_filters.dart` (no Flutter, so it's unit tested in `test/library_filters_test.dart`),
+  the sheet in `ui/widgets/music_filter_sheet.dart`.
 - **Edits.** The user can edit a song, a whole album, or a multi-selection. Covers can be picked
   from a file or found online (MusicBrainz / Cover Art Archive), and so can details. Edits are
   stored in `edits.json`; the files are untouched until **Settings → Your edits → Save edits into music files**
   (with an optional backup copy). Tags the app doesn't edit are kept, thanks to the patched writer.
 - **Missing songs.** Songs whose files disappear are kept if they have edits or are in playlists or
-  Liked Songs. If a file moves, it's matched to its old id. Settings can forget missing songs.
+  Liked Songs. If a file moves, it's matched to its old id. **Settings → Folders & scanning** can
+  forget missing songs (the row only shows when there are some).
 - **Song lengths.** When a file has no length in its tags, the real length is learned the first
   time it plays.
-- **Backups.** A `.htbackup` file can be restored by merging or replacing. The server password is
-  included only if the user ticks it.
+- **Backups** (`services/app_backup.dart`, **Settings → Backup & restore**). A `.htbackup` file
+  holds settings, edits, playlists, library, listening, bookmarks, lyrics and equaliser data plus
+  covers (the ones pulled out of music files only if "Include cover images from music files" is
+  on; server covers are never included). It can be restored by merging (this device's settings
+  win, folders are added, missing folders are dropped and reported) or replacing. HomeTunes saves
+  `before-restore.htbackup` first. **The server password is never put in a backup** (since
+  0.1.21, security review #6); after a restore the user may be asked to type it again. Files over
+  256 MB, or that unpack to more than 512 MB, are refused.
 - **Server.** Subsonic/OpenSubsonic streaming, with cover art from the server. Server audiobooks
-  are assumed to work but still **need a review** (see `04_…`).
+  are assumed to work but still **need a review** (see `04_…`). See "Server sign-in and covers"
+  below for how the password and covers are kept safe.
 
 ## Player
 - media_kit, one `Player`. The play queue and its rules (shuffle, repeat, play next, reorder) live
@@ -43,7 +53,12 @@ before changing that area.
     `NativePlayer.setProperty` and only reapplied when they change.
   - Settings → Playback: gapless on/off, ReplayGain off/track/album.
 - The mouse wheel over the volume control changes the volume.
-- **Volume everywhere (0.1.22, asked for 29 Sep).** `VolumeControl` is in the desktop player bar
+- **Swipe gestures (0.1.17).** On a touch screen, swiping the mini player or the Now Playing cover
+  left/right goes to the next/previous song (`PlayerModel.swipe`; swiping back always goes to the
+  previous song, it never just restarts). In a book it skips by the Audiobooks skip lengths and a
+  short notice says how far. Mouse drags don't count. The switch is **Settings → Playback → Swipe
+  gestures** (`swipeToSkip`, on by default).
+- **Volume everywhere (0.1.22).** `VolumeControl` is in the desktop player bar
   (120 px), across Now Playing under the play buttons (`sliderWidth: null`, fills the row), and in
   the phone mini player as `VolumeButton`: a speaker icon whose `MenuAnchor` pop-up holds a 200 px
   slider (the user picked the pop-up over an always-visible row). Now Playing is pushed on the
@@ -60,8 +75,13 @@ before changing that area.
   2. a metadata sidecar was found (`hasBookInfo`)
   3. the genre is in the user's book genres (default Audiobook / Audio Book / Audiobooks / Spoken Word)
   4. the file is `.m4b`
-  5. a folder in the path is named like "audio books"
+  5. a folder in the path is named like "audio books", counting only from the scanned folder
+     down (since 0.1.16; a music folder at `D:\Audiobooks\Music` used to turn every song into a
+     book)
   6. the file is inside one of the user's audiobook folders
+
+  `BookRules.why` (`state/book_index.dart`) gives the rule that decided, in plain words, for the
+  Details page. Server songs stop after rule 3.
 - **Grouping.** Each `.m4b` is its own book. Other files group by folder + album, and server files
   by album + author.
   - The series and number are guessed from folder names ("Book 01 - …"), and the narrator from
@@ -72,13 +92,16 @@ before changing that area.
   - Resume where you left off, with an optional short rewind when resuming.
   - Skip back 15 s and forward 30 s by default (both adjustable), across file boundaries.
   - Chapters, with previous/next chapter.
-  - Speed from 0.75× to 2.5×, remembered per book.
+  - Speed from 0.75× to 2.5× (`PlayerModel.speeds`), remembered per book; new books start at the
+    "Speed for new books" setting.
   - Music queued while a book plays waits, and "Back to music" resumes it.
 - **Sleep timer.**
   - A moon button beside play/pause, which can be hidden: one tap turns it on, another turns it
     off.
-  - Books and music each have their own length in minutes, or "end of chapter" / "end of song".
-  - The volume fades out, then playback pauses and the book's place is saved.
+  - Books and music each have their own length in minutes (default 30), or "end of chapter" /
+    "end of song".
+  - The volume fades out ("Fade out before pausing", default 10 s, can be Off), then playback
+    pauses and the book's place is saved.
 - **Bookmarks** with notes.
 - **Book editing** changes title, author, narrator, series and number, year, genre and cover, for
   all of a book's files at once. Online look-ups use Open Library.
@@ -88,7 +111,7 @@ before changing that area.
 - Settings live in **Settings → Audiobooks**. This is the user's rule for everything book-related,
   except the sleep timer, which the user wanted in its own **Settings → Sleep timer** page (music and books).
 
-## Book sidecar files (`book-extras` branch)
+## Book sidecar files (`services/book_sidecar.dart`)
 - **Metadata sidecars.** `<name>.metadata.json` (Libation / audible-cli, Audible's schema) or an
   Audiobookshelf `metadata.json`.
   - These override the tags for title/album, author, narrators, series and number, year, genre
@@ -108,19 +131,21 @@ before changing that area.
 - **Description.** `<name>.txt`, `desc|description|summary|info|readme|about.txt`, or one of those
   in a parent collection folder that has no audio of its own.
 - **Companions.** PDFs/EPUBs in the folder, but only those named after the book when several books
-  share a folder. On desktop, the book page shows "Open the book's PDF".
+  share a folder. On desktop, the book page shows "Open the book's PDF" (or EPUB). Since 0.1.21 it
+  only opens a PDF/EPUB that really is inside one of the library folders.
 - On Android these files are invisible (media permission), so nothing changes there.
 - `sidecarStamp` hashes the sidecar names and modification times, so adding a file triggers a
   re-read. The first scan after upgrading re-reads everything once.
 
-## Lyrics (`lyrics` branch)
+## Lyrics (plan phase 2)
 - **Where they come from** (`LyricsModel`, first match wins):
   1. the user's lyrics (a TrackEdit; `""` = hidden)
   2. the file itself: the tags, or a `.lrc` file with the same name; timed beats plain
   3. lyrics found online before (`lyrics.json`, so they work offline)
   4. the server
   5. LRCLIB, if **Settings → Online lookups → Find lyrics online** is on
-- A "nothing found" result is remembered for 14 days. Books don't auto-search.
+- A "nothing found" result is remembered for 14 days (`LyricsModel.retryAfter`). Books never go
+  to LRCLIB automatically.
 - **Find lyrics on LRCLIB…** (in any song's ⋮ menu and in the lyrics view) lists the matches with
   a length check and a timed/plain label. The user previews one, and **Use these lyrics** saves it
   as their own lyrics.
@@ -134,10 +159,12 @@ before changing that area.
     Tapping a line seeks there.
 - Lyrics can be written into MP3 (USLT), FLAC (LYRICS) and M4A (©lyr), but not WAV.
 
-## Settings (`settings-tidy` branch, 0.1.9)
-- **Pages:** since 0.1.26 in A–Z order: About, Appearance, Audiobooks, Backup & restore, Folders &
-  scanning (code name `library`), Online lookups, Playback, Servers, Sleep timer, Your edits
-  (`SettingsPage` in `settings_catalog.dart`).
+## Settings (0.1.9, reordered in 0.1.26)
+- **Pages:** in A–Z order since 0.1.26: About, Appearance, Audiobooks, Backup & restore, Folders &
+  scanning (code name `library`), Online lookups (`onlineLookups`), Playback, Servers (`server`),
+  Sleep timer (`sleepTimer`), Your edits (`edits`) (`SettingsPage` in `settings_catalog.dart`).
+  The pages are in `ui/screens/settings/`: `about_`, `appearance_`, `audiobook_`, `backup_`,
+  `library_`, `online_`, `playback_`, `server_`, `sleep_` and `edits_settings.dart`.
 - **Layout:**
   - Wide (≥760 px of content): the list sits on the left and the open page on the right. Pages are
     capped at 820 px wide.
@@ -154,33 +181,37 @@ before changing that area.
 - **Servers:** the music server, then an Audiobooks group. That group has the "Audiobooks from the
   music server" switch (`serverBooks`) and a placeholder for a separate audiobook server (phase E).
 - **About** shows the version (package_info_plus) and the data folder, with "Open folder" on Windows.
-  Since 0.1.23 it also has **Check for updates** and **Check for updates automatically** (see
-  below).
+  It also has **Check for updates** and **Check for updates automatically** (0.1.23), **What's new
+  in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
+  sections below.
 
-## Colour themes (`feature/themes`, 0.1.24, asked for 29 Sep)
+## Colour themes (0.1.24)
 - **The user's choices (29 Sep):** the original look stays as **Default**; two more dark themes,
   **Midnight** (navy, sky-blue accent) and **Forest** (dark green-grey, green accent); and **Your
   own** = a highlight + a background colour, with panels and grey text worked out from those.
   The choice goes into backups (settings.json: `theme`, `customAccent`, `customBackground` as
   `#RRGGBB`; a *merge* restore keeps this device's theme, like other settings).
-- **Where:** a new **Settings › Appearance** page (`appearance_settings.dart`) with a preview card
-  per theme and a colour picker (suggested swatches + Shade / Strength / Brightness sliders).
+- **Where:** the **Settings › Appearance** page (`appearance_settings.dart`) with a preview card
+  per theme and a colour picker (suggested swatches + Shade / Strength / Brightness sliders, and a
+  colour code box since 0.1.29).
   Backgrounds are held at HSL lightness ≤ 0.2 and highlights 0.45–0.8, so white text stays
   readable (`AppPalette.keepDark` / `keepVisible`).
 - **How it works:** `ui/theme.dart` has `AppPalette`, `builtInPalettes`, `paletteFor`, and
-  `AppColors` is now **getters** reading `AppColors.current` (they used to be `static const`).
-  HomeTunesApp (main.dart) wraps MaterialApp in a `Selector<LibraryModel, AppPalette>`, sets
-  `AppColors.current`, builds `buildTheme(palette)` and `RedrawOnThemeChange` marks every element
-  to build again after a change (widgets that read AppColors directly wouldn't notice otherwise).
+  `AppColors` is **getters** reading `AppColors.current` (they used to be `static const`).
+  HomeTunesApp (main.dart) wraps MaterialApp in a `Selector<LibraryModel, AppLook>`
+  (`lookOfSettings`, since 0.1.25: palette, corners, text size), sets `AppColors.current`, builds
+  `buildTheme(palette)`, and `RedrawOnThemeChange` (in `appearance_settings.dart`) marks every
+  element to build again after a change (widgets that read AppColors directly wouldn't notice
+  otherwise).
 - **Rule for new code:** never put `AppColors.x` in a `const`, a `static final` or a top-level
-  `final`; read it in `build`. The compiler catches the `const` case. When the change was made,
-  102 `const` keywords were removed by a script (`C:\Temp\ht\deconst.py`, not in git).
+  `final`; read it in `build`. The compiler catches the `const` case.
 - **Tests:** `test/theme_test.dart`. Pictures of each theme without showing anything on screen:
-  `flutter test tool/theme_preview_test.dart` writes PNGs to `C:\Temp\ht\preview`.
+  `flutter test tool/theme_preview_test.dart` writes PNGs to `C:\Temp\ht\preview` (or the folder
+  given with `--dart-define=OUT=...`).
 - **Don't take screenshots of the user's desktop or launch the app on their screen** to check the
   look: on 29 Sep that captured a game the user was playing. Use the off-screen preview instead.
 
-## Folder options and mute (`feature/folder-options`, 0.1.27, asked for 29 Sep 19:33)
+## Folder options and mute (0.1.27)
 - **Folder options:** every music and audiobook folder row (Folders & scanning, and the shared
   audiobook list under Audiobooks) has a sliders button (`FolderOptionsButton`) that opens
   `showFolderOptions` (library_settings.dart):
@@ -204,14 +235,15 @@ before changing that area.
 - **Tests:** `test/folder_options_test.dart` (real scans of the sample files). Picture:
   `tool/ui_preview_test.dart` → `ui-folder-options.png`.
 
-## Queue drawer, artist albums in place, Settings order (`feature/ui-feedback`, 0.1.26, asked for 29 Sep 19:13)
+## Queue drawer, artist albums in place, Settings order (0.1.26)
 - **The user's choices:** the queue is a **drawer from the side on the phone too**; the tab is
   called **Folders & scanning**; the audiobook folders are shown **in both places** (the same
-  setting); built **on top of 0.1.25**, to be released together.
+  setting).
 - **Queue:** `openQueue` → `openQueueDrawer` (`queue_screen.dart`): a `showGeneralDialog` on the
   root navigator sliding in from the right, `QueuePanel` (min(420 px, 88% of the window)) with
-  a title and ✕, `QueueList` inside. Closes on a tap outside, Esc, ✕ or a quick swipe right. The
-  old full-page `QueueScreen` is gone.
+  a title and ✕, `QueueList` inside (drag the handle to reorder, swipe left to remove, tap to
+  jump). Closes on a tap outside, Esc, ✕ or a quick swipe right. There's no full-page queue
+  screen any more.
 - **Artist page** (`artist_screen.dart`, now stateful): albums are laid out row by row; tapping
   one (`AlbumCard.onTap`) opens `AlbumSongsPanel` under its row (title, year · songs · length,
   Play, Shuffle, Open album page, ✕, then the songs split by disc) and outlines the album
@@ -230,10 +262,7 @@ before changing that area.
 - **Tests:** `test/ui_feedback_test.dart` (a stand-in player records what would play), plus the
   A–Z and search checks in `settings_test.dart`. Pictures: `flutter test tool/ui_preview_test.dart`.
 
-## Advanced appearance (`feature/advanced-themes`, 0.1.25, asked for 29 Sep)
-- **Started by another session** (16:43 on 29 Sep: theme model, readability checks, text sizes,
-  corner choices, corners switched to `AppShape` in 22 files) and **finished by this one**
-  after the user said "take over".
+## Advanced appearance (0.1.25)
 - **What the user sees:** Settings › Appearance › **Advanced**:
   - Saved themes: **New theme from the current one**, **New light theme** (starts from
     `lightStarter` "Daylight"), and Edit… / Duplicate… / Delete on each. Saved themes also appear
@@ -243,11 +272,11 @@ before changing that area.
     button). The picker's "any" mode allows every colour. Warnings (`readabilityProblems`, the
     usual 4.5 / 3 contrast rules) say in plain words what may be hard to read; saving is still
     allowed. **Save and use** switches to it straight away.
-  - **Deleting (asked for 29 Sep 17:13):** each saved-theme row has visible Edit and Delete buttons
+  - **Deleting:** each saved-theme row has visible Edit and Delete buttons
     (plus ⋮ with Duplicate), and the editor has **Delete this theme** for themes already saved.
     All go through `confirmDeleteTheme` (asks first; says so when the theme is in use, which
     goes back to Default).
-  - **Reset to default colours** under "Your own colours" (asked for the same time): clears
+  - **Reset to default colours** under "Your own colours": clears
     `customAccent` / `customBackground` (`LibraryModel.resetCustomColours`), stays on "Your own",
     and shows a notice with **Undo** (`restoreCustomColours`). Greyed out when nothing was chosen.
   - **Text size** (Smaller 0.9 / Default / Larger 1.15 / Largest 1.3, on top of the system
@@ -256,7 +285,7 @@ before changing that area.
     menus and sheets in `buildTheme`).
 - **Saved in settings.json** (so in backups): `savedThemes` (list of `{id: "saved:…", name,
   background, panels, raisedPanels, text, greyText, accent, sliderTrack, playButton}` as
-  `#RRGGBB`), `textSize`, `cornerRoundness` (both clamped on load). `LibraryModel.saveTheme /
+  `#RRGGBB`), `textSize`, `cornerRoundness` (clamped on load to 0.8–1.5 and 0–2). `LibraryModel.saveTheme /
   deleteTheme / setLook`. Deleting the theme in use goes back to Default. A damaged saved theme is
   skipped.
 - **Light themes:** `AppPalette.text` / `playButton` / `divider` / `faded()`; `buildTheme` pins
@@ -267,14 +296,14 @@ before changing that area.
   highlight colour (`onAccent`).
 - **Main.dart:** `Selector<LibraryModel, AppLook>` (`lookOfSettings`: palette, corners, text
   size); `RedrawOnThemeChange(look:)` redraws everything when any of them changes.
-- **Tests:** `test/theme_test.dart` (325 tests in all on 29 Sep). In widget tests, don't `await`
+- **Tests:** `test/theme_test.dart`. In widget tests, don't `await`
   LibraryModel saves: Storage writes one file at a time and a write started inside the test's
   pretend clock never finishes, so a second awaited save hangs. The screen updates before the
   save anyway.
 - **Pictures:** `flutter test tool/theme_preview_test.dart` now also draws a saved light theme with
   square corners and larger text, and the theme editor (`theme-light.png`, `theme-editor.png`).
 
-## Updates (`feature/update-check`, 0.1.23, asked for 29 Sep)
+## Updates (0.1.23)
 - **The user's choices (29 Sep):** a "Check for updates" button in Settings › About **plus** a quiet
   check at most once a day with a switch to turn it off; on the phone, just **open the download
   page** (not download-and-install); on Windows it updates itself.
@@ -299,14 +328,14 @@ before changing that area.
 - **The zip copy and the phone** open the release page in the browser (`openInBrowser`: Windows
   `rundll32 url.dll,FileProtocolHandler`; Android the `openUrl` method on the `hometunes/app`
   channel in `MainActivity.kt`, https only).
-- **First time:** 0.1.21 and 0.1.22 have no updater, so 0.1.23 has to be installed by hand once.
-  From then on each release updates itself, as long as it's published with
+- **Publishing:** copies from 0.1.23 on update themselves only if the release is published with
   `tool/publish_release.ps1` (the asset names and the SHA256SUMS file are what the app looks for).
+  Copies older than 0.1.23 have no updater and must be updated by hand once.
 - **Tests:** `test/update_test.dart` (fake GitHub). Live check: `flutter test
   tool/probe_update_test.dart` reads the real latest release, downloads its installer and checks
-  the checksum (nothing is installed). Passed on 29 Sep against v0.1.21.
+  the checksum (nothing is installed).
 
-## Licence (`feature/licence`, 0.1.31, asked for 30 Sep)
+## Licence (0.1.31)
 - **The user's choice (30 Sep):** **MIT**, like Nora, copyright **"Copyright (c) 2026
   Jamesking96"** (their GitHub name). Compared first: Harmonoid uses PolyForm Strict (personal,
   non-commercial use only; no changes or redistribution); Nora uses MIT.
@@ -321,7 +350,8 @@ before changing that area.
 - **Files:** `LICENSE` (standard MIT text so GitHub detects it), `THIRD_PARTY_NOTICES.md`
   (engine versions, source links, replaceability; vendored packages; pub packages with
   licences; VC++ runtime; online services), `licenses/LGPL-3.0.txt` + `GPL-3.0.txt` (official
-  GNU copies, SHA-256 3972dc97… / e3a994d8…).
+  GNU copies; SHA-256 with LF line endings: LGPL e3a994d8…, GPL 3972dc97…; a CRLF copy hashes
+  differently). They're bundled as assets in `pubspec.yaml`.
 - **In the app:** Settings › About › **Licences** → Flutter's `showLicensePage` (lists every
   package, including HomeTunes' own LICENSE, plus the engine). `services/app_licences.dart`
   `registerAppLicences()` (called in `main`) adds the libmpv/FFmpeg notice with the LGPL text,
@@ -344,17 +374,17 @@ before changing that area.
   `app_licences.dart` and the list in `tool/engine_source.ps1` (then delete the old zip in
   build\dist so it's remade) if media_kit's libs change. Tests: `test/licences_test.dart`.
 
-## ✕ on notices (`feature/notice-close`, 0.1.30, asked for 29 Sep)
+## ✕ on notices (0.1.30)
 - **What the user asked for:** a close button on the notices at the bottom of the screen, next
   to Undo, to get rid of them quickly.
 - **How:** one line in `buildTheme` (`ui/theme.dart`): `snackBarTheme: SnackBarThemeData(showCloseIcon:
-  true)`, so all ~35 SnackBars get the ✕ (after any action like Undo) without touching each one,
+  true)`, so every SnackBar gets the ✕ (after any action like Undo) without touching each one,
   and new ones get it automatically. The ✕ just hides the notice; it never does the action.
   Don't add "Dismiss"/"OK" SnackBarActions: the ✕ already does that.
 - **Tests:** `test/notice_close_test.dart` (default, Midnight, Forest and a light theme).
   Picture: `flutter test tool/notice_close_preview_test.dart` (loads the real icon font).
 
-## Colour codes and sharing themes (`feature/theme-sharing`, 0.1.29, asked for 29 Sep)
+## Colour codes and sharing themes (0.1.29)
 - **What the user asked for:** type or paste a colour's hex code when choosing colours in
   Appearance, and export / import themes so they can be shared between friends.
 - **Colour code box** (`_ColourPicker` in `appearance_settings.dart`): a "Colour code" field
@@ -381,7 +411,7 @@ before changing that area.
   a readability note → **Add and use**).
 - **Tests:** `test/theme_sharing_test.dart`. Pictures: `flutter test tool/theme_sharing_preview_test.dart`.
 
-## What's new after an update (`feature/whats-new`, 0.1.28, asked for 29 Sep)
+## What's new after an update (0.1.28)
 - **What the user asked for:** the first time the app opens after an update, a pop-up listing
   the changes between the old build and the new one, compiled from the "What's new in x"
   sections of the release pages.
@@ -397,9 +427,9 @@ before changing that area.
   newest first, skipping ones without a "What's new" section. `ReleaseInfo.notes` keeps the
   markdown (`whatsNewNotes`); `whatsNew` is still the plain version.
 - **The pop-up** (`ui/screens/settings/whats_new_ui.dart`): `showWhatsNewAfterUpdate` runs 1.5 s
-  after start from `main.dart`; `WhatsNewDialog` shows "Updated from x to y", then "Version y"
-  + notes for each release, with **Open release page** and **OK**. `NotesText` draws `-` bullets
-  (indented ones as ◦), `#` headings, `**bold**`, and drops `code` marks and link markup. If
+  after start from `main.dart`; `WhatsNewDialog` shows "HomeTunes has been updated from x to y",
+  then "Version y" + notes for each release, with **Open release page** and **OK**. `NotesText`
+  draws `-` bullets (indented ones as ◦), numbered lines, `#` headings, `**bold**`, and drops `code` marks and link markup. If
   GitHub can't be reached, it still shows the version and why, with the release page button. A
   build with no published notes (a test build) shows nothing. The "Update to x?" dialog now
   uses `NotesText` too. **Settings › About › What's new in this version** shows this
@@ -409,11 +439,11 @@ before changing that area.
   go out as one release (0.1.25–0.1.28), put all of their changes in that one notes file.
 - **Tests:** `test/whats_new_test.dart`. Picture: `flutter test tool/whats_new_preview_test.dart`.
 
-## Equaliser (`equaliser` branch, 0.1.10)
+## Equaliser (0.1.10)
 - **Where:** `EqualizerModel` (`equalizer.json`, included in backups) and `models/eq_preset.dart`.
   The screen is `ui/screens/equalizer_screen.dart`, opened from Settings › Playback, from Now
   Playing, and from the icon on the Settings › Audiobooks switch.
-- **Presets:**
+- **Presets:** ten bands, 31 Hz to 16 kHz (`eqBands`).
   - Built-ins: Flat, Bass boost, Treble boost, Vocal, Rock, Pop, Classical, Spoken word and
     Headphones. Each one that boosts also turns the overall level down.
   - Editing a built-in stores an override. It shows "· edited", and "Restore default" or "Restore
@@ -421,8 +451,9 @@ before changing that area.
   - Your own presets ("New", copied from the current one) can be renamed and deleted. Deleting one
     in use falls back to Flat or Spoken word.
 - **Music vs audiobooks:**
-  - `musicPresetId` and `bookPresetId` hold the two choices. `separateBooks` is on by default and is
-    the switch in Settings › Audiobooks. When it's off, books use the music preset.
+  - `musicPresetId` (default Flat) and `bookPresetId` (default Spoken word) hold the two choices.
+    `separateBooks` is on by default and is the "Separate equaliser for audiobooks" switch in
+    Settings › Audiobooks. When it's off, books use the music preset.
   - Choosing a preset switches the equaliser on. It starts off.
 - **How it's heard (`PlayerModel._applyEqualizer`):**
   - It runs when the equaliser settings change, when switching between music and a book
@@ -445,11 +476,11 @@ before changing that area.
 - **"Isn't available on this device":** if `setProperty('af')` throws, `EqualizerModel.unavailable`
   is set and the screen says so. A runtime graph failure (as above) wouldn't be caught this way,
   which is why the bench matters.
-- **Android:** the arm64 `libmpv.so` includes `equalizer` and `scaletempo2`. The equaliser must be
-  heard on the phone before merging. Check it with
+- **Android:** the arm64 `libmpv.so` includes `equalizer` and `scaletempo2`. The equaliser was
+  confirmed working on the phone in logcat. To check it again:
   `adb logcat | Select-String "HomeTunes: equaliser|lavfi|Disabling filter"`.
 
-## Editing several albums, books or songs (`multi-edit` branch, 0.1.11)
+## Editing several albums, books or songs (0.1.11)
 - **Selecting:**
   - `SelectionModel` holds one kind at a time (`SelectKind.songs/albums/books`). Ticking a
     different kind starts a new selection.
@@ -470,12 +501,13 @@ before changing that area.
 - **Several albums** (`showEditDetails(..., albumCount: n)`):
   - The boxes are album artist, artist, year and genre, plus cover (choose image only).
   - **No album title**, because giving several albums the same title would merge them.
-  - There are no online look-ups, and "Covers differ" is shown when they do.
+  - There are no online look-ups. When the covers differ, the cover row says "--:-- Different
+    for each album – choose one to give them all the same cover".
 - **Several books** (`showEditBooks`): the boxes are author, narrator, series, year and genre, plus
   cover. There's no title or number in series, and no online look-ups.
 - **Tests:** `test/multi_edit_test.dart`.
 
-## Favourite albums and audiobooks (`favourites` branch, 0.1.12)
+## Favourite albums and audiobooks (0.1.12)
 - **Storage:** favourites are saved in `playlists.json` as `favouriteAlbums` and `favouriteBooks`.
   - **Both hold song/file ids, not album keys or book ids.** An album or book counts as a favourite
     when any of its songs is in the set.
@@ -490,11 +522,13 @@ before changing that area.
 - **Seeing them:**
   - A small heart in the top-right of a favourite album or book cover.
   - The book "finished" tick moved to the cover's bottom-right corner to make room.
-  - A Favourites filter: All / Favourites chips on Library › Albums, and a Favourites chip among the
-    Books tab's state chips. The user chose filters only: no Home shelves and no separate page.
+  - A Favourites filter: All / Favourites chips on Library › Albums (and Artists, since 0.1.18:
+    an artist counts when one of their albums is a favourite or one of their songs is liked), and
+    a Favourites chip among the Books tab's state chips. The user chose filters only: no Home
+    shelves and no separate page.
 - **Tests:** `test/favourites_test.dart`.
 
-## Quick actions and the Details page (`details-and-quick-edits` branch, 0.1.13)
+## Quick actions and the Details page (0.1.13)
 - **Quick actions** (`ui/widgets/quick_actions.dart`, `albumActions` / `bookActions`):
   - The actions: Edit details…, Choose cover… (one picture for all), Find cover online… (one item
     only), Use the files' own cover(s) (only when a custom cover exists), Add to / Remove from
@@ -533,13 +567,42 @@ before changing that area.
   280 px menu.
 - **Tests:** `test/details_test.dart`.
 
+## Server sign-in and covers (0.1.17, 0.1.21)
+- **Connecting** (`LibraryModel.connectServer`): an address typed without `http(s)://` tries
+  https first, then http. If https doesn't answer and the address is on the internet (not the
+  home network or Tailscale), Settings › Servers asks "Connect without encryption?" first; the
+  answer is remembered for that server. Every Subsonic request carries a token (md5 of password +
+  salt), never the password itself.
+- **The password** (`services/secret_store.dart`, 0.1.17): kept in the system's protected storage
+  (Windows Credential Manager, Android Keystore, via flutter_secure_storage), keyed by server
+  address + user name, not in settings.json. An old plain-text password is moved over on first
+  load. Where protected storage isn't available it stays in settings.json. Tests use an
+  in-memory store, only in debug builds.
+- **Covers for the media controls** (`services/server_art_cache.dart`, 0.1.21): server cover
+  addresses carry the login token, so the notification, lock screen and Windows overlay are
+  given a downloaded file instead (`<data>/art/server/<md5>.img`, max 10 MB, a failed download
+  waits 5 minutes). Covers inside the app still load straight from the server. The folder is
+  left out of backups and cleared when the server is forgotten.
+- The full list of security fixes is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", with a summary and the accepted risks in `04_ROADMAP_AND_OPEN_ITEMS.md` → Security.
+
+## Playback log and playback guard (0.1.20)
+- **Playback log** (`services/playback_log.dart`): a short diary of what the player did (songs
+  opening, play/pause, going to the background, what the media controls were told, problems
+  fixed). The last 400 lines are kept in `playback-log.txt` in the data folder, not in backups.
+  **Settings › About › Playback log** shows it, with a copy button.
+- **Playback guard** (`state/playback_guard.dart`): `SystemPlayingState` hides a pause nobody
+  asked for from the system media controls for 5 s (`grace`); `StallDetector` notices "playing"
+  with no movement for 10 s (not buffering or opening), and `PlayerModel` restarts the song where
+  it was. If it's still stuck within a minute, it shows paused instead. Tests:
+  `test/playback_guard_test.dart`.
+
 ## Android fixes worth remembering
 - **Playback stopping a while after locking the phone, with the screen still saying playing
   (0.1.20).** The brief pause media_kit makes while opening each song was passed to Android,
   which dropped the background-playback service; a locked phone can't start it again. A pause
   nobody asked for is now hidden from the media controls for 5 s, a watchdog restarts playback
-  that stops by itself, and Settings › About › Playback log shows what happened. See
-  `05_CODE_GUIDE.md` → "Fixed in 0.1.20".
+  that stops by itself, and Settings › About › Playback log shows what happened (see "Playback
+  log and playback guard" above). Confirmed fixed by the user on 28 Sep.
 - **Lock screen empty and playback stopping.** The cause was "You must specify an icon resource id
   to build a CustomAction". It's fixed by `res/raw/keep.xml`.
 - **Scanning found nothing on Android 13+.** It must request READ_MEDIA_AUDIO alone. Asking for
