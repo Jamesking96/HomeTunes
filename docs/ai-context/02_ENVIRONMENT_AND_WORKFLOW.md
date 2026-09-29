@@ -85,6 +85,11 @@ If they are, don't build the Windows app (`LNK1168`), and don't switch branches 
    - `tool/bench_scan.dart`: scan speed
 
 ## Git
+- **Look before you switch.** Run `git status -sb` before any checkout / switch / merge / pull /
+  reset / stash. Unsaved changes you didn't make mean another session (or VS Code) is working:
+  stop and ask. Switch with `powershell -ExecutionPolicy Bypass -File tool\switch_branch.ps1
+  <branch> [-New] [-From <base>]`, which refuses in that case (exit 2) or while a flutter run is
+  going (exit 3); `-Force` only for changes you made yourself.
 - Remote `origin` = `https://github.com/Jamesking96/HomeTunes.git`.
 - Commit messages end with the attribution lines the harness asks for (Co-Authored-By etc.).
 - Merges use `--no-ff`. Earlier, `backup/*` branches were made before big merges and later deleted.

@@ -12,7 +12,10 @@ import 'package:hometunes/ui/theme.dart';
 import 'package:provider/provider.dart';
 
 void main() {
-  tearDown(() => AppColors.current = defaultPalette);
+  tearDown(() {
+    AppColors.current = defaultPalette;
+    AppShape.scale = 1.0;
+  });
 
   group('Themes', () {
     test('Default is exactly the original look', () {
@@ -56,6 +59,46 @@ void main() {
     });
   });
 
+  group('Advanced themes', () {
+    test('a saved theme round-trips through settings, every colour included', () {
+      final p = lightStarter.copyWith(id: 'saved:abc', name: 'Paper');
+      final back = AppPalette.fromJson(p.toJson());
+      expect(back, p);
+      expect(back!.isLight, isTrue);
+    });
+
+    test('a damaged saved theme is skipped rather than half-read', () {
+      final json = lightStarter.copyWith(id: 'saved:x').toJson()..remove('text');
+      expect(AppPalette.fromJson(json), isNull);
+      expect(AppPalette.fromJson({'id': 'saved:x'}), isNull);
+      expect(AppPalette.fromJson('nope'), isNull);
+    });
+
+    test('the ready-made themes and the light starting point are all easy to read', () {
+      for (final p in [...builtInPalettes, lightStarter]) {
+        expect(p.readabilityProblems(), isEmpty, reason: p.name);
+      }
+    });
+
+    test('hard-to-read colours are pointed out in plain words', () {
+      final p = lightStarter.copyWith(text: const Color(0xFFEEEEEE), accent: const Color(0xFFF0F0F0));
+      final problems = p.readabilityProblems();
+      expect(problems, contains('Text is hard to read on the background.'));
+      expect(problems, contains('The highlight colour is hard to see on the background.'));
+    });
+
+    test('contrast: black on white is 21, a colour on itself is 1', () {
+      expect(contrast(Colors.black, Colors.white), closeTo(21, 0.01));
+      expect(contrast(Colors.red, Colors.red), 1);
+    });
+
+    test('light themes pin every Material colour; the ready-made ones stay as they were', () {
+      expect(buildTheme(lightStarter).brightness, Brightness.light);
+      expect(buildTheme(lightStarter).colorScheme.onSurface, lightStarter.text);
+      expect(buildTheme(defaultPalette).brightness, Brightness.dark);
+    });
+  });
+
   group('Saving', () {
     late Directory dir;
     setUp(() => dir = Directory.systemTemp.createTempSync('hometunes_theme'));
@@ -72,6 +115,24 @@ void main() {
       expect(b.themeId, 'custom');
       expect(b.customAccent, '#4CC38A');
       expect(paletteOfSettings(b).bg, const Color(0xFF0D1321));
+    });
+
+    test('saved themes, text size and corners survive a restart', () async {
+      final a = LibraryModel(Storage.at(dir));
+      await a.saveTheme(lightStarter.copyWith(id: 'saved:one', name: 'Paper').toJson());
+      await a.setLook(textSize: 1.15, cornerRoundness: 0.5);
+      final b = LibraryModel(Storage.at(dir));
+      await b.load();
+      expect(b.themeId, 'saved:one');
+      expect(paletteOfSettings(b).name, 'Paper');
+      expect(b.textSize, 1.15);
+      expect(b.cornerRoundness, 0.5);
+      // Silly values from a hand-edited file are kept within range.
+      await Storage.at(dir).write('settings.json', {'textSize': 9, 'cornerRoundness': -3, 'savedThemes': 'x'});
+      await b.load();
+      expect(b.textSize, 1.5);
+      expect(b.cornerRoundness, 0);
+      expect(b.savedThemes, isEmpty);
     });
 
     test('a hand-edited settings file with bad colours falls back', () async {
@@ -97,19 +158,152 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(ChangeNotifierProvider.value(
         value: lib,
-        child: Selector<LibraryModel, AppPalette>(
-          selector: (_, l) => paletteOfSettings(l),
-          builder: (context, palette, _) {
-            AppColors.current = palette;
+        child: Selector<LibraryModel, AppLook>(
+          selector: (_, l) => lookOfSettings(l),
+          builder: (context, look, _) {
+            AppColors.current = look.palette;
+            AppShape.scale = look.corners;
             return RedrawOnThemeChange(
-              palette: palette,
-              child: MaterialApp(theme: buildTheme(palette), home: home),
+              look: look,
+              child: MaterialApp(
+                theme: buildTheme(look.palette, look.corners),
+                builder: (context, child) => withTextSize(context, look.textSize, child!),
+                home: home,
+              ),
             );
           },
         ),
       ));
       await tester.pump();
     }
+
+    testWidgets('Advanced: a new light theme is saved, used, and recolours everything', (tester) async {
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: Column(children: [
+            const _Probe(),
+            const Expanded(child: AppearanceSettings()),
+          ]),
+        ),
+      );
+      Color probe() => tester.widget<ColoredBox>(find.byKey(const ValueKey('probe'))).color;
+      await tester.ensureVisible(find.byKey(const ValueKey('new-light-theme')));
+      await tester.tap(find.byKey(const ValueKey('new-light-theme')));
+      await tester.pumpAndSettle();
+      expect(find.text('Edit theme'), findsOneWidget);
+      expect(find.byKey(const ValueKey('theme-problems')), findsNothing); // the light start is readable
+      await tester.enterText(find.byKey(const ValueKey('theme-name')), 'Paper');
+      await tester.tap(find.byKey(const ValueKey('save-theme')));
+      await tester.pumpAndSettle();
+
+      expect(lib.savedThemes, hasLength(1));
+      expect(lib.themeId, startsWith('saved:'));
+      expect(AppColors.current.name, 'Paper');
+      expect(AppColors.current.isLight, isTrue);
+      expect(probe(), lightStarter.surface);
+      expect(find.text('Paper'), findsWidgets); // listed as a card and under Advanced
+
+      // Deleting the theme in use goes back to Default.
+      // The screen changes at once; the file save isn't waited for (it can't finish inside a
+      // widget test's pretend clock, and a later save would queue behind it).
+      lib.deleteTheme(lib.themeId);
+      await tester.pumpAndSettle();
+      expect(AppColors.current, defaultPalette);
+      expect(probe(), defaultPalette.surface);
+    });
+
+    testWidgets('Your own: "Reset to default colours", with Undo', (tester) async {
+      await pumpApp(tester, const Scaffold(body: AppearanceSettings()));
+      ButtonStyleButton reset() => tester.widget<ButtonStyleButton>(find.byKey(const ValueKey('reset-custom')));
+      expect(reset().onPressed, isNull); // nothing chosen yet
+
+      lib.setTheme(id: 'custom', accent: '#E35BD8', background: '#1A1020');
+      await tester.pumpAndSettle();
+      expect(AppColors.current.accent, const Color(0xFFE35BD8));
+      expect(reset().onPressed, isNotNull);
+
+      await tester.tap(find.byKey(const ValueKey('reset-custom')));
+      await tester.pumpAndSettle(); // lets the notice slide in before Undo is tapped
+      expect(lib.customAccent, isNull);
+      expect(lib.customBackground, isNull);
+      expect(lib.themeId, 'custom'); // still "Your own", now in its starting colours
+      expect(AppColors.current.accent, defaultPalette.accent);
+      expect(find.text('"Your own" is back to its default colours'), findsOneWidget);
+
+      await tester.tap(find.text('Undo'));
+      await tester.pumpAndSettle();
+      expect(lib.customAccent, '#E35BD8');
+      expect(lib.customBackground, '#1A1020');
+      lib.resetCustomColours();
+      lib.setTheme(id: 'default');
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a saved theme can be deleted from its row and from the editor', (tester) async {
+      await pumpApp(tester, const Scaffold(body: AppearanceSettings()));
+      lib.saveTheme(lightStarter.copyWith(id: 'saved:a', name: 'Paper').toJson());
+      lib.saveTheme(defaultPalette.copyWith(id: 'saved:b', name: 'Night').toJson(), use: false);
+      await tester.pumpAndSettle();
+      expect(lib.themeId, 'saved:a');
+
+      // The row's delete button asks first; Cancel keeps it.
+      await tester.ensureVisible(find.byKey(const ValueKey('delete-theme:saved:b')));
+      await tester.tap(find.byKey(const ValueKey('delete-theme:saved:b')));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete "Night"?'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(lib.savedThemes, hasLength(2));
+      await tester.tap(find.byKey(const ValueKey('delete-theme:saved:b')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('confirm-delete')));
+      await tester.pumpAndSettle();
+      expect(lib.savedThemes.map((t) => t['id']), ['saved:a']);
+      expect(find.byKey(const ValueKey('saved-theme:saved:b')), findsNothing);
+
+      // In the editor: "Delete this theme" (it's in use, so it goes back to Default).
+      await tester.ensureVisible(find.byKey(const ValueKey('edit-theme:saved:a')));
+      await tester.tap(find.byKey(const ValueKey('edit-theme:saved:a')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const ValueKey('editor-delete')));
+      await tester.tap(find.byKey(const ValueKey('editor-delete')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('This theme is in use'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('confirm-delete')));
+      await tester.pumpAndSettle();
+      expect(lib.savedThemes, isEmpty);
+      expect(lib.themeId, 'default');
+      expect(find.text('Edit theme'), findsNothing); // back on the Appearance page
+    });
+
+    testWidgets('a brand-new theme has no Delete button until it\'s saved', (tester) async {
+      await pumpApp(tester, const Scaffold(body: AppearanceSettings()));
+      await tester.ensureVisible(find.byKey(const ValueKey('new-theme')));
+      await tester.tap(find.byKey(const ValueKey('new-theme')));
+      await tester.pumpAndSettle();
+      expect(find.text('Edit theme'), findsOneWidget);
+      expect(find.byKey(const ValueKey('editor-delete')), findsNothing);
+    });
+
+    testWidgets('Advanced: text size and corners apply everywhere', (tester) async {
+      late double scale;
+      await pumpApp(
+        tester,
+        Scaffold(body: Builder(builder: (context) {
+          scale = MediaQuery.textScalerOf(context).scale(10) / 10;
+          return const SizedBox();
+        })),
+      );
+      expect(scale, 1.0);
+      lib.setLook(textSize: 1.3, cornerRoundness: 0);
+      await tester.pumpAndSettle();
+      expect(scale, closeTo(1.3, 0.001));
+      expect(AppShape.scale, 0);
+      expect(AppShape.circular(12), BorderRadius.zero);
+      lib.setLook(textSize: 1.0, cornerRoundness: 1.0);
+      await tester.pumpAndSettle();
+    });
 
     testWidgets('picking a theme recolours the whole app, even colours read directly', (tester) async {
       await pumpApp(
@@ -144,7 +338,7 @@ void main() {
           body: Builder(
             builder: (context) => TextButton(
               onPressed: () async => picked = await showColourPicker(context,
-                  title: 'Background colour', initial: const Color(0xFFFFFFFF), background: true),
+                  title: 'Background colour', initial: const Color(0xFFFFFFFF), mode: PickerMode.darkBackground),
               child: const Text('open'),
             ),
           ),

@@ -135,8 +135,9 @@ before changing that area.
 - Lyrics can be written into MP3 (USLT), FLAC (LYRICS) and M4A (©lyr), but not WAV.
 
 ## Settings (`settings-tidy` branch, 0.1.9)
-- **Pages:** Library, Playback, Sleep timer, Audiobooks, Online lookups, Servers, Your edits,
-  Backup & restore and About, in that order (`SettingsPage` in `settings_catalog.dart`).
+- **Pages:** since 0.1.26 in A–Z order: About, Appearance, Audiobooks, Backup & restore, Folders &
+  scanning (code name `library`), Online lookups, Playback, Servers, Sleep timer, Your edits
+  (`SettingsPage` in `settings_catalog.dart`).
 - **Layout:**
   - Wide (≥760 px of content): the list sits on the left and the open page on the right. Pages are
     capped at 820 px wide.
@@ -178,6 +179,100 @@ before changing that area.
   `flutter test tool/theme_preview_test.dart` writes PNGs to `C:\Temp\ht\preview`.
 - **Don't take screenshots of the user's desktop or launch the app on their screen** to check the
   look: on 29 Sep that captured a game the user was playing. Use the off-screen preview instead.
+
+## Folder options and mute (`feature/folder-options`, 0.1.27, asked for 29 Sep 19:33)
+- **Folder options:** every music and audiobook folder row (Folders & scanning, and the shared
+  audiobook list under Audiobooks) has a sliders button (`FolderOptionsButton`) that opens
+  `showFolderOptions` (library_settings.dart):
+  - **Rescan this folder** → `LibraryModel.scanFolder(folder)`: scans only that folder, replaces
+    the songs inside it and keeps everything else, then reconciles/saves like a full scan. An
+    unreachable folder keeps what it had and says so.
+  - **File types**: an ExpansionTile (the "drop-down") listing every type found in that folder
+    at the last scan (`formatsIn`, with file counts), each with a tick box. Unticking adds it to
+    `hiddenFormats[folder]` (settings.json `hiddenFormats`, so in backups); `_rebuild` leaves
+    those files out of `raw`, so they vanish at once without a rescan and come back when ticked.
+    They stay in `_local`, which is how the list still knows about them. A file belongs to the
+    innermost folder that holds it (`ownerFolder`), so an audiobook folder inside a music folder
+    has its own choices. Removing a folder forgets its choices. Types are stored as switched
+    **off**, so a new type that turns up later shows until unticked.
+  - Audiobook folders got both options (the user asked for the rescan; file types came with
+    the same window).
+- **Mute:** the speaker icon beside every volume slider (`VolumeControl`: player bar, Now
+  Playing, the mini player's pop-up) is a button: `PlayerModel.toggleMute` goes to 0 and
+  remembers the volume; clicking again puts it back (to 50% if it was dragged to 0 by hand).
+  The icon is in the highlight colour while muted.
+- **Tests:** `test/folder_options_test.dart` (real scans of the sample files). Picture:
+  `tool/ui_preview_test.dart` → `ui-folder-options.png`.
+
+## Queue drawer, artist albums in place, Settings order (`feature/ui-feedback`, 0.1.26, asked for 29 Sep 19:13)
+- **The user's choices:** the queue is a **drawer from the side on the phone too**; the tab is
+  called **Folders & scanning**; the audiobook folders are shown **in both places** (the same
+  setting); built **on top of 0.1.25**, to be released together.
+- **Queue:** `openQueue` → `openQueueDrawer` (`queue_screen.dart`): a `showGeneralDialog` on the
+  root navigator sliding in from the right, `QueuePanel` (min(420 px, 88% of the window)) with
+  a title and ✕, `QueueList` inside. Closes on a tap outside, Esc, ✕ or a quick swipe right. The
+  old full-page `QueueScreen` is gone.
+- **Artist page** (`artist_screen.dart`, now stateful): albums are laid out row by row; tapping
+  one (`AlbumCard.onTap`) opens `AlbumSongsPanel` under its row (title, year · songs · length,
+  Play, Shuffle, Open album page, ✕, then the songs split by disc) and outlines the album
+  (`highlighted`). Tapping it again or ✕ closes it; only one is open at a time. The right-click /
+  press-and-hold menu gets **Open album page** (`SelectableCard.onOpenPage`) above Select.
+- **Hover play:** `HoverPlayCover` (cards.dart) shows a round play button on an album cover while
+  the mouse is over it, and plays the album (`playTracks(..., label: 'Album · …')`). It's on
+  **every** album tile (Home, Library, Search, artist pages), not just the artist page, so it
+  behaves the same everywhere; touch screens have no hover, so phones are unchanged.
+- **Settings:** `SettingsPage` is in A–Z order by title (test enforces it). `library` keeps its
+  code name but is shown as **Folders & scanning** ("Music and audiobook folders, and
+  rescanning"). `AudiobookFoldersSection` (library_settings.dart) is the audiobook folder list,
+  shown on both Folders & scanning (`library-book-folders`) and Audiobooks (`book-folders`).
+  Rescan is enabled when either list has a folder. On wide windows Settings still opens on
+  Folders & scanning.
+- **Tests:** `test/ui_feedback_test.dart` (a stand-in player records what would play), plus the
+  A–Z and search checks in `settings_test.dart`. Pictures: `flutter test tool/ui_preview_test.dart`.
+
+## Advanced appearance (`feature/advanced-themes`, 0.1.25, asked for 29 Sep)
+- **Started by another session** (16:43 on 29 Sep: theme model, readability checks, text sizes,
+  corner choices, corners switched to `AppShape` in 22 files) and **finished by this one**
+  after the user said "take over".
+- **What the user sees:** Settings › Appearance › **Advanced**:
+  - Saved themes: **New theme from the current one**, **New light theme** (starts from
+    `lightStarter` "Daylight"), and Edit… / Duplicate… / Delete on each. Saved themes also appear
+    as cards beside Default / Midnight / Forest / Your own.
+  - The **theme editor** (`ThemeEditor`): name, a live preview, and eight colours with plain
+    names (Background, Panels, Raised panels, Text, Grey text, Highlight, Slider track, Play
+    button). The picker's "any" mode allows every colour. Warnings (`readabilityProblems`, the
+    usual 4.5 / 3 contrast rules) say in plain words what may be hard to read; saving is still
+    allowed. **Save and use** switches to it straight away.
+  - **Deleting (asked for 29 Sep 17:13):** each saved-theme row has visible Edit and Delete buttons
+    (plus ⋮ with Duplicate), and the editor has **Delete this theme** for themes already saved.
+    All go through `confirmDeleteTheme` (asks first; says so when the theme is in use, which
+    goes back to Default).
+  - **Reset to default colours** under "Your own colours" (asked for the same time): clears
+    `customAccent` / `customBackground` (`LibraryModel.resetCustomColours`), stays on "Your own",
+    and shows a notice with **Undo** (`restoreCustomColours`). Greyed out when nothing was chosen.
+  - **Text size** (Smaller 0.9 / Default / Larger 1.15 / Largest 1.3, on top of the system
+    setting, via `withTextSize` in MaterialApp.builder) and **Corners** (Square / Slight / Default
+    / Extra round → `AppShape.scale` 0 / 0.5 / 1 / 1.6, plus Material's cards, dialogs, buttons,
+    menus and sheets in `buildTheme`).
+- **Saved in settings.json** (so in backups): `savedThemes` (list of `{id: "saved:…", name,
+  background, panels, raisedPanels, text, greyText, accent, sliderTrack, playButton}` as
+  `#RRGGBB`), `textSize`, `cornerRoundness` (both clamped on load). `LibraryModel.saveTheme /
+  deleteTheme / setLook`. Deleting the theme in use goes back to Default. A damaged saved theme is
+  skipped.
+- **Light themes:** `AppPalette.text` / `playButton` / `divider` / `faded()`; `buildTheme` pins
+  every Material colour for saved and light themes (brightness light, text theme, icons,
+  dividers), while the ready-made dark themes keep Material's in-between shades exactly as in
+  0.1.24. Fixed white/black spots now use the theme: sidebar selection and divider, play button
+  and its spinner, mini-player progress line, lyrics (sung/unsung lines), ticks and hearts on the
+  highlight colour (`onAccent`).
+- **Main.dart:** `Selector<LibraryModel, AppLook>` (`lookOfSettings`: palette, corners, text
+  size); `RedrawOnThemeChange(look:)` redraws everything when any of them changes.
+- **Tests:** `test/theme_test.dart` (325 tests in all on 29 Sep). In widget tests, don't `await`
+  LibraryModel saves: Storage writes one file at a time and a write started inside the test's
+  pretend clock never finishes, so a second awaited save hangs. The screen updates before the
+  save anyway.
+- **Pictures:** `flutter test tool/theme_preview_test.dart` now also draws a saved light theme with
+  square corners and larger text, and the theme editor (`theme-light.png`, `theme-editor.png`).
 
 ## Updates (`feature/update-check`, 0.1.23, asked for 29 Sep)
 - **The user's choices (29 Sep):** a "Check for updates" button in Settings › About **plus** a quiet

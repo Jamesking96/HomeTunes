@@ -110,7 +110,7 @@ class BookScreen extends StatelessWidget {
           SizedBox(
             width: 260,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: AppShape.circular(2),
               child: LinearProgressIndicator(
                 value: listening.fractionDone(book),
                 minHeight: 4,

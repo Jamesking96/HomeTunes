@@ -98,14 +98,14 @@ class TransportControls extends StatelessWidget {
           width: playSize,
           height: playSize,
           child: IconButton.filled(
-            style: IconButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
+            style: IconButton.styleFrom(backgroundColor: AppColors.playButton, foregroundColor: AppColors.onPlay),
             iconSize: playSize * 0.55,
             tooltip: p.playing ? 'Pause' : 'Play',
             icon: p.buffering && p.playing
                 ? SizedBox(
                     width: playSize * 0.35,
                     height: playSize * 0.35,
-                    child: const CircularProgressIndicator(strokeWidth: 2.5, color: Colors.black),
+                    child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.onPlay),
                   )
                 : Icon(p.playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
             onPressed: p.current == null ? null : p.togglePlay,
@@ -219,10 +219,8 @@ void openNowPlaying(BuildContext context, {bool? lyrics}) {
   ));
 }
 
-/// Opens the play queue page, above everything like Now Playing.
-void openQueue(BuildContext context) {
-  Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(builder: (_) => const QueueScreen()));
-}
+/// Opens the play queue as a drawer from the right, above everything like Now Playing.
+void openQueue(BuildContext context) => openQueueDrawer(context); // a side drawer since 0.1.26
 
 /// Phone: compact bar above the bottom navigation. Tap to open Now Playing.
 class MiniPlayer extends StatelessWidget {
@@ -360,7 +358,7 @@ class _ThinProgress extends StatelessWidget {
       builder: (context, snap) {
         final total = p.duration.inMilliseconds;
         final v = total <= 0 ? 0.0 : ((snap.data?.inMilliseconds ?? 0) / total).clamp(0.0, 1.0);
-        return LinearProgressIndicator(value: v, minHeight: 2, color: Colors.white, backgroundColor: Colors.white12);
+        return LinearProgressIndicator(value: v, minHeight: 2, color: AppColors.text, backgroundColor: AppColors.faded(0.12));
       },
     );
   }
@@ -487,7 +485,16 @@ class VolumeControl extends StatelessWidget {
         message: 'Volume ${volume.round()}% – scroll to change',
         waitDuration: const Duration(milliseconds: 800),
         child: Row(mainAxisSize: sliderWidth == null ? MainAxisSize.max : MainAxisSize.min, children: [
-          Icon(iconFor(volume), size: 20, color: AppColors.textDim),
+          // The speaker icon is a quick mute / unmute (0.1.27).
+          IconButton(
+            key: const ValueKey('mute-toggle'),
+            tooltip: volume <= 0 ? 'Unmute' : 'Mute',
+            visualDensity: VisualDensity.compact,
+            iconSize: 20,
+            color: volume <= 0 ? Theme.of(context).colorScheme.primary : AppColors.textDim,
+            icon: Icon(iconFor(volume)),
+            onPressed: () => context.read<PlayerModel>().toggleMute(),
+          ),
           if (sliderWidth == null)
             Expanded(child: Slider(value: volume, max: 100, onChanged: p.setVolume))
           else

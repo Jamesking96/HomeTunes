@@ -592,6 +592,26 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     await _player.setVolume(volume * _eqLevel);
   }
 
+  /// The volume before [toggleMute] silenced it, so unmuting puts it back.
+  double? _volumeBeforeMute;
+
+  /// Whether the volume is at 0.
+  bool get muted => volume <= 0;
+
+  /// Clicking the speaker icon beside any volume slider (0.1.27): mutes, or puts the volume
+  /// back to where it was. If it was dragged to 0 by hand, unmuting goes to half volume.
+  Future<void> toggleMute() {
+    final (next, remembered) = muteToggle(volume, _volumeBeforeMute);
+    _volumeBeforeMute = remembered;
+    return setVolume(next);
+  }
+
+  /// The new volume and what to remember, for a mute / unmute from [volume] (0 to 100).
+  static (double, double?) muteToggle(double volume, double? remembered) {
+    if (volume > 0) return (0, volume);
+    return ((remembered ?? 0) > 0 ? remembered! : 50, null);
+  }
+
   /// Sends the equaliser preset for what's playing (music or a book) to the
   /// engine. Only talks to the engine when something actually changed.
   Future<void> _applyEqualizer() async {

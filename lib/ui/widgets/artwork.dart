@@ -36,7 +36,7 @@ class Artwork extends StatelessWidget {
       child: Icon(placeholder, color: AppColors.textDim, size: size * 0.4),
     );
     return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
+      borderRadius: AppShape.circular(radius),
       child: image == null
           ? ph
           : Image(

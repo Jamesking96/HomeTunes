@@ -206,22 +206,26 @@ class HomeTunesApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AppNav()),
         ChangeNotifierProvider(create: (_) => SelectionModel()),
       ],
-      // The colour theme from Settings › Appearance (0.1.24). Only a change of theme rebuilds
-      // this; then every screen is redrawn so colours read from AppColors change too.
-      child: Selector<LibraryModel, AppPalette>(
-        selector: (_, lib) => paletteOfSettings(lib),
-        builder: (context, palette, _) {
-          AppColors.current = palette;
+      // The look from Settings › Appearance: colour theme (0.1.24), text size and corner
+      // roundness (0.1.25). Only a change to one of those rebuilds this; then every screen is
+      // redrawn so colours and corners read from AppColors / AppShape change too.
+      child: Selector<LibraryModel, AppLook>(
+        selector: (_, lib) => lookOfSettings(lib),
+        builder: (context, look, _) {
+          AppColors.current = look.palette;
+          AppShape.scale = look.corners;
           return RedrawOnThemeChange(
-            palette: palette,
+            look: look,
             child: MaterialApp(
               title: 'HomeTunes',
               debugShowCheckedModeBanner: false,
               // Let the start-up update notice (and its dialog) be shown from outside the tree.
               scaffoldMessengerKey: appMessengerKey,
               navigatorKey: appNavigatorKey,
-              theme: buildTheme(palette),
+              theme: buildTheme(look.palette, look.corners),
               scrollBehavior: appScrollBehavior,
+              // Text size: on top of the system's own setting.
+              builder: (context, child) => withTextSize(context, look.textSize, child!),
               home: const Shell(),
             ),
           );

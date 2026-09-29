@@ -60,7 +60,7 @@ class MusicFilterBar<S> extends StatelessWidget {
                         },
                       ),
               ),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+              border: OutlineInputBorder(borderRadius: AppShape.circular(24), borderSide: BorderSide.none),
               filled: true,
             ),
           ),

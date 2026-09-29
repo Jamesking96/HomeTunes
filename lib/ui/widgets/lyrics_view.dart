@@ -294,7 +294,7 @@ class _TimedLyricsState extends State<_TimedLyrics> {
           for (var i = 0; i < lines.length; i++)
             InkWell(
               key: _keys[i],
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: AppShape.circular(6),
               onTap: playing
                   ? () {
                       // Tapping a line seeks there and turns auto-scroll straight back on.
@@ -311,8 +311,8 @@ class _TimedLyricsState extends State<_TimedLyrics> {
                     height: 1.3,
                     fontWeight: FontWeight.w800,
                     color: !playing || i == _current
-                        ? Colors.white
-                        : (i < _current ? Colors.white54 : Colors.white38),
+                        ? AppColors.text
+                        : (i < _current ? AppColors.faded(0.54) : AppColors.faded(0.38)),
                   ),
                   // An empty timed line is a pause in the singing.
                   child: Text(lines[i].text.isEmpty ? '♪' : lines[i].text),

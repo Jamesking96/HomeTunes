@@ -120,7 +120,7 @@ class _Card extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: AppShape.circular(12)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           if (subtitle != null)
@@ -333,7 +333,7 @@ class _Table extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
               color: edited ? accent.withValues(alpha: 0.18) : AppColors.surfaceHigh,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: AppShape.circular(999),
             ),
             child: Text(r.source.label,
                 style: TextStyle(fontSize: 12, color: edited ? accent : AppColors.textDim, fontWeight: FontWeight.w600)),

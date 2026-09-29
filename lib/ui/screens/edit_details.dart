@@ -628,7 +628,7 @@ class _EditDetailsState extends State<_EditDetails> {
     Widget preview;
     if (_newCover != null) {
       preview = ClipRRect(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: AppShape.circular(6),
         child: Image.file(File(_newCover!), width: 120, height: 120, fit: BoxFit.cover),
       );
     } else if (_resetCover) {

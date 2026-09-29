@@ -19,11 +19,13 @@ Read the files in this order:
 ## Status (29 Sep 2026)
 
 - **Everything is in source control.** `main` on GitHub (github.com/Jamesking96/HomeTunes) is
-  **0.1.24+24**. There are no other branches.
-  - Tests: 316 pass, and `flutter analyze` is clean.
-  - Builds for 0.1.24 are in `build\dist` on the PC and can be downloaded from the GitHub release
-    (https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.24). Publish each new version
-    the same way (see `02_…` → publishing builds).
+  **0.1.27+27** (0.1.25–0.1.27 merged and pushed on 29 Sep, **not released, no tag yet**: the
+  user asked to hold the release). There are no other branches.
+  - Tests: 345 pass, and `flutter analyze` is clean.
+  - The latest GitHub release is still v0.1.24. Builds for 0.1.27 are in `build\dist` on the PC,
+    ready for `tool\publish_release.ps1` when the user says to release (rebuild first if code
+    changed since). Publish each new version the same way (see `02_…` → publishing builds).
+  - `README.md` was brought up to date for 0.1.27 on 29 Sep.
   - `docs/USER_GUIDE.md` is the user-facing download and how-to guide shown on every release, and
     `README.md` links to it. Update it when features or menu names change.
 - Built and merged so far:
@@ -57,6 +59,17 @@ Read the files in this order:
 - **0.1.24 (29 Sep): colour themes, merged, pushed and released as v0.1.24.** Settings ›
   Appearance with Default / Midnight / Forest / Your own. 316 tests pass. The user approved it.
   See `03_…` → Colour themes. This is the first release 0.1.23 can update to by itself.
+- **0.1.25–0.1.27 below were merged into `main` and pushed on 29 Sep (not released); their
+  branches were deleted.**
+- **0.1.25: advanced appearance**: saved themes with every colour (light themes too), text size, corners, plus
+  `tool\switch_branch.ps1` and rule 13. Started by another session, finished by this one.
+  325 tests pass, analyze clean. Waiting for the user to try it. See `03_…` → Advanced appearance.
+- **0.1.26**: queue as a side drawer, artist-page albums open in place (+ Open album page,
+  hover play), Settings in A–Z order with **Folders & scanning** (music + audiobook folders).
+  337 tests pass. The user wants 0.1.25 and 0.1.26 released together once tried. See `03_…`.
+- **0.1.27**: folder options (rescan one folder, file-type tick boxes) for music and audiobook
+  folders, and the speaker icon as a mute toggle. 345 tests pass. Release 0.1.25–0.1.27
+  together when the user says so (the phone still has 0.1.23).
 - **Next after that:** nothing is agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user. See
   `04_ROADMAP_AND_OPEN_ITEMS.md`.
@@ -77,7 +90,9 @@ Read the files in this order:
    the search pattern will match itself. Ignore your own PID.)
 5. **Ask before installing on the phone.** It's usually plugged in, but may have been removed.
 6. **Settings placement:**
-   - Audiobook-related settings go in **Settings → Audiobooks**.
+   - Audiobook-related settings go in **Settings → Audiobooks** (the audiobook folders also show
+     in **Folders & scanning**, the user's choice on 29 Sep).
+   - Settings pages stay in **A–Z order** (0.1.26).
    - Playback settings go in **Settings → Playback**.
    - Online look-up switches go in **Settings → Online lookups**.
    - The sleep timer has its own **Settings → Sleep timer** page.
@@ -94,6 +109,13 @@ Read the files in this order:
     something looks.** They may be using the PC (on 29 Sep a capture caught a game they were
     playing). Draw screens off-screen instead (`tool/theme_preview_test.dart` shows how), and
     ask before anything that shows up on their screen.
+13. **Before any git command that changes the working folder (checkout, switch, merge, pull,
+    reset, stash), run `git status -sb` and look.** If there are unsaved changes you didn't make,
+    or you're not on the branch you expected, **stop and ask**: another session or VS Code may be
+    working there. Switch branches with `tool\switch_branch.ps1 <branch>` (it refuses when
+    anything is unsaved or a debug run is going). On 29 Sep a session ran `git checkout main`
+    while another session's edits were open on `feature/advanced-themes`; they survived only by
+    luck.
 
 ## How to pick up a task
 
