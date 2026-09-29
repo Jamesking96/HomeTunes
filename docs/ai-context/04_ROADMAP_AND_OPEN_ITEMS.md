@@ -102,9 +102,6 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
   → "Things spotted while commenting"): non-Latin titles break MusicBrainz track-number matching
   (`normalizeTitle` keeps only a–z and 0–9), and plain `.aac` files are treated as writable like
   M4A. The others from that list were fixed in 0.1.16.
-- **Dune collection tags are poor.** Many books show as "The New Dune Chronicles", with series
-  taken from folder names like "01 - Dune Saga". The data itself is at fault, and the user can fix
-  it with Edit book. Smarter guessing from folders would be possible.
 - **VS Code F5 debug run on Windows can close after the scan.** Release is fine. This is parked.
 - **Some tags are rewritten by the library, not preserved:**
   - The patched ID3 writer rewrites `TLEN` from the parsed duration, which may be slightly off for
@@ -114,16 +111,7 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
 - **iOS:** there's no local folder access, only server streaming. (Since 0.1.17 the server
   password is kept in the Keychain, not in the settings file.)
 
-## Offered earlier, not done (only if the user wants)
-- Delete old installers in `build\dist` (0.1.0/0.1.2/0.1.3).
-- Obtainium on the phone, so it updates itself from GitHub Releases. (Releases are published with
-  `tool/publish_release.ps1`; the phone's own Check for updates only opens the download page, by
-  the user's choice. Windows installed copies update themselves.)
-- A sleep-timer button in the Android notification.
-
 ## Source control
-`main` is **0.1.31+31** (merged 30 Sep, not released yet); the latest release is **v0.1.30**.
-There are no other branches. Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
 repo copy of these notes (`docs/ai-context/`) is kept the same as the project copy.
