@@ -1,5 +1,6 @@
 // The player's buttons and bars: seek bar, play/pause row, like button, the phone mini player,
-// the desktop player bar along the bottom, and the volume control.
+// the desktop player bar along the bottom, and the volume control (a slider in the desktop bar
+// and Now Playing, a speaker button with a pop-up slider in the mini player).
 //
 // Shell puts MiniPlayer (phones) or DesktopPlayerBar (wide windows) under the pages; Now
 // Playing reuses SeekBar and TransportControls at a bigger size. Everything reads from
@@ -254,6 +255,7 @@ class MiniPlayer extends StatelessWidget {
               ),
               const LikeButton(),
               const SleepTimerButton(),
+              const VolumeButton(),
               IconButton(
                 tooltip: p.playing ? 'Pause' : 'Play',
                 icon: Icon(p.playing ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 32),
@@ -441,11 +443,20 @@ class DesktopPlayerBar extends StatelessWidget {
 /// Speaker icon + volume slider. Scrolling the mouse wheel over either turns
 /// the volume up (wheel up) or down (wheel down); a two-finger swipe on a
 /// touchpad works too.
+///
+/// Used in the desktop player bar (fixed width), across Now Playing (fills the row, so it's
+/// there with the cover and with the lyrics) and inside [VolumeButton]'s pop-up (0.1.22).
 class VolumeControl extends StatelessWidget {
-  const VolumeControl({super.key});
+  /// Width of the slider; null makes it fill the space it's given.
+  final double? sliderWidth;
+  const VolumeControl({super.key, this.sliderWidth = 120});
 
   /// How much one notch of the wheel changes the volume (out of 100).
   static const wheelStep = 5.0;
+
+  /// The speaker icon for a volume (0–100): crossed out when silent, one wave below half.
+  static IconData iconFor(double volume) =>
+      volume <= 0 ? Icons.volume_off : (volume < 50 ? Icons.volume_down : Icons.volume_up);
 
   /// The volume after one wheel notch: scrolling down ([dy] > 0) turns it down.
   static double afterWheel(double volume, double dy) {
@@ -475,14 +486,39 @@ class VolumeControl extends StatelessWidget {
       child: Tooltip(
         message: 'Volume ${volume.round()}% – scroll to change',
         waitDuration: const Duration(milliseconds: 800),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(volume == 0 ? Icons.volume_off : (volume < 50 ? Icons.volume_down : Icons.volume_up),
-              size: 20, color: AppColors.textDim),
-          SizedBox(
-            width: 120,
-            child: Slider(value: volume, max: 100, onChanged: p.setVolume),
-          ),
+        child: Row(mainAxisSize: sliderWidth == null ? MainAxisSize.max : MainAxisSize.min, children: [
+          Icon(iconFor(volume), size: 20, color: AppColors.textDim),
+          if (sliderWidth == null)
+            Expanded(child: Slider(value: volume, max: 100, onChanged: p.setVolume))
+          else
+            SizedBox(
+              width: sliderWidth,
+              child: Slider(value: volume, max: 100, onChanged: p.setVolume),
+            ),
         ]),
+      ),
+    );
+  }
+}
+
+/// Phone mini player: a speaker button that opens a small volume slider above it (0.1.22).
+/// The slider stays open while it's dragged; tapping anywhere else closes it.
+class VolumeButton extends StatelessWidget {
+  const VolumeButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final volume = context.select<PlayerModel, double>((p) => p.volume.clamp(0.0, 100.0));
+    return MenuAnchor(
+      style: const MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(AppColors.surfaceHigh),
+        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
+      ),
+      menuChildren: const [VolumeControl(key: ValueKey('volume-popup'), sliderWidth: 200)],
+      builder: (context, controller, _) => IconButton(
+        tooltip: 'Volume ${volume.round()}%',
+        icon: Icon(VolumeControl.iconFor(volume)),
+        onPressed: () => controller.isOpen ? controller.close() : controller.open(),
       ),
     );
   }

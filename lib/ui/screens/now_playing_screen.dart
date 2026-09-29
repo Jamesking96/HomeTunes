@@ -1,7 +1,7 @@
 // The full-screen "Now Playing" page, opened by tapping the mini player / desktop player bar.
 //
 // It shows the big cover, title and artist (or chapter and book for audiobooks), the seek bar,
-// the transport buttons and a row of extras. Songs get Like, Lyrics and Queue buttons; books get
+// the transport buttons, the volume slider and a row of extras. Songs get Like, Lyrics and Queue buttons; books get
 // Bookmark, Speed, Chapters, Bookmarks and (if music is waiting) "Back to music".
 // Lyrics replace the cover on narrow screens and sit in a side panel on windows ≥900 px wide.
 // Everything comes from PlayerModel, which this page watches.
@@ -167,6 +167,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                   const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: SeekBar()),
                   const SizedBox(height: 4),
                   const TransportControls(),
+                  // Volume, across the controls (0.1.22). This page covers the desktop player
+                  // bar, so without it there'd be no volume while the cover or lyrics are open.
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(24, 4, 24, 0),
+                    child: VolumeControl(sliderWidth: null),
+                  ),
                   // Bottom row of extras. Different buttons for songs and books.
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
