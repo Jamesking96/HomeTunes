@@ -13,6 +13,7 @@ import '../../nav.dart';
 import '../../theme.dart';
 import '../../widgets/music_access_banner.dart';
 import 'about_settings.dart';
+import 'appearance_settings.dart';
 import 'audiobook_settings.dart';
 import 'backup_settings.dart';
 import 'edits_settings.dart';
@@ -34,6 +35,7 @@ Widget settingsPageBody(SettingsPage page) => switch (page) {
       SettingsPage.server => const ServerSettings(),
       SettingsPage.edits => const EditsSettings(),
       SettingsPage.backup => const BackupSettings(),
+      SettingsPage.appearance => const AppearanceSettings(),
       SettingsPage.about => const AboutSettings(),
     };
 
@@ -187,7 +189,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return [
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Text('No settings match "$_query"', style: const TextStyle(color: AppColors.textDim)),
+            child: Text('No settings match "$_query"', style: TextStyle(color: AppColors.textDim)),
           ),
         ];
       }

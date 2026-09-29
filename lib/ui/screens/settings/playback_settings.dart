@@ -70,7 +70,7 @@ class PlaybackSettings extends StatelessWidget {
             },
             onChanged: (m) => lib.updatePlaybackSettings(replayGain: m),
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Text(
               '"By album" keeps an album\'s own quiet and loud moments; "By song" makes every song about as loud as '

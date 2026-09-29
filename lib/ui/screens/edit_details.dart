@@ -470,7 +470,7 @@ class _EditDetailsState extends State<_EditDetails> {
               floatingLabelBehavior: _mixed.contains(f) ? FloatingLabelBehavior.always : null,
               hintText: _mixed.contains(f) ? differentMarker : null,
               hintStyle: _mixed.contains(f)
-                  ? const TextStyle(color: AppColors.textDim, letterSpacing: 2, fontWeight: FontWeight.w600)
+                  ? TextStyle(color: AppColors.textDim, letterSpacing: 2, fontWeight: FontWeight.w600)
                   : null,
               helperText: _helperFor(f, lib),
             ),
@@ -494,7 +494,7 @@ class _EditDetailsState extends State<_EditDetails> {
                 for (final f in _changedAlbumFields) _label(f).toLowerCase(),
                 if (_albumCoverChanged) 'cover',
               ].join(', ')}',
-              style: const TextStyle(color: AppColors.textDim, fontSize: 12),
+              style: TextStyle(color: AppColors.textDim, fontSize: 12),
             ),
           ),
         // Album mode: offer to pull in the stray songs found when the editor opened.
@@ -511,14 +511,14 @@ class _EditDetailsState extends State<_EditDetails> {
               '${_strays.take(3).map((t) => t.title).join(', ')}${_strays.length > 3 ? '…' : ''} – '
               'listed as a separate album because of a different album artist. '
               'They\'ll join this album and get the same changes.',
-              style: const TextStyle(color: AppColors.textDim, fontSize: 12),
+              style: TextStyle(color: AppColors.textDim, fontSize: 12),
             ),
           ),
         const SizedBox(height: 6),
         Text(
           'Changes are saved in HomeTunes only – your music files aren\'t modified.'
           '${_single ? ' Leave a field blank to use the value from the file.' : ''}',
-          style: const TextStyle(color: AppColors.textDim, fontSize: 12),
+          style: TextStyle(color: AppColors.textDim, fontSize: 12),
         ),
         if (anyEdited) ...[
           const SizedBox(height: 12),
@@ -652,7 +652,7 @@ class _EditDetailsState extends State<_EditDetails> {
                   : _tracks.length == 1
                       ? 'Applies to this song'
                       : 'Applies to all ${_tracks.length} songs',
-              style: const TextStyle(color: AppColors.textDim, fontSize: 12),
+              style: TextStyle(color: AppColors.textDim, fontSize: 12),
             ),
           const SizedBox(height: 8),
           Wrap(spacing: 8, runSpacing: 4, children: [

@@ -83,7 +83,7 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
       appBar: AppBar(
         title: const Text('Equaliser'),
         actions: [
-          Text(eq.enabled ? 'On' : 'Off', style: const TextStyle(color: AppColors.textDim)),
+          Text(eq.enabled ? 'On' : 'Off', style: TextStyle(color: AppColors.textDim)),
           Switch(key: const ValueKey('eq-on'), value: eq.enabled, onChanged: eq.setEnabled),
           PopupMenuButton<void>(
             tooltip: 'More',
@@ -165,7 +165,7 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
                 label: _db(current.level),
                 onChanged: (v) => eq.adjust(current.id, level: v),
               ),
-              const Text(
+              Text(
                 'Turn this down when you boost bands, so loud music doesn\'t distort.',
                 style: TextStyle(color: AppColors.textDim, fontSize: 12),
               ),
@@ -174,7 +174,7 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   current.level == 0 ? 'Overall level unchanged' : 'Overall level ${_db(current.level)}',
-                  style: const TextStyle(color: AppColors.textDim, fontSize: 12),
+                  style: TextStyle(color: AppColors.textDim, fontSize: 12),
                 ),
               ),
             const SizedBox(height: 16),
@@ -205,7 +205,7 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
                   ? 'Audiobooks switch to their own preset when a book starts, and music switches back. '
                       'You can turn that off in Settings › Audiobooks.'
                   : 'Music and audiobooks use the same preset. Settings › Audiobooks can give books their own.',
-              style: const TextStyle(color: AppColors.textDim, fontSize: 12),
+              style: TextStyle(color: AppColors.textDim, fontSize: 12),
             ),
           ]),
         ),
@@ -232,7 +232,7 @@ class _Notice extends StatelessWidget {
         child: Row(children: [
           Icon(icon, size: 18, color: AppColors.textDim),
           const SizedBox(width: 10),
-          Expanded(child: Text(text, style: const TextStyle(color: AppColors.textDim, fontSize: 13))),
+          Expanded(child: Text(text, style: TextStyle(color: AppColors.textDim, fontSize: 13))),
         ]),
       );
 }
@@ -250,7 +250,7 @@ class _Curve extends StatelessWidget {
       SizedBox(
         height: half * 2,
         child: Stack(children: [
-          const Center(child: Divider(height: 1, color: AppColors.surfaceHigh)),
+          Center(child: Divider(height: 1, color: AppColors.surfaceHigh)),
           Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             for (final g in preset.gains)
               Expanded(
@@ -289,7 +289,7 @@ class _BandLabels extends StatelessWidget {
         for (final hz in eqBands)
           Expanded(
             child: Text(eqBandLabel(hz),
-                textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: AppColors.textDim)),
+                textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppColors.textDim)),
           ),
       ]);
 }
@@ -309,7 +309,7 @@ class _BandSliders extends StatelessWidget {
           for (var i = 0; i < eqBands.length; i++)
             Expanded(
               child: Column(children: [
-                Text(_short(preset.gains[i]), style: const TextStyle(fontSize: 11, color: AppColors.textDim)),
+                Text(_short(preset.gains[i]), style: TextStyle(fontSize: 11, color: AppColors.textDim)),
                 Expanded(
                   child: RotatedBox(
                     quarterTurns: 3,

@@ -158,7 +158,7 @@ Future<void> showBookmarksSheet(BuildContext context) {
             ]),
           ),
           if (list.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(24),
               child: Text('No bookmarks yet. Tap the bookmark button while listening to save a spot.',
                   textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)),

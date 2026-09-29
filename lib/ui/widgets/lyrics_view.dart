@@ -91,7 +91,7 @@ class _Message extends StatelessWidget {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           if (icon != null) Icon(icon, size: 40, color: AppColors.textDim) else const CircularProgressIndicator(),
           const SizedBox(height: 12),
-          Text(text, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textDim)),
+          Text(text, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)),
           if (actions.isNotEmpty) ...[
             const SizedBox(height: 16),
             Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: actions),
@@ -158,14 +158,14 @@ class _Footer extends StatelessWidget {
         Expanded(
           child: Text(
             l == null ? '' : '${l.source.label}${l.timed ? ' · timed' : ''}',
-            style: const TextStyle(color: AppColors.textDim, fontSize: 12),
+            style: TextStyle(color: AppColors.textDim, fontSize: 12),
           ),
         ),
         // Each menu item's value is the action to run, so onSelected just calls it.
         // Items only appear when they make sense for these lyrics.
         PopupMenuButton<VoidCallback>(
           tooltip: 'Lyrics options',
-          icon: const Icon(Icons.more_horiz, color: AppColors.textDim),
+          icon: Icon(Icons.more_horiz, color: AppColors.textDim),
           onSelected: (f) => f(),
           itemBuilder: (_) => [
             PopupMenuItem(value: () => findLyricsOnline(context, track), child: const Text('Find lyrics on LRCLIB…')),

@@ -131,6 +131,11 @@ class LibraryModel extends ChangeNotifier {
   /// skip forward or back in an audiobook (0.1.17).
   bool swipeToSkip = true;
 
+  /// Settings › Appearance: the colour theme, and "Your own" colours ("#RRGGBB"). See setTheme.
+  String themeId = 'default';
+  String? customAccent;
+  String? customBackground;
+
   // ---- audiobook settings ----
 
   /// Folders where everything is an audiobook (scanned as well as [folders]).
@@ -334,6 +339,9 @@ class LibraryModel extends ChangeNotifier {
     sleepBookMinutes = 30;
     sleepMusicMinutes = 30;
     sleepFadeSeconds = 10;
+    themeId = 'default';
+    customAccent = null;
+    customBackground = null;
     _kindOverrides = {};
     _edits = {};
     _local = [];
@@ -377,6 +385,11 @@ class LibraryModel extends ChangeNotifier {
       sleepBookMinutes = s.integer('sleepBookMinutes', 30);
       sleepMusicMinutes = s.integer('sleepMusicMinutes', 30);
       sleepFadeSeconds = s.integer('sleepFadeSeconds', 10);
+      final theme = raw['theme'];
+      if (theme is String && theme.isNotEmpty) themeId = theme;
+      final accent = raw['customAccent'], background = raw['customBackground'];
+      customAccent = accent is String && _hexColour.hasMatch(accent) ? accent.toUpperCase() : null;
+      customBackground = background is String && _hexColour.hasMatch(background) ? background.toUpperCase() : null;
       final o = raw['bookOverrides'];
       if (o is Map) _kindOverrides = {for (final e in o.entries) '${e.key}': e.value == true};
       settingsDamaged = s.damaged;
@@ -499,8 +512,25 @@ class LibraryModel extends ChangeNotifier {
         'sleepBookMinutes': sleepBookMinutes,
         'sleepMusicMinutes': sleepMusicMinutes,
         'sleepFadeSeconds': sleepFadeSeconds,
+        'theme': themeId,
+        if (customAccent != null) 'customAccent': customAccent,
+        if (customBackground != null) 'customBackground': customBackground,
         'bookOverrides': _kindOverrides,
       });
+
+  /// "#RRGGBB".
+  static final _hexColour = RegExp(r'^#[0-9A-Fa-f]{6}$');
+
+  /// Settings › Appearance (0.1.24): which colour theme ('default', 'midnight', 'forest' or
+  /// 'custom'), and the two colours of "Your own" as "#RRGGBB" (null = not chosen yet). Kept as
+  /// text here; ui/theme.dart turns them into colours.
+  Future<void> setTheme({String? id, String? accent, String? background}) async {
+    themeId = id ?? themeId;
+    if (accent != null && _hexColour.hasMatch(accent)) customAccent = accent.toUpperCase();
+    if (background != null && _hexColour.hasMatch(background)) customBackground = background.toUpperCase();
+    notifyListeners();
+    await _saveSettings();
+  }
 
   // The simple on/off settings below redraw first (so the switch moves at once), then save.
   Future<void> setOnlineDetails(bool on) async {
