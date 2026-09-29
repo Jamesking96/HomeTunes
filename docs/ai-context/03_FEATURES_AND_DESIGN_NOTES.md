@@ -306,6 +306,16 @@ before changing that area.
   tool/probe_update_test.dart` reads the real latest release, downloads its installer and checks
   the checksum (nothing is installed). Passed on 29 Sep against v0.1.21.
 
+## ✕ on notices (`feature/notice-close`, 0.1.30, asked for 29 Sep)
+- **What the user asked for:** a close button on the notices at the bottom of the screen, next
+  to Undo, to get rid of them quickly.
+- **How:** one line in `buildTheme` (`ui/theme.dart`): `snackBarTheme: SnackBarThemeData(showCloseIcon:
+  true)`, so all ~35 SnackBars get the ✕ (after any action like Undo) without touching each one,
+  and new ones get it automatically. The ✕ just hides the notice; it never does the action.
+  Don't add "Dismiss"/"OK" SnackBarActions: the ✕ already does that.
+- **Tests:** `test/notice_close_test.dart` (default, Midnight, Forest and a light theme).
+  Picture: `flutter test tool/notice_close_preview_test.dart` (loads the real icon font).
+
 ## Colour codes and sharing themes (`feature/theme-sharing`, 0.1.29, asked for 29 Sep)
 - **What the user asked for:** type or paste a colour's hex code when choosing colours in
   Appearance, and export / import themes so they can be shared between friends.

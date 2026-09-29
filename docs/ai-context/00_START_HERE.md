@@ -82,6 +82,9 @@ Read the files in this order:
   box in every colour picker (type or paste `#FF7A59`), and sharing themes: Share… gives a
   theme code to copy or a `.hometunes-theme` file, and Import a theme reads either. 371 tests
   pass, analyze clean. Waiting for the user to try it. See `03_…` → Colour codes and sharing.
+- **Then 0.1.30, branch `feature/notice-close` (on top of `feature/theme-sharing`)**, not
+  merged: every notice at the bottom of the screen has a ✕ beside Undo. 375 tests pass. Release
+  0.1.29 and 0.1.30 together once the user has tried them.
 - **Next after that:** nothing is agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user. See
   `04_ROADMAP_AND_OPEN_ITEMS.md`.
