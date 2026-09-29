@@ -53,9 +53,9 @@ class AlbumScreen extends StatelessWidget {
         children.add(Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
           child: Row(children: [
-            const Icon(Icons.album, size: 18, color: AppColors.textDim),
+            Icon(Icons.album, size: 18, color: AppColors.textDim),
             const SizedBox(width: 8),
-            Text('Disc $d', style: const TextStyle(color: AppColors.textDim, fontWeight: FontWeight.w600)),
+            Text('Disc $d', style: TextStyle(color: AppColors.textDim, fontWeight: FontWeight.w600)),
           ]),
         ));
       }

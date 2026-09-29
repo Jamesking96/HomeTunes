@@ -243,7 +243,7 @@ class _AudiobookServerPreview extends StatelessWidget {
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Row(children: [
+          child: Row(children: [
             Icon(Icons.schedule, size: 18, color: AppColors.textDim),
             SizedBox(width: 10),
             Expanded(

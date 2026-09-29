@@ -38,7 +38,7 @@ Future<void> showLyricsDialog(BuildContext context, Track track) {
                   Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                   Text(track.artist, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: AppColors.textDim)),
+                      style: TextStyle(color: AppColors.textDim)),
                 ]),
               ),
               IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
@@ -141,7 +141,7 @@ class _LrclibDialogState extends State<_LrclibDialog> {
     if (_loading) {
       body = const Center(child: CircularProgressIndicator());
     } else if (_error != null) {
-      body = Center(child: Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textDim)));
+      body = Center(child: Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)));
     } else if (preview != null) {
       // Preview: show the lines (with their times, if timed) and a way back to the list.
       final lyrics = Lyrics(preview.bestLyrics ?? '', LyricsSource.lrclib);
@@ -165,7 +165,7 @@ class _LrclibDialogState extends State<_LrclibDialog> {
                         TextSpan(
                           // Just "mm:ss" of the time, to keep the preview tidy.
                           text: '${formatLrcTime(l.time!).substring(0, 5)}  ',
-                          style: const TextStyle(color: AppColors.textDim, fontFeatures: [FontFeature.tabularFigures()]),
+                          style: TextStyle(color: AppColors.textDim, fontFeatures: [FontFeature.tabularFigures()]),
                         ),
                       TextSpan(text: l.text),
                     ])),
@@ -176,7 +176,7 @@ class _LrclibDialogState extends State<_LrclibDialog> {
         ),
       ]);
     } else if (_results == null || _results!.isEmpty) {
-      body = const Center(
+      body = Center(
         child: Text('LRCLIB has no lyrics for that. Try changing the title or artist.',
             textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)),
       );
@@ -224,7 +224,7 @@ class _LrclibDialogState extends State<_LrclibDialog> {
               IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
             ]),
             Text('${t.title} · ${t.artist}${t.hasDuration ? ' · ${_mmss(t.duration)}' : ''}',
-                maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.textDim)),
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.textDim)),
             const SizedBox(height: 8),
             if (preview == null)
               Row(children: [
@@ -249,7 +249,7 @@ class _LrclibDialogState extends State<_LrclibDialog> {
             Expanded(child: body),
             const SizedBox(height: 8),
             Row(children: [
-              const Expanded(
+              Expanded(
                 child: Text('Lyrics from LRCLIB (lrclib.net). Only the title, artist, album and length are sent.',
                     style: TextStyle(color: AppColors.textDim, fontSize: 11)),
               ),
@@ -280,7 +280,7 @@ class _Chip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(color: AppColors.surfaceHigh, borderRadius: BorderRadius.circular(999)),
-        child: Text(text, style: const TextStyle(fontSize: 11, color: AppColors.textDim)),
+        child: Text(text, style: TextStyle(fontSize: 11, color: AppColors.textDim)),
       );
 }
 
@@ -335,7 +335,7 @@ class _EditLyricsDialogState extends State<_EditLyricsDialog> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Edit lyrics', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
             Text('${widget.track.title} · ${widget.track.artist}',
-                maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.textDim)),
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.textDim)),
             const SizedBox(height: 12),
             Expanded(
               child: TextField(
@@ -353,7 +353,7 @@ class _EditLyricsDialogState extends State<_EditLyricsDialog> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Saved in HomeTunes, like other edits. Settings › Your edits can also put them into '
               'MP3, FLAC and M4A files. Clear the box and save to remove your lyrics.',
               style: TextStyle(color: AppColors.textDim, fontSize: 12),

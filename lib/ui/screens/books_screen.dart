@@ -247,7 +247,7 @@ class _BooksScreenState extends State<BooksScreen> {
             ),
           ),
           if (shown.isEmpty)
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.all(32),
                 child: Text('No books match.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)),

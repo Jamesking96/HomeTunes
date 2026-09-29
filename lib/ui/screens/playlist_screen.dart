@@ -177,7 +177,7 @@ class PlaylistScreen extends StatelessWidget {
               child: Row(children: [
                 ReorderableDragStartListener(
                   index: i,
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.only(left: 8),
                     child: Icon(Icons.drag_indicator, color: AppColors.textDim),
                   ),

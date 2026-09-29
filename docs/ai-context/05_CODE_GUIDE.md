@@ -115,7 +115,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | --- | --- |
 | `shell.dart` | The outer frame. Wide windows get a sidebar and the desktop player bar; phones get a mini player and bottom tabs. Also the scan-progress strip, the two selection bars (songs; albums or books, with Edit, favourites and the quick actions) and the Back-button rules. |
 | `nav.dart` | `AppNav`: the current tab, a separate page stack per tab (so album pages open inside the content area while the player stays put), and "open Settings at this setting". |
-| `theme.dart` | The dark theme colours and the time formatters ("3:07", "1 hr 12 min"). |
+| `theme.dart` | The colour themes (`AppPalette`: Default, Midnight, Forest, Your own), `AppColors` (the current theme's colours), the Material theme, and the time formatters ("3:07", "1 hr 12 min"). |
 
 ### Screens (`lib/ui/screens/`)
 
@@ -354,6 +354,8 @@ Tests: `test/security_fixes_test.dart`, plus changes in `server_security_test.da
 **New in 0.1.22 (branch `feature/volume-everywhere`):** a volume slider on Now Playing, under the play buttons (so it's there with the cover or the lyrics; Now Playing covers the desktop player bar), and a speaker button in the phone's mini player that opens a small slider (`VolumeButton`, a `MenuAnchor`). `VolumeControl` takes a `sliderWidth` (null fills the row) and `iconFor(volume)`.
 
 **New in 0.1.23 (branch `feature/update-check`, stacked on the volume branch):** Settings › About › **Check for updates** and a daily check with a switch; a notice with **Update…** when one is found. On an installed Windows copy, Update downloads the installer, checks its SHA-256 against the release's checksum file, closes HomeTunes and the installer updates and restarts it (`/RELAUNCH=1`, see `installer/hometunes.iss`). The phone and the zip copy open the download page. Code: `services/update_checker.dart`, `state/update_model.dart`, `ui/screens/settings/update_ui.dart`, the `openUrl` method in `MainActivity.kt`. Tests: `test/update_test.dart` (306 tests passing on 29 Sep); live probe `tool/probe_update_test.dart`.
+
+**New in 0.1.24 (branch `feature/themes`):** colour themes in Settings › Appearance (`appearance_settings.dart`): Default, Midnight, Forest and Your own (highlight + background). `theme.dart` now has `AppPalette` and `AppColors` getters that read the current theme, so **don't use `AppColors` inside `const`**; read it in `build`. `main.dart` rebuilds the Material theme and redraws everything when the theme changes (`RedrawOnThemeChange`). Tests: `test/theme_test.dart`; off-screen pictures of each theme: `flutter test tool/theme_preview_test.dart`.
 
 A few existing comments are also out of date (left as they were): `Track` says narrator and series are never read from files (side files set them now); `showEditDetails` says music files are never modified (Settings → Your edits can write them); `SeekBar` says it redraws only from the position stream.
 

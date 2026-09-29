@@ -140,7 +140,7 @@ class AudiobookSettings extends StatelessWidget {
                   onPressed: lib.busy ? null : () => _addFolder(context),
                 ),
                 Text('${lib.books.length} audiobook${lib.books.length == 1 ? '' : 's'}',
-                    style: const TextStyle(color: AppColors.textDim)),
+                    style: TextStyle(color: AppColors.textDim)),
               ]),
             ),
           ]),
@@ -197,7 +197,7 @@ class AudiobookSettings extends StatelessWidget {
             ),
           ]),
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Text('The sleep timer for books is under Settings › Sleep timer.',
               style: TextStyle(color: AppColors.textDim, fontSize: 13)),

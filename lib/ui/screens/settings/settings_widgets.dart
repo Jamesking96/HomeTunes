@@ -22,7 +22,7 @@ class SettingsPageList extends StatelessWidget {
           if (intro != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: Text(intro!, style: const TextStyle(color: AppColors.textDim)),
+              child: Text(intro!, style: TextStyle(color: AppColors.textDim)),
             ),
           ...children,
         ],
@@ -48,7 +48,7 @@ class SettingsGroupTitle extends StatelessWidget {
               )),
           if (subtitle != null) ...[
             const SizedBox(height: 4),
-            Text(subtitle!, style: const TextStyle(color: AppColors.textDim, fontSize: 13)),
+            Text(subtitle!, style: TextStyle(color: AppColors.textDim, fontSize: 13)),
           ],
         ]),
       );

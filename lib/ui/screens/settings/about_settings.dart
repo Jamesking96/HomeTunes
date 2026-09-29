@@ -56,7 +56,7 @@ class AboutSettings extends StatelessWidget {
             const Text('Your library, playlists, edits, settings and saved covers. Your music files are never '
                 'stored here.'),
             const SizedBox(height: 4),
-            SelectableText(dataDir, style: const TextStyle(color: AppColors.textDim, fontSize: 12)),
+            SelectableText(dataDir, style: TextStyle(color: AppColors.textDim, fontSize: 12)),
           ]),
           trailing: Platform.isWindows
               ? OutlinedButton(
@@ -115,7 +115,7 @@ class _PlaybackLogScreenState extends State<PlaybackLogScreen> {
         ],
       ),
       body: lines.isEmpty
-          ? const Center(child: Text('Nothing logged yet', style: TextStyle(color: AppColors.textDim)))
+          ? Center(child: Text('Nothing logged yet', style: TextStyle(color: AppColors.textDim)))
           : ListView.builder(
               reverse: true, // newest at the bottom, scrolled to the end
               padding: const EdgeInsets.all(12),

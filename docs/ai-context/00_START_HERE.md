@@ -54,6 +54,9 @@ Read the files in this order:
   - **From now on, publish every release with `tool/publish_release.ps1`**: installed copies
     look for its file names and checksum file to update themselves. The first real
     self-update (close, install, reopen) will happen with the next release after 0.1.23.
+- **In progress (29 Sep): colour themes, 0.1.24, branch `feature/themes`**, not merged yet:
+  Settings › Appearance with Default / Midnight / Forest / Your own. 316 tests pass, analyze
+  clean, Windows installer + zip built. Waiting for the user to try it. See `03_…` → Colour themes.
 - **Next after that:** nothing is agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user. See
   `04_ROADMAP_AND_OPEN_ITEMS.md`.
@@ -87,6 +90,10 @@ Read the files in this order:
 10. Ask the server questions and the Android "All files access" question only when that work comes
     up.
 11. The user's email is only for commit attribution.
+12. **Never take screenshots of the user's PC screen or open app windows on it to check how
+    something looks.** They may be using the PC (on 29 Sep a capture caught a game they were
+    playing). Draw screens off-screen instead (`tool/theme_preview_test.dart` shows how), and
+    ask before anything that shows up on their screen.
 
 ## How to pick up a task
 

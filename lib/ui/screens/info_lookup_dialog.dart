@@ -246,9 +246,9 @@ class _InfoLookupDialogState extends State<_InfoLookupDialog> {
     if (_loading) {
       body = const Center(child: CircularProgressIndicator());
     } else if (_error != null) {
-      body = Center(child: Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textDim)));
+      body = Center(child: Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)));
     } else if (choices == null || choices.isEmpty) {
-      body = const Center(
+      body = Center(
         child: Text('Nothing found. Try adjusting the search.',
             textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)),
       );
@@ -298,7 +298,7 @@ class _InfoLookupDialogState extends State<_InfoLookupDialog> {
               widget.field == InfoField.trackNumber && !widget.songMode
                   ? 'Pick the matching album; its track list is matched to your songs by title. Info from MusicBrainz.'
                   : 'Tap a value to use it. Info from MusicBrainz.',
-              style: const TextStyle(color: AppColors.textDim, fontSize: 11),
+              style: TextStyle(color: AppColors.textDim, fontSize: 11),
             ),
           ]),
         ),
