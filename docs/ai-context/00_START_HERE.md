@@ -85,11 +85,14 @@ Read the files in this order:
   pass, analyze clean. See `03_…` → Colour codes and sharing.
 - **0.1.30 (merged and released 29 Sep as v0.1.30)**: every notice at the bottom of the screen
   has a ✕ beside Undo. 375 tests pass. Branches deleted.
-- **In progress (30 Sep): 0.1.31, branch `feature/licence`**, not merged: HomeTunes is now
+- **0.1.31 (merged and pushed 30 Sep, NOT released yet)**: HomeTunes is now
   **MIT-licensed, "Copyright (c) 2026 Jamesking96"** (the user's choice after comparing
   Harmonoid's PolyForm Strict and Nora's MIT). `LICENSE`, `THIRD_PARTY_NOTICES.md`,
   `licenses/` (LGPL/GPL for the libmpv/FFmpeg engine), Settings › About › Licences, licence files
-  in the Windows downloads. See `03_…` → Licence (includes the rule about GPL libraries).
+  in the Windows downloads, and `HomeTunes-audio-engine-source.zip` (the engine's LGPL source)
+  attached to every GitHub release, old and new. See `03_…` → Licence (includes the rule about
+  GPL libraries). The 0.1.31 builds in build\dist predate the final licence-page wording:
+  rebuild before releasing.
 - **Next after that:** nothing is agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user. See
   `04_ROADMAP_AND_OPEN_ITEMS.md`.

@@ -8,7 +8,8 @@
 # and push main. The version comes from pubspec.yaml unless -Version is given.
 #
 # What it does: tags the current origin/main as v<version> and pushes the tag, creates the
-# release, then uploads the phone app, the Windows installer, the Windows zip and the user guide
+# release, then uploads the phone app, the Windows installer, the Windows zip, the audio engine's
+# source code (HomeTunes-audio-engine-source.zip, from tool\engine_source.ps1) and the user guide
 # (docs\USER_GUIDE.md with its pictures from docs\images, attached as HomeTunes-README.md). The release page shows "What's new"
 # (the text in -NotesFile, if given) followed by the whole user guide. Running it again updates
 # the page text and the guide, and skips builds already uploaded. Use -UpdateOnly to refresh just
@@ -30,6 +31,12 @@ $tag = "v$Version"
 $files = "build\dist\HomeTunes-$Version-android.apk", "build\dist\HomeTunes-Setup-$Version.exe",
          "build\dist\HomeTunes-$Version-windows.zip"
 if (-not $UpdateOnly) { foreach ($f in $files) { if (-not (Test-Path $f)) { throw "Missing $f - build it first." } } }
+# HomeTunes (0.1.31): the audio engine's source code (LGPL) goes with every release, next to the
+# downloads that include the engine. Made once by tool\engine_source.ps1 and reused.
+if (-not $UpdateOnly) {
+  & (Join-Path $PSScriptRoot 'engine_source.ps1')
+  $files += 'build\dist\HomeTunes-audio-engine-source.zip'
+}
 
 # HomeTunes (0.1.21, security review #1): never publish a phone app signed with the debug key.
 # An update has to be signed with the same key as the installed copy, so a debug-signed APK

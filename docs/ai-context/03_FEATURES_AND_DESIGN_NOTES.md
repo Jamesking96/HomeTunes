@@ -330,8 +330,19 @@ before changing that area.
   `licenses\` next to `hometunes.exe`, so the zip and installer both have them. The installer
   shows Jamesking96 as publisher, with the GitHub links and copyright line. The APK carries them
   in its assets and the Licences page.
-- **When dependencies change:** update `THIRD_PARTY_NOTICES.md` (and the engine versions in
-  `app_licences.dart` if media_kit's libs change). Tests: `test/licences_test.dart`.
+- **Engine source on every release (the user's choice, 30 Sep):** `tool/engine_source.ps1` makes
+  `build\dist\HomeTunes-audio-engine-source.zip` (17.5 MB): mpv at commit 652a1dd9 (Windows) and
+  v0.35.1 (Android), FFmpeg 6.0 (official tarball, matches ffmpeg.org's checksum), GNU FriBidi
+  1.0.13 (LGPL-2.1+, only in the Windows dll), and snapshots of both media-kit build repos
+  (win32 master at f5a6f879, the last commit before its 2023-09-24 build; android v1.1.8), with
+  a README listing sources and SHA-256s. Versions were read from the binaries themselves (the
+  win32 build scripts don't pin versions). `publish_release.ps1` adds the zip to every new
+  release (and its checksum); `tool/attach_engine_source.ps1` added it to all older releases
+  on 30 Sep. Permissive libraries inside (mbedtls, libxml2, libass, HarfBuzz, FreeType, zlib…)
+  don't need their source shipped.
+- **When dependencies change:** update `THIRD_PARTY_NOTICES.md`, the engine versions in
+  `app_licences.dart` and the list in `tool/engine_source.ps1` (then delete the old zip in
+  build\dist so it's remade) if media_kit's libs change. Tests: `test/licences_test.dart`.
 
 ## ✕ on notices (`feature/notice-close`, 0.1.30, asked for 29 Sep)
 - **What the user asked for:** a close button on the notices at the bottom of the screen, next
