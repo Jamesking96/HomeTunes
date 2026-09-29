@@ -326,7 +326,7 @@ class _EditBookState extends State<_EditBook> {
     Widget preview;
     if (_newCover != null) {
       preview = ClipRRect(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: AppShape.circular(6),
         child: Image.file(File(_newCover!), width: 120, height: 120 * bookCoverRatio(context), fit: BoxFit.cover),
       );
     } else {

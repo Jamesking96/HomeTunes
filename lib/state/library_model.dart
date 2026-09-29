@@ -136,6 +136,13 @@ class LibraryModel extends ChangeNotifier {
   String? customAccent;
   String? customBackground;
 
+  /// Settings › Appearance › Advanced (0.1.25): the user's saved themes, as saved (each a map of
+  /// id, name and "#RRGGBB" colours; ui/theme.dart AppPalette.fromJson reads them), the text size
+  /// (a multiple of the system size) and how rounded corners are (0 = square, 1 = as designed).
+  List<Map<String, dynamic>> savedThemes = [];
+  double textSize = 1.0;
+  double cornerRoundness = 1.0;
+
   // ---- audiobook settings ----
 
   /// Folders where everything is an audiobook (scanned as well as [folders]).
@@ -342,6 +349,9 @@ class LibraryModel extends ChangeNotifier {
     themeId = 'default';
     customAccent = null;
     customBackground = null;
+    savedThemes = [];
+    textSize = 1.0;
+    cornerRoundness = 1.0;
     _kindOverrides = {};
     _edits = {};
     _local = [];
@@ -390,6 +400,15 @@ class LibraryModel extends ChangeNotifier {
       final accent = raw['customAccent'], background = raw['customBackground'];
       customAccent = accent is String && _hexColour.hasMatch(accent) ? accent.toUpperCase() : null;
       customBackground = background is String && _hexColour.hasMatch(background) ? background.toUpperCase() : null;
+      final saved = raw['savedThemes'];
+      if (saved is List) {
+        savedThemes = [
+          for (final t in saved)
+            if (t is Map && t['id'] is String) Map<String, dynamic>.from(t),
+        ];
+      }
+      textSize = s.number('textSize', 1.0).clamp(0.8, 1.5).toDouble();
+      cornerRoundness = s.number('cornerRoundness', 1.0).clamp(0.0, 2.0).toDouble();
       final o = raw['bookOverrides'];
       if (o is Map) _kindOverrides = {for (final e in o.entries) '${e.key}': e.value == true};
       settingsDamaged = s.damaged;
@@ -515,8 +534,44 @@ class LibraryModel extends ChangeNotifier {
         'theme': themeId,
         if (customAccent != null) 'customAccent': customAccent,
         if (customBackground != null) 'customBackground': customBackground,
+        if (savedThemes.isNotEmpty) 'savedThemes': savedThemes,
+        'textSize': textSize,
+        'cornerRoundness': cornerRoundness,
         'bookOverrides': _kindOverrides,
       });
+
+  /// Adds a saved theme, or replaces the one with the same id (Settings › Appearance ›
+  /// Advanced). [use] switches to it.
+  Future<void> saveTheme(Map<String, dynamic> theme, {bool use = true}) async {
+    final id = theme['id'];
+    if (id is! String) return;
+    final i = savedThemes.indexWhere((t) => t['id'] == id);
+    savedThemes = [...savedThemes];
+    if (i < 0) {
+      savedThemes.add(Map.of(theme));
+    } else {
+      savedThemes[i] = Map.of(theme);
+    }
+    if (use) themeId = id;
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Removes a saved theme; if it was in use, goes back to Default.
+  Future<void> deleteTheme(String id) async {
+    savedThemes = [for (final t in savedThemes) if (t['id'] != id) t];
+    if (themeId == id) themeId = 'default';
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Text size and corner roundness (Settings › Appearance › Advanced).
+  Future<void> setLook({double? textSize, double? cornerRoundness}) async {
+    this.textSize = (textSize ?? this.textSize).clamp(0.8, 1.5).toDouble();
+    this.cornerRoundness = (cornerRoundness ?? this.cornerRoundness).clamp(0.0, 2.0).toDouble();
+    notifyListeners();
+    await _saveSettings();
+  }
 
   /// "#RRGGBB".
   static final _hexColour = RegExp(r'^#[0-9A-Fa-f]{6}$');

@@ -179,6 +179,43 @@ before changing that area.
 - **Don't take screenshots of the user's desktop or launch the app on their screen** to check the
   look: on 29 Sep that captured a game the user was playing. Use the off-screen preview instead.
 
+## Advanced appearance (`feature/advanced-themes`, 0.1.25, asked for 29 Sep)
+- **Started by another session** (16:43 on 29 Sep: theme model, readability checks, text sizes,
+  corner choices, corners switched to `AppShape` in 22 files) and **finished by this one**
+  after the user said "take over".
+- **What the user sees:** Settings › Appearance › **Advanced**:
+  - Saved themes: **New theme from the current one**, **New light theme** (starts from
+    `lightStarter` "Daylight"), and Edit… / Duplicate… / Delete on each. Saved themes also appear
+    as cards beside Default / Midnight / Forest / Your own.
+  - The **theme editor** (`ThemeEditor`): name, a live preview, and eight colours with plain
+    names (Background, Panels, Raised panels, Text, Grey text, Highlight, Slider track, Play
+    button). The picker's "any" mode allows every colour. Warnings (`readabilityProblems`, the
+    usual 4.5 / 3 contrast rules) say in plain words what may be hard to read; saving is still
+    allowed. **Save and use** switches to it straight away.
+  - **Text size** (Smaller 0.9 / Default / Larger 1.15 / Largest 1.3, on top of the system
+    setting, via `withTextSize` in MaterialApp.builder) and **Corners** (Square / Slight / Default
+    / Extra round → `AppShape.scale` 0 / 0.5 / 1 / 1.6, plus Material's cards, dialogs, buttons,
+    menus and sheets in `buildTheme`).
+- **Saved in settings.json** (so in backups): `savedThemes` (list of `{id: "saved:…", name,
+  background, panels, raisedPanels, text, greyText, accent, sliderTrack, playButton}` as
+  `#RRGGBB`), `textSize`, `cornerRoundness` (both clamped on load). `LibraryModel.saveTheme /
+  deleteTheme / setLook`. Deleting the theme in use goes back to Default. A damaged saved theme is
+  skipped.
+- **Light themes:** `AppPalette.text` / `playButton` / `divider` / `faded()`; `buildTheme` pins
+  every Material colour for saved and light themes (brightness light, text theme, icons,
+  dividers), while the ready-made dark themes keep Material's in-between shades exactly as in
+  0.1.24. Fixed white/black spots now use the theme: sidebar selection and divider, play button
+  and its spinner, mini-player progress line, lyrics (sung/unsung lines), ticks and hearts on the
+  highlight colour (`onAccent`).
+- **Main.dart:** `Selector<LibraryModel, AppLook>` (`lookOfSettings`: palette, corners, text
+  size); `RedrawOnThemeChange(look:)` redraws everything when any of them changes.
+- **Tests:** `test/theme_test.dart` (325 tests in all on 29 Sep). In widget tests, don't `await`
+  LibraryModel saves: Storage writes one file at a time and a write started inside the test's
+  pretend clock never finishes, so a second awaited save hangs. The screen updates before the
+  save anyway.
+- **Pictures:** `flutter test tool/theme_preview_test.dart` now also draws a saved light theme with
+  square corners and larger text, and the theme editor (`theme-light.png`, `theme-editor.png`).
+
 ## Updates (`feature/update-check`, 0.1.23, asked for 29 Sep)
 - **The user's choices (29 Sep):** a "Check for updates" button in Settings › About **plus** a quiet
   check at most once a day with a switch to turn it off; on the phone, just **open the download

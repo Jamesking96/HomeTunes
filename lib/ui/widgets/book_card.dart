@@ -43,7 +43,7 @@ class BookCover extends StatelessWidget {
       child: Icon(Icons.menu_book, color: AppColors.textDim, size: width * 0.35),
     );
     return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
+      borderRadius: AppShape.circular(radius),
       child: SizedBox(
         width: width,
         height: width * ratio,
@@ -104,7 +104,7 @@ class BookCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(3),
                     decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
-                    child: const Icon(Icons.check, size: 14, color: Colors.black),
+                    child: Icon(Icons.check, size: 14, color: AppColors.current.onAccent),
                   ),
                 ),
             ]),
@@ -113,7 +113,7 @@ class BookCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: AppShape.circular(2),
                   child: LinearProgressIndicator(
                     value: listening.fractionDone(book),
                     minHeight: 3,

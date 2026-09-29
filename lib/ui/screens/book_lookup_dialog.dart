@@ -157,13 +157,13 @@ class _BookLookupDialogState extends State<_BookLookupDialog> {
         itemBuilder: (_, i) {
           final b = results[i];
           return InkWell(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: AppShape.circular(6),
             onTap: () => _chooseCover(b),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               AspectRatio(
                 aspectRatio: 2 / 3,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: AppShape.circular(6),
                   // Cover search only returns books with a thumbnail, so this is never null.
                   child: Image.memory(b.thumbnail!, fit: BoxFit.cover, gaplessPlayback: true),
                 ),

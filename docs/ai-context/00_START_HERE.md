@@ -57,6 +57,10 @@ Read the files in this order:
 - **0.1.24 (29 Sep): colour themes, merged, pushed and released as v0.1.24.** Settings ›
   Appearance with Default / Midnight / Forest / Your own. 316 tests pass. The user approved it.
   See `03_…` → Colour themes. This is the first release 0.1.23 can update to by itself.
+- **In progress (29 Sep): advanced appearance, 0.1.25, branch `feature/advanced-themes`**, not
+  merged: saved themes with every colour (light themes too), text size, corners, plus
+  `tool\switch_branch.ps1` and rule 13. Started by another session, finished by this one.
+  325 tests pass, analyze clean. Waiting for the user to try it. See `03_…` → Advanced appearance.
 - **Next after that:** nothing is agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user. See
   `04_ROADMAP_AND_OPEN_ITEMS.md`.
@@ -94,6 +98,13 @@ Read the files in this order:
     something looks.** They may be using the PC (on 29 Sep a capture caught a game they were
     playing). Draw screens off-screen instead (`tool/theme_preview_test.dart` shows how), and
     ask before anything that shows up on their screen.
+13. **Before any git command that changes the working folder (checkout, switch, merge, pull,
+    reset, stash), run `git status -sb` and look.** If there are unsaved changes you didn't make,
+    or you're not on the branch you expected, **stop and ask**: another session or VS Code may be
+    working there. Switch branches with `tool\switch_branch.ps1 <branch>` (it refuses when
+    anything is unsaved or a debug run is going). On 29 Sep a session ran `git checkout main`
+    while another session's edits were open on `feature/advanced-themes`; they survived only by
+    luck.
 
 ## How to pick up a task
 

@@ -98,14 +98,14 @@ class TransportControls extends StatelessWidget {
           width: playSize,
           height: playSize,
           child: IconButton.filled(
-            style: IconButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
+            style: IconButton.styleFrom(backgroundColor: AppColors.playButton, foregroundColor: AppColors.onPlay),
             iconSize: playSize * 0.55,
             tooltip: p.playing ? 'Pause' : 'Play',
             icon: p.buffering && p.playing
                 ? SizedBox(
                     width: playSize * 0.35,
                     height: playSize * 0.35,
-                    child: const CircularProgressIndicator(strokeWidth: 2.5, color: Colors.black),
+                    child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.onPlay),
                   )
                 : Icon(p.playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
             onPressed: p.current == null ? null : p.togglePlay,
@@ -360,7 +360,7 @@ class _ThinProgress extends StatelessWidget {
       builder: (context, snap) {
         final total = p.duration.inMilliseconds;
         final v = total <= 0 ? 0.0 : ((snap.data?.inMilliseconds ?? 0) / total).clamp(0.0, 1.0);
-        return LinearProgressIndicator(value: v, minHeight: 2, color: Colors.white, backgroundColor: Colors.white12);
+        return LinearProgressIndicator(value: v, minHeight: 2, color: AppColors.text, backgroundColor: AppColors.faded(0.12));
       },
     );
   }

@@ -242,7 +242,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                 margin: const EdgeInsets.fromLTRB(0, 16, 16, 16),
                 decoration: BoxDecoration(
                   color: AppColors.surface.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppShape.circular(12),
                 ),
                 child: lyricsPanel,
               ),

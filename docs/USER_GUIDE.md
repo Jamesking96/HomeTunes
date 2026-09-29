@@ -159,6 +159,10 @@ they're tabs along the bottom. On a PC they're down the left-hand side, where Li
 - **Colours:** **Settings › Appearance** has three ready-made themes (Default, Midnight and Forest)
   and **Your own**, where you pick a highlight colour and a background colour. Tap a theme and
   the whole app changes straight away. Your choice is included in backups.
+  Under **Advanced** you can make as many themes of your own as you like, choosing every colour
+  (background, panels, text, grey text, highlight, slider and play button), including light
+  themes with dark text. HomeTunes warns you if something would be hard to read. **Advanced**
+  also has **Text size** and **Corners** (from square to extra round).
 - **Settings search:** type in the box at the top of Settings to find any option.
 
 ---
