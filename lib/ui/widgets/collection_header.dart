@@ -46,7 +46,7 @@ class CollectionHeader extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(kind.toUpperCase(),
-            style: const TextStyle(fontSize: 12, letterSpacing: 1.2, color: AppColors.textDim)),
+            style: TextStyle(fontSize: 12, letterSpacing: 1.2, color: AppColors.textDim)),
         const SizedBox(height: 6),
         Text(title,
             textAlign: wide ? TextAlign.start : TextAlign.center,
@@ -54,7 +54,7 @@ class CollectionHeader extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: wide ? 40 : 26, fontWeight: FontWeight.w800, height: 1.1)),
         const SizedBox(height: 8),
-        Text(subtitle, style: const TextStyle(color: AppColors.textDim)),
+        Text(subtitle, style: TextStyle(color: AppColors.textDim)),
       ],
     );
 

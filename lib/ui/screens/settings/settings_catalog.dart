@@ -15,6 +15,7 @@ enum SettingsPage {
   server('Servers', 'Stream music and audiobooks from your own server', Icons.dns_outlined),
   edits('Your edits', 'Save your changes into the music files', Icons.edit_note),
   backup('Backup & restore', 'Move everything to another PC or phone', Icons.settings_backup_restore),
+  appearance('Appearance', 'Colour theme, or make your own', Icons.palette_outlined),
   about('About', 'Version, updates and where your data is kept', Icons.info_outline);
 
   /// Name shown in the list and as the page heading.
@@ -78,6 +79,8 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('backup-export', SettingsPage.backup, 'Export backup', 'save backup file move'),
   SettingInfo('backup-import', SettingsPage.backup, 'Import backup', 'restore backup file'),
   SettingInfo('backup-covers', SettingsPage.backup, 'Include cover images from music files', 'art backup size'),
+  SettingInfo('theme', SettingsPage.appearance, 'Colour theme', 'color colour colours theme dark look style midnight forest default'),
+  SettingInfo('theme-custom', SettingsPage.appearance, 'Your own colours', 'custom color colour highlight accent background theme create'),
   SettingInfo('version', SettingsPage.about, 'Version', 'app number'),
   SettingInfo('updates', SettingsPage.about, 'Check for updates', 'update upgrade new version download install latest release'),
   SettingInfo('update-auto', SettingsPage.about, 'Check for updates automatically', 'update daily notify new version'),

@@ -85,7 +85,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                 ),
                 Expanded(
                   child: Column(children: [
-                    const Text('PLAYING FROM', style: TextStyle(fontSize: 11, letterSpacing: 1.2, color: AppColors.textDim)),
+                    Text('PLAYING FROM', style: TextStyle(fontSize: 11, letterSpacing: 1.2, color: AppColors.textDim)),
                     Text(p.queue.contextLabel ?? 'Your library',
                         maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
                   ]),
@@ -148,7 +148,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                             child: Text(book != null ? '${book.title} · ${book.author}' : t.artist,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 16, color: AppColors.textDim)),
+                                style: TextStyle(fontSize: 16, color: AppColors.textDim)),
                           ),
                         ]),
                       ),
@@ -179,7 +179,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                     child: Row(children: [
                       // A cloud icon when the song streams from the music server.
                       if (!t.isLocal)
-                        const Tooltip(
+                        Tooltip(
                           message: 'Streaming from your server',
                           child: Icon(Icons.cloud_outlined, color: AppColors.textDim, size: 20),
                         ),

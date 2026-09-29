@@ -28,6 +28,7 @@ import 'state/selection_model.dart';
 import 'state/sleep_timer.dart';
 import 'state/update_model.dart';
 import 'ui/nav.dart';
+import 'ui/screens/settings/appearance_settings.dart';
 import 'ui/screens/settings/update_ui.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
@@ -205,15 +206,26 @@ class HomeTunesApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AppNav()),
         ChangeNotifierProvider(create: (_) => SelectionModel()),
       ],
-      child: MaterialApp(
-        title: 'HomeTunes',
-        debugShowCheckedModeBanner: false,
-        // Let the start-up update notice (and its dialog) be shown from outside the tree.
-        scaffoldMessengerKey: appMessengerKey,
-        navigatorKey: appNavigatorKey,
-        theme: buildTheme(),
-        scrollBehavior: appScrollBehavior,
-        home: const Shell(),
+      // The colour theme from Settings › Appearance (0.1.24). Only a change of theme rebuilds
+      // this; then every screen is redrawn so colours read from AppColors change too.
+      child: Selector<LibraryModel, AppPalette>(
+        selector: (_, lib) => paletteOfSettings(lib),
+        builder: (context, palette, _) {
+          AppColors.current = palette;
+          return RedrawOnThemeChange(
+            palette: palette,
+            child: MaterialApp(
+              title: 'HomeTunes',
+              debugShowCheckedModeBanner: false,
+              // Let the start-up update notice (and its dialog) be shown from outside the tree.
+              scaffoldMessengerKey: appMessengerKey,
+              navigatorKey: appNavigatorKey,
+              theme: buildTheme(palette),
+              scrollBehavior: appScrollBehavior,
+              home: const Shell(),
+            ),
+          );
+        },
       ),
     );
   }

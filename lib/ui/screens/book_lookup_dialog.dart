@@ -130,17 +130,17 @@ class _BookLookupDialogState extends State<_BookLookupDialog> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           const CircularProgressIndicator(),
           const SizedBox(height: 12),
-          Text(_saving ? 'Saving cover…' : 'Searching…', style: const TextStyle(color: AppColors.textDim)),
+          Text(_saving ? 'Saving cover…' : 'Searching…', style: TextStyle(color: AppColors.textDim)),
         ]),
       );
     } else if (_error != null) {
-      body = Center(child: Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textDim)));
+      body = Center(child: Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)));
     } else if (results == null || results.isEmpty) {
       body = Center(
         child: Text(
           widget.covers ? 'No covers found. Try adjusting the title or author.' : 'No books found. Try adjusting the title or author.',
           textAlign: TextAlign.center,
-          style: const TextStyle(color: AppColors.textDim),
+          style: TextStyle(color: AppColors.textDim),
         ),
       );
     // Cover mode: a grid of tall book covers with title and author/year under each.
@@ -173,7 +173,7 @@ class _BookLookupDialogState extends State<_BookLookupDialog> {
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               Text([b.author, if (b.year != null) '${b.year}'].join(' · '),
                   maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppColors.textDim, fontSize: 12)),
+                  style: TextStyle(color: AppColors.textDim, fontSize: 12)),
             ]),
           );
         },
@@ -233,7 +233,7 @@ class _BookLookupDialogState extends State<_BookLookupDialog> {
             const SizedBox(height: 8),
             Text(
               widget.covers ? 'Tap a cover to use it. Covers and details from Open Library.' : 'Tap a book to use its details. From Open Library.',
-              style: const TextStyle(color: AppColors.textDim, fontSize: 11),
+              style: TextStyle(color: AppColors.textDim, fontSize: 11),
             ),
           ]),
         ),

@@ -113,7 +113,7 @@ class BackupSettingsState extends State<BackupSettings> {
               '• ${backup.folders.length} music folder${backup.folders.length == 1 ? '' : 's'}'
               '${backup.hasPassword ? '\n• server password included' : ''}'),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'Replace: this device\'s HomeTunes data becomes the backup\'s.\n'
             'Merge: the backup\'s playlists, likes and edits are added to what\'s here.\n\n'
             'Your music files aren\'t touched. A copy of the current data is saved first.',
@@ -155,7 +155,7 @@ class BackupSettingsState extends State<BackupSettings> {
               const Text('These music folders don\'t exist on this device, so they weren\'t added. '
                   'Use "Add folder" to point HomeTunes at your music here:'),
               for (final f in result.missingFolders)
-                Text('• $f', style: const TextStyle(fontSize: 12, color: AppColors.textDim)),
+                Text('• $f', style: TextStyle(fontSize: 12, color: AppColors.textDim)),
             ],
             if (result.needsPassword) ...[
               const SizedBox(height: 12),

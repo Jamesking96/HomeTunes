@@ -70,7 +70,7 @@ class TrackTile extends StatelessWidget {
         child: isCurrent
             ? Icon(Icons.graphic_eq, color: accent, size: 18)
             : Text('${track.trackNumber ?? index + 1}',
-                textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textDim)),
+                textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)),
       );
     } else {
       leading = Artwork(track: track, size: 44);
@@ -92,7 +92,7 @@ class TrackTile extends StatelessWidget {
       // album's own page).
       subtitle: Row(children: [
         if (!track.isLocal)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(right: 4),
             child: Icon(Icons.cloud_outlined, size: 13, color: AppColors.textDim),
           ),
@@ -109,7 +109,7 @@ class TrackTile extends StatelessWidget {
         if (MediaQuery.sizeOf(context).width > 600)
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: Text(formatDuration(track.duration), style: const TextStyle(color: AppColors.textDim)),
+            child: Text(formatDuration(track.duration), style: TextStyle(color: AppColors.textDim)),
           ),
         if (!selecting) TrackMenuButton(track: track, extraAction: extraAction),
       ]),

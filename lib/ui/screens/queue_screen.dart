@@ -27,7 +27,7 @@ class QueueScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Queue')),
       // Nothing loaded at all: just show a friendly message.
       body: cur == null
-          ? const Center(child: Text('The queue is empty', style: TextStyle(color: AppColors.textDim)))
+          ? Center(child: Text('The queue is empty', style: TextStyle(color: AppColors.textDim)))
           : CustomScrollView(slivers: [
               // 1. The song playing now, in the accent colour.
               const SliverToBoxAdapter(child: _Heading('Now playing')),

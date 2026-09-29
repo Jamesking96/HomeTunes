@@ -99,7 +99,7 @@ class _PlaylistsTab extends StatelessWidget {
           onTap: () => nav.openPlaylist(p),
         ),
       if (pl.playlists.isEmpty)
-        const Padding(
+        Padding(
           padding: EdgeInsets.all(24),
           child: Text('Create a playlist with the + button above.', style: TextStyle(color: AppColors.textDim)),
         ),
@@ -193,7 +193,7 @@ abstract class _FilteredTabState<W extends StatefulWidget> extends State<W> with
   Widget noMatches(String what) => Padding(
         padding: const EdgeInsets.all(32),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text('No $what match.', textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textDim)),
+          Text('No $what match.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)),
           const SizedBox(height: 8),
           TextButton(onPressed: clearAll, child: const Text('Clear filters')),
         ]),
@@ -431,7 +431,7 @@ class _SongsTabState extends _FilteredTabState<_SongsTab> {
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
                       child: Row(children: [
                         Text('${songs.length} song${songs.length == 1 ? '' : 's'}',
-                            style: const TextStyle(color: AppColors.textDim)),
+                            style: TextStyle(color: AppColors.textDim)),
                         const Spacer(),
                         FilledButton.icon(
                           icon: const Icon(Icons.shuffle),

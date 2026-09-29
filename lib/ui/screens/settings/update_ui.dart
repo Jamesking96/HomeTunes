@@ -161,7 +161,7 @@ class _UpdateDialog extends StatelessWidget {
     final u = context.watch<UpdateModel>();
     final latest = u.latest;
     final install = u.canInstallHere;
-    final dim = const TextStyle(color: AppColors.textDim, fontSize: 13);
+    final dim = TextStyle(color: AppColors.textDim, fontSize: 13);
 
     // Downloading / installing: just the progress, no buttons.
     if (u.stage == UpdateStage.downloading || u.stage == UpdateStage.installing) {

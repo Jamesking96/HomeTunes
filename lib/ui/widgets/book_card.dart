@@ -128,7 +128,7 @@ class BookCard extends StatelessWidget {
               state == BookState.inProgress ? '${formatLong(listening.timeLeft(book))} left' : book.author,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: AppColors.textDim, fontSize: 13),
+              style: TextStyle(color: AppColors.textDim, fontSize: 13),
             ),
           ]);
         }),
