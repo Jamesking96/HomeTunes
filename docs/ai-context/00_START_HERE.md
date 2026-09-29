@@ -19,15 +19,16 @@ Read the files in this order:
 ## Status (29 Sep 2026)
 
 - **Everything is in source control.** `main` on GitHub (github.com/Jamesking96/HomeTunes) is
-  **0.1.28+28**, **released as v0.1.28 on 29 Sep** (0.1.25–0.1.28 in one release; notes in
-  the release page cover all four). There are no other branches.
-  - Tests: 358 pass, and `flutter analyze` is clean.
-  - Builds for 0.1.28 are in `build\dist` on the PC and on the GitHub release
-    (https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.28). The live update check
+  **0.1.30+30**, **released as v0.1.30 on 29 Sep** (0.1.29 and 0.1.30 in one release; its
+  notes cover both). Before that, v0.1.28 (covering 0.1.25–0.1.28). There are no other branches.
+  - Tests: 375 pass, and `flutter analyze` is clean.
+  - Builds for 0.1.30 are in `build\dist` on the PC and on the GitHub release
+    (https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.30). The live update check
     (`tool/probe_update_test.dart`) found it and the installer's checksum matched. Publish each
-    new version the same way, always with `-NotesFile` (see `02_…` → publishing builds).
-  - Not yet updated: the PC's installed copy (0.1.24) and the phone (0.1.23). Updating either
-    should show the new "What's new" pop-up with 0.1.28's notes.
+    new version the same way, always with `-NotesFile` (see `02_…` → publishing builds). When
+    versions are skipped in releases, the notes must cover all of them: "What's new" lists
+    release pages, not versions.
+  - The phone was last known to have 0.1.23; the PC's installed copy may have self-updated.
   - `README.md` was brought up to date for 0.1.27 on 29 Sep.
   - `docs/USER_GUIDE.md` is the user-facing download and how-to guide shown on every release, and
     `README.md` links to it. Update it when features or menu names change.
@@ -78,13 +79,12 @@ Read the files in this order:
   sections (every version since the old one), plus **Settings › About › What's new in this
   version**. 358 tests pass, analyze clean. 0.1.23/0.1.24 copies don't record their version,
   so after updating they show just 0.1.28's page (which covers 0.1.25–0.1.28). See `03_…`.
-- **In progress (29 Sep): 0.1.29, branch `feature/theme-sharing`**, not merged: a "Colour code"
+- **0.1.29 (merged and released 29 Sep in v0.1.30)**: a "Colour code"
   box in every colour picker (type or paste `#FF7A59`), and sharing themes: Share… gives a
   theme code to copy or a `.hometunes-theme` file, and Import a theme reads either. 371 tests
-  pass, analyze clean. Waiting for the user to try it. See `03_…` → Colour codes and sharing.
-- **Then 0.1.30, branch `feature/notice-close` (on top of `feature/theme-sharing`)**, not
-  merged: every notice at the bottom of the screen has a ✕ beside Undo. 375 tests pass. Release
-  0.1.29 and 0.1.30 together once the user has tried them.
+  pass, analyze clean. See `03_…` → Colour codes and sharing.
+- **0.1.30 (merged and released 29 Sep as v0.1.30)**: every notice at the bottom of the screen
+  has a ✕ beside Undo. 375 tests pass. Branches deleted.
 - **Next after that:** nothing is agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user. See
   `04_ROADMAP_AND_OPEN_ITEMS.md`.
