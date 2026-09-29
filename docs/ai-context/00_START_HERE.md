@@ -19,10 +19,10 @@ Read the files in this order:
 ## Status (29 Sep 2026)
 
 - **Everything is in source control.** `main` on GitHub (github.com/Jamesking96/HomeTunes) is
-  **0.1.23+23**. There are no other branches.
-  - Tests: 306 pass, and `flutter analyze` is clean.
-  - Builds for 0.1.23 are in `build\dist` on the PC and can be downloaded from the GitHub release
-    (https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.23). Publish each new version
+  **0.1.24+24**. There are no other branches.
+  - Tests: 316 pass, and `flutter analyze` is clean.
+  - Builds for 0.1.24 are in `build\dist` on the PC and can be downloaded from the GitHub release
+    (https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.24). Publish each new version
     the same way (see `02_…` → publishing builds).
   - `docs/USER_GUIDE.md` is the user-facing download and how-to guide shown on every release, and
     `README.md` links to it. Update it when features or menu names change.
@@ -54,9 +54,9 @@ Read the files in this order:
   - **From now on, publish every release with `tool/publish_release.ps1`**: installed copies
     look for its file names and checksum file to update themselves. The first real
     self-update (close, install, reopen) will happen with the next release after 0.1.23.
-- **In progress (29 Sep): colour themes, 0.1.24, branch `feature/themes`**, not merged yet:
-  Settings › Appearance with Default / Midnight / Forest / Your own. 316 tests pass, analyze
-  clean, Windows installer + zip built. Waiting for the user to try it. See `03_…` → Colour themes.
+- **0.1.24 (29 Sep): colour themes, merged, pushed and released as v0.1.24.** Settings ›
+  Appearance with Default / Midnight / Forest / Your own. 316 tests pass. The user approved it.
+  See `03_…` → Colour themes. This is the first release 0.1.23 can update to by itself.
 - **Next after that:** nothing is agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user. See
   `04_ROADMAP_AND_OPEN_ITEMS.md`.
