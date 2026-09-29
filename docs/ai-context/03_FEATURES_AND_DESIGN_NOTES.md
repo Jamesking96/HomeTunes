@@ -156,6 +156,29 @@ before changing that area.
   Since 0.1.23 it also has **Check for updates** and **Check for updates automatically** (see
   below).
 
+## Colour themes (`feature/themes`, 0.1.24, asked for 29 Sep)
+- **The user's choices (29 Sep):** the original look stays as **Default**; two more dark themes,
+  **Midnight** (navy, sky-blue accent) and **Forest** (dark green-grey, green accent); and **Your
+  own** = a highlight + a background colour, with panels and grey text worked out from those.
+  The choice goes into backups (settings.json: `theme`, `customAccent`, `customBackground` as
+  `#RRGGBB`; a *merge* restore keeps this device's theme, like other settings).
+- **Where:** a new **Settings › Appearance** page (`appearance_settings.dart`) with a preview card
+  per theme and a colour picker (suggested swatches + Shade / Strength / Brightness sliders).
+  Backgrounds are held at HSL lightness ≤ 0.2 and highlights 0.45–0.8, so white text stays
+  readable (`AppPalette.keepDark` / `keepVisible`).
+- **How it works:** `ui/theme.dart` has `AppPalette`, `builtInPalettes`, `paletteFor`, and
+  `AppColors` is now **getters** reading `AppColors.current` (they used to be `static const`).
+  HomeTunesApp (main.dart) wraps MaterialApp in a `Selector<LibraryModel, AppPalette>`, sets
+  `AppColors.current`, builds `buildTheme(palette)` and `RedrawOnThemeChange` marks every element
+  to build again after a change (widgets that read AppColors directly wouldn't notice otherwise).
+- **Rule for new code:** never put `AppColors.x` in a `const`, a `static final` or a top-level
+  `final`; read it in `build`. The compiler catches the `const` case. When the change was made,
+  102 `const` keywords were removed by a script (`C:\Temp\ht\deconst.py`, not in git).
+- **Tests:** `test/theme_test.dart`. Pictures of each theme without showing anything on screen:
+  `flutter test tool/theme_preview_test.dart` writes PNGs to `C:\Temp\ht\preview`.
+- **Don't take screenshots of the user's desktop or launch the app on their screen** to check the
+  look: on 29 Sep that captured a game the user was playing. Use the off-screen preview instead.
+
 ## Updates (`feature/update-check`, 0.1.23, asked for 29 Sep)
 - **The user's choices (29 Sep):** a "Check for updates" button in Settings › About **plus** a quiet
   check at most once a day with a switch to turn it off; on the phone, just **open the download

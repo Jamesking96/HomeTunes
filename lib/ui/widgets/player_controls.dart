@@ -250,7 +250,7 @@ class MiniPlayer extends StatelessWidget {
                   Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   Text(t.artist, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: AppColors.textDim, fontSize: 13)),
+                      style: TextStyle(color: AppColors.textDim, fontSize: 13)),
                 ]),
               ),
               const LikeButton(),
@@ -397,7 +397,7 @@ class DesktopPlayerBar extends StatelessWidget {
                           Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis,
                               style: const TextStyle(fontWeight: FontWeight.w600)),
                           Text(t.artist, maxLines: 1, overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: AppColors.textDim, fontSize: 13)),
+                              style: TextStyle(color: AppColors.textDim, fontSize: 13)),
                         ],
                       ),
                     ),
@@ -510,7 +510,7 @@ class VolumeButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final volume = context.select<PlayerModel, double>((p) => p.volume.clamp(0.0, 100.0));
     return MenuAnchor(
-      style: const MenuStyle(
+      style: MenuStyle(
         backgroundColor: WidgetStatePropertyAll(AppColors.surfaceHigh),
         padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
       ),

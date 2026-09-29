@@ -294,7 +294,7 @@ class _EditBookState extends State<_EditBook> {
               floatingLabelBehavior: _mixed.contains(f) ? FloatingLabelBehavior.always : null,
               hintText: _mixed.contains(f) ? differentMarker : null,
               hintStyle: _mixed.contains(f)
-                  ? const TextStyle(color: AppColors.textDim, letterSpacing: 2, fontWeight: FontWeight.w600)
+                  ? TextStyle(color: AppColors.textDim, letterSpacing: 2, fontWeight: FontWeight.w600)
                   : null,
               helperText: _mixed.contains(f)
                   ? (_text(f).isEmpty
@@ -351,7 +351,7 @@ class _EditBookState extends State<_EditBook> {
                           ? '$differentMarker  Different for each book – choose one to give them all the same cover'
                           : 'Applies to all ${widget.books.length} books')
                       : 'Applies to all ${_book.parts.length} files',
-                  style: const TextStyle(color: AppColors.textDim, fontSize: 12)),
+                  style: TextStyle(color: AppColors.textDim, fontSize: 12)),
               const SizedBox(height: 8),
               Wrap(spacing: 8, runSpacing: 4, children: [
                 OutlinedButton.icon(
@@ -377,7 +377,7 @@ class _EditBookState extends State<_EditBook> {
                   child: const Text('Use the files\' own cover'),
                 ),
               if (_resetCover)
-                const Text('The files\' own cover will be used.', style: TextStyle(color: AppColors.textDim, fontSize: 12)),
+                Text('The files\' own cover will be used.', style: TextStyle(color: AppColors.textDim, fontSize: 12)),
             ]),
           ),
         ]),
@@ -406,7 +406,7 @@ class _EditBookState extends State<_EditBook> {
                   'cover can also be written into the files from Settings › Your edits.'
               : 'Changes are saved in HomeTunes and apply to every file of the book. Title, author, year, genre and '
                   'cover can also be written into the files from Settings › Your edits.',
-          style: const TextStyle(color: AppColors.textDim, fontSize: 12),
+          style: TextStyle(color: AppColors.textDim, fontSize: 12),
         ),
         if (anyEdited) ...[
           const SizedBox(height: 12),

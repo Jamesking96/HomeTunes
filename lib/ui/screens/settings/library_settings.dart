@@ -92,7 +92,7 @@ class LibrarySettings extends StatelessWidget {
               ValueListenableBuilder<String?>(
                 valueListenable: lib.statusText,
                 builder: (_, status, _) => Text(lib.busy ? (status ?? 'Working…') : '$localCount songs found',
-                    style: const TextStyle(color: AppColors.textDim)),
+                    style: TextStyle(color: AppColors.textDim)),
               ),
             ]),
           ),
@@ -166,7 +166,7 @@ class _MissingSongsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListTile(
-        leading: const Icon(Icons.help_outline, color: AppColors.textDim),
+        leading: Icon(Icons.help_outline, color: AppColors.textDim),
         title: Text('$count song${count == 1 ? '' : 's'} not on this device'),
         subtitle: const Text('Their details and playlist places are kept in case they come back'),
         trailing: const Icon(Icons.chevron_right),

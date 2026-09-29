@@ -94,7 +94,7 @@ class BookScreen extends StatelessWidget {
       crossAxisAlignment: wide ? CrossAxisAlignment.start : CrossAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('AUDIOBOOK', style: TextStyle(fontSize: 12, letterSpacing: 1.2, color: AppColors.textDim)),
+        Text('AUDIOBOOK', style: TextStyle(fontSize: 12, letterSpacing: 1.2, color: AppColors.textDim)),
         const SizedBox(height: 6),
         Text(book.title,
             textAlign: wide ? TextAlign.start : TextAlign.center,
@@ -104,7 +104,7 @@ class BookScreen extends StatelessWidget {
         const SizedBox(height: 6),
         Text(book.author, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
-        Text(details, textAlign: wide ? TextAlign.start : TextAlign.center, style: const TextStyle(color: AppColors.textDim)),
+        Text(details, textAlign: wide ? TextAlign.start : TextAlign.center, style: TextStyle(color: AppColors.textDim)),
         const SizedBox(height: 10),
         if (state == BookState.inProgress)
           SizedBox(
@@ -119,7 +119,7 @@ class BookScreen extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 6),
-        Text(status, style: const TextStyle(color: AppColors.textDim, fontSize: 13)),
+        Text(status, style: TextStyle(color: AppColors.textDim, fontSize: 13)),
       ],
     );
 
@@ -255,14 +255,14 @@ class BookScreen extends StatelessWidget {
                 width: 32,
                 child: isCurrent
                     ? Icon(playingThis && isPlaying ? Icons.graphic_eq : Icons.bookmark_outline, color: accent, size: 20)
-                    : Text('${i + 1}', textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textDim)),
+                    : Text('${i + 1}', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)),
               ),
               title: Text(ch.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: isCurrent ? accent : null, fontWeight: FontWeight.w500)),
               subtitle: Text('Starts at ${formatDuration(ch.offset)}'),
-              trailing: Text(formatDuration(end - ch.offset), style: const TextStyle(color: AppColors.textDim)),
+              trailing: Text(formatDuration(end - ch.offset), style: TextStyle(color: AppColors.textDim)),
               // If the book is loaded, jump within it; otherwise start the book at
               // this chapter's file and spot.
               onTap: () => playingThis ? player.goToChapter(i) : player.playBook(book, partIndex: ch.part, at: ch.start),
@@ -391,11 +391,11 @@ class _AboutState extends State<_About> {
             duration: const Duration(milliseconds: 200),
             alignment: Alignment.topCenter,
             child: _open
-                ? SelectableText(text, style: const TextStyle(color: AppColors.textDim, height: 1.45))
+                ? SelectableText(text, style: TextStyle(color: AppColors.textDim, height: 1.45))
                 : Text(text,
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: AppColors.textDim, height: 1.45)),
+                    style: TextStyle(color: AppColors.textDim, height: 1.45)),
           ),
           // Only offer "Show more" when the text is long enough to have been cut short.
           if (text.length > 240 || '\n'.allMatches(text).length > 3)

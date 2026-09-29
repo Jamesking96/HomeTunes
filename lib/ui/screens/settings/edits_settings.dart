@@ -82,13 +82,13 @@ class EditsSettingsState extends State<EditsSettings> {
               const SizedBox(height: 4),
               for (final r in failed.take(8))
                 Text('• ${r.path.split(RegExp(r'[\\/]')).last}: ${r.error}',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textDim)),
+                    style: TextStyle(fontSize: 12, color: AppColors.textDim)),
               if (failed.length > 8) Text('…and ${failed.length - 8} more', style: const TextStyle(fontSize: 12)),
             ],
             if (_backup && results.isNotEmpty) ...[
               const SizedBox(height: 12),
               const Text('Backups are in:', style: TextStyle(fontSize: 12)),
-              SelectableText(lib.backupRoot, style: const TextStyle(fontSize: 12, color: AppColors.textDim)),
+              SelectableText(lib.backupRoot, style: TextStyle(fontSize: 12, color: AppColors.textDim)),
             ],
           ]),
         ),
@@ -128,7 +128,7 @@ class EditsSettingsState extends State<EditsSettings> {
           if (unwritable > 0)
             Text(
               '$unwritable edited song${unwritable == 1 ? '' : 's'} can\'t be written (server songs or OGG/Opus)',
-              style: const TextStyle(color: AppColors.textDim, fontSize: 12),
+              style: TextStyle(color: AppColors.textDim, fontSize: 12),
             ),
         ]),
       )),

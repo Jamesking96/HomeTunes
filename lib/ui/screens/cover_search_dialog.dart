@@ -118,13 +118,13 @@ class _CoverSearchDialogState extends State<_CoverSearchDialog> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           const CircularProgressIndicator(),
           const SizedBox(height: 12),
-          Text(_saving ? 'Saving cover…' : 'Searching…', style: const TextStyle(color: AppColors.textDim)),
+          Text(_saving ? 'Saving cover…' : 'Searching…', style: TextStyle(color: AppColors.textDim)),
         ]),
       );
     } else if (_error != null) {
-      body = Center(child: Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textDim)));
+      body = Center(child: Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)));
     } else if (results == null || results.isEmpty) {
-      body = const Center(
+      body = Center(
         child: Text('No covers found. Try adjusting the artist or album name.',
             textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)),
       );
@@ -157,7 +157,7 @@ class _CoverSearchDialogState extends State<_CoverSearchDialog> {
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               Text([c.artist, if (c.year != null) c.year!].join(' · '),
                   maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppColors.textDim, fontSize: 12)),
+                  style: TextStyle(color: AppColors.textDim, fontSize: 12)),
             ]),
           );
         },
@@ -200,7 +200,7 @@ class _CoverSearchDialogState extends State<_CoverSearchDialog> {
             const SizedBox(height: 12),
             Expanded(child: body),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Tap a cover to use it. Covers from Cover Art Archive, album info from MusicBrainz.',
               style: TextStyle(color: AppColors.textDim, fontSize: 11),
             ),

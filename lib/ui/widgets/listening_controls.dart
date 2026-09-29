@@ -130,7 +130,7 @@ Future<void> showSpeedSheet(BuildContext context) {
           const SizedBox(height: 4),
           Text(
             player.inBook ? 'Remembered for this book.' : 'Goes back to normal when a book starts or ends.',
-            style: const TextStyle(color: AppColors.textDim),
+            style: TextStyle(color: AppColors.textDim),
           ),
           const SizedBox(height: 12),
           Wrap(spacing: 8, runSpacing: 8, children: [
@@ -178,7 +178,7 @@ Future<void> showChaptersSheet(BuildContext context) {
               width: 32,
               child: i == current
                   ? Icon(Icons.graphic_eq, color: accent, size: 20)
-                  : Text('${i + 1}', textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textDim)),
+                  : Text('${i + 1}', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)),
             ),
             title: Text(c.title,
                 maxLines: 1,
@@ -186,7 +186,7 @@ Future<void> showChaptersSheet(BuildContext context) {
                 style: TextStyle(color: i == current ? accent : null)),
             // The chapter's length.
             trailing: Text(formatDuration(player.chapterEnd(i) - c.offset),
-                style: const TextStyle(color: AppColors.textDim)),
+                style: TextStyle(color: AppColors.textDim)),
             onTap: () {
               Navigator.pop(ctx);
               player.goToChapter(i);

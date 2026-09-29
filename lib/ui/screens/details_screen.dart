@@ -87,7 +87,7 @@ class DetailsScreen extends StatelessWidget {
                     childrenPadding: const EdgeInsets.only(bottom: 12),
                     title: Text(t.path == null ? t.title : p.basename(t.path!), maxLines: 2, overflow: TextOverflow.ellipsis),
                     subtitle: Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: AppColors.textDim, fontSize: 12)),
+                        style: TextStyle(color: AppColors.textDim, fontSize: 12)),
                     children: [_TrackDetails(track: t, flat: true)],
                   ),
               ]),
@@ -126,7 +126,7 @@ class _Card extends StatelessWidget {
           if (subtitle != null)
             Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: Text(subtitle!, style: const TextStyle(color: AppColors.textDim, fontSize: 12)),
+              child: Text(subtitle!, style: TextStyle(color: AppColors.textDim, fontSize: 12)),
             ),
           const SizedBox(height: 8),
           ...children,
@@ -160,7 +160,7 @@ class _FolderLine extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-          const Icon(Icons.folder_outlined, size: 18, color: AppColors.textDim),
+          Icon(Icons.folder_outlined, size: 18, color: AppColors.textDim),
           const SizedBox(width: 10),
           Expanded(child: SelectableText(folder)),
           if (Platform.isWindows)
@@ -310,7 +310,7 @@ class _Pair extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(width: 130, child: Text(label, style: const TextStyle(color: AppColors.textDim))),
+          SizedBox(width: 130, child: Text(label, style: TextStyle(color: AppColors.textDim))),
           Expanded(child: SelectableText(value)),
         ]),
       );
@@ -338,8 +338,8 @@ class _Table extends StatelessWidget {
             child: Text(r.source.label,
                 style: TextStyle(fontSize: 12, color: edited ? accent : AppColors.textDim, fontWeight: FontWeight.w600)),
           ),
-          if (r.from != null) Text(r.from!, style: const TextStyle(fontSize: 12, color: AppColors.textDim)),
-          if (r.inFile != null) Text('File says: ${r.inFile}', style: const TextStyle(fontSize: 12, color: AppColors.textDim)),
+          if (r.from != null) Text(r.from!, style: TextStyle(fontSize: 12, color: AppColors.textDim)),
+          if (r.inFile != null) Text('File says: ${r.inFile}', style: TextStyle(fontSize: 12, color: AppColors.textDim)),
         ]);
       }
 
@@ -349,13 +349,13 @@ class _Table extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 6),
             child: narrow
                 ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(r.label, style: const TextStyle(color: AppColors.textDim, fontSize: 12)),
+                    Text(r.label, style: TextStyle(color: AppColors.textDim, fontSize: 12)),
                     SelectableText(r.shown),
                     const SizedBox(height: 4),
                     source(r),
                   ])
                 : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    SizedBox(width: 140, child: Text(r.label, style: const TextStyle(color: AppColors.textDim))),
+                    SizedBox(width: 140, child: Text(r.label, style: TextStyle(color: AppColors.textDim))),
                     Expanded(flex: 3, child: SelectableText(r.shown)),
                     const SizedBox(width: 12),
                     Expanded(flex: 3, child: source(r)),

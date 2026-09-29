@@ -54,7 +54,7 @@ class AlbumCard extends StatelessWidget {
             showArtist ? album.artist : (album.year?.toString() ?? 'Album'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: AppColors.textDim, fontSize: 13),
+            style: TextStyle(color: AppColors.textDim, fontSize: 13),
           ),
         ]),
       ),
@@ -213,7 +213,7 @@ class ArtistCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(artist.name, maxLines: 1, overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontWeight: FontWeight.w600)),
-          const Text('Artist', style: TextStyle(color: AppColors.textDim, fontSize: 13)),
+          Text('Artist', style: TextStyle(color: AppColors.textDim, fontSize: 13)),
         ]),
       ),
     );
@@ -360,7 +360,7 @@ class EmptyState extends StatelessWidget {
           Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           if (message != null) ...[
             const SizedBox(height: 8),
-            Text(message!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textDim)),
+            Text(message!, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)),
           ],
           if (action != null) ...[const SizedBox(height: 20), action!],
         ]),

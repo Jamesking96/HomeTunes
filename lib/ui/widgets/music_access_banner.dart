@@ -42,7 +42,7 @@ class MusicAccessBanner extends StatelessWidget {
         child: Row(children: [
           const Icon(Icons.lock_outline, color: Color(0xFFF2C45A)),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
               Text('HomeTunes can\'t read your music', style: TextStyle(fontWeight: FontWeight.w700)),
               SizedBox(height: 2),
