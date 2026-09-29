@@ -13,17 +13,19 @@ import 'package:flutter/services.dart';
 /// What the licence page says about the audio engine, before the LGPL text.
 const audioEngineNotice = '''
 HomeTunes plays audio with mpv (libmpv) and FFmpeg, included as a separate library:
-libmpv-2.dll on Windows (mpv v0.36.0-403-g652a1dd907, FFmpeg n6.0, built by
-media-kit/libmpv-win32-audio-build) and libmpv.so on Android (mpv 0.35.1, FFmpeg n6.0, built by
-media-kit/libmpv-android-audio-build). They are built without their GPL parts, so they are
+libmpv-2.dll on Windows (mpv v0.36.0-403-g652a1dd907, FFmpeg n6.0 and GNU FriBidi 1.0.13, built
+by media-kit/libmpv-win32-audio-build) and libmpv.so on Android (mpv 0.35.1, FFmpeg n6.0, built
+by media-kit/libmpv-android-audio-build). They are built without their GPL parts, so they are
 licensed under the GNU Lesser General Public License, version 3 or later (below). HomeTunes does
 not change them, and you may replace the library with your own build of a compatible version.
 
-Source code: https://github.com/mpv-player/mpv and https://ffmpeg.org/download.html; the build
-scripts are at https://github.com/media-kit/libmpv-win32-audio-build and
-https://github.com/media-kit/libmpv-android-audio-build.
+Source code: every HomeTunes release has HomeTunes-audio-engine-source.zip next to its
+downloads, with the source of exactly these versions and the scripts that built them:
+https://github.com/Jamesking96/HomeTunes/releases. The projects themselves are at
+https://github.com/mpv-player/mpv, https://ffmpeg.org and https://github.com/fribidi/fribidi.
 
-mpv is copyright its contributors. FFmpeg is copyright the FFmpeg developers.''';
+mpv is copyright its contributors. FFmpeg is copyright the FFmpeg developers. GNU FriBidi is
+copyright its authors.''';
 
 /// The line under the app's name at the top of the licence page.
 const licenceLegalese = 'Copyright (c) 2026 Jamesking96. Free and open source under the MIT License.';
@@ -43,7 +45,7 @@ void registerAppLicences({AssetBundle? bundle}) {
 
 /// The audio engine's entries: its notice with the LGPL, then the GPL the LGPL refers to.
 Stream<LicenseEntry> audioEngineLicences(AssetBundle bundle) async* {
-  const packages = ['libmpv (mpv)', 'FFmpeg'];
+  const packages = ['libmpv (mpv)', 'FFmpeg', 'GNU FriBidi'];
   String? lgpl, gpl;
   try {
     lgpl = await bundle.loadString(lgplAsset);

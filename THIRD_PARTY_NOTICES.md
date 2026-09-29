@@ -19,19 +19,27 @@ shared library:
 
 These builds have their GPL parts switched off (mpv `-Dgpl=false`; FFmpeg `--disable-gpl
 --enable-version3`), so they are licensed under the **GNU Lesser General Public License,
-version 3 or later**. Its text is in [licenses/LGPL-3.0.txt](licenses/LGPL-3.0.txt), and the
-GNU General Public License it builds on is in [licenses/GPL-3.0.txt](licenses/GPL-3.0.txt).
-Both are also in the app's Licences page, and next to `hometunes.exe` in the Windows downloads.
+version 3 or later**. The Windows file also includes [GNU FriBidi](https://github.com/fribidi/fribidi)
+1.0.13 (LGPL 2.1 or later, used here under the LGPL 3.0). The LGPL text is in
+[licenses/LGPL-3.0.txt](licenses/LGPL-3.0.txt), and the GNU General Public License it builds on
+is in [licenses/GPL-3.0.txt](licenses/GPL-3.0.txt). Both are also in the app's Licences page,
+and next to `hometunes.exe` in the Windows downloads.
 
-- **Source code:** mpv at <https://github.com/mpv-player/mpv>, FFmpeg at
-  <https://ffmpeg.org/download.html> (and <https://git.ffmpeg.org/ffmpeg.git>), and the exact
-  build scripts (which pin the versions and list the smaller libraries built in) in the
-  media-kit repositories above. HomeTunes does not change them.
+- **Source code:** every HomeTunes release on GitHub has **`HomeTunes-audio-engine-source.zip`**
+  next to its downloads: the source of mpv (commit 652a1dd9 for Windows, 0.35.1 for Android),
+  FFmpeg 6.0 and FriBidi 1.0.13, exactly as built into the files above, plus both build-script
+  repositories with their patches. It's made by `tool/engine_source.ps1`, which lists where
+  each part comes from. The upstream projects are at <https://github.com/mpv-player/mpv>,
+  <https://ffmpeg.org/download.html> and <https://github.com/fribidi/fribidi>. HomeTunes does
+  not change them.
+- **Other libraries built in** (mbedtls, libxml2, libass, HarfBuzz, FreeType, zlib, libpng,
+  Little CMS, zimg, libjxl and similar) are under permissive licences (Apache 2.0, MIT, ISC,
+  BSD, zlib, FreeType); their versions are set in the build scripts.
 - **Replacing it:** HomeTunes loads the library at run time, so you can swap `libmpv-2.dll` (or
   `libmpv.so`) for your own build of a compatible version.
 - **Copyright:** mpv is copyright its contributors (see
   [mpv's Copyright file](https://github.com/mpv-player/mpv/blob/master/Copyright)); FFmpeg is
-  copyright the FFmpeg developers.
+  copyright the FFmpeg developers; GNU FriBidi is copyright its authors.
 
 ## Code kept in this repository
 

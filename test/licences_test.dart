@@ -42,6 +42,8 @@ void main() {
     final first = textOf(entries[0]);
     expect(first, contains('Lesser General Public License, version 3 or later'));
     expect(first, contains('https://github.com/mpv-player/mpv'));
+    expect(first, contains('HomeTunes-audio-engine-source.zip')); // where the source is
+    expect(File('tool/engine_source.ps1').readAsStringSync(), contains('HomeTunes-audio-engine-source.zip'));
     expect(first, contains('GNU LESSER GENERAL PUBLIC LICENSE'));
     expect(textOf(entries[1]), contains('GNU GENERAL PUBLIC LICENSE'));
   });
