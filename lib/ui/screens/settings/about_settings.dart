@@ -1,6 +1,7 @@
-// Settings › About: shows the app version and the folder where HomeTunes keeps its own files
-// (library.json, settings.json, covers, etc. — see Storage). On Windows there's a button to open
-// that folder in Explorer. Shown by settings_screen.dart.
+// Settings › About: shows the app version, "Check for updates" (0.1.23, see update_ui.dart) and
+// the folder where HomeTunes keeps its own files (library.json, settings.json, covers, etc. — see
+// Storage). On Windows there's a button to open that folder in Explorer. Shown by
+// settings_screen.dart.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import '../../../services/playback_log.dart';
 import '../../../state/library_model.dart';
 import '../../theme.dart';
 import 'settings_widgets.dart';
+import 'update_ui.dart';
 
 /// Settings › About: which version this is and where its data lives.
 class AboutSettings extends StatelessWidget {
@@ -43,6 +45,8 @@ class AboutSettings extends StatelessWidget {
           },
         ),
       ),
+      // Check for updates + the daily-check switch (0.1.23, update_ui.dart).
+      const UpdateSettings(),
       SettingTarget(
         'data-folder',
         child: ListTile(

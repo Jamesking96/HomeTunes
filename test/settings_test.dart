@@ -10,6 +10,7 @@ import 'package:hometunes/models/track.dart';
 import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/equalizer_model.dart';
 import 'package:hometunes/state/library_model.dart';
+import 'package:hometunes/state/update_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/settings/settings_catalog.dart';
 import 'package:hometunes/ui/screens/settings/settings_screen.dart';
@@ -118,6 +119,9 @@ void main() {
           ChangeNotifierProvider.value(value: lib),
           ChangeNotifierProvider.value(value: nav),
           ChangeNotifierProvider(create: (_) => EqualizerModel(Storage.at(Directory.systemTemp))),
+          // About has "Check for updates"; nothing here goes online unless it's pressed.
+          ChangeNotifierProvider(
+              create: (_) => UpdateModel(Storage.at(Directory.systemTemp), readVersion: () async => '9.9.9')),
         ],
         child: MaterialApp(home: child),
       ));

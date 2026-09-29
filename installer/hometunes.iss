@@ -77,8 +77,18 @@ Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 ; "Launch HomeTunes" tick-box on the final page (skipped for silent installs).
+; The second line starts HomeTunes again after an update from Settings > About > Check for
+; updates, which runs this installer silently with /RELAUNCH=1 (0.1.23).
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppExe}"; Flags: nowait runasoriginaluser; Check: RelaunchAfterUpdate
 
 ; Uninstalling removes the program files only. The user's library, playlists and
 ; settings (in %APPDATA%) are kept, so reinstalling picks up where they left off.
+
+[Code]
+// True only for the in-app update: a silent install started with /RELAUNCH=1.
+function RelaunchAfterUpdate: Boolean;
+begin
+  Result := WizardSilent and (ExpandConstant('{param:RELAUNCH|0}') = '1');
+end;

@@ -6,6 +6,7 @@
 // clock, so no audio engine or real waiting is needed.
 import 'dart:io';
 
+import 'package:flutter/material.dart' show Icons;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/book.dart';
 import 'package:hometunes/models/track.dart';
@@ -116,6 +117,14 @@ void main() {
     expect(VolumeControl.afterWheel(2, 100), 0);
     expect(VolumeControl.afterWheel(98, -100), 100);
     expect(VolumeControl.afterWheel(50, 0), 50);
+  });
+
+  // The same icon shows in the desktop bar, Now Playing and the mini player's speaker button.
+  test('volume icon: off at 0, low below half, high from half up', () {
+    expect(VolumeControl.iconFor(0), Icons.volume_off);
+    expect(VolumeControl.iconFor(30), Icons.volume_down);
+    expect(VolumeControl.iconFor(50), Icons.volume_up);
+    expect(VolumeControl.iconFor(100), Icons.volume_up);
   });
 
   test('speed labels', () {
