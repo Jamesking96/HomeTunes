@@ -1,7 +1,9 @@
-// Settings › Library: the music folders HomeTunes reads, the Rescan button, and the list of
-// "missing" songs (known songs whose files have gone).
+// Settings › Folders & scanning (called "Library" before 0.1.26; its code name is still
+// `library`): the music folders and the audiobook folders HomeTunes reads, the Rescan button
+// (which scans both), and the list of "missing" songs (known songs whose files have gone).
 //
-// Also home to [pickFolderWithPermission], which the Audiobooks page borrows. On Android the
+// Also home to [pickFolderWithPermission] and [AudiobookFoldersSection], which the Audiobooks
+// page shows too (the same setting in both places, as the user asked on 29 Sep). On Android the
 // app must have "Music and audio" access before a folder is added, otherwise the scan would
 // find nothing and wipe the library (see 03_FEATURES_AND_DESIGN_NOTES, Android fixes).
 import 'package:file_picker/file_picker.dart';
@@ -33,7 +35,65 @@ Future<String?> pickFolderWithPermission(BuildContext context, String title) asy
   return FilePicker.getDirectoryPath(dialogTitle: title);
 }
 
-/// Settings › Library: the music folders HomeTunes reads.
+/// The audiobook folders list with its Add button and book count. Shown on both Settings ›
+/// Folders & scanning and Settings › Audiobooks; it's one setting.
+class AudiobookFoldersSection extends StatelessWidget {
+  /// Show the bold "Audiobook folders" heading (the Audiobooks page has no group title for it).
+  final bool heading;
+  const AudiobookFoldersSection({super.key, this.heading = true});
+
+  /// Asks for an audiobook folder, adds it (which scans it) and says how many books there are now.
+  Future<void> _addFolder(BuildContext context) async {
+    final lib = context.read<LibraryModel>();
+    // Grab the messenger before the awaits, as this page may have been rebuilt by then.
+    final messenger = ScaffoldMessenger.of(context);
+    final path = await pickFolderWithPermission(context, 'Choose your audiobooks folder');
+    if (path == null) return;
+    await lib.addAudiobookFolder(path);
+    messenger.showSnackBar(SnackBar(content: Text('${lib.books.length} audiobooks found')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lib = context.watch<LibraryModel>();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (heading)
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
+          child: Text('Audiobook folders', style: TextStyle(fontWeight: FontWeight.w600)),
+        ),
+      for (final f in lib.audiobookFolders)
+        ListTile(
+          leading: const Icon(Icons.folder_special_outlined),
+          title: Text(f, maxLines: 2, overflow: TextOverflow.ellipsis),
+          // (0.1.16) A folder that couldn't be reached at the last scan keeps its books.
+          subtitle: lib.offlineFolders.contains(f)
+              ? const Text('Not available right now: its books are kept as they were')
+              : null,
+          trailing: IconButton(
+            tooltip: 'Remove folder',
+            icon: const Icon(Icons.close),
+            // Folder buttons are disabled while a scan/sync is running.
+            onPressed: lib.busy ? null : () => lib.removeAudiobookFolder(f),
+          ),
+        ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Wrap(spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          OutlinedButton.icon(
+            icon: const Icon(Icons.create_new_folder_outlined),
+            label: const Text('Add audiobook folder'),
+            onPressed: lib.busy ? null : () => _addFolder(context),
+          ),
+          Text('${lib.books.length} audiobook${lib.books.length == 1 ? '' : 's'}',
+              style: TextStyle(color: AppColors.textDim)),
+        ]),
+      ),
+    ]);
+  }
+}
+
+/// Settings › Folders & scanning: the music and audiobook folders HomeTunes reads.
 class LibrarySettings extends StatelessWidget {
   const LibrarySettings({super.key});
 
@@ -86,7 +146,8 @@ class LibrarySettings extends StatelessWidget {
               OutlinedButton.icon(
                 icon: const Icon(Icons.refresh),
                 label: const Text('Rescan'),
-                onPressed: lib.busy || lib.folders.isEmpty ? null : lib.scanLocal,
+                // Rescans music and audiobook folders alike.
+                onPressed: lib.busy || (lib.folders.isEmpty && lib.audiobookFolders.isEmpty) ? null : lib.scanLocal,
               ),
               // While scanning, show the live progress text; otherwise the song count.
               ValueListenableBuilder<String?>(
@@ -98,6 +159,12 @@ class LibrarySettings extends StatelessWidget {
           ),
         ]),
       ),
+      const SettingsGroupTitle(
+        'Audiobook folders',
+        'Everything in these folders is an audiobook and shows in the Books tab. The same list is under '
+            'Settings › Audiobooks. Rescan above checks these too.',
+      ),
+      SettingTarget('library-book-folders', child: const AudiobookFoldersSection(heading: false)),
       // Only shown when there are missing songs, so it isn't in the search catalog.
       if (lib.missingTracks.isNotEmpty) _MissingSongsTile(count: lib.missingTracks.length),
     ]);

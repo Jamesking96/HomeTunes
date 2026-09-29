@@ -4,7 +4,7 @@
 //
 // It watches LibraryModel, PlaylistsModel and ListeningModel, so it refreshes as scans finish
 // or you like songs. With an empty library it shows a single "Add music" button instead, which
-// jumps straight to Settings > Library > Music folders.
+// jumps straight to Settings > Folders & scanning > Music folders.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 

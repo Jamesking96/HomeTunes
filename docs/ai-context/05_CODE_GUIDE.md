@@ -126,10 +126,10 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `books_screen.dart` | Books: cover grid, search, state chips (including Favourites), author/narrator/series filter, sorting. |
 | `search_screen.dart` | Search as you type across songs, artists, albums, books and chapters. |
 | `album_screen.dart` | One album, split by disc, with a favourite heart, the ⓘ Details button, and prompts to find a missing cover or details online. |
-| `artist_screen.dart` | One artist: picture, albums, songs. |
+| `artist_screen.dart` | One artist: picture, albums (click one to see its songs underneath, 0.1.26), all songs. |
 | `book_screen.dart` | One audiobook: details, progress, Play/Resume, favourite heart, description, PDF, bookmarks, chapters, Move to Music, Details. |
 | `playlist_screen.dart` | One playlist or Liked Songs, with drag to reorder. |
-| `queue_screen.dart` | Now playing and up next: drag, swipe to remove, tap to jump. |
+| `queue_screen.dart` | The queue drawer (slides in from the right, 0.1.26): now playing and up next; drag, swipe to remove, tap to jump. |
 | `now_playing_screen.dart` | The full-screen player. Songs get Like, Lyrics and Queue; books get Bookmark, Speed and Chapters. Both get the Equaliser button. |
 | `details_screen.dart` | Details: where a song, album or book comes from, its folder and files, why it's a book, each detail's source, and what the file's tags say. |
 | `equalizer_screen.dart` | The Equaliser: preset chips, Music/Audiobooks switch, Edit (ten upright band sliders and the overall level), Restore default, and your own presets. |
@@ -358,6 +358,8 @@ Tests: `test/security_fixes_test.dart`, plus changes in `server_security_test.da
 **New in 0.1.24 (branch `feature/themes`):** colour themes in Settings › Appearance (`appearance_settings.dart`): Default, Midnight, Forest and Your own (highlight + background). `theme.dart` now has `AppPalette` and `AppColors` getters that read the current theme, so **don't use `AppColors` inside `const`**; read it in `build`. `main.dart` rebuilds the Material theme and redraws everything when the theme changes (`RedrawOnThemeChange`). Tests: `test/theme_test.dart`; off-screen pictures of each theme: `flutter test tool/theme_preview_test.dart`.
 
 **New in 0.1.25 (branch `feature/advanced-themes`):** Settings › Appearance › Advanced: saved themes where every colour is chosen (light themes too) in a theme editor with a live preview and readability warnings, plus text size and corner roundness. `theme.dart` gains `AppPalette.text / playButton / toJson / fromJson / readabilityProblems`, `contrast`, `AppShape` (every rounded corner goes through `AppShape.circular`) and the size/roundness choices; `appearance_settings.dart` gains `AppLook`, `lookOfSettings`, `withTextSize`, `ThemeEditor` and `PickerMode`; `LibraryModel` gains `savedThemes`, `textSize`, `cornerRoundness`, `saveTheme`, `deleteTheme`, `setLook`. Also `tool/switch_branch.ps1`, which refuses to switch branches while anything is unsaved or a debug run is going. Tests: `test/theme_test.dart`.
+
+**New in 0.1.26 (branch `feature/ui-feedback`):** the queue opens as a drawer from the right (`openQueueDrawer`, `QueuePanel`, `QueueList` in `queue_screen.dart`); on an artist page an album's songs open in place under its row (`AlbumSongsPanel` in `artist_screen.dart`, `AlbumCard.onTap` / `highlighted`, and "Open album page" via `SelectableCard.onOpenPage`); every album cover shows a play button on mouse hover (`HoverPlayCover` in `cards.dart`); Settings pages are in A–Z order and Library is shown as "Folders & scanning", with the audiobook folders (`AudiobookFoldersSection` in `library_settings.dart`) there as well as under Audiobooks. Tests: `test/ui_feedback_test.dart`; pictures: `flutter test tool/ui_preview_test.dart`.
 
 A few existing comments are also out of date (left as they were): `Track` says narrator and series are never read from files (side files set them now); `showEditDetails` says music files are never modified (Settings → Your edits can write them); `SeekBar` says it redraws only from the position stream.
 

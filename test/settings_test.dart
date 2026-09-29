@@ -18,6 +18,18 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 void main() {
+  // The user asked for the tabs in A–Z order (29 Sep); a new page must slot in alphabetically.
+  test('Settings pages are listed alphabetically', () {
+    final titles = [for (final p in SettingsPage.values) p.title.toLowerCase()];
+    expect(titles, [...titles]..sort());
+    expect(SettingsPage.library.title, 'Folders & scanning');
+  });
+
+  test('audiobook folders can be found on both folder pages', () {
+    final ids = [for (final s in searchSettings('audiobook folders')) s.id];
+    expect(ids, containsAll(['book-folders', 'library-book-folders']));
+  });
+
   group('Settings search', () {
     // Ids are used as widget keys and for jumping to a setting, so duplicates would break that.
     test('every setting has its own id', () {

@@ -94,7 +94,7 @@ opens the download page instead.
 
 ### Add your music
 1. The Home screen says **No music yet**. Tap **Add music**
-   (or go to **Settings › Library › Music folders › Add folder**).
+   (or go to **Settings › Folders & scanning › Music folders › Add folder**).
 2. Choose the folder where your music is kept. HomeTunes reads the details (artist, album, cover
    art…) from your files. The progress shows at the bottom of the screen.
 3. Add more folders the same way. After adding new music to a folder, press **Rescan**.
@@ -105,7 +105,7 @@ deletes your music files.
 ### Audiobooks
 Audiobooks appear in the **Books** tab (called **Audiobooks** on a PC). HomeTunes spots them by their genre (such as
 "Audiobook"), `.m4b` files, or a folder called something like "Audiobooks". To make a whole folder
-count as books, go to **Settings › Audiobooks** and use **Add audiobook folder**. Books remember where
+count as books, go to **Settings › Folders & scanning** (or **Settings › Audiobooks**) and use **Add audiobook folder**. Books remember where
 you got to, and **Continue listening** on the Home screen picks up where you left off.
 
 ### Music from your own server (optional)
@@ -132,12 +132,17 @@ they're tabs along the bottom. On a PC they're down the left-hand side, where Li
   ![The Now Playing screen on a PC, with the album cover, play controls and the lyrics panel](images/now-playing-pc.jpg)
 
   Under the controls are buttons for the **equaliser**, **lyrics** and the **queue** (what's
-  playing next, which you can reorder).
+  playing next, which you can reorder). The queue slides in from the side over whatever you're
+  looking at; tap outside it, swipe it away or press its ✕ to close it.
 - **Lyrics:** HomeTunes shows a song's lyrics when it can find them (in the file, a `.lrc` file
   next to it, your music server, or online). Timed lyrics scroll along with the song.
 - **On a phone:** swipe the player left or right to skip. The music keeps playing with the screen
   locked, and you can control it from the lock screen, the notification or headphone buttons.
 - **On a PC:** your keyboard's media keys work.
+- **Artist pages:** click an album to see its songs right underneath (click it again to close
+  them). Right-click it (press and hold on a phone) and choose **Open album page** for the full
+  page. On a PC, moving the mouse over any album cover shows a play button to play it straight
+  away.
 - **Search:** finds songs, artists, albums, books and chapters. Every word you type must match.
 - **Playlists and favourites:** make playlists in **Library**, like songs with the heart, and
   heart whole albums or books. Library tabs have filters and sorting, including **Favourites**.
@@ -165,7 +170,9 @@ they're tabs along the bottom. On a PC they're down the left-hand side, where Li
   themes has **Edit** and **Delete** buttons (Delete is also inside the theme editor).
   **Reset to default colours** puts "Your own" back to how it started (with Undo). **Advanced**
   also has **Text size** and **Corners** (from square to extra round).
-- **Settings search:** type in the box at the top of Settings to find any option.
+- **Settings search:** type in the box at the top of Settings to find any option. The Settings
+  tabs are in A–Z order; **Folders & scanning** has both your music folders and your audiobook
+  folders.
 
 ---
 
@@ -189,7 +196,7 @@ use a HomeTunes backup file as described above.
 
 - **No music shows up on the phone:** check HomeTunes may access music. Android Settings ›
   Apps › HomeTunes › Permissions › **Music and audio** › Allow. Then **Rescan**.
-- **Some songs are missing:** make sure their folder is listed in **Settings › Library**, then
+- **Some songs are missing:** make sure their folder is listed in **Settings › Folders & scanning**, then
   press **Rescan**.
 - **Playback stops or behaves oddly:** open **Settings › About › Playback log**, tap **Copy**, and
   send it along with a description of what happened.

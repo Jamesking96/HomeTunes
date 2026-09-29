@@ -219,10 +219,8 @@ void openNowPlaying(BuildContext context, {bool? lyrics}) {
   ));
 }
 
-/// Opens the play queue page, above everything like Now Playing.
-void openQueue(BuildContext context) {
-  Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(builder: (_) => const QueueScreen()));
-}
+/// Opens the play queue as a drawer from the right, above everything like Now Playing.
+void openQueue(BuildContext context) => openQueueDrawer(context); // a side drawer since 0.1.26
 
 /// Phone: compact bar above the bottom navigation. Tap to open Now Playing.
 class MiniPlayer extends StatelessWidget {

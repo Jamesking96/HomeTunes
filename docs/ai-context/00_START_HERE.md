@@ -61,6 +61,10 @@ Read the files in this order:
   merged: saved themes with every colour (light themes too), text size, corners, plus
   `tool\switch_branch.ps1` and rule 13. Started by another session, finished by this one.
   325 tests pass, analyze clean. Waiting for the user to try it. See `03_…` → Advanced appearance.
+- **In progress (29 Sep): 0.1.26, branch `feature/ui-feedback` (on top of `feature/advanced-themes`)**,
+  not merged: queue as a side drawer, artist-page albums open in place (+ Open album page,
+  hover play), Settings in A–Z order with **Folders & scanning** (music + audiobook folders).
+  337 tests pass. The user wants 0.1.25 and 0.1.26 released together once tried. See `03_…`.
 - **Next after that:** nothing is agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user. See
   `04_ROADMAP_AND_OPEN_ITEMS.md`.
@@ -81,7 +85,9 @@ Read the files in this order:
    the search pattern will match itself. Ignore your own PID.)
 5. **Ask before installing on the phone.** It's usually plugged in, but may have been removed.
 6. **Settings placement:**
-   - Audiobook-related settings go in **Settings → Audiobooks**.
+   - Audiobook-related settings go in **Settings → Audiobooks** (the audiobook folders also show
+     in **Folders & scanning**, the user's choice on 29 Sep).
+   - Settings pages stay in **A–Z order** (0.1.26).
    - Playback settings go in **Settings → Playback**.
    - Online look-up switches go in **Settings → Online lookups**.
    - The sleep timer has its own **Settings → Sleep timer** page.

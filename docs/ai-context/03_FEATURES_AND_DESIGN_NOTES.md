@@ -135,8 +135,9 @@ before changing that area.
 - Lyrics can be written into MP3 (USLT), FLAC (LYRICS) and M4A (©lyr), but not WAV.
 
 ## Settings (`settings-tidy` branch, 0.1.9)
-- **Pages:** Library, Playback, Sleep timer, Audiobooks, Online lookups, Servers, Your edits,
-  Backup & restore and About, in that order (`SettingsPage` in `settings_catalog.dart`).
+- **Pages:** since 0.1.26 in A–Z order: About, Appearance, Audiobooks, Backup & restore, Folders &
+  scanning (code name `library`), Online lookups, Playback, Servers, Sleep timer, Your edits
+  (`SettingsPage` in `settings_catalog.dart`).
 - **Layout:**
   - Wide (≥760 px of content): the list sits on the left and the open page on the right. Pages are
     capped at 820 px wide.
@@ -178,6 +179,32 @@ before changing that area.
   `flutter test tool/theme_preview_test.dart` writes PNGs to `C:\Temp\ht\preview`.
 - **Don't take screenshots of the user's desktop or launch the app on their screen** to check the
   look: on 29 Sep that captured a game the user was playing. Use the off-screen preview instead.
+
+## Queue drawer, artist albums in place, Settings order (`feature/ui-feedback`, 0.1.26, asked for 29 Sep 19:13)
+- **The user's choices:** the queue is a **drawer from the side on the phone too**; the tab is
+  called **Folders & scanning**; the audiobook folders are shown **in both places** (the same
+  setting); built **on top of 0.1.25**, to be released together.
+- **Queue:** `openQueue` → `openQueueDrawer` (`queue_screen.dart`): a `showGeneralDialog` on the
+  root navigator sliding in from the right, `QueuePanel` (min(420 px, 88% of the window)) with
+  a title and ✕, `QueueList` inside. Closes on a tap outside, Esc, ✕ or a quick swipe right. The
+  old full-page `QueueScreen` is gone.
+- **Artist page** (`artist_screen.dart`, now stateful): albums are laid out row by row; tapping
+  one (`AlbumCard.onTap`) opens `AlbumSongsPanel` under its row (title, year · songs · length,
+  Play, Shuffle, Open album page, ✕, then the songs split by disc) and outlines the album
+  (`highlighted`). Tapping it again or ✕ closes it; only one is open at a time. The right-click /
+  press-and-hold menu gets **Open album page** (`SelectableCard.onOpenPage`) above Select.
+- **Hover play:** `HoverPlayCover` (cards.dart) shows a round play button on an album cover while
+  the mouse is over it, and plays the album (`playTracks(..., label: 'Album · …')`). It's on
+  **every** album tile (Home, Library, Search, artist pages), not just the artist page, so it
+  behaves the same everywhere; touch screens have no hover, so phones are unchanged.
+- **Settings:** `SettingsPage` is in A–Z order by title (test enforces it). `library` keeps its
+  code name but is shown as **Folders & scanning** ("Music and audiobook folders, and
+  rescanning"). `AudiobookFoldersSection` (library_settings.dart) is the audiobook folder list,
+  shown on both Folders & scanning (`library-book-folders`) and Audiobooks (`book-folders`).
+  Rescan is enabled when either list has a folder. On wide windows Settings still opens on
+  Folders & scanning.
+- **Tests:** `test/ui_feedback_test.dart` (a stand-in player records what would play), plus the
+  A–Z and search checks in `settings_test.dart`. Pictures: `flutter test tool/ui_preview_test.dart`.
 
 ## Advanced appearance (`feature/advanced-themes`, 0.1.25, asked for 29 Sep)
 - **Started by another session** (16:43 on 29 Sep: theme model, readability checks, text sizes,
