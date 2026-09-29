@@ -180,6 +180,15 @@ they're tabs along the bottom. On a PC they're down the left-hand side, where Li
   themes has **Edit** and **Delete** buttons (Delete is also inside the theme editor).
   **Reset to default colours** puts "Your own" back to how it started (with Undo). **Advanced**
   also has **Text size** and **Corners** (from square to extra round).
+  In any colour picker you can also type or paste a colour code such as `#FF7A59` into
+  **Colour code** (the paste button beside it pastes straight in).
+- **Sharing themes with friends:** a saved theme's **⋮ › Share…** (or **Share these colours**
+  under Your own) shows a theme code: **Copy code** and paste it into a message, or **Save as
+  file…** and send the file. Your friend goes to **Settings › Appearance › Import a theme**,
+  pastes the code (the whole message is fine) or chooses **Open a file…**, sees the theme, and
+  taps **Add and use**. Only the theme's name and colours are shared.
+- **Notices:** the messages that pop up at the bottom of the screen have a **✕** to close them
+  straight away (beside **Undo** when there is one).
 - **Settings search:** type in the box at the top of Settings to find any option. The Settings
   tabs are in A–Z order; **Folders & scanning** has both your music folders and your audiobook
   folders.

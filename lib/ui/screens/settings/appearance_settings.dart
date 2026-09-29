@@ -7,12 +7,18 @@
 // (main.dart) turns the settings into an [AppLook] with [lookOfSettings], applies the text size
 // with [withTextSize], and [RedrawOnThemeChange] redraws every screen when the look changes,
 // because many widgets read AppColors / AppShape directly rather than through the Material theme.
+//
+// 0.1.29: the colour picker has a box to type or paste a colour code (#FF7A59), and saved themes
+// can be shared: Share… on a theme gives a theme code to copy or a .hometunes-theme file, and
+// Import a theme reads either one back (theme_sharing.dart).
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../state/library_model.dart';
 import '../../theme.dart';
 import 'settings_widgets.dart';
+import 'theme_sharing.dart';
 
 /// Everything Settings › Appearance changes.
 typedef AppLook = ({AppPalette palette, double corners, double textSize});
@@ -149,9 +155,17 @@ class AppearanceSettings extends StatelessWidget {
             ),
           ),
           // Back to the colours "Your own" starts with (0.1.25). Only when something was chosen.
+          // Share sends these colours as a theme (0.1.29).
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 0, 16, 8),
-            child: TextButton.icon(
+            child: Wrap(spacing: 4, children: [
+              TextButton.icon(
+                key: const ValueKey('share-custom'),
+                icon: const Icon(Icons.share_outlined),
+                label: const Text('Share these colours'),
+                onPressed: () => showShareTheme(context, custom),
+              ),
+              TextButton.icon(
               key: const ValueKey('reset-custom'),
               icon: const Icon(Icons.restart_alt),
               label: const Text('Reset to default colours'),
@@ -168,7 +182,8 @@ class AppearanceSettings extends StatelessWidget {
                           action: SnackBarAction(label: 'Undo', onPressed: () => lib.restoreCustomColours(before)),
                         ));
                     },
-            ),
+              ),
+            ]),
           ),
         ]),
       ),
@@ -205,6 +220,8 @@ class AppearanceSettings extends StatelessWidget {
                         await openThemeEditor(context, p);
                       case 'copy':
                         await openThemeEditor(context, p.copyWith(id: newThemeId(), name: '${p.name} copy'));
+                      case 'share':
+                        await showShareTheme(context, p);
                       case 'delete':
                         await confirmDeleteTheme(context, p);
                     }
@@ -212,6 +229,7 @@ class AppearanceSettings extends StatelessWidget {
                   itemBuilder: (_) => const [
                     PopupMenuItem(value: 'edit', child: Text('Edit…')),
                     PopupMenuItem(value: 'copy', child: Text('Duplicate…')),
+                    PopupMenuItem(key: ValueKey('menu-share-theme'), value: 'share', child: Text('Share…')),
                     PopupMenuItem(value: 'delete', child: Text('Delete')),
                   ],
                 ),
@@ -232,6 +250,13 @@ class AppearanceSettings extends StatelessWidget {
                 icon: const Icon(Icons.light_mode_outlined),
                 label: const Text('New light theme'),
                 onPressed: () => openThemeEditor(context, lightStarter.copyWith(id: newThemeId())),
+              ),
+              // A theme a friend shared: a theme code or a .hometunes-theme file (0.1.29).
+              OutlinedButton.icon(
+                key: const ValueKey('import-theme'),
+                icon: const Icon(Icons.download_outlined),
+                label: const Text('Import a theme'),
+                onPressed: () => showImportTheme(context),
               ),
             ]),
           ),
@@ -629,11 +654,69 @@ class _ColourPickerState extends State<_ColourPicker> {
         PickerMode.any => c.withAlpha(255),
       };
 
-  void _set(HSLColor h) => setState(() => _hsl = h);
+  // The colour code box (0.1.29): shows the code of the colour picked with the sliders or
+  // suggestions, and a code typed or pasted in picks that colour.
+  late final _code = TextEditingController(text: colourToHex(_hsl.toColor()));
+
+  /// Why the typed code wasn't used (not a code), or null.
+  String? _codeError;
+
+  /// The typed code, when it had to be changed to stay readable (Your own only).
+  String? _adjustedFrom;
+
+  /// The colour from a typed code, exactly (going through the sliders' shade / strength /
+  /// brightness numbers can move it by one step). Cleared when a slider or suggestion is used.
+  Color? _typedColour;
+
+  @override
+  void dispose() {
+    _code.dispose();
+    super.dispose();
+  }
+
+  /// A suggestion or slider: the code box follows.
+  void _set(HSLColor h) => setState(() {
+        _hsl = h;
+        _typedColour = null;
+        _code.text = colourToHex(h.toColor());
+        _codeError = null;
+        _adjustedFrom = null;
+      });
+
+  /// A code was typed or pasted.
+  void _typed(String text) {
+    final c = parseColourCode(text);
+    setState(() {
+      if (text.trim().isEmpty) {
+        _codeError = null;
+        _adjustedFrom = null;
+        return;
+      }
+      if (c == null) {
+        _codeError = 'Type a colour code like #FF7A59';
+        _adjustedFrom = null;
+        return;
+      }
+      final fitted = _fit(c);
+      _hsl = HSLColor.fromColor(fitted);
+      _typedColour = fitted;
+      _codeError = null;
+      _adjustedFrom = fitted == c ? null : colourToHex(c);
+    });
+  }
+
+  Future<void> _paste() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text?.trim();
+    if (text == null || text.isEmpty || !mounted) return;
+    _code.text = text;
+    _code.selection = TextSelection.collapsed(offset: text.length);
+    _typed(text);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final colour = _hsl.toColor();
+    final colour = _typedColour ?? _hsl.toColor();
     final suggestions = switch (widget.mode) {
       PickerMode.accent => accentSuggestions,
       PickerMode.darkBackground => backgroundSuggestions,
@@ -693,6 +776,37 @@ class _ColourPickerState extends State<_ColourPicker> {
                     ),
                   ]),
               },
+            ),
+            const SizedBox(height: 12),
+            // Type or paste a colour code (0.1.29).
+            TextField(
+              key: const ValueKey('colour-code'),
+              controller: _code,
+              onChanged: _typed,
+              onSubmitted: (_) {
+                if (_codeError == null) Navigator.of(context).pop(_fit(colour));
+              },
+              autocorrect: false,
+              enableSuggestions: false,
+              textCapitalization: TextCapitalization.characters,
+              inputFormatters: [LengthLimitingTextInputFormatter(24)],
+              style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]),
+              decoration: InputDecoration(
+                labelText: 'Colour code',
+                hintText: '#FF7A59',
+                isDense: true,
+                errorText: _codeError,
+                helperText: _adjustedFrom == null
+                    ? 'Type or paste a code, or pick below'
+                    : '$_adjustedFrom changed to ${colourToHex(colour)} so it stays easy to read',
+                helperMaxLines: 2,
+                suffixIcon: IconButton(
+                  key: const ValueKey('paste-colour'),
+                  tooltip: 'Paste',
+                  icon: const Icon(Icons.content_paste),
+                  onPressed: _paste,
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             Wrap(spacing: 8, runSpacing: 8, children: [
