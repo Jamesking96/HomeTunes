@@ -14,6 +14,7 @@ import '../../../state/library_model.dart';
 import '../../theme.dart';
 import 'settings_widgets.dart';
 import 'update_ui.dart';
+import 'whats_new_ui.dart';
 
 /// Settings › About: which version this is and where its data lives.
 class AboutSettings extends StatelessWidget {
@@ -47,6 +48,8 @@ class AboutSettings extends StatelessWidget {
       ),
       // Check for updates + the daily-check switch (0.1.23, update_ui.dart).
       const UpdateSettings(),
+      // The release notes for this version (0.1.28, whats_new_ui.dart).
+      const WhatsNewRow(),
       SettingTarget(
         'data-folder',
         child: ListTile(

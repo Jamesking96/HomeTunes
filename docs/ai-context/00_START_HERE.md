@@ -70,6 +70,12 @@ Read the files in this order:
 - **0.1.27**: folder options (rescan one folder, file-type tick boxes) for music and audiobook
   folders, and the speaker icon as a mute toggle. 345 tests pass. Release 0.1.25–0.1.27
   together when the user says so (the phone still has 0.1.23).
+- **In progress (29 Sep): 0.1.28, branch `feature/whats-new`**, not merged: the first start
+  after an update shows a "What's new" pop-up compiled from the release pages' "What's new in x"
+  sections (every version since the old one), plus **Settings › About › What's new in this
+  version**. 358 tests pass, analyze clean. Waiting for the user to try it. When releasing
+  0.1.25–0.1.28 together, the notes file should cover all four (0.1.23/0.1.24 copies only
+  know their old version from 0.1.28 on, so they'll show just 0.1.28's page). See `03_…`.
 - **Next after that:** nothing is agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user. See
   `04_ROADMAP_AND_OPEN_ITEMS.md`.

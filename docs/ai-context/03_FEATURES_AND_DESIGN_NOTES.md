@@ -306,6 +306,34 @@ before changing that area.
   tool/probe_update_test.dart` reads the real latest release, downloads its installer and checks
   the checksum (nothing is installed). Passed on 29 Sep against v0.1.21.
 
+## What's new after an update (`feature/whats-new`, 0.1.28, asked for 29 Sep)
+- **What the user asked for:** the first time the app opens after an update, a pop-up listing
+  the changes between the old build and the new one, compiled from the "What's new in x"
+  sections of the release pages.
+- **How it knows:** `updates.json` gains `lastRunVersion`. `UpdateModel.load` compares it with
+  this version: newer → `justUpdated`, `updatedFrom` = the old one. Nothing recorded but
+  `updates.json` (0.1.23–0.1.27) or `settings.json` exists → an update from before 0.1.28, old
+  version unknown, so only this version's notes are shown (`updatedFrom` null). Nothing at all →
+  fresh install, nothing shown. An older version than last time → nothing shown. The version is
+  saved as seen (`markWhatsNewSeen`) once the pop-up is closed, or straight away if there's
+  nothing to show.
+- **Where the text comes from:** `UpdateChecker.fetchReleases()` (`/releases?per_page=50`),
+  then `releasesSince(all, from:, to:)` picks releases newer than `from` up to this version,
+  newest first, skipping ones without a "What's new" section. `ReleaseInfo.notes` keeps the
+  markdown (`whatsNewNotes`); `whatsNew` is still the plain version.
+- **The pop-up** (`ui/screens/settings/whats_new_ui.dart`): `showWhatsNewAfterUpdate` runs 1.5 s
+  after start from `main.dart`; `WhatsNewDialog` shows "Updated from x to y", then "Version y"
+  + notes for each release, with **Open release page** and **OK**. `NotesText` draws `-` bullets
+  (indented ones as ◦), `#` headings, `**bold**`, and drops `code` marks and link markup. If
+  GitHub can't be reached, it still shows the version and why, with the release page button. A
+  build with no published notes (a test build) shows nothing. The "Update to x?" dialog now
+  uses `NotesText` too. **Settings › About › What's new in this version** shows this
+  version's notes any time.
+- **For releases:** because the pop-up reads the release pages, always publish with
+  `-NotesFile` so the page starts with `## What's new in <version>`. When several versions
+  go out as one release (0.1.25–0.1.28), put all of their changes in that one notes file.
+- **Tests:** `test/whats_new_test.dart`. Picture: `flutter test tool/whats_new_preview_test.dart`.
+
 ## Equaliser (`equaliser` branch, 0.1.10)
 - **Where:** `EqualizerModel` (`equalizer.json`, included in backups) and `models/eq_preset.dart`.
   The screen is `ui/screens/equalizer_screen.dart`, opened from Settings › Playback, from Now
