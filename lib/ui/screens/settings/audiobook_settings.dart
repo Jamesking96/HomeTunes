@@ -15,23 +15,12 @@ import '../../theme.dart';
 import '../../widgets/listening_controls.dart' show SpeedButton;
 import '../../widgets/track_tile.dart' show askForName;
 import '../equalizer_screen.dart';
-import 'library_settings.dart' show pickFolderWithPermission;
+import 'library_settings.dart' show AudiobookFoldersSection;
 import 'settings_widgets.dart';
 
 /// Settings › Audiobooks: where books come from and how they play.
 class AudiobookSettings extends StatelessWidget {
   const AudiobookSettings({super.key});
-
-  /// Asks for an audiobook folder, adds it (which scans it) and says how many books there are now.
-  Future<void> _addFolder(BuildContext context) async {
-    final lib = context.read<LibraryModel>();
-    // Grab the messenger before the awaits, as this page may have been rebuilt by then.
-    final messenger = ScaffoldMessenger.of(context);
-    final path = await pickFolderWithPermission(context, 'Choose your audiobooks folder');
-    if (path == null) return;
-    await lib.addAudiobookFolder(path);
-    messenger.showSnackBar(SnackBar(content: Text('${lib.books.length} audiobooks found')));
-  }
 
   /// Asks for a genre name and adds it to the "means audiobook" list.
   Future<void> _addGenre(BuildContext context) async {
@@ -109,42 +98,8 @@ class AudiobookSettings extends StatelessWidget {
           ),
         ),
         const SettingsGroupTitle('Where your audiobooks are'),
-        SettingTarget(
-          'book-folders',
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
-              child: Text('Audiobook folders', style: TextStyle(fontWeight: FontWeight.w600)),
-            ),
-            for (final f in lib.audiobookFolders)
-              ListTile(
-                leading: const Icon(Icons.folder_special_outlined),
-                title: Text(f, maxLines: 2, overflow: TextOverflow.ellipsis),
-                // (0.1.16) A folder that couldn't be reached at the last scan keeps its books.
-                subtitle: lib.offlineFolders.contains(f)
-                    ? const Text('Not available right now: its books are kept as they were')
-                    : null,
-                trailing: IconButton(
-                  tooltip: 'Remove folder',
-                  icon: const Icon(Icons.close),
-                  // Folder buttons are disabled while a scan/sync is running.
-                  onPressed: lib.busy ? null : () => lib.removeAudiobookFolder(f),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Wrap(spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.create_new_folder_outlined),
-                  label: const Text('Add audiobook folder'),
-                  onPressed: lib.busy ? null : () => _addFolder(context),
-                ),
-                Text('${lib.books.length} audiobook${lib.books.length == 1 ? '' : 's'}',
-                    style: TextStyle(color: AppColors.textDim)),
-              ]),
-            ),
-          ]),
-        ),
+        // The same list as Settings › Folders & scanning (0.1.26).
+        SettingTarget('book-folders', child: const AudiobookFoldersSection()),
         SettingTarget(
           'book-genres',
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

@@ -5,18 +5,21 @@
 // can scroll to it; test/settings_test.dart checks this. When you add a setting, add it here.
 import 'package:flutter/material.dart';
 
-/// The pages Settings is split into, in the order they're listed.
+/// The pages Settings is split into, in the order they're listed: alphabetical by title (the
+/// user's choice, 29 Sep; test/settings_test.dart checks it stays that way). The code names stay
+/// as they were (`library` is shown as "Folders & scanning") so links from other screens and
+/// saved searches keep working.
 enum SettingsPage {
-  library('Library', 'Music folders and rescanning', Icons.library_music_outlined),
-  playback('Playback', 'Equaliser, gapless playback and even volume', Icons.graphic_eq),
-  sleepTimer('Sleep timer', 'Timer lengths and fading out', Icons.bedtime_outlined),
-  audiobooks('Audiobooks', 'Book folders, skipping, speed and covers', Icons.menu_book_outlined),
-  onlineLookups('Online lookups', 'Covers, song details and lyrics', Icons.travel_explore),
-  server('Servers', 'Stream music and audiobooks from your own server', Icons.dns_outlined),
-  edits('Your edits', 'Save your changes into the music files', Icons.edit_note),
-  backup('Backup & restore', 'Move everything to another PC or phone', Icons.settings_backup_restore),
+  about('About', 'Version, updates and where your data is kept', Icons.info_outline),
   appearance('Appearance', 'Colour themes, text size and corners', Icons.palette_outlined),
-  about('About', 'Version, updates and where your data is kept', Icons.info_outline);
+  audiobooks('Audiobooks', 'Book folders, skipping, speed and covers', Icons.menu_book_outlined),
+  backup('Backup & restore', 'Move everything to another PC or phone', Icons.settings_backup_restore),
+  library('Folders & scanning', 'Music and audiobook folders, and rescanning', Icons.folder_outlined),
+  onlineLookups('Online lookups', 'Covers, song details and lyrics', Icons.travel_explore),
+  playback('Playback', 'Equaliser, gapless playback and even volume', Icons.graphic_eq),
+  server('Servers', 'Stream music and audiobooks from your own server', Icons.dns_outlined),
+  sleepTimer('Sleep timer', 'Timer lengths and fading out', Icons.bedtime_outlined),
+  edits('Your edits', 'Save your changes into the music files', Icons.edit_note);
 
   /// Name shown in the list and as the page heading.
   final String title;
@@ -52,6 +55,7 @@ class SettingInfo {
 /// in some situations aren't listed.)
 const settingsCatalog = <SettingInfo>[
   SettingInfo('music-folders', SettingsPage.library, 'Music folders', 'add folder rescan scan location library'),
+  SettingInfo('library-book-folders', SettingsPage.library, 'Audiobook folders', 'add folder books location scan rescan library'),
   SettingInfo('gapless', SettingsPage.playback, 'Gapless playback', 'gap silence live album mix'),
   SettingInfo('equaliser', SettingsPage.playback, 'Equaliser', 'equalizer eq bass treble presets sound tone'),
   SettingInfo('swipe-to-skip', SettingsPage.playback, 'Swipe gestures', 'swipe gesture next previous song audiobook phone touch'),
