@@ -40,7 +40,9 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
 - **Updates** (Settings › About) – "Check for updates" looks at the latest GitHub release. On
   Windows the installer is downloaded, its checksum verified, installed quietly and HomeTunes
   reopens; the portable zip and Android open the download page instead. An optional quiet check
-  at start-up (at most once a day) shows a banner when a new version is out.
+  at start-up (at most once a day) shows a banner when a new version is out. The first start
+  after an update shows **What's new**: the "What's new in x" notes from every release page
+  since the version you had (also in Settings › About).
 - **Playlists** – create, rename, delete, reorder, add whole albums; plus **Liked Songs**.
 - **Server streaming** – Subsonic API with token auth; server songs show a small cloud icon and can
   be switched off in Settings at any time.
