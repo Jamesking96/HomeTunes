@@ -557,6 +557,25 @@ class LibraryModel extends ChangeNotifier {
     await _saveSettings();
   }
 
+  /// "Your own" back to its starting colours (the Default theme's highlight and background).
+  /// Returns what it had, as (accent, background), so the change can be undone.
+  Future<(String?, String?)> resetCustomColours() async {
+    final before = (customAccent, customBackground);
+    customAccent = null;
+    customBackground = null;
+    notifyListeners();
+    await _saveSettings();
+    return before;
+  }
+
+  /// Puts "Your own" colours back after [resetCustomColours] (Undo).
+  Future<void> restoreCustomColours((String?, String?) colours) async {
+    customAccent = colours.$1;
+    customBackground = colours.$2;
+    notifyListeners();
+    await _saveSettings();
+  }
+
   /// Removes a saved theme; if it was in use, goes back to Default.
   Future<void> deleteTheme(String id) async {
     savedThemes = [for (final t in savedThemes) if (t['id'] != id) t];

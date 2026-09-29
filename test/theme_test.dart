@@ -213,6 +213,79 @@ void main() {
       expect(probe(), defaultPalette.surface);
     });
 
+    testWidgets('Your own: "Reset to default colours", with Undo', (tester) async {
+      await pumpApp(tester, const Scaffold(body: AppearanceSettings()));
+      ButtonStyleButton reset() => tester.widget<ButtonStyleButton>(find.byKey(const ValueKey('reset-custom')));
+      expect(reset().onPressed, isNull); // nothing chosen yet
+
+      lib.setTheme(id: 'custom', accent: '#E35BD8', background: '#1A1020');
+      await tester.pumpAndSettle();
+      expect(AppColors.current.accent, const Color(0xFFE35BD8));
+      expect(reset().onPressed, isNotNull);
+
+      await tester.tap(find.byKey(const ValueKey('reset-custom')));
+      await tester.pumpAndSettle(); // lets the notice slide in before Undo is tapped
+      expect(lib.customAccent, isNull);
+      expect(lib.customBackground, isNull);
+      expect(lib.themeId, 'custom'); // still "Your own", now in its starting colours
+      expect(AppColors.current.accent, defaultPalette.accent);
+      expect(find.text('"Your own" is back to its default colours'), findsOneWidget);
+
+      await tester.tap(find.text('Undo'));
+      await tester.pumpAndSettle();
+      expect(lib.customAccent, '#E35BD8');
+      expect(lib.customBackground, '#1A1020');
+      lib.resetCustomColours();
+      lib.setTheme(id: 'default');
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a saved theme can be deleted from its row and from the editor', (tester) async {
+      await pumpApp(tester, const Scaffold(body: AppearanceSettings()));
+      lib.saveTheme(lightStarter.copyWith(id: 'saved:a', name: 'Paper').toJson());
+      lib.saveTheme(defaultPalette.copyWith(id: 'saved:b', name: 'Night').toJson(), use: false);
+      await tester.pumpAndSettle();
+      expect(lib.themeId, 'saved:a');
+
+      // The row's delete button asks first; Cancel keeps it.
+      await tester.ensureVisible(find.byKey(const ValueKey('delete-theme:saved:b')));
+      await tester.tap(find.byKey(const ValueKey('delete-theme:saved:b')));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete "Night"?'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(lib.savedThemes, hasLength(2));
+      await tester.tap(find.byKey(const ValueKey('delete-theme:saved:b')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('confirm-delete')));
+      await tester.pumpAndSettle();
+      expect(lib.savedThemes.map((t) => t['id']), ['saved:a']);
+      expect(find.byKey(const ValueKey('saved-theme:saved:b')), findsNothing);
+
+      // In the editor: "Delete this theme" (it's in use, so it goes back to Default).
+      await tester.ensureVisible(find.byKey(const ValueKey('edit-theme:saved:a')));
+      await tester.tap(find.byKey(const ValueKey('edit-theme:saved:a')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const ValueKey('editor-delete')));
+      await tester.tap(find.byKey(const ValueKey('editor-delete')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('This theme is in use'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('confirm-delete')));
+      await tester.pumpAndSettle();
+      expect(lib.savedThemes, isEmpty);
+      expect(lib.themeId, 'default');
+      expect(find.text('Edit theme'), findsNothing); // back on the Appearance page
+    });
+
+    testWidgets('a brand-new theme has no Delete button until it\'s saved', (tester) async {
+      await pumpApp(tester, const Scaffold(body: AppearanceSettings()));
+      await tester.ensureVisible(find.byKey(const ValueKey('new-theme')));
+      await tester.tap(find.byKey(const ValueKey('new-theme')));
+      await tester.pumpAndSettle();
+      expect(find.text('Edit theme'), findsOneWidget);
+      expect(find.byKey(const ValueKey('editor-delete')), findsNothing);
+    });
+
     testWidgets('Advanced: text size and corners apply everywhere', (tester) async {
       late double scale;
       await pumpApp(

@@ -192,6 +192,13 @@ before changing that area.
     button). The picker's "any" mode allows every colour. Warnings (`readabilityProblems`, the
     usual 4.5 / 3 contrast rules) say in plain words what may be hard to read; saving is still
     allowed. **Save and use** switches to it straight away.
+  - **Deleting (asked for 29 Sep 17:13):** each saved-theme row has visible Edit and Delete buttons
+    (plus ⋮ with Duplicate), and the editor has **Delete this theme** for themes already saved.
+    All go through `confirmDeleteTheme` (asks first; says so when the theme is in use, which
+    goes back to Default).
+  - **Reset to default colours** under "Your own colours" (asked for the same time): clears
+    `customAccent` / `customBackground` (`LibraryModel.resetCustomColours`), stays on "Your own",
+    and shows a notice with **Undo** (`restoreCustomColours`). Greyed out when nothing was chosen.
   - **Text size** (Smaller 0.9 / Default / Larger 1.15 / Largest 1.3, on top of the system
     setting, via `withTextSize` in MaterialApp.builder) and **Corners** (Square / Slight / Default
     / Extra round → `AppShape.scale` 0 / 0.5 / 1 / 1.6, plus Material's cards, dialogs, buttons,
