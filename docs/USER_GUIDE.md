@@ -187,6 +187,8 @@ they're tabs along the bottom. On a PC they're down the left-hand side, where Li
   file…** and send the file. Your friend goes to **Settings › Appearance › Import a theme**,
   pastes the code (the whole message is fine) or chooses **Open a file…**, sees the theme, and
   taps **Add and use**. Only the theme's name and colours are shared.
+- **Notices:** the messages that pop up at the bottom of the screen have a **✕** to close them
+  straight away (beside **Undo** when there is one).
 - **Settings search:** type in the box at the top of Settings to find any option. The Settings
   tabs are in A–Z order; **Folders & scanning** has both your music folders and your audiobook
   folders.

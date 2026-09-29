@@ -371,6 +371,9 @@ ThemeData buildTheme([AppPalette? p, double? corners]) {
     dividerColor: pinAll ? c.divider : null,
     appBarTheme: AppBarTheme(
         backgroundColor: c.bg, foregroundColor: pinAll ? c.text : null, surfaceTintColor: Colors.transparent),
+    // Every notice at the bottom of the screen gets a ✕ to close it straight away, beside Undo
+    // or any other button it has (0.1.30). Set here so no notice can be missed.
+    snackBarTheme: const SnackBarThemeData(showCloseIcon: true),
     // Phone tab bar: no pill behind the selected icon (the filled icon is enough).
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: c.surface,
