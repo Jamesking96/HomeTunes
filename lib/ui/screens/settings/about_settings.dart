@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
+import '../../../services/app_licences.dart';
 import '../../../services/playback_log.dart';
 import '../../../state/library_model.dart';
 import '../../theme.dart';
@@ -78,6 +79,27 @@ class AboutSettings extends StatelessWidget {
               'the background, and any problem it fixed. Useful if playback stops by itself.'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PlaybackLogScreen())),
+        ),
+      ),
+      // HomeTunes' MIT licence and every other project's licence (0.1.31, services/app_licences.dart).
+      SettingTarget(
+        'licences',
+        child: ListTile(
+          leading: const Icon(Icons.gavel_outlined),
+          title: const Text('Licences'),
+          subtitle: const Text('HomeTunes is free and open source under the MIT License. See the licences of '
+              'everything it\'s built with.'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            final info = await _info;
+            if (!context.mounted) return;
+            showLicensePage(
+              context: context,
+              applicationName: 'HomeTunes',
+              applicationVersion: info == null ? null : 'Version ${info.version}',
+              applicationLegalese: licenceLegalese,
+            );
+          },
         ),
       ),
     ]);

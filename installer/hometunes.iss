@@ -27,7 +27,13 @@ AppId={{2D99FA48-1B2A-46E0-B225-6C98D94C2714}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
-AppPublisher={#AppName}
+AppPublisher=Jamesking96
+AppPublisherURL=https://github.com/Jamesking96/HomeTunes
+AppSupportURL=https://github.com/Jamesking96/HomeTunes/issues
+AppUpdatesURL=https://github.com/Jamesking96/HomeTunes/releases
+; MIT License (0.1.31). LICENSE.txt, THIRD_PARTY_NOTICES.md and licenses\ are installed next to the
+; exe by tool\build_release.ps1; the MIT licence doesn't need accepting, so there's no licence page.
+AppCopyright=Copyright (c) 2026 Jamesking96. MIT License.
 UninstallDisplayName={#AppName}
 UninstallDisplayIcon={app}\{#AppExe}
 SetupIconFile=..\windows\runner\resources\app_icon.ico
