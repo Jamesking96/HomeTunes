@@ -17,8 +17,8 @@ The plan is published as an artifact (https://claude.ai/artifact/QsNhvBvSRx69PNv
 | Favourite albums & books | **Done, merged (0.1.12)** |
 | Quick actions + Details page | **Done, merged (0.1.13)** |
 | Security fixes (all ten, 0.1.21) | **Done: merged, installed on the phone, released as v0.1.21 (28 Sep).** See "Security fixes" below and `06_SECURITY_REVIEW.md` |
-| Volume everywhere (0.1.22) | **Built 29 Sep** on `feature/volume-everywhere`; not merged yet |
-| Check for updates (0.1.23) | **Built 29 Sep** on `feature/update-check` (on top of the volume branch); not merged yet. See `03_…` → Updates |
+| Volume everywhere (0.1.22) | **Done: merged, released in v0.1.23 (29 Sep)** |
+| Check for updates (0.1.23) | **Done: merged, installed on the phone, released as v0.1.23 (29 Sep).** See `03_…` → Updates |
 | D: offline copies of server songs (was phase 4) | After the server review |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to D isn't decided |
 
@@ -170,7 +170,7 @@ The user wants Settings cleaner and easy to find things in. It used to be one lo
 - A sleep-timer button in the Android notification.
 
 ## Source control
-`main` holds everything (0.1.21+21); there are no other branches. The work was built on stacked branches (`equaliser` →
+`main` holds everything (0.1.23+23); there are no other branches. The work was built on stacked branches (`equaliser` →
 `multi-edit` → `favourites` → `details-and-quick-edits`) and merged in one `--no-ff` merge of the
 last one on 25 Sep. The branches were then deleted, so there are no other branches. Builds (`build\dist`) are not in git; they are rebuilt from source with
 the commands in `02_…`. The repo copy of these notes (`docs/ai-context/`) is kept the same as the

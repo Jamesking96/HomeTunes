@@ -16,13 +16,13 @@ Read the files in this order:
 | `04_ROADMAP_AND_OPEN_ITEMS.md` | What's done and what's next (offline server songs, audiobook server), decisions, known issues |
 | `05_CODE_GUIDE.md` | A plain-English tour of the code for the user: every folder and file, how the main journeys flow, scripts, tests, where to make common changes, and probable bugs spotted |
 
-## Status (28 Sep 2026)
+## Status (29 Sep 2026)
 
 - **Everything is in source control.** `main` on GitHub (github.com/Jamesking96/HomeTunes) is
-  **0.1.20+20**. There are no other branches.
-  - Tests: 274 pass, and `flutter analyze` is clean.
-  - Builds for 0.1.20 are in `build\dist` on the PC and can be downloaded from the GitHub release
-    (https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.20). Publish each new version
+  **0.1.23+23**. There are no other branches.
+  - Tests: 306 pass, and `flutter analyze` is clean.
+  - Builds for 0.1.23 are in `build\dist` on the PC and can be downloaded from the GitHub release
+    (https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.23). Publish each new version
     the same way (see `02_…` → publishing builds).
   - `docs/USER_GUIDE.md` is the user-facing download and how-to guide shown on every release, and
     `README.md` links to it. Update it when features or menu names change.
@@ -44,15 +44,16 @@ Read the files in this order:
     fixed by the user on 28 Sep
 - Every source file has a header comment saying what it does and why (added 25 Sep; keep it up
   for new files). These notes are also in the repo under `docs/ai-context/`. Update them when things change.
-- **In progress (29 Sep), waiting for the user's OK to merge:** two stacked branches, not yet
-  merged or pushed:
-  - `feature/volume-everywhere` (0.1.22): volume on Now Playing (cover and lyrics) and a speaker
-    button with a pop-up slider in the phone's mini player.
-  - `feature/update-check` (0.1.23, built on the volume branch): Settings › About › Check for
-    updates + a daily check; Windows installs itself, the phone opens the download page. See
-    `03_…` → Updates.
-  - 306 tests pass, analyze is clean, and 0.1.23 builds (installer, zip, signed APK) are in
-    `build\dist`. Not yet tried by the user or installed on the phone.
+- **0.1.23 (29 Sep): merged into `main`, pushed and released as v0.1.23.** The user tried it and
+  approved. It's installed on the phone.
+  - Volume everywhere (0.1.22): volume on Now Playing (cover and lyrics) and a speaker button
+    with a pop-up slider in the phone's mini player.
+  - Check for updates (0.1.23): Settings › About › Check for updates + a daily check; Windows
+    installs itself, the phone opens the download page. See `03_…` → Updates.
+  - 306 tests pass, analyze is clean. The branches were deleted.
+  - **From now on, publish every release with `tool/publish_release.ps1`**: installed copies
+    look for its file names and checksum file to update themselves. The first real
+    self-update (close, install, reopen) will happen with the next release after 0.1.23.
 - **Next after that:** nothing is agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user. See
   `04_ROADMAP_AND_OPEN_ITEMS.md`.
