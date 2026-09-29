@@ -36,7 +36,9 @@ One Flutter codebase runs on **Windows, macOS, Linux and Android** (iOS builds t
   default colours"), and **advanced themes**: every colour (background, panels, text, faded text,
   slider track, play button…) editable, dark or light, saved by name, edited and deleted later.
   The editor warns about hard-to-read combinations. Text size and corner roundness are adjustable
-  too. Themes are kept in backups.
+  too. Themes are kept in backups. Colour pickers take a typed or pasted colour code (`#FF7A59`),
+  and themes can be **shared** as a copy-and-paste theme code or a `.hometunes-theme` file, and
+  imported from either.
 - **Updates** (Settings › About) – "Check for updates" looks at the latest GitHub release. On
   Windows the installer is downloaded, its checksum verified, installed quietly and HomeTunes
   reopens; the portable zip and Android open the download page instead. An optional quiet check
