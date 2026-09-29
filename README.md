@@ -301,3 +301,20 @@ For a full tour of every file, see `docs/ai-context/05_CODE_GUIDE.md`.
 - Writing tags uses a patched copy of audio_metadata_reader (`packages/audio_metadata_reader`)
   that keeps lyrics, ReplayGain, comments and other tags it doesn't edit. Version 1.8.0 on its own
   drops them.
+
+## Licence
+
+HomeTunes is free and open source under the [MIT License](LICENSE): you can use, copy, change
+and share it, including in your own projects, as long as the copyright notice and licence come
+with it. It comes with no warranty.
+
+It's built with other people's work under their own licences, listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and in the app under **Settings › About ›
+Licences**. Most are MIT or BSD. The audio engine (libmpv with FFmpeg, bundled as
+`libmpv-2.dll` / `libmpv.so`) is under the LGPL 3.0 or later; its licence texts are in
+[licenses/](licenses) and are shipped with every download, and its source code is attached to
+every release as `HomeTunes-audio-engine-source.zip` (made by `tool/engine_source.ps1`;
+`publish_release.ps1` adds it automatically, and `tool/attach_engine_source.ps1` adds it to
+older releases). If you add a library or swap the
+audio engine build, check its licence and update those notices (a GPL-licensed library would
+not fit with shipping HomeTunes under MIT).

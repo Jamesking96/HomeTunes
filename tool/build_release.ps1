@@ -44,6 +44,14 @@ foreach ($dll in 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') {
     else { Write-Warning "$dll not found in System32; users may need the VC++ Redistributable" }
 }
 
+# 2b. Licences next to the exe (0.1.31): HomeTunes' MIT licence, the third-party notices, and the
+#     LGPL/GPL texts that must come with libmpv-2.dll. The zip and the installer both pick these up.
+Copy-Item (Join-Path $root 'LICENSE') (Join-Path $release 'LICENSE.txt') -Force
+Copy-Item (Join-Path $root 'THIRD_PARTY_NOTICES.md') $release -Force
+$licenceDir = Join-Path $release 'licenses'
+New-Item -ItemType Directory -Force $licenceDir | Out-Null
+Copy-Item (Join-Path $root 'licenses\*.txt') $licenceDir -Force
+
 # 3. Portable zip (contains a HomeTunes\ folder)
 $dist = Join-Path $root 'build\dist'
 New-Item -ItemType Directory -Force $dist | Out-Null

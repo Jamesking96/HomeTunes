@@ -14,6 +14,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
+import 'services/app_licences.dart';
 import 'services/media_session.dart';
 import 'services/playback_log.dart';
 import 'services/storage.dart';
@@ -39,6 +40,8 @@ Future<void> main() async {
   // Both of these must run before any plugin or media_kit Player is used.
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
+  // The audio engine's LGPL notice for Settings › About › Licences (0.1.31).
+  registerAppLicences();
 
   // 1. Open the data folder and create the models (nothing is read from disk yet).
   final storage = await Storage.open();

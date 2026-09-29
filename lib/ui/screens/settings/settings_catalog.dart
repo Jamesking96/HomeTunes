@@ -94,6 +94,8 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('update-auto', SettingsPage.about, 'Check for updates automatically', 'update daily notify new version'),
   SettingInfo('whats-new', SettingsPage.about, 'What\'s new in this version', 'changes release notes changelog latest new features'),
   SettingInfo('playback-log', SettingsPage.about, 'Playback log', 'diagnostics problem stops stopped debug report'),
+  SettingInfo('licences', SettingsPage.about, 'Licences',
+      'licence license mit open source copyright legal third party lgpl mpv ffmpeg credits'),
   SettingInfo('data-folder', SettingsPage.about, 'Where HomeTunes keeps its data', 'data folder location files'),
 ];
 
