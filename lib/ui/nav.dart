@@ -15,6 +15,7 @@ import 'screens/album_screen.dart';
 import 'screens/artist_screen.dart';
 import 'screens/book_screen.dart';
 import 'screens/playlist_screen.dart';
+import 'screens/video_collection_screen.dart';
 import 'screens/video_player_screen.dart';
 
 /// Keeps one Navigator per tab so album/artist pages open inside the content
@@ -81,6 +82,15 @@ class AppNav extends ChangeNotifier {
     }
     // The Books tab's navigator may not exist until the tab is shown.
     WidgetsBinding.instance.addPostFrameCallback((_) => push(BookScreen(bookId: b.id)));
+  }
+
+  /// Opens a video collection's page on the Videos tab (0.1.32).
+  void openVideoCollection(String name) {
+    if (tab != videosTab) {
+      tab = videosTab;
+      notifyListeners();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => push(VideoCollectionScreen(name: name)));
   }
 
   /// Opens a video's player page on the Videos tab (0.1.32).

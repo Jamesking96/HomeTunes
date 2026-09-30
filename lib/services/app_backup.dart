@@ -355,6 +355,10 @@ class AppBackup {
           'videos': cv['videos'] ?? bv['videos'] ?? const [],
           'edits': {...part(cv, 'edits'), ...part(bv, 'edits')},
           'places': places,
+          // Favourite collections from both; the backup's descriptions and track choices win.
+          'favourites': {...(cv['favourites'] as List? ?? const []), ...(bv['favourites'] as List? ?? const [])}.toList(),
+          'descriptions': {...part(cv, 'descriptions'), ...part(bv, 'descriptions')},
+          'trackChoices': {...part(cv, 'trackChoices'), ...part(bv, 'trackChoices')},
         });
       }
     } else if (bv.isNotEmpty) {

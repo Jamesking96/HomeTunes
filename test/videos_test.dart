@@ -11,12 +11,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/video_item.dart';
 import 'package:hometunes/services/app_backup.dart';
 import 'package:hometunes/services/storage.dart';
+import 'package:hometunes/services/video_names.dart';
 import 'package:hometunes/services/video_scanner.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/music_filters.dart';
 import 'package:hometunes/state/video_filters.dart';
 import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/nav.dart';
+import 'package:hometunes/ui/screens/video_collection_screen.dart';
 import 'package:hometunes/ui/screens/videos_screen.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
@@ -49,7 +51,7 @@ void main() {
     setUp(() => dir = Directory.systemTemp.createTempSync('hometunes_videos_scan'));
     tearDown(() => dir.deleteSync(recursive: true));
 
-    test('every video format in every subfolder, grouped by folder name; other files ignored', () async {
+    test('every video format in every subfolder, read into collections and seasons; other files ignored', () async {
       final season = Directory(p.join(dir.path, 'Season 1'))..createSync();
       for (final name in ['01 Pilot.mkv', '02 Second.avi', 'clip.WEBM']) {
         File(p.join(season.path, name)).writeAsBytesSync([0, 1, 2]);
@@ -61,8 +63,12 @@ void main() {
       final videos = await VideoScanner().scan([dir.path], now: 1000);
       expect([for (final v in videos) p.basename(v.path)], ['Film.2012.mp4', '01 Pilot.mkv', '02 Second.avi', 'clip.WEBM']);
       final byName = {for (final v in videos) p.basename(v.path): v};
-      expect(byName['01 Pilot.mkv']!.collection, 'Season 1');
-      expect(byName['Film.2012.mp4']!.collection, p.basename(dir.path));
+      // The video folder holds seasons, so it's the collection; files loose in it belong to it too.
+      final folderName = cleanVideoName(p.basename(dir.path)).title;
+      expect(byName['01 Pilot.mkv']!.collection, folderName);
+      expect((byName['01 Pilot.mkv']!.season, byName['01 Pilot.mkv']!.episode, byName['01 Pilot.mkv']!.title), (1, 1, 'Pilot'));
+      expect(byName['Film.2012.mp4']!.collection, folderName);
+      expect(byName['clip.WEBM']!.scan, videoScanVersion);
       expect(byName['Film.2012.mp4']!.title, 'Film');
       expect(byName['Film.2012.mp4']!.year, 2012);
       expect(byName['clip.WEBM']!.format, 'WEBM');
@@ -369,7 +375,7 @@ void main() {
       expect(find.text('Add a video folder'), findsOneWidget);
     });
 
-    testWidgets('videos in a grid by collection, with chips; editing from the menu', (tester) async {
+    Future<void> scanFolder(WidgetTester tester) async {
       final vids = Directory(p.join(dir.path, 'vids'))..createSync();
       final show = Directory(p.join(vids.path, 'Show'))..createSync();
       File(p.join(show.path, '01 Start.mkv')).writeAsBytesSync([1]);
@@ -378,15 +384,25 @@ void main() {
         await lib.addVideoFolder(vids.path);
         await model.scan();
       });
+    }
+
+    testWidgets('three tabs: collections, all videos (edit, filter), favourites', (tester) async {
+      await scanFolder(tester);
       await pump(tester);
-      expect(find.text('01 Start'), findsOneWidget);
+      // Collections (the first tab): "Show", and "vids" for the file loose in the video folder.
+      expect(find.widgetWithText(CollectionCard, 'Show'), findsOneWidget);
+      expect(find.widgetWithText(CollectionCard, 'vids'), findsOneWidget);
+
+      // All videos.
+      await tester.tap(find.text('All videos'));
+      await tester.pumpAndSettle();
+      expect(find.text('Start'), findsOneWidget); // "01 Start" is episode 1, "Start"
       expect(find.text('Film'), findsOneWidget);
-      expect(find.text('Show'), findsWidgets); // a group heading
       expect(find.text('All (2)'), findsOneWidget);
       expect(find.text('Continue watching (0)'), findsOneWidget);
 
       // ⋮ → Edit details… → change the title.
-      await tester.tap(find.byTooltip('More').first);
+      await tester.tap(find.byTooltip('More').hitTestable().first);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Edit details…'));
       await tester.pumpAndSettle();
@@ -402,7 +418,7 @@ void main() {
       expect(find.widgetWithText(VideoCard, 'The very first one'), findsOneWidget);
 
       // Filter: only the "Show" collection; then remove the filter with its ×.
-      await tester.tap(find.byTooltip('Filter by collection, genre, decade, length, picture or file type'));
+      await tester.tap(find.byTooltip('Filter').hitTestable());
       await tester.pumpAndSettle();
       expect(find.text('Show only'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('filter-Collection')));
@@ -411,12 +427,202 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Show videos'));
       await tester.pumpAndSettle();
-      expect(find.byType(VideoCard), findsOneWidget);
+      expect(find.byType(VideoCard).hitTestable(), findsOneWidget);
       expect(find.text('Collection: Show'), findsOneWidget);
       expect(find.text('All (1)'), findsOneWidget);
-      tester.widget<InputChip>(find.byKey(const ValueKey('video-filter:Collection'))).onDeleted!();
+      tester.widget<InputChip>(find.byKey(const ValueKey('video-filter:Collection')).hitTestable()).onDeleted!();
       await tester.pumpAndSettle();
-      expect(find.byType(VideoCard), findsNWidgets(2));
+      expect(find.byType(VideoCard).hitTestable(), findsNWidgets(2));
+
+      // Favourites: none yet, then one.
+      await tester.tap(find.text('Favourites'));
+      await tester.pumpAndSettle();
+      expect(find.text('No favourite collections yet'), findsOneWidget);
+      await tester.runAsync(() => model.setFavourite(model.collectionNamed('Show')!, true));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(CollectionCard, 'Show').hitTestable(), findsOneWidget);
+    });
+
+    testWidgets('a collection\'s page: episodes, Play, and Edit collection renames every video', (tester) async {
+      await scanFolder(tester);
+      await tester.runAsync(() => model.setFavourite(model.collectionNamed('Show')!, true));
+      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: lib),
+          ChangeNotifierProvider.value(value: model),
+          ChangeNotifierProvider(create: (_) => AppNav()),
+        ],
+        child: const MaterialApp(home: VideoCollectionScreen(name: 'Show')),
+      ));
+      await tester.pump();
+      expect(find.descendant(of: find.byType(EpisodeRow), matching: find.textContaining('Start', findRichText: true)), findsOneWidget);
+      expect(find.text('Play'), findsOneWidget);
+
+      await tester.tap(find.text('Edit collection'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('collection-name')), 'My Show');
+      await tester.enterText(find.byKey(const ValueKey('collection-description')), 'Lovely');
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Save'));
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        await model.settle();
+      });
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(AppBar, 'My Show'), findsOneWidget);
+      expect(find.text('Lovely'), findsOneWidget);
+      final renamed = model.collectionNamed('My Show')!;
+      expect(renamed.videos.single.title, 'Start');
+      expect(model.isFavourite(renamed), isTrue); // the favourite followed the rename
+      expect(model.collectionNamed('Show'), isNull);
+    });
+  });
+
+  group('collections', () {
+    late Directory dir, root;
+    late Storage storage;
+    late LibraryModel lib;
+    late VideoLibraryModel model;
+
+    setUp(() async {
+      dir = Directory.systemTemp.createTempSync('hometunes_collections');
+      root = Directory(p.join(dir.path, 'Videos'))..createSync();
+      void file(String rel) => (File(p.join(root.path, rel))..createSync(recursive: true)).writeAsBytesSync([1]);
+      file(r'TV\Silo - S1-3\Season 1\Silo S01E02.mkv');
+      file(r'TV\Silo - S1-3\Season 1\Silo S01E01.mkv');
+      file(r'TV\Silo - S1-3\Season 2\Silo S02E01 - The Engineer.mkv');
+      file(r'TV\Silo - S1-3\Extras\Behind the scenes.mkv');
+      file(r'TV\Silo - S1-3\Season 1\Subs\Silo S01E01\2_English.srt');
+      file(r'Films\Mickey.17.2025.2160p.WEBRip.x265\Mickey.17.2025.2160p.WEBRip.x265.mkv');
+      file(r'Films\Mickey.17.2025.2160p.WEBRip.x265\poster.jpg');
+      storage = Storage.at(Directory(p.join(dir.path, 'data'))..createSync());
+      lib = LibraryModel(storage);
+      model = VideoLibraryModel(storage, lib);
+      await lib.addVideoFolder(root.path);
+      await model.scan();
+    });
+    tearDown(() async {
+      await model.settle();
+      model.dispose();
+      dir.deleteSync(recursive: true);
+    });
+
+    test('collections like albums: seasons in order, extras last, a poster, subtitle files found', () {
+      expect(model.collections.map((c) => c.name), ['Mickey 17', 'Silo']);
+      final silo = model.collectionNamed('silo')!; // any case
+      expect(silo.category, 'TV');
+      expect([for (final (h, l) in silo.groups) '$h:${l.length}'], ['Season 1:2', 'Season 2:1', 'Extras:1']);
+      expect(silo.videos.map((v) => v.episodeLabel ?? v.title), ['S1 E1', 'S1 E2', 'S2 E1', 'Behind the scenes']);
+      expect(silo.videos[2].title, 'The Engineer');
+      expect(silo.videos.first.subtitles.single, endsWith('2_English.srt'));
+      final film = model.collectionNamed('Mickey 17')!;
+      expect((film.year, film.category), (2025, 'Films'));
+      expect(model.coverFile(film), endsWith('poster.jpg'));
+    });
+
+    test('what to watch next, and what plays on after each video', () async {
+      final silo = model.collectionNamed('Silo')!;
+      final [e1, e2, s2e1, extra] = silo.videos;
+      expect(model.nextUp(silo), e1);
+      await model.setWatched([e1.id], true);
+      expect(model.nextUp(model.collectionNamed('Silo')!), e2);
+      model.savePlace(s2e1.id, const Duration(minutes: 3), const Duration(minutes: 50));
+      expect(model.nextUp(model.collectionNamed('Silo')!), s2e1); // one in progress comes first
+      expect(model.after(e1), e2);
+      expect(model.after(e2), s2e1);
+      expect(model.after(s2e1), isNull); // doesn't run on into the extras
+      expect(model.after(extra), isNull);
+    });
+
+    test('Edit collection: saved on every video; renaming keeps favourite, description and track choices', () async {
+      final silo = model.collectionNamed('Silo')!;
+      await model.setFavourite(silo, true);
+      model.rememberTrackChoice('Silo', audio: const TrackPick(language: 'eng'), subtitles: TrackPick.none);
+      await model.editCollection(silo, name: 'Silo (TV)', year: 2023, genre: 'Drama', description: 'Underground');
+      expect(model.collectionNamed('Silo'), isNull);
+      final renamed = model.collectionNamed('Silo (TV)')!;
+      expect(renamed.videos, hasLength(4));
+      expect(renamed.videos.every((v) => v.year == 2023 && v.genre == 'Drama'), isTrue);
+      expect((renamed.description, model.isFavourite(renamed)), ('Underground', true));
+      expect(model.trackChoiceFor('silo (tv)').audio!.language, 'eng');
+      expect(model.trackChoiceFor('Silo (TV)').subtitles!.off, isTrue);
+      await model.settle();
+
+      // All of it comes back after a restart.
+      final lib2 = LibraryModel(storage);
+      await lib2.load();
+      final again = VideoLibraryModel(storage, lib2);
+      addTearDown(again.dispose);
+      await again.load();
+      final c = again.collectionNamed('Silo (TV)')!;
+      expect((c.description, again.isFavourite(c), c.year), ('Underground', true, 2023));
+      expect(again.trackChoiceFor('Silo (TV)').audio!.language, 'eng');
+      expect(again.favouriteCollections.single.name, 'Silo (TV)');
+    });
+
+    test('edits can also be saved into .nfo files, and a scan reads them back', () async {
+      final silo = model.collectionNamed('Silo')!;
+      await model.editCollection(silo, name: 'Silo (TV)', year: 2023, genre: 'Drama', description: 'Underground & more');
+      final r = await model.saveNfoFiles(model.collectionNamed('Silo (TV)')!.videos);
+      expect(r.errors, isEmpty);
+      expect(r.written, 5); // four videos and tvshow.nfo
+      final show = File(p.join(root.path, 'TV', 'Silo - S1-3', 'tvshow.nfo'));
+      expect(show.readAsStringSync(), contains('<plot>Underground &amp; more</plot>'));
+      final ep = File(p.join(root.path, 'TV', 'Silo - S1-3', 'Season 2', 'Silo S02E01 - The Engineer.nfo')).readAsStringSync();
+      expect(ep, allOf(contains('<episodedetails>'), contains('<showtitle>Silo (TV)</showtitle>'), contains('<season>2</season>'),
+          contains('<title>The Engineer</title>')));
+      // A film on its own: a <movie> with no set.
+      final film = model.collectionNamed('Mickey 17')!.videos.single;
+      await model.saveNfoFiles([film]);
+      final movie = File('${p.withoutExtension(film.path)}.nfo').readAsStringSync();
+      expect((movie.contains('<movie>'), movie.contains('<set>'), movie.contains('<year>2025</year>')), (true, false, true));
+      await model.settle();
+
+      // A new install (no edits) gets the same details from the files.
+      final storage2 = Storage.at(Directory(p.join(dir.path, 'data2'))..createSync());
+      final lib2 = LibraryModel(storage2);
+      final fresh = VideoLibraryModel(storage2, lib2);
+      addTearDown(fresh.dispose);
+      await lib2.addVideoFolder(root.path);
+      await fresh.scan();
+      final c = fresh.collectionNamed('Silo (TV)')!;
+      expect((c.videos.length, c.year, c.genre, c.description), (4, 2023, 'Drama', 'Underground & more'));
+      expect(c.videos.map((v) => v.episodeLabel ?? v.title), ['S1 E1', 'S1 E2', 'S2 E1', 'Behind the scenes']);
+      await fresh.settle();
+    });
+
+    test('season and episode can be changed per video', () async {
+      final extra = model.collectionNamed('Silo')!.videos.last;
+      await model.setEdit(extra.id, const VideoEdit(season: 0, episode: 1));
+      final silo = model.collectionNamed('Silo')!;
+      // Given a season, the extra became a special.
+      expect([for (final (h, _) in silo.groups) h], ['Season 1', 'Season 2', 'Specials']);
+    });
+  });
+
+  group('collection lists', () {
+    VideoCollection col(String name, {String? category, int? year, int added = 0, int videos = 1}) => VideoCollection(
+          name: name,
+          category: category,
+          year: year,
+          videos: [
+            for (var i = 0; i < videos; i++)
+              VideoItem(id: 'video:/$name/$i', path: '/$name/$i.mkv', title: '$i', collection: name, addedMs: added),
+          ],
+        );
+
+    test('by category with headings (Other last), name, most videos, year', () {
+      final list = [col('Silo', category: 'TV', videos: 30), col('Naruto', category: 'Anime', year: 2002), col('Holiday'),
+        col('South Park', category: 'TV', year: 1997, videos: 300)];
+      expect([for (final (h, l) in sortCollections(list, CollectionSort.category)) '$h:${l.map((c) => c.name).join(',')}'],
+          ['Anime:Naruto', 'TV:Silo,South Park', 'Other:Holiday']);
+      expect(sortCollections(list, CollectionSort.mostVideos).single.$2.first.name, 'South Park');
+      expect(sortCollections(list, CollectionSort.year).single.$2.first.name, 'Naruto');
+      expect(searchCollections(list, 'tv 1997').single.name, 'South Park');
+      expect(MusicFilters.none.withValue('Category', 'TV').choices(list, collectionFilterFields, collectionFilterFields.first),
+          {'Anime': 1, 'TV': 2});
     });
   });
 }

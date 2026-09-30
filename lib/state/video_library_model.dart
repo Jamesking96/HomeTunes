@@ -17,6 +17,8 @@ import '../models/video_item.dart';
 import '../services/music_permission.dart';
 import '../services/path_safety.dart';
 import '../services/storage.dart';
+import '../services/video_names.dart' show describeVideoPath, videoCategoryNames;
+import '../services/video_nfo.dart';
 import '../services/video_scanner.dart';
 import '../services/video_thumbnails.dart';
 import 'book_index.dart' show isInside;
@@ -90,13 +92,236 @@ class VideoLibraryModel extends ChangeNotifier {
   }
 
   /// Every collection name, A–Z (for the editor's suggestions).
-  List<String> get collections =>
-      ({for (final v in videos) v.collection}.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())));
+  List<String> get collectionNames => [for (final c in collections) c.name];
+
+  /// The collections (like albums), A–Z by name, each with its videos in watching order.
+  List<VideoCollection> collections = const [];
+  Map<String, VideoCollection> _collectionByKey = {};
+
+  /// The collection called [name] (any case).
+  VideoCollection? collectionNamed(String name) => _collectionByKey[VideoCollection.keyFor(name)];
+
+  /// The collection a video is in.
+  VideoCollection? collectionOf(VideoItem v) => collectionNamed(v.collection);
+
+  // Favourite collections, descriptions the user wrote for collections, and the audio /
+  // subtitle choice last made in each, all by collection key (lower-case name).
+  Set<String> _favourites = {};
+  Map<String, String> _descriptions = {};
+  Map<String, ({TrackPick? audio, TrackPick? subtitles})> _trackChoices = {};
+
+  bool isFavourite(VideoCollection c) => _favourites.contains(c.key);
+
+  /// Favourite collections, A–Z.
+  List<VideoCollection> get favouriteCollections => [for (final c in collections) if (_favourites.contains(c.key)) c];
+
+  Future<void> setFavourite(VideoCollection c, bool favourite) async {
+    favourite ? _favourites.add(c.key) : _favourites.remove(c.key);
+    notifyListeners();
+    await _save();
+  }
+
+  /// The audio and subtitle choice to start [collection]'s videos with (null: the file's own).
+  ({TrackPick? audio, TrackPick? subtitles}) trackChoiceFor(String collection) =>
+      _trackChoices[VideoCollection.keyFor(collection)] ?? (audio: null, subtitles: null);
+
+  /// Remembers an audio or subtitle choice for the rest of [collection] (e.g. English audio for
+  /// every episode of a dual-audio series).
+  void rememberTrackChoice(String collection, {TrackPick? audio, TrackPick? subtitles}) {
+    final key = VideoCollection.keyFor(collection);
+    final old = _trackChoices[key];
+    _trackChoices[key] = (audio: audio ?? old?.audio, subtitles: subtitles ?? old?.subtitles);
+    _saveSoon();
+  }
+
+  /// The next thing to watch in [c]: one in progress, else the first not watched after the last
+  /// one watched, else the first not watched, else the first. Extras only if there's nothing else.
+  VideoItem? nextUp(VideoCollection c) {
+    final list = c.main.isEmpty ? c.videos : c.main;
+    if (list.isEmpty) return null;
+    for (final v in list) {
+      if (_places[v.id]?.inProgress ?? false) return v;
+    }
+    var lastWatched = -1;
+    for (var i = 0; i < list.length; i++) {
+      if (_places[list[i].id]?.watched ?? false) lastWatched = i;
+    }
+    for (var i = lastWatched + 1; i < list.length; i++) {
+      if (!(_places[list[i].id]?.watched ?? false)) return list[i];
+    }
+    for (final v in list) {
+      if (!(_places[v.id]?.watched ?? false)) return v;
+    }
+    return list.first;
+  }
+
+  /// The video after [v] in its collection (for playing on), or null at the end.
+  VideoItem? after(VideoItem v) {
+    final c = collectionOf(v);
+    if (c == null) return null;
+    final i = c.videos.indexWhere((x) => x.id == v.id);
+    if (i < 0 || i + 1 >= c.videos.length) return null;
+    final next = c.videos[i + 1];
+    // Don't run on from the last episode into the extras.
+    return next.extra && !v.extra ? null : next;
+  }
+
+  /// How many of [c]'s episodes (not extras) are watched.
+  int watchedCount(VideoCollection c) => c.main.where((v) => _places[v.id]?.watched ?? false).length;
+
+  /// The last time anything in [c] was watched (ms), or 0.
+  int lastWatchedMs(VideoCollection c) =>
+      c.videos.fold<int>(0, (m, v) => (_places[v.id]?.updatedMs ?? 0) > m ? _places[v.id]!.updatedMs : m);
+
+  /// The collection's picture: its poster, else its first video's thumbnail.
+  String? coverFile(VideoCollection c) {
+    final cover = c.cover;
+    if (cover != null && library.videoFolders.any((f) => isInsideAny(cover, [f]))) return cover;
+    for (final v in c.main.isEmpty ? c.videos : c.main) {
+      final t = thumbFile(v);
+      if (t != null) return t;
+    }
+    return null;
+  }
+
+  /// Edits a whole collection, like editing an album: a new name, year, genre or category is
+  /// saved as an edit on every video in it; the description is the collection's own. Renaming
+  /// keeps its favourite, description and track choices.
+  Future<void> editCollection(
+    VideoCollection c, {
+    String? name,
+    int? year,
+    bool clearYear = false,
+    String? genre,
+    bool clearGenre = false,
+    String? category,
+    bool clearCategory = false,
+    String? description,
+  }) async {
+    final newName = name?.trim();
+    for (final v in c.videos) {
+      final raw = _rawById[v.id] ?? v;
+      final old = _edits[v.id] ?? const VideoEdit();
+      var edit = old.merge(
+        year: year,
+        genre: genre,
+        category: category,
+        clear: {if (clearYear) 'year', if (clearGenre) 'genre', if (clearCategory) 'category'},
+      );
+      if (newName != null && newName.isNotEmpty) {
+        edit = VideoEdit(
+          title: edit.title,
+          collection: newName == raw.collection ? null : newName,
+          category: edit.category,
+          season: edit.season,
+          episode: edit.episode,
+          year: edit.year,
+          genre: edit.genre,
+          description: edit.description,
+          cleared: edit.cleared,
+        );
+      }
+      if (edit.isEmpty) {
+        _edits.remove(v.id);
+      } else {
+        _edits[v.id] = edit;
+      }
+    }
+    final oldKey = c.key;
+    final newKey = newName == null || newName.isEmpty ? oldKey : VideoCollection.keyFor(newName);
+    if (description != null) {
+      description.trim().isEmpty ? _descriptions.remove(oldKey) : _descriptions[oldKey] = description.trim();
+    }
+    if (newKey != oldKey) {
+      if (_favourites.remove(oldKey)) _favourites.add(newKey);
+      final d = _descriptions.remove(oldKey);
+      if (d != null) _descriptions[newKey] = d;
+      final t = _trackChoices.remove(oldKey);
+      if (t != null) _trackChoices[newKey] = t;
+    }
+    _rebuild();
+    await _save();
+  }
 
   /// The file to play, if it's still there and inside a video folder (a restored backup could
   /// name any path; 0.1.21 security review #3).
   String? playableFile(VideoItem v) =>
       isUsableLocalFile(v.path, roots: library.videoFolders, extensions: videoFileExtensions) ? v.path : null;
+
+  // ---- .nfo files (services/video_nfo.dart) ----
+
+  /// Whether the editors also save the details into .nfo files beside the videos (remembered;
+  /// on unless the user turned it off). Not offered on Android, which can't write there.
+  bool saveNfo = true;
+
+  Future<void> setSaveNfo(bool on) async {
+    if (saveNfo == on) return;
+    saveNfo = on;
+    notifyListeners();
+    await _save();
+  }
+
+  /// Writes the details of [items] (as edited) into `<video>.nfo` beside each one, and a
+  /// tvshow.nfo into the folder of each series they belong to. Only files inside the video
+  /// folders are touched. Returns how many were written and what went wrong.
+  Future<({int written, List<String> errors})> saveNfoFiles(Iterable<VideoItem> items) async {
+    final roots = library.videoFolders;
+    final jobs = <NfoJob>[];
+    final touched = <String, VideoCollection>{};
+    for (final item in items) {
+      final v = _byId[item.id] ?? item;
+      if (playableFile(v) == null) continue;
+      final c = collectionOf(v);
+      final series = c != null && c.videos.any((x) => x.season != null || x.episode != null);
+      jobs.add(NfoJob(
+        nfoPathFor(v.path),
+        series ? 'episodedetails' : 'movie',
+        {
+          'title': v.title,
+          if (series) 'showtitle': v.collection,
+          if (series) 'season': v.season?.toString(),
+          if (series) 'episode': v.episode?.toString(),
+          // A film on its own is its own collection: no set then.
+          if (!series) 'set': (c != null && c.videos.length > 1) || v.collection != v.title ? v.collection : null,
+          'year': v.year?.toString(),
+          'genre': v.genre,
+          'plot': v.description,
+        },
+      ));
+      if (series) touched[c.key] = c;
+    }
+    for (final c in touched.values) {
+      final folder = _seriesFolder(c, roots);
+      if (folder == null) continue;
+      jobs.add(NfoJob(p.join(folder, showNfoName), 'tvshow', {
+        'title': c.name,
+        'year': c.year?.toString(),
+        'genre': c.genre,
+        'plot': c.description,
+      }));
+    }
+    if (jobs.isEmpty) return (written: 0, errors: const <String>[]);
+    final errors = await writeNfoFilesInBackground(jobs);
+    return (written: jobs.length - errors.length, errors: errors);
+  }
+
+  /// The folder a series lives in (where its tvshow.nfo goes): the folder its name comes from,
+  /// if every video in it is inside that folder, it isn't a category folder ("TV", "Films") and
+  /// it isn't a video folder with other things loose in it. Null otherwise.
+  String? _seriesFolder(VideoCollection c, List<String> roots) {
+    String? folder;
+    for (final v in c.videos) {
+      final root = roots.where((r) => isInside(v.path, r)).firstOrNull;
+      if (root == null) return null;
+      final f = describeVideoPath(root, v.path).collectionFolder;
+      if (folder != null && !p.equals(folder, f)) return null;
+      folder = f;
+      // Loose in a video folder: that folder holds other things too.
+      if (roots.any((r) => p.equals(r, p.dirname(v.path)) && p.equals(r, f)) && v.season == null) return null;
+    }
+    if (folder == null || videoCategoryNames.contains(p.basename(folder).toLowerCase().trim())) return null;
+    return folder;
+  }
 
   /// The thumbnail, if it's inside the app's own art folder.
   String? thumbFile(VideoItem v) {
@@ -140,10 +365,33 @@ class VideoLibraryModel extends ChangeNotifier {
         }
       }
     }
+    // Collections: favourites, descriptions, audio / subtitle choices.
+    final favourites = <String>{};
+    final descriptions = <String, String>{};
+    final choices = <String, ({TrackPick? audio, TrackPick? subtitles})>{};
+    try {
+      favourites.addAll((j['favourites'] as List? ?? const []).cast<String>());
+      final d = j['descriptions'];
+      if (d is Map) descriptions.addAll(d.cast<String, String>());
+      final t = j['trackChoices'];
+      if (t is Map) {
+        for (final e in t.entries) {
+          final m = e.value as Map;
+          TrackPick? pick(String k) => m[k] is Map ? TrackPick.fromJson(Map<String, dynamic>.from(m[k] as Map)) : null;
+          choices[e.key as String] = (audio: pick('audio'), subtitles: pick('subtitles'));
+        }
+      }
+    } catch (_) {
+      damaged = true;
+    }
     if (damaged) await storage.keepCopy(fileName);
     _scanned = scanned;
     _edits = edits;
     _places = places;
+    _favourites = favourites;
+    _descriptions = descriptions;
+    _trackChoices = choices;
+    saveNfo = j['saveNfo'] != false;
     _rebuild();
   }
 
@@ -156,6 +404,17 @@ class VideoLibraryModel extends ChangeNotifier {
       'videos': [for (final v in _scanned) v.toJson()],
       'edits': {for (final e in _edits.entries) e.key: e.value.toJson()},
       'places': {for (final e in _places.entries) e.key: e.value.toJson()},
+      if (!saveNfo) 'saveNfo': false,
+      if (_favourites.isNotEmpty) 'favourites': _favourites.toList()..sort(),
+      if (_descriptions.isNotEmpty) 'descriptions': _descriptions,
+      if (_trackChoices.isNotEmpty)
+        'trackChoices': {
+          for (final e in _trackChoices.entries)
+            e.key: {
+              if (e.value.audio != null) 'audio': e.value.audio!.toJson(),
+              if (e.value.subtitles != null) 'subtitles': e.value.subtitles!.toJson(),
+            }
+        },
     });
   }
 
@@ -179,6 +438,38 @@ class VideoLibraryModel extends ChangeNotifier {
       });
     videos = all;
     _byId = {for (final v in all) v.id: v};
+    // Collections, like albums: the videos grouped by collection name (any case).
+    final groups = <String, List<VideoItem>>{};
+    for (final v in all) {
+      (groups[VideoCollection.keyFor(v.collection)] ??= []).add(v);
+    }
+    T? mostCommon<T>(Iterable<T?> values) {
+      final counts = <T, int>{};
+      for (final x in values) {
+        if (x != null) counts[x] = (counts[x] ?? 0) + 1;
+      }
+      if (counts.isEmpty) return null;
+      return counts.entries.reduce((a, b) => b.value > a.value ? b : a).key;
+    }
+
+    final built = <VideoCollection>[];
+    for (final e in groups.entries) {
+      final list = sortForCollection(e.value);
+      final years = [for (final v in list) if (v.year != null) v.year!];
+      built.add(VideoCollection(
+        name: mostCommon(list.map((v) => v.collection))!,
+        videos: list,
+        category: mostCommon(list.map((v) => v.category)),
+        year: years.isEmpty ? null : years.reduce((a, b) => a < b ? a : b),
+        genre: mostCommon(list.map((v) => v.genre)),
+        // The user's own description, else the series' tvshow.nfo one.
+        description: _descriptions[e.key] ?? mostCommon(list.map((v) => v.showPlot)),
+        cover: mostCommon(list.map((v) => v.cover)),
+      ));
+    }
+    built.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    collections = built;
+    _collectionByKey = {for (final c in built) c.key: c};
     notifyListeners();
   }
 

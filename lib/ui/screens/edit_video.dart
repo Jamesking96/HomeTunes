@@ -1,7 +1,9 @@
 // Videos (0.1.32): the Edit details dialog, for one video or several at once.
 //
 // Like the song and book editors, the changes are saved as edits in videos.json and laid over
-// the file's own details; the video file itself is never changed. For one video every box can be
+// the file's own details; the video file itself is never changed, but with "Also save into .nfo
+// files" ticked the details are also written into an .nfo beside it (widgets/save_nfo.dart).
+// For one video every box can be
 // changed or emptied, and "Undo my changes" goes back to what the file says. For several, a box
 // whose value differs between them starts empty with "--:--" as its hint, and only boxes that are
 // typed in are applied (titles can't be set for several at once, as they'd all get the same one).
@@ -11,6 +13,7 @@ import 'package:provider/provider.dart';
 import '../../models/video_item.dart';
 import '../../state/video_library_model.dart';
 import '../theme.dart';
+import '../widgets/save_nfo.dart';
 
 /// Opens the editor for [videos] (one or more).
 Future<void> showEditVideos(BuildContext context, List<VideoItem> videos) async {
@@ -33,6 +36,9 @@ class _EditVideosState extends State<_EditVideos> {
   late final _year = TextEditingController(text: _common((v) => v.year?.toString()) ?? '');
   late final _genre = TextEditingController(text: _common((v) => v.genre) ?? '');
   late final _description = TextEditingController(text: _common((v) => v.description) ?? '');
+  late final _season = TextEditingController(text: _common((v) => v.season?.toString()) ?? '');
+  late final _episode = TextEditingController(text: _several ? '' : (widget.videos.single.episode?.toString() ?? ''));
+  String? _numberError;
   String? _yearError;
   bool _saving = false;
 
@@ -47,7 +53,7 @@ class _EditVideosState extends State<_EditVideos> {
 
   @override
   void dispose() {
-    for (final c in [_title, _collection, _year, _genre, _description]) {
+    for (final c in [_title, _collection, _year, _genre, _description, _season, _episode]) {
       c.dispose();
     }
     super.dispose();
@@ -66,6 +72,14 @@ class _EditVideosState extends State<_EditVideos> {
       setState(() => _yearError = 'A year like 2019');
       return;
     }
+    // Season and episode: whole numbers (0 = specials), or empty.
+    int? number(TextEditingController c) => c.text.trim().isEmpty ? null : int.tryParse(c.text.trim());
+    final season = number(_season), episode = number(_episode);
+    if ((_season.text.trim().isNotEmpty && (season == null || season < 0)) ||
+        (_episode.text.trim().isNotEmpty && (episode == null || episode < 0))) {
+      setState(() => _numberError = 'A number, like 2');
+      return;
+    }
     setState(() => _saving = true);
     final model = context.read<VideoLibraryModel>();
     final edits = <String, VideoEdit?>{};
@@ -79,6 +93,9 @@ class _EditVideosState extends State<_EditVideos> {
         year: year,
         genre: _genre.text,
         description: _description.text,
+        season: season,
+        episode: episode,
+        seasonKnown: true,
       );
     } else {
       // Several: only what was typed in is applied, on top of each video's own edit.
@@ -91,28 +108,29 @@ class _EditVideosState extends State<_EditVideos> {
       final genre = typed(_genre, (v) => v.genre);
       final description = typed(_description, (v) => v.description);
       final newYear = year != null && year.toString() != _common((v) => v.year?.toString()) ? year : null;
+      final newSeason = season != null && season.toString() != _common((v) => v.season?.toString()) ? season : null;
       for (final v in widget.videos) {
         final old = model.editOf(v.id) ?? const VideoEdit();
-        edits[v.id] = VideoEdit(
-          title: old.title,
-          collection: collection ?? old.collection,
-          year: newYear ?? old.year,
-          genre: genre ?? old.genre,
-          description: description ?? old.description,
-          cleared: {
-            for (final c in old.cleared)
-              if (!(c == 'year' && newYear != null) && !(c == 'genre' && genre != null) && !(c == 'description' && description != null)) c
-          },
+        edits[v.id] = old.merge(
+          collection: collection,
+          year: newYear,
+          genre: genre,
+          description: description,
+          season: newSeason,
         );
       }
     }
     await model.setEdits(edits);
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    saveNfoAfterEdit(context, widget.videos);
+    Navigator.of(context).pop();
   }
 
   Future<void> _undo() async {
     await context.read<VideoLibraryModel>().setEdit(widget.videos.single.id, null);
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    saveNfoAfterEdit(context, widget.videos);
+    Navigator.of(context).pop();
   }
 
   @override
@@ -158,7 +176,7 @@ class _EditVideosState extends State<_EditVideos> {
                   tooltip: 'Choose a collection',
                   icon: const Icon(Icons.arrow_drop_down),
                   onSelected: (c) => setState(() => _collection.text = c),
-                  itemBuilder: (_) => [for (final c in model.collections) PopupMenuItem(value: c, child: Text(c))],
+                  itemBuilder: (_) => [for (final c in model.collectionNames) PopupMenuItem(value: c, child: Text(c))],
                 ),
               ),
             ),
@@ -184,6 +202,37 @@ class _EditVideosState extends State<_EditVideos> {
               ),
             ]),
             const SizedBox(height: 8),
+            // Season (0 = specials) and episode: where it's listed on its collection's page.
+            Row(children: [
+              SizedBox(
+                width: 120,
+                child: TextField(
+                  key: const ValueKey('video-season'),
+                  controller: _season,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() => _numberError = null),
+                  decoration: InputDecoration(
+                    labelText: 'Season',
+                    hintText: _hint((v) => v.season?.toString()),
+                    helperText: '0 = specials',
+                    errorText: _numberError,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (!_several)
+                SizedBox(
+                  width: 120,
+                  child: TextField(
+                    key: const ValueKey('video-episode'),
+                    controller: _episode,
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) => setState(() => _numberError = null),
+                    decoration: const InputDecoration(labelText: 'Episode'),
+                  ),
+                ),
+            ]),
+            const SizedBox(height: 8),
             TextField(
               key: const ValueKey('video-description'),
               controller: _description,
@@ -197,6 +246,8 @@ class _EditVideosState extends State<_EditVideos> {
                 child: Text('Only the boxes you type in are changed; the rest are left as they are.',
                     style: TextStyle(color: AppColors.textDim, fontSize: 12)),
               ),
+            const SizedBox(height: 8),
+            const SaveNfoCheckbox(),
           ]),
         ),
       ),
