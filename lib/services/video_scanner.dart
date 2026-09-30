@@ -33,7 +33,7 @@ const _taggedExtensions = {'.mp4', '.m4v', '.mov'};
 
 /// The current version of the name-reading rules. Videos saved by an older one are read again
 /// once (keeping their thumbnail, length and "added" date).
-const videoScanVersion = 4; // 3: .nfo files; 4: season titles
+const videoScanVersion = 5; // 3: .nfo files; 4: season titles; 5: season sub numbers (1.2)
 
 /// Picture names that are a collection's poster, best first (lower case, without extension).
 const _posterNames = ['poster', 'folder', 'cover', 'season-all-poster', 'show', 'movie'];
@@ -180,9 +180,14 @@ VideoItem readVideo(String path, int modifiedMs, int sizeBytes,
     part: info.part,
     // The series' tvshow.nfo names seasons (HomeTunes saves the user's names there too); else
     // the season folder's own title ("Season 1 - Offline News").
+    // "Season 1.2" folders: the sub number (not something .nfo files can hold).
+    subSeason: season != null && season == info.season ? info.subSeason : null,
+    // (tvshow.nfo can only name whole seasons, so a season with a sub number takes its folder's.)
     seasonTitle: season == null || season == 0
         ? null
-        : (show?.namedSeasons[season] ?? (season == info.season ? info.seasonTitle : null)),
+        : (season == info.season && info.subSeason != null
+            ? info.seasonTitle
+            : (show?.namedSeasons[season] ?? (season == info.season ? info.seasonTitle : null))),
     // An .nfo that numbers it makes it an episode, even in an Extras folder.
     extra: info.extra && nfo?.season == null && nfo?.episode == null,
     year: nfo?.year ?? year ?? info.year,

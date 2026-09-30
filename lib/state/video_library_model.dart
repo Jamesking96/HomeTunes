@@ -219,6 +219,7 @@ class VideoLibraryModel extends ChangeNotifier {
           category: edit.category,
           season: edit.season,
           episode: edit.episode,
+          subSeason: edit.subSeason,
           year: edit.year,
           genre: edit.genre,
           description: edit.description,
@@ -378,46 +379,54 @@ class VideoLibraryModel extends ChangeNotifier {
 
   // ---- season titles ("Season 1 - Offline News") ----
 
-  // Titles the user gave seasons, by collection key then season number ("" = no title, on purpose).
-  Map<String, Map<int, String>> _seasonTitles = {};
+  // Titles the user gave seasons, by collection key then season ("1", or "1.2" for a sub
+  // number; "" = no title, on purpose).
+  Map<String, Map<String, String>> _seasonTitles = {};
 
-  /// The title shown after "Season n": the user's own, else what the season folder or the
-  /// series' tvshow.nfo says (the most common among its videos). Null when there's none.
-  String? seasonTitleOf(VideoCollection c, int season) {
-    final own = _seasonTitles[c.key]?[season];
+  bool _inSeason(VideoItem v, int season, int? sub) => v.season == season && v.subSeason == sub;
+
+  /// The title shown after "Season n" (or "Season n.[sub]"): the user's own, else what the
+  /// season folder or the series' tvshow.nfo says (the most common among its videos). Null when
+  /// there's none.
+  String? seasonTitleOf(VideoCollection c, int season, [int? sub]) {
+    final own = _seasonTitles[c.key]?[seasonText(season, sub)];
     if (own != null) return own.isEmpty ? null : own;
-    return mostCommon([for (final v in c.videos) if (v.season == season) v.seasonTitle]);
+    return mostCommon([for (final v in c.videos) if (_inSeason(v, season, sub)) v.seasonTitle]);
   }
 
   /// The title the season's folder name gives ("Season 1 - Offline News" → "Offline News"),
   /// ignoring the user's own and any .nfo.
-  String? folderSeasonTitle(VideoCollection c, int season) {
+  String? folderSeasonTitle(VideoCollection c, int season, [int? sub]) {
     final roots = library.videoFolders;
     return mostCommon([
       for (final v in c.videos)
-        if (v.season == season)
+        if (_inSeason(v, season, sub))
           if (roots.where((r) => isInside(v.path, r)).firstOrNull case final root?)
             describeVideoPath(root, v.path).seasonTitle,
     ]);
   }
 
-  /// Whether the user gave season [season] of [c] its own title (or cleared it).
-  bool hasOwnSeasonTitle(VideoCollection c, int season) => _seasonTitles[c.key]?.containsKey(season) ?? false;
+  /// Whether the user gave the season its own title (or cleared it).
+  bool hasOwnSeasonTitle(VideoCollection c, int season, [int? sub]) =>
+      _seasonTitles[c.key]?.containsKey(seasonText(season, sub)) ?? false;
 
   /// Gives a season its own title; '' shows none, null goes back to what the files say. With
   /// [writeNfo], the series' tvshow.nfo gets it too (`<namedseason>`; none removes it), so it
-  /// survives a new install and other programs see it. Returns what went wrong writing.
-  Future<List<String>> setSeasonTitle(VideoCollection c, int season, String? title, {bool writeNfo = false}) async {
+  /// survives a new install and other programs see it — whole seasons only, as .nfo files have
+  /// no sub numbers. Returns what went wrong writing.
+  Future<List<String>> setSeasonTitle(VideoCollection c, int season, String? title,
+      {int? sub, bool writeNfo = false}) async {
     final t = title?.trim();
+    final key = seasonText(season, sub);
     if (t == null) {
-      _seasonTitles[c.key]?.remove(season);
+      _seasonTitles[c.key]?.remove(key);
       if (_seasonTitles[c.key]?.isEmpty ?? false) _seasonTitles.remove(c.key);
     } else {
-      (_seasonTitles[c.key] ??= {})[season] = t;
+      (_seasonTitles[c.key] ??= {})[key] = t;
     }
     notifyListeners();
     await _save();
-    if (!writeNfo) return const [];
+    if (!writeNfo || sub != null) return const [];
     final folder = _seriesFolder(c, library.videoFolders);
     if (folder == null) return const [];
     return writeNfoFilesInBackground([
@@ -425,11 +434,13 @@ class VideoLibraryModel extends ChangeNotifier {
     ]);
   }
 
-  /// Heading text for a group on a collection's page: "Season 1 – Offline News".
+  /// Heading text for a group on a collection's page: "Season 1 – Offline News",
+  /// "Season 1.2 – Outside".
   String groupLabel(VideoCollection c, String heading, List<VideoItem> list) {
-    final season = list.firstOrNull?.season;
-    if (season == null || season == 0 || heading != 'Season $season') return heading;
-    final title = seasonTitleOf(c, season);
+    final first = list.firstOrNull;
+    final season = first?.season;
+    if (first == null || season == null || season == 0 || heading != 'Season ${first.seasonLabel}') return heading;
+    final title = seasonTitleOf(c, season, first.subSeason);
     return title == null ? heading : '$heading – $title';
   }
 
@@ -587,15 +598,17 @@ class VideoLibraryModel extends ChangeNotifier {
                 e.key as String: (e.value as num).toDouble()
           }
         : {};
-    // Season titles: {"silo": {"1": "Offline News"}}.
+    // Season titles: {"silo": {"1": "Offline News", "1.2": "Outside"}}.
     final st = j['seasonTitles'];
+    final seasonKey = RegExp(r'^\d{1,3}(\.\d{1,3})?$');
     _seasonTitles = {
       if (st is Map)
         for (final e in st.entries)
           if (e.key is String && e.value is Map)
             e.key as String: {
               for (final s in (e.value as Map).entries)
-                if (int.tryParse('${s.key}') case final n? when s.value is String) n: s.value as String,
+                if (s.key is String && seasonKey.hasMatch(s.key as String) && s.value is String)
+                  s.key as String: s.value as String,
             },
     }..removeWhere((_, v) => v.isEmpty);
     _rebuild();
@@ -618,7 +631,7 @@ class VideoLibraryModel extends ChangeNotifier {
       if (_speeds.isNotEmpty) 'speeds': _speeds,
       if (_seasonTitles.isNotEmpty)
         'seasonTitles': {
-          for (final e in _seasonTitles.entries) e.key: {for (final s in e.value.entries) '${s.key}': s.value},
+          for (final e in _seasonTitles.entries) e.key: {for (final s in e.value.entries) s.key: s.value},
         },
       if (_favourites.isNotEmpty) 'favourites': _favourites.toList()..sort(),
       if (_descriptions.isNotEmpty) 'descriptions': _descriptions,

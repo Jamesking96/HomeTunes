@@ -37,7 +37,7 @@ class _EditVideosState extends State<_EditVideos> {
   late final _year = TextEditingController(text: _common((v) => v.year?.toString()) ?? '');
   late final _genre = TextEditingController(text: _common((v) => v.genre) ?? '');
   late final _description = TextEditingController(text: _common((v) => v.description) ?? '');
-  late final _season = TextEditingController(text: _common((v) => v.season?.toString()) ?? '');
+  late final _season = TextEditingController(text: _common((v) => v.seasonLabel) ?? '');
   late final _episode = TextEditingController(text: _several ? '' : (widget.videos.single.episode?.toString() ?? ''));
   String? _numberError;
   String? _yearError;
@@ -81,12 +81,15 @@ class _EditVideosState extends State<_EditVideos> {
       setState(() => _yearError = 'A year like 2019');
       return;
     }
-    // Season and episode: whole numbers (0 = specials), or empty.
+    // Season (0 = specials, or with a sub number like 1.2) and episode: whole numbers, or empty.
     int? number(TextEditingController c) => c.text.trim().isEmpty ? null : int.tryParse(c.text.trim());
-    final season = number(_season), episode = number(_episode);
-    if ((_season.text.trim().isNotEmpty && (season == null || season < 0)) ||
+    final seasonMatch = RegExp(r'^(\d{1,3})(?:\.(\d{1,3}))?$').firstMatch(_season.text.trim());
+    final season = seasonMatch == null ? null : int.parse(seasonMatch[1]!);
+    final subSeason = seasonMatch?[2] == null || season == 0 ? null : int.parse(seasonMatch![2]!);
+    final episode = number(_episode);
+    if ((_season.text.trim().isNotEmpty && season == null) ||
         (_episode.text.trim().isNotEmpty && (episode == null || episode < 0))) {
-      setState(() => _numberError = 'A number, like 2');
+      setState(() => _numberError = 'A number, like 2 or 1.2');
       return;
     }
     setState(() => _saving = true);
@@ -104,6 +107,7 @@ class _EditVideosState extends State<_EditVideos> {
         description: _description.text,
         season: season,
         episode: episode,
+        subSeason: subSeason,
         seasonKnown: true,
       );
     } else {
@@ -117,7 +121,8 @@ class _EditVideosState extends State<_EditVideos> {
       final genre = typed(_genre, (v) => v.genre);
       final description = typed(_description, (v) => v.description);
       final newYear = year != null && year.toString() != _common((v) => v.year?.toString()) ? year : null;
-      final newSeason = season != null && season.toString() != _common((v) => v.season?.toString()) ? season : null;
+      // A typed season ("2" or "1.2") applies to them all, sub number included.
+      final typedSeason = season != null && _season.text.trim() != _common((v) => v.seasonLabel);
       for (final v in widget.videos) {
         final old = model.editOf(v.id) ?? const VideoEdit();
         edits[v.id] = old.merge(
@@ -125,7 +130,9 @@ class _EditVideosState extends State<_EditVideos> {
           year: newYear,
           genre: genre,
           description: description,
-          season: newSeason,
+          season: typedSeason ? season : null,
+          subSeason: typedSeason ? subSeason : null,
+          clear: {if (typedSeason && subSeason == null) 'subSeason'},
         );
       }
     }
@@ -213,18 +220,19 @@ class _EditVideosState extends State<_EditVideos> {
             ]),
             const SizedBox(height: 8),
             // Season (0 = specials) and episode: where it's listed on its collection's page.
-            Row(children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               SizedBox(
-                width: 120,
+                width: 170,
                 child: TextField(
                   key: const ValueKey('video-season'),
                   controller: _season,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   onChanged: (_) => setState(() => _numberError = null),
                   decoration: InputDecoration(
                     labelText: 'Season',
-                    hintText: _hint((v) => v.season?.toString()),
-                    helperText: '0 = specials',
+                    hintText: _hint((v) => v.seasonLabel),
+                    helperText: '0 = specials, 1.2 = part 2 of season 1',
+                    helperMaxLines: 2,
                     errorText: _numberError,
                   ),
                 ),
