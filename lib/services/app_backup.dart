@@ -366,6 +366,8 @@ class AppBackup {
           'shapes': {...part(cv, 'shapes'), ...part(bv, 'shapes')},
           'collectionShapes': {...part(cv, 'collectionShapes'), ...part(bv, 'collectionShapes')},
           'speeds': {...part(cv, 'speeds'), ...part(bv, 'speeds')},
+          // Season titles the user gave, per collection: the backup's win.
+          'seasonTitles': {...part(cv, 'seasonTitles'), ...part(bv, 'seasonTitles')},
           if (cv['saveNfo'] == false) 'saveNfo': false,
         });
       }

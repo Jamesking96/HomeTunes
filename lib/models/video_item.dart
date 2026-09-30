@@ -45,6 +45,10 @@ class VideoItem {
   /// A named part of the collection that has no season number ("Alicization").
   final String? part;
 
+  /// The season's own title, as its folder ("Season 1 - Offline News") or the series'
+  /// tvshow.nfo names it. The user can give a season another one (VideoLibraryModel.seasonTitleOf).
+  final String? seasonTitle;
+
   /// An extra (featurette, opening, deleted scene) rather than an episode.
   final bool extra;
 
@@ -90,6 +94,7 @@ class VideoItem {
     this.season,
     this.episode,
     this.part,
+    this.seasonTitle,
     this.extra = false,
     this.year,
     this.genre,
@@ -150,6 +155,8 @@ class VideoItem {
         season: clear.contains('season') ? null : (season ?? this.season),
         episode: clear.contains('episode') ? null : (episode ?? this.episode),
         part: part,
+        // A season number changed by an edit: the old season's title no longer applies.
+        seasonTitle: clear.contains('season') || (season != null && season != this.season) ? null : seasonTitle,
         extra: extra ?? this.extra,
         year: clear.contains('year') ? null : (year ?? this.year),
         genre: clear.contains('genre') ? null : (genre ?? this.genre),
@@ -181,6 +188,7 @@ class VideoItem {
         if (season != null) 'season': season,
         if (episode != null) 'episode': episode,
         if (part != null) 'part': part,
+        if (seasonTitle != null) 'seasonTitle': seasonTitle,
         if (extra) 'extra': true,
         if (year != null) 'year': year,
         if (genre != null) 'genre': genre,
@@ -211,6 +219,7 @@ class VideoItem {
       season: j['season'] as int?,
       episode: j['episode'] as int?,
       part: j['part'] as String?,
+      seasonTitle: j['seasonTitle'] as String?,
       extra: (j['extra'] as bool?) ?? false,
       year: j['year'] as int?,
       genre: j['genre'] as String?,

@@ -8,7 +8,7 @@ import 'music_filters.dart';
 enum VideoShow { all, continueWatching, unwatched, watched }
 
 /// The sort menu. Some sorts split the grid into headed groups.
-enum VideoSort { collection, title, recentlyAdded, recentlyWatched, year, longest }
+enum VideoSort { collection, season, title, recentlyAdded, recentlyWatched, year, longest }
 
 String videoShowLabel(VideoShow s) => switch (s) {
       VideoShow.all => 'All',
@@ -19,6 +19,7 @@ String videoShowLabel(VideoShow s) => switch (s) {
 
 String videoSortLabel(VideoSort s) => switch (s) {
       VideoSort.collection => 'Collection',
+      VideoSort.season => 'Season',
       VideoSort.title => 'Title',
       VideoSort.recentlyAdded => 'Recently added',
       VideoSort.recentlyWatched => 'Recently watched',
@@ -49,13 +50,14 @@ int _byTitle(VideoItem a, VideoItem b) {
   return t != 0 ? t : a.path.compareTo(b.path);
 }
 
-/// Sorts [videos] and, for the collection and year sorts, splits them into groups with a heading.
+/// Sorts [videos] and, for the collection, season and year sorts, splits them into groups with a heading.
 /// Other sorts give one group with no heading. Collections are A–Z and within one the videos go
 /// by title, which puts numbered episodes ("01 …", "02 …") in order.
 List<(String?, List<VideoItem>)> sortVideos(
   List<VideoItem> videos,
   VideoSort sort, {
   Map<String, VideoPlace> places = const {},
+  GroupLabel? groupLabel,
 }) {
   final list = List.of(videos);
   switch (sort) {
@@ -66,6 +68,15 @@ List<(String?, List<VideoItem>)> sortVideos(
       }
       final keys = groups.keys.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
       return [for (final k in keys) (k, groups[k]!)];
+    case VideoSort.season:
+      // Each collection's seasons in watching order, a heading each ("Silo · Season 1");
+      // a collection that isn't split into seasons gets just its name.
+      final byCollection = <String, List<VideoItem>>{};
+      for (final v in list) {
+        (byCollection[v.collection] ??= []).add(v);
+      }
+      final names = byCollection.keys.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      return [for (final name in names) ..._seasonGroups(name, byCollection[name]!, groupLabel)];
     case VideoSort.year:
       final groups = <int?, List<VideoItem>>{};
       for (final v in list..sort(_byTitle)) {
@@ -101,6 +112,26 @@ List<(String?, List<VideoItem>)> sortVideos(
         }))
       ];
   }
+}
+
+/// Names a season's group: the heading with the season's title ("Season 1 – Offline News").
+typedef GroupLabel = String Function(String collection, String heading, List<VideoItem> list);
+
+/// One collection's videos split by season / part / Specials / Extras, in watching order.
+/// [label] gives each heading its season title; without it the one its folder gives is used.
+List<(String, List<VideoItem>)> _seasonGroups(String name, List<VideoItem> videos, GroupLabel? label) {
+  final seasons = <String, List<VideoItem>>{};
+  for (final v in sortForCollection(videos)) {
+    (seasons[VideoCollection.groupOf(v)] ??= []).add(v);
+  }
+  if (seasons.length == 1 && seasons.keys.single == 'Episodes') return [(name, seasons.values.single)];
+  String named(String heading, List<VideoItem> list) {
+    if (label != null) return label(name, heading, list);
+    final title = list.first.season != null && list.first.season! > 0 ? list.first.seasonTitle : null;
+    return title == null ? heading : '$heading – $title';
+  }
+
+  return [for (final e in seasons.entries) ('$name · ${named(e.key, e.value)}', e.value)];
 }
 
 /// Where to start playing: the saved place, unless it's right at the start or the video was

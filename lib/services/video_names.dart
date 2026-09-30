@@ -119,6 +119,9 @@ class VideoPathInfo {
   /// A named part of the collection when there's no season number ("Sword Art Online II").
   final String? part;
 
+  /// The season's own title from its folder: "Season 1 - Offline News" → "Offline News".
+  final String? seasonTitle;
+
   const VideoPathInfo({
     required this.collection,
     required this.collectionFolder,
@@ -129,6 +132,7 @@ class VideoPathInfo {
     this.year,
     this.extra = false,
     this.part,
+    this.seasonTitle,
   });
 }
 
@@ -149,6 +153,28 @@ int? seasonOfFolder(String name) {
   final w = RegExp(r'(?:^|[\s\-])(?:book|season)\s+(one|two|three|four|five|six|seven|eight|nine|ten)\b').firstMatch(n);
   if (w != null) return _wordNumbers[w.group(1)!];
   return null;
+}
+
+/// The title a season folder gives after its number: "Season 1 - Offline News" → "Offline News",
+/// "Book Two - Earth" → "Earth". Null when there's none, or only a year or release details
+/// ("Season 01", "1c. Season 2 (2009)", "Ghosts.2021.S01.1080p.WEB").
+String? seasonTitleOfFolder(String name) {
+  final n = name.replaceAll(RegExp(r'[._]'), ' ');
+  final m = RegExp(
+        r'(?:^|[\s\-])(?:season|series|book)\s*(?:\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)(?![0-9a-z])',
+        caseSensitive: false,
+      ).firstMatch(n) ??
+      RegExp(r'(?:^|[\s\-])s\d{1,2}(?![0-9a-z])', caseSensitive: false).firstMatch(n);
+  if (m == null) return null;
+  var rest = n
+      .substring(m.end)
+      .replaceFirst(RegExp(r'^\s*[\(\[]\s*(?:19|20)\d\d(?:\s*-\s*(?:19|20)?\d\d)?\s*[\)\]]'), '')
+      .replaceFirst(RegExp(r'^[\s\-–—:~|]+'), '');
+  if (_isOnlyJunk(rest)) return null;
+  rest = cleanVideoName(rest).title;
+  if (rest.isEmpty || RegExp(r'^[\d\s\-]+$').hasMatch(rest)) return null;
+  if (RegExp(r'^(?:episodes?|eps?|complete)\b', caseSensitive: false).hasMatch(rest)) return null;
+  return rest;
 }
 
 /// Whether a folder holds extras rather than episodes.
@@ -249,7 +275,9 @@ VideoPathInfo describeVideoPath(String root, String path) {
   // folders are seasons, not collections, so the collection is the video folder.
   final seasonOnly = category == null &&
       seasonOfFolder(rest.first) != null &&
-      RegExp(r'^(?:season|series|s|book|specials?)\s*\d*$', caseSensitive: false).hasMatch(cleanVideoName(rest.first).title);
+      (RegExp(r'^(?:season|series|s|book|specials?)\s*\d*$', caseSensitive: false).hasMatch(cleanVideoName(rest.first).title) ||
+          // "Season 1 - Offline News": a season with its own title.
+          RegExp(r'^(?:season|series)\s*\d{1,2}\s*[-:–—]', caseSensitive: false).hasMatch(rest.first.trim()));
   final collectionFolder = seasonOnly
       ? root
       : p.joinAll([root, if (category != null && dirs.isNotEmpty && dirs.first == category) category, rest.first]);
@@ -257,12 +285,14 @@ VideoPathInfo describeVideoPath(String root, String path) {
   final inner = seasonOnly ? rest : rest.sublist(1);
   final extra = inner.any(isExtrasFolder);
   int? folderSeason;
+  String? folderSeasonTitle;
   String? part;
   for (final d in inner) {
     if (isExtrasFolder(d)) continue;
     final s = seasonOfFolder(d);
     if (s != null) {
       folderSeason = s;
+      folderSeasonTitle = s == 0 ? null : seasonTitleOfFolder(d);
     } else {
       var name = cleanVideoName(d.replaceFirst(RegExp(r'^\w{1,3}\.\s+'), '')).title;
       // "Sword Art Online - Alicization" in "Sword Art Online": just "Alicization".
@@ -286,6 +316,7 @@ VideoPathInfo describeVideoPath(String root, String path) {
     year: named.year ?? fromName.year,
     extra: extra,
     part: season == null && !extra ? part : null,
+    seasonTitle: season != null && season == folderSeason ? folderSeasonTitle : null,
   );
 }
 

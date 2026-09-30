@@ -19,6 +19,7 @@ import '../models/book.dart';
 import '../models/track.dart';
 import '../models/track_edit.dart';
 import '../models/video_item.dart' show PictureShape;
+import '../models/video_player_look.dart';
 import '../services/app_backup.dart';
 import '../services/local_scanner.dart';
 import '../services/music_permission.dart';
@@ -137,9 +138,13 @@ class LibraryModel extends ChangeNotifier {
   /// skip forward or back in an audiobook (0.1.17).
   bool swipeToSkip = true;
 
-  /// Now Playing shows a song's music video in place of its cover, when it has one (0.1.32).
-  /// Also switched by the video button on Now Playing.
+  /// Now Playing can show a song's music video in place of its cover, when it has one (0.1.32).
+  /// Off: no videos and no video button (Settings › Music).
   bool showMusicVideos = true;
+
+  /// The music video starts by itself when a song with one plays. Off: the cover shows until
+  /// the video button on Now Playing is pressed (for that song).
+  bool autoPlayMusicVideos = true;
 
   /// Settings › Appearance: the colour theme, and "Your own" colours ("#RRGGBB"). See setTheme.
   String themeId = 'default';
@@ -193,6 +198,9 @@ class LibraryModel extends ChangeNotifier {
   /// The usual picture shape for videos and for collections (each can have its own).
   PictureShape videoPictureShape = PictureShape.wide;
   PictureShape collectionPictureShape = PictureShape.wide;
+
+  /// How the video player's buttons look (Settings › Appearance › Video player).
+  VideoPlayerLook videoPlayerLook = VideoPlayerLook.standard;
 
   /// Show the sleep timer button beside play/pause.
   bool sleepButtonShown = true;
@@ -367,6 +375,7 @@ class LibraryModel extends ChangeNotifier {
     replayGain = ReplayGainMode.off;
     swipeToSkip = true;
     showMusicVideos = true;
+    autoPlayMusicVideos = true;
     audiobookFolders = [];
     videoFolders = [];
     bookGenres = List.of(defaultBookGenres);
@@ -381,6 +390,7 @@ class LibraryModel extends ChangeNotifier {
     videoRewindOnResume = true;
     videoPictureShape = PictureShape.wide;
     collectionPictureShape = PictureShape.wide;
+    videoPlayerLook = VideoPlayerLook.standard;
     sleepButtonShown = true;
     sleepBookMinutes = 30;
     sleepMusicMinutes = 30;
@@ -426,6 +436,7 @@ class LibraryModel extends ChangeNotifier {
       replayGain = ReplayGainMode.values.asNameMap()[raw['replayGain']] ?? ReplayGainMode.off;
       swipeToSkip = s.get('swipeToSkip', true);
       showMusicVideos = s.get('showMusicVideos', true);
+      autoPlayMusicVideos = s.get('autoPlayMusicVideos', true);
       audiobookFolders = s.strings('audiobookFolders') ?? [];
       videoFolders = s.strings('videoFolders') ?? [];
       bookGenres = s.strings('bookGenres') ?? List.of(defaultBookGenres);
@@ -440,6 +451,7 @@ class LibraryModel extends ChangeNotifier {
       videoRewindOnResume = s.get('videoRewindOnResume', true);
       videoPictureShape = PictureShape.byName(raw['videoPictureShape']) ?? PictureShape.wide;
       collectionPictureShape = PictureShape.byName(raw['collectionPictureShape']) ?? PictureShape.wide;
+      videoPlayerLook = VideoPlayerLook.fromJson(raw['videoPlayerLook']);
       sleepButtonShown = s.get('sleepButtonShown', true);
       sleepBookMinutes = s.integer('sleepBookMinutes', 30);
       sleepMusicMinutes = s.integer('sleepMusicMinutes', 30);
@@ -579,6 +591,7 @@ class LibraryModel extends ChangeNotifier {
         'replayGain': replayGain.name,
         'swipeToSkip': swipeToSkip,
         'showMusicVideos': showMusicVideos,
+        'autoPlayMusicVideos': autoPlayMusicVideos,
         'audiobookFolders': audiobookFolders,
         'videoFolders': videoFolders,
         'bookGenres': bookGenres,
@@ -593,6 +606,7 @@ class LibraryModel extends ChangeNotifier {
         'videoRewindOnResume': videoRewindOnResume,
         'videoPictureShape': videoPictureShape.name,
         'collectionPictureShape': collectionPictureShape.name,
+        'videoPlayerLook': videoPlayerLook.toJson(),
         'sleepButtonShown': sleepButtonShown,
         'sleepBookMinutes': sleepBookMinutes,
         'sleepMusicMinutes': sleepMusicMinutes,
@@ -823,11 +837,13 @@ class LibraryModel extends ChangeNotifier {
     ReplayGainMode? replayGain,
     bool? swipeToSkip,
     bool? showMusicVideos,
+    bool? autoPlayMusicVideos,
   }) async {
     this.gaplessPlayback = gaplessPlayback ?? this.gaplessPlayback;
     this.replayGain = replayGain ?? this.replayGain;
     this.swipeToSkip = swipeToSkip ?? this.swipeToSkip;
     this.showMusicVideos = showMusicVideos ?? this.showMusicVideos;
+    this.autoPlayMusicVideos = autoPlayMusicVideos ?? this.autoPlayMusicVideos;
     notifyListeners();
     await _saveSettings();
   }
@@ -870,6 +886,14 @@ class LibraryModel extends ChangeNotifier {
     videoRewindOnResume = rewindOnResume ?? videoRewindOnResume;
     videoPictureShape = videoShape ?? videoPictureShape;
     collectionPictureShape = collectionShape ?? collectionPictureShape;
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Changes how the video player's buttons look (Settings › Appearance › Video player).
+  Future<void> setVideoPlayerLook(VideoPlayerLook look) async {
+    if (look == videoPlayerLook) return;
+    videoPlayerLook = look;
     notifyListeners();
     await _saveSettings();
   }

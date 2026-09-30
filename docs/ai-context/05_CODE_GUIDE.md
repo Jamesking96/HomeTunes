@@ -68,6 +68,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `book.dart` | An audiobook made of one or more files. Works out its total length, its chapters across all files, and "time from the start of the book". |
 | `lyrics.dart` | Timed (LRC) and plain lyrics, the LRC parser, and a quick look-up of which line is being sung now. |
 | `eq_preset.dart` | The equaliser's ten bands, a preset (a gain per band plus an overall level), the built-in presets, and the audio-engine filter text a preset turns into. |
+| `video_player_look.dart` | How the video player's buttons look (Settings › Appearance › Video player, 30 Sep): `VideoPlayerLook` (button colour, `VideoButtonSize`, `VideoButtonBacking` none / glow / circles, strength, progress bar colour; `backingColour` is the opposite shade to the buttons), `resolveLookColour`. Saved in settings.json as `videoPlayerLook`. |
 | `playlist.dart` | A named list of song ids. Storing ids means playlists survive rescans and moved files. |
 | `video_item.dart` | Videos tab (0.1.32): `VideoItem` (one video file), `VideoEdit` (the user's changes to its details, laid over it like `TrackEdit`) and `VideoPlace` (how far in, watched). Saved in `videos.json`. Also `VideoCollection` (a series / film / folder of videos, like an album: `groups`, `sortForCollection`) and `TrackPick` (a remembered audio / subtitle choice). |
 
@@ -90,8 +91,8 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `sleep_timer.dart` | The sleep timer: minutes, or end of chapter or song. Fades the volume out, then pauses and saves the book's place. |
 | `selection_model.dart` | What's ticked in select mode: songs, albums or audiobooks (one kind at a time), plus what "Select all" covers. |
 | `update_model.dart` | Check for updates (0.1.23): where the check has got to, the newest release found, download progress, the once-a-day check and its switch (`updates.json`). Since 0.1.28 it also remembers the version that last ran, so it knows when to show "What's new" and fetches the release notes for it. |
-| `video_library_model.dart` | The Videos tab's live data (0.1.32): scans the video folders (a setting in `LibraryModel`), makes thumbnails in the background, and owns the edits and watched places (`videos.json`). Builds the collections; favourites, collection descriptions and per-collection track choices; `editCollection`, `nextUp` / `after`; `saveNfoFiles` writes .nfo files. |
-| `video_filters.dart` | The Videos tab's search, chips, filters (`videoFilterFields`: collection, genre, decade, length, picture, file type) and sorts, and where to carry on from (`resumeAt`, `isNearEnd`). No Flutter, so unit tested directly. |
+| `video_library_model.dart` | The Videos tab's live data (0.1.32): scans the video folders (a setting in `LibraryModel`), makes thumbnails in the background, and owns the edits and watched places (`videos.json`). Builds the collections; favourites, collection descriptions and per-collection track choices; `editCollection`, `nextUp` / `after`; `saveNfoFiles` writes .nfo files; season titles (`seasonTitleOf`, `folderSeasonTitle`, `setSeasonTitle` which can also write tvshow.nfo `<namedseason>`, `groupLabel` for "Season 1 – Offline News"). |
+| `video_filters.dart` | The Videos tab's search, chips, filters (`videoFilterFields`: collection, genre, decade, length, picture, file type) and sorts (including Season, with a `GroupLabel` for season titles), and where to carry on from (`resumeAt`, `isNearEnd`). No Flutter, so unit tested directly. |
 
 ### Services (`lib/services/`): files, network and the OS
 
@@ -144,9 +145,9 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `album_screen.dart` | One album, split by disc, with a favourite heart, the ⓘ Details button, and prompts to find a missing cover or details online. |
 | `artist_screen.dart` | One artist: picture, albums (click one to see its songs underneath, 0.1.26), all songs. |
 | `book_screen.dart` | One audiobook: details, progress, Play/Resume, favourite heart, description, PDF, bookmarks, chapters, Move to Music, Details. |
-| `videos_screen.dart` | The Videos tab (0.1.32): sub-tabs Collections / All videos / Favourites; the All videos grid with Continue watching, chips, filters, search, sorts, the video menu and select mode (`VideoCard`, `showVideoMenu`). |
-| `video_collection_screen.dart` | Collections (0.1.32): `CollectionCard` (tap, select mode, hover play button) and its menu, `CollectionContentsPanel` (contents under the card's row on the Collections tab), a collection's page (foldable seasons, pinned contents chips, Continue, favourite), and the Edit collection dialogs (one, or several with `showEditCollections`). |
-| `video_player_screen.dart` | One video's player page: media_kit's controls, carrying on from the saved place, Enlarge, Full screen, details, Edit, Mark as watched, the audio / subtitle chooser (`trackLabel`, `matchTrack`, subtitle files via `sub-add`) and Up next (0.1.32). |
+| `videos_screen.dart` | The Videos tab (0.1.32): sub-tabs Collections / All videos / Favourites; the All videos grid with Continue watching, chips, filters, search, sorts, the video menu and select mode (`VideoCard`, `showVideoMenu`, and `VideoSelectionBar`, which a collection's episode list uses too). |
+| `video_collection_screen.dart` | Collections (0.1.32): `CollectionCard` (tap, select mode, hover play button) and its menu, `CollectionContentsPanel` (contents under the card's row on the Collections tab), a collection's page (foldable seasons, pinned contents chips, Continue, favourite), and the Edit collection dialogs (one, or several with `showEditCollections`). Episodes: `EpisodeRow` with select mode (`_EpisodeSelection` mixin: right-click › Select, a box per season, `VideoSelectionBar`), and `showSeasonTitleDialog` (the ✎ on a season heading). |
+| `video_player_screen.dart` | One video's player page: media_kit's controls in the chosen look (`desktopControlsTheme` / `phoneControlsTheme`), carrying on from the saved place, Enlarge, Full screen, details, the main buttons and a second row of the others, the audio / subtitle chooser (`trackLabel`, `matchTrack`, subtitle files via `sub-add`) and Up next (0.1.32). |
 | `video_pictures.dart` | Change picture… / Change poster… (0.1.32): the choices, the Pick a frame player, the Search online dialog, `PictureShapePicker` (Edit details / Edit collection) and `PosterPicture` (a picture shown whole over a blurred copy). |
 | `settings/video_settings.dart` | Settings › Videos (0.1.32): skip amounts, speed, rewinding, the videos' equaliser, video folders, .nfo saving, and the usual picture shapes. |
 | `edit_video.dart` | Edit details for one video or several (`--:--` for details that differ), including season and episode (0.1.32). |
@@ -162,10 +163,11 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 
 ### Settings (`lib/ui/screens/settings/`)
 
-`settings_screen.dart` is the hub: a list of pages with a search box, shown side by side on windows 760 px or wider. `settings_catalog.dart` lists every page (the `SettingsPage` list, kept in A–Z order by title) and every searchable setting. `settings_widgets.dart` holds the shared building blocks, including the glow that highlights a setting found by search. Then there is one file per page: `about_settings`, `appearance_settings`, `audiobook_settings`, `backup_settings`, `library_settings` (shown as "Folders & scanning"; it also has the Folder options and `AudiobookFoldersSection`, which Audiobooks shows too), `online_settings`, `playback_settings`, `server_settings`, `sleep_settings` and `edits_settings` ("Your edits"). Playback opens the Equaliser, and Audiobooks has the switch for a separate audiobook preset. About has the version, updates, What's new, the Playback log, Licences and the data folder. Three more files belong to pages:
+`settings_screen.dart` is the hub: a list of pages with a search box, shown side by side on windows 760 px or wider. `settings_catalog.dart` lists every page (the `SettingsPage` list, kept in A–Z order by title) and every searchable setting. `settings_widgets.dart` holds the shared building blocks, including the glow that highlights a setting found by search. Then there is one file per page: `about_settings`, `appearance_settings`, `audiobook_settings`, `backup_settings`, `library_settings` (shown as "Folders & scanning"; it also has the Folder options and `AudiobookFoldersSection`, which Audiobooks shows too), `music_settings` (Music, 30 Sep: show music videos, play them automatically, and Android's video access note), `online_settings`, `playback_settings`, `server_settings`, `sleep_settings` and `edits_settings` ("Your edits"). Playback opens the Equaliser, and Audiobooks has the switch for a separate audiobook preset. About has the version, updates, What's new, the Playback log, Licences and the data folder. Three more files belong to pages:
 
 - `update_ui.dart` (0.1.23): the About page's "Check for updates" rows, the "Update to HomeTunes x?" dialog and the start-up notice.
 - `whats_new_ui.dart` (0.1.28): the "What's new" pop-up after an update, built from the GitHub release pages, and About's "What's new in this version" row.
+- `video_player_look_settings.dart` (30 Sep): Appearance's "Video player" group (button colour, size, backing and strength, progress bar colour, the preview over a dark / bright / busy scene, Reset).
 - `theme_sharing.dart` (0.1.29): Share… (a theme code to copy, or a `.hometunes-theme` file) and Import a theme, used by Appearance. Only the theme's name and colours are shared, and anything read back is checked.
 
 ### Widgets (`lib/ui/widgets/`)
@@ -185,6 +187,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `artwork.dart` | Cover images, loaded at a sensible size to save memory. |
 | `save_nfo.dart` | The "Also save into .nfo files" tick box in the video editors, and `saveNfoAfterEdit` (0.1.32). |
 | `music_video_view.dart` | The music video on Now Playing (0.1.32): a second, muted player showing the song's video, kept in step with the song (`videoSeekTarget`), with the cover until the first picture. |
+| `video_controls_look.dart` | Applies `VideoPlayerLook` to media_kit's controls (30 Sep): `ButtonBacking` (glow or disc behind each control), `backedBar`, `timeTextStyle`, `desktopControlsTheme` / `phoneControlsTheme` (normal and full screen), and `VideoControlsPreview` for Settings. |
 | `music_access_banner.dart` | The amber "can't read your music" card on Android. |
 
 ## How things flow
@@ -338,6 +341,8 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `video_art_search_test.dart` | Search online against fake TVmaze / AniList / Wikipedia answers: order, episode still, infobox pictures, one service failing, downloads that aren't pictures |
 | `video_pictures_test.dart` | Change picture / poster: the choices (online switched off, back to automatic) and picking a search result saving it as the poster |
 | `video_collection_page_test.dart` | A collection's page: seasons fold up from their headings; the contents chips jump to (and open) a season; Fold all / Open all. The Collections tab: a tap opens the contents under the row; right-click › Select and editing several collections |
+| `video_look_and_seasons_test.dart` | The video player look (colours, backing shade, saved, theme data), season titles (from folders, tvshow.nfo `<namedseason>` read and written, the user's own kept), the All videos Season sort, a collection page's titled headings, renaming a season and right-click › Select to edit several, and the Appearance › Video player section |
+| `music_settings_test.dart` | Settings › Music: show / auto-play music videos saved, the page's place in the list, the switches |
 | `video_settings_test.dart` | Settings › Videos: saving the settings, the videos' own equaliser preset, picture shapes and speeds (usual and own, kept on rename), the page, and Edit details' shape |
 | `video_tracks_test.dart` | Audio / subtitle labels and finding the remembered choice among a new video's tracks |
 

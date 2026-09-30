@@ -37,6 +37,7 @@ import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/listening_controls.dart' show SpeedButton;
+import '../widgets/video_controls_look.dart';
 import 'edit_video.dart';
 import 'equalizer_screen.dart' show openEqualizer;
 import 'video_pictures.dart';
@@ -513,6 +514,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     );
     // Skip buttons and speed (Settings › Videos sets how far the skips go).
     final back = _settings.videoSkipBackSeconds, ahead = _settings.videoSkipForwardSeconds;
+    // Colours, sizes and the backing behind each button (Settings › Appearance › Video player).
+    final look = _settings.videoPlayerLook, accent = AppColors.accent;
     final speedButton = Builder(
       builder: (context) => MaterialDesktopCustomButton(icon: const Icon(Icons.speed), onPressed: () => _chooseSpeed(context)),
     );
@@ -523,7 +526,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       MaterialDesktopCustomButton(
           icon: Icon(skipIcon(forward: true, seconds: ahead)), onPressed: () => _skip(forward: true)),
       const MaterialDesktopVolumeButton(),
-      const MaterialDesktopPositionIndicator(),
+      paddedTime(MaterialDesktopPositionIndicator(style: timeTextStyle(look, accent))),
       const Spacer(),
       speedButton,
       tracksButton,
@@ -559,22 +562,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final phoneBar = [
       MaterialCustomButton(icon: Icon(skipIcon(forward: false, seconds: back)), onPressed: () => _skip(forward: false)),
       MaterialCustomButton(icon: Icon(skipIcon(forward: true, seconds: ahead)), onPressed: () => _skip(forward: true)),
-      const MaterialPositionIndicator(),
+      paddedTime(MaterialPositionIndicator(style: timeTextStyle(look, accent, phone: true))),
       const Spacer(),
       phoneSpeed,
       phoneTracks,
       const MaterialFullscreenButton(),
     ];
     // Double-tap the left or right of the picture on a phone: skip by the chosen amounts too.
-    MaterialVideoControlsThemeData phone() => MaterialVideoControlsThemeData(
-          bottomButtonBar: phoneBar,
-          seekOnDoubleTap: true,
-          seekOnDoubleTapBackwardDuration: Duration(seconds: back),
-          seekOnDoubleTapForwardDuration: Duration(seconds: ahead),
-        );
+    MaterialVideoControlsThemeData phone() => phoneControlsTheme(look, accent,
+        bar: phoneBar, skipBack: Duration(seconds: back), skipForward: Duration(seconds: ahead));
+    MaterialDesktopVideoControlsThemeData desktop() => desktopControlsTheme(look, accent, bar: desktopBar, keys: keys);
     return MaterialDesktopVideoControlsTheme(
-      normal: MaterialDesktopVideoControlsThemeData(bottomButtonBar: desktopBar, keyboardShortcuts: keys),
-      fullscreen: MaterialDesktopVideoControlsThemeData(bottomButtonBar: desktopBar, keyboardShortcuts: keys),
+      normal: desktop(),
+      fullscreen: desktop(),
       child: MaterialVideoControlsTheme(
         normal: phone(),
         fullscreen: phone(),
@@ -710,7 +710,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               Text(facts, style: TextStyle(color: AppColors.textDim)),
               if (_tracksSetUp) Text(tracksSummary, style: TextStyle(color: AppColors.textDim, fontSize: 12)),
               const SizedBox(height: 12),
-              Wrap(spacing: 8, runSpacing: 8, children: [
+              // Main buttons first (watching); the others on a row below.
+              Wrap(key: const ValueKey('main-buttons'), spacing: 8, runSpacing: 8, children: [
                 FilledButton.tonalIcon(
                   icon: const Icon(Icons.open_in_full),
                   label: const Text('Enlarge'),
@@ -733,6 +734,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   label: Text('Speed ${SpeedButton.label(_speed)}'),
                   onPressed: _problem == null ? () => _chooseSpeed(context) : null,
                 ),
+              ]),
+              // The less-used ones on their own row, under the main ones.
+              const SizedBox(height: 10),
+              Wrap(key: const ValueKey('secondary-buttons'), spacing: 8, runSpacing: 8, children: [
                 OutlinedButton.icon(
                   icon: const Icon(Icons.equalizer),
                   label: const Text('Equaliser'),

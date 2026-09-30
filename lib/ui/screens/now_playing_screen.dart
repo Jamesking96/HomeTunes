@@ -5,7 +5,9 @@
 // Bookmark, Speed, Chapters, Bookmarks and (if music is waiting) "Back to music".
 // Lyrics replace the cover on narrow screens and sit in a side panel on windows ≥900 px wide.
 // A song with a music video (0.1.32) shows the video, muted and in step with the song, in place
-// of the cover (MusicVideoView); the video button beside Lyrics switches back to the cover.
+// of the cover (MusicVideoView) — straight away, or when the video button beside Lyrics is
+// pressed if Settings › Music › "Play music videos automatically" is off. The button switches
+// between the video and the cover for the song playing.
 // Everything comes from PlayerModel, which this page watches.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -55,6 +57,10 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
   String? _videoKey;
   String? _videoFile;
 
+  /// The video button's choice (video or cover), and the song it was made for.
+  String? _videoChoiceFor;
+  bool _videoChoice = false;
+
   /// The music video fills the middle of the page (and the lyrics panel steps aside).
   bool _bigVideo = NowPlayingScreen.videoWasEnlarged;
   void _toggleBigVideo() {
@@ -90,7 +96,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     final lyricsPanel = LyricsView(key: ValueKey(t.id), track: t);
     // Music video (0.1.32): songs only, and only while the setting / video button is on.
     final videoFile = book == null ? _videoOf(t) : null;
-    final showVideo = context.select<LibraryModel, bool>((l) => l.showMusicVideos);
+    final videosOn = context.select<LibraryModel, bool>((l) => l.showMusicVideos);
+    final autoPlay = context.select<LibraryModel, bool>((l) => l.autoPlayMusicVideos);
+    // Settings › Music: play it straight away, or only when the video button is pressed. The
+    // button's choice lasts for this song.
+    final showVideo = videosOn && (_videoChoiceFor == t.id ? _videoChoice : autoPlay);
     final cover = Artwork(track: t, size: artSize, radius: 8);
     final videoShown = videoFile != null && showVideo;
     // Enlarged: as big as the middle of the page allows (the lyrics panel steps aside).
@@ -265,13 +275,17 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                           label: const Text('Back to music'),
                           onPressed: p.resumeMusic,
                         ),
-                      // Songs with a music video: switch between the video and the cover (0.1.32).
-                      // The choice is remembered (Settings > Playback > Music videos).
-                      if (videoFile != null)
+                      // Songs with a music video: switch between the video and the cover (0.1.32),
+                      // for this song. Settings › Music says whether videos start by themselves.
+                      if (videoFile != null && videosOn)
                         IconButton(
-                          tooltip: showVideo ? 'Show the cover' : 'Show the music video',
+                          key: const ValueKey('music-video-button'),
+                          tooltip: showVideo ? 'Show the cover' : 'Play the music video',
                           icon: Icon(showVideo ? Icons.music_video : Icons.music_video_outlined, color: showVideo ? accent : null),
-                          onPressed: () => context.read<LibraryModel>().updatePlaybackSettings(showMusicVideos: !showVideo),
+                          onPressed: () => setState(() {
+                            _videoChoiceFor = t.id;
+                            _videoChoice = !showVideo;
+                          }),
                         ),
                       if (book == null)
                         IconButton(

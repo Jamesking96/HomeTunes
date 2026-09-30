@@ -248,6 +248,8 @@ class VideoLibraryModel extends ChangeNotifier {
       if (shape != null) _collectionShapes[newKey] = shape;
       final speed = _speeds.remove(oldKey);
       if (speed != null) _speeds[newKey] = speed;
+      final titles = _seasonTitles.remove(oldKey);
+      if (titles != null) _seasonTitles[newKey] = titles;
     }
     _rebuild();
     await _save();
@@ -372,6 +374,63 @@ class VideoLibraryModel extends ChangeNotifier {
     shape == null ? _collectionShapes.remove(c.key) : _collectionShapes[c.key] = shape;
     notifyListeners();
     await _save();
+  }
+
+  // ---- season titles ("Season 1 - Offline News") ----
+
+  // Titles the user gave seasons, by collection key then season number ("" = no title, on purpose).
+  Map<String, Map<int, String>> _seasonTitles = {};
+
+  /// The title shown after "Season n": the user's own, else what the season folder or the
+  /// series' tvshow.nfo says (the most common among its videos). Null when there's none.
+  String? seasonTitleOf(VideoCollection c, int season) {
+    final own = _seasonTitles[c.key]?[season];
+    if (own != null) return own.isEmpty ? null : own;
+    return mostCommon([for (final v in c.videos) if (v.season == season) v.seasonTitle]);
+  }
+
+  /// The title the season's folder name gives ("Season 1 - Offline News" → "Offline News"),
+  /// ignoring the user's own and any .nfo.
+  String? folderSeasonTitle(VideoCollection c, int season) {
+    final roots = library.videoFolders;
+    return mostCommon([
+      for (final v in c.videos)
+        if (v.season == season)
+          if (roots.where((r) => isInside(v.path, r)).firstOrNull case final root?)
+            describeVideoPath(root, v.path).seasonTitle,
+    ]);
+  }
+
+  /// Whether the user gave season [season] of [c] its own title (or cleared it).
+  bool hasOwnSeasonTitle(VideoCollection c, int season) => _seasonTitles[c.key]?.containsKey(season) ?? false;
+
+  /// Gives a season its own title; '' shows none, null goes back to what the files say. With
+  /// [writeNfo], the series' tvshow.nfo gets it too (`<namedseason>`; none removes it), so it
+  /// survives a new install and other programs see it. Returns what went wrong writing.
+  Future<List<String>> setSeasonTitle(VideoCollection c, int season, String? title, {bool writeNfo = false}) async {
+    final t = title?.trim();
+    if (t == null) {
+      _seasonTitles[c.key]?.remove(season);
+      if (_seasonTitles[c.key]?.isEmpty ?? false) _seasonTitles.remove(c.key);
+    } else {
+      (_seasonTitles[c.key] ??= {})[season] = t;
+    }
+    notifyListeners();
+    await _save();
+    if (!writeNfo) return const [];
+    final folder = _seriesFolder(c, library.videoFolders);
+    if (folder == null) return const [];
+    return writeNfoFilesInBackground([
+      NfoJob(p.join(folder, showNfoName), 'tvshow', {namedSeasonKey(season): t}),
+    ]);
+  }
+
+  /// Heading text for a group on a collection's page: "Season 1 – Offline News".
+  String groupLabel(VideoCollection c, String heading, List<VideoItem> list) {
+    final season = list.firstOrNull?.season;
+    if (season == null || season == 0 || heading != 'Season $season') return heading;
+    final title = seasonTitleOf(c, season);
+    return title == null ? heading : '$heading – $title';
   }
 
   /// The speed videos in [collection] play at: the last one chosen there, else the usual one.
@@ -528,6 +587,17 @@ class VideoLibraryModel extends ChangeNotifier {
                 e.key as String: (e.value as num).toDouble()
           }
         : {};
+    // Season titles: {"silo": {"1": "Offline News"}}.
+    final st = j['seasonTitles'];
+    _seasonTitles = {
+      if (st is Map)
+        for (final e in st.entries)
+          if (e.key is String && e.value is Map)
+            e.key as String: {
+              for (final s in (e.value as Map).entries)
+                if (int.tryParse('${s.key}') case final n? when s.value is String) n: s.value as String,
+            },
+    }..removeWhere((_, v) => v.isEmpty);
     _rebuild();
   }
 
@@ -546,6 +616,10 @@ class VideoLibraryModel extends ChangeNotifier {
       if (_shapes.isNotEmpty) 'shapes': {for (final e in _shapes.entries) e.key: e.value.name},
       if (_collectionShapes.isNotEmpty) 'collectionShapes': {for (final e in _collectionShapes.entries) e.key: e.value.name},
       if (_speeds.isNotEmpty) 'speeds': _speeds,
+      if (_seasonTitles.isNotEmpty)
+        'seasonTitles': {
+          for (final e in _seasonTitles.entries) e.key: {for (final s in e.value.entries) '${s.key}': s.value},
+        },
       if (_favourites.isNotEmpty) 'favourites': _favourites.toList()..sort(),
       if (_descriptions.isNotEmpty) 'descriptions': _descriptions,
       if (_trackChoices.isNotEmpty)
@@ -584,15 +658,6 @@ class VideoLibraryModel extends ChangeNotifier {
     for (final v in all) {
       (groups[VideoCollection.keyFor(v.collection)] ??= []).add(v);
     }
-    T? mostCommon<T>(Iterable<T?> values) {
-      final counts = <T, int>{};
-      for (final x in values) {
-        if (x != null) counts[x] = (counts[x] ?? 0) + 1;
-      }
-      if (counts.isEmpty) return null;
-      return counts.entries.reduce((a, b) => b.value > a.value ? b : a).key;
-    }
-
     final built = <VideoCollection>[];
     for (final e in groups.entries) {
       final list = sortForCollection(e.value);
@@ -848,4 +913,14 @@ class VideoLibraryModel extends ChangeNotifier {
       return false;
     }
   }
+}
+
+/// The value found most often (nulls skipped); null when there's none.
+T? mostCommon<T>(Iterable<T?> values) {
+  final counts = <T, int>{};
+  for (final x in values) {
+    if (x != null) counts[x] = (counts[x] ?? 0) + 1;
+  }
+  if (counts.isEmpty) return null;
+  return counts.entries.reduce((a, b) => b.value > a.value ? b : a).key;
 }

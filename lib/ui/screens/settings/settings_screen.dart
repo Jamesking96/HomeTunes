@@ -18,6 +18,7 @@ import 'audiobook_settings.dart';
 import 'backup_settings.dart';
 import 'edits_settings.dart';
 import 'library_settings.dart';
+import 'music_settings.dart';
 import 'online_settings.dart';
 import 'playback_settings.dart';
 import 'server_settings.dart';
@@ -39,6 +40,7 @@ Widget settingsPageBody(SettingsPage page) => switch (page) {
       SettingsPage.appearance => const AppearanceSettings(),
       SettingsPage.about => const AboutSettings(),
       SettingsPage.videos => const VideoSettings(),
+      SettingsPage.music => const MusicSettings(),
     };
 
 /// Settings: a list of pages with a search box. Wide windows show the list and
