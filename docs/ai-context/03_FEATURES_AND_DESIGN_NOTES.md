@@ -266,6 +266,15 @@ before changing that area.
     innermost folder that holds it (`ownerFolder`), so an audiobook folder inside a music folder
     has its own choices. Removing a folder forgets its choices. Types are stored as switched
     **off**, so a new type that turns up later shows until unticked.
+  - **Video folders** (30 Sep, 0.1.32, user's request: "the same setting options as the music and
+    audiobook folders"): each video folder row (Folders & scanning and Settings › Videos, the
+    shared `VideoFoldersSection`) has the same button (`FolderOptionsButton(videos: true)`). Rescan
+    this folder → `VideoLibraryModel.scanFolder` (queued with other video scans; replaces only the
+    videos inside it, then makes thumbnails). File types come from the scanned videos
+    (`VideoLibraryModel.formatsIn`, "3 videos") and are stored in the same `hiddenFormats` map;
+    `VideoLibraryModel._rebuild` leaves those videos out of `videos` and the collections at once,
+    keeping their places and edits, and notices a change through `_hiddenKey`. Removing a video
+    folder forgets its choices. Tests: `test/video_folder_options_test.dart`.
   - Audiobook folders got both options (the user asked for the rescan; file types came with
     the same window).
 - **Mute:** the speaker icon beside every volume slider (`VolumeControl`: player bar, Now

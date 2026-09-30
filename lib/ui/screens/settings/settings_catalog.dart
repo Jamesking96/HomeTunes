@@ -58,7 +58,7 @@ class SettingInfo {
 const settingsCatalog = <SettingInfo>[
   SettingInfo('music-folders', SettingsPage.library, 'Music folders', 'add folder rescan scan location library'),
   SettingInfo('library-book-folders', SettingsPage.library, 'Audiobook folders', 'add folder books location scan rescan library'),
-  SettingInfo('library-video-folders', SettingsPage.library, 'Video folders', 'add folder videos films movies mp4 mkv location scan rescan'),
+  SettingInfo('library-video-folders', SettingsPage.library, 'Video folders', 'add folder videos films movies mp4 mkv location scan rescan folder options file types formats'),
   SettingInfo('gapless', SettingsPage.playback, 'Gapless playback', 'gap silence live album mix'),
   SettingInfo('equaliser', SettingsPage.playback, 'Equaliser', 'equalizer eq bass treble presets sound tone'),
   SettingInfo('swipe-to-skip', SettingsPage.playback, 'Swipe gestures', 'swipe gesture next previous song audiobook phone touch'),
@@ -88,7 +88,7 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('video-speed', SettingsPage.videos, 'Video speed', 'playback speed faster slower videos'),
   SettingInfo('video-rewind', SettingsPage.videos, 'Rewind a little when carrying on', 'resume videos'),
   SettingInfo('video-eq', SettingsPage.videos, 'Separate equaliser for videos', 'equalizer eq sound videos'),
-  SettingInfo('video-folders', SettingsPage.videos, 'Video folders', 'add folder videos films movies location'),
+  SettingInfo('video-folders', SettingsPage.videos, 'Video folders', 'add folder videos films movies location folder options rescan file types formats'),
   SettingInfo('video-nfo', SettingsPage.videos, 'Save edits into .nfo files', 'nfo kodi jellyfin plex details videos'),
   SettingInfo('video-shape', SettingsPage.videos, 'Video picture shape', 'look tall square wide thumbnail videos'),
   SettingInfo('collection-shape', SettingsPage.videos, 'Collection poster shape', 'look tall square wide poster collections'),
