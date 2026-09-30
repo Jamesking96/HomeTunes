@@ -188,6 +188,44 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> {
   // Follows the collection if it's renamed from this page.
   late String _name = widget.name;
 
+  // Seasons / parts / Specials / Extras that are folded up (by heading), for this visit.
+  final Set<String> _collapsed = {};
+  final ScrollController _scroll = ScrollController();
+  // The header's height (picture, details, buttons), measured after it's drawn, so a
+  // contents chip can work out where its season starts.
+  final GlobalKey _headerKey = GlobalKey();
+  double _headerHeight = 0;
+
+  /// Height of one video's row, and of a season's heading.
+  static const rowExtent = 98.0;
+  static const headingExtent = 52.0;
+  static const contentsExtent = 56.0;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _toggle(String heading) => setState(() => _collapsed.contains(heading) ? _collapsed.remove(heading) : _collapsed.add(heading));
+
+  /// Opens [heading] (if folded) and scrolls so it sits just under the contents bar.
+  void _jumpTo(List<(String?, List<VideoItem>)> groups, String heading) {
+    setState(() => _collapsed.remove(heading));
+    var offset = _headerHeight;
+    for (final (h, list) in groups) {
+      if (h == heading) break;
+      if (h != null) offset += headingExtent;
+      if (h == null || !_collapsed.contains(h)) offset += list.length * rowExtent;
+    }
+    // After the rebuild, so the unfolded season's rows count towards the end of the list.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      final to = offset.clamp(0.0, _scroll.position.maxScrollExtent);
+      _scroll.animateTo(to, duration: const Duration(milliseconds: 350), curve: Curves.easeOutCubic);
+    });
+  }
+
   Future<void> _edit(VideoCollection c) async {
     final renamed = await showEditCollection(context, c);
     if (renamed != null && mounted) setState(() => _name = renamed);
@@ -282,6 +320,14 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> {
       );
     });
 
+    final groups = c.groups;
+    final headed = [for (final (h, list) in groups) if (h != null) (h, list)];
+    // Measure the header once it's drawn (the contents chips need to know where seasons start).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final box = _headerKey.currentContext?.findRenderObject();
+      if (box is RenderBox && box.hasSize) _headerHeight = box.size.height;
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -298,23 +344,143 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> {
           ),
         ],
       ),
-      body: CustomScrollView(slivers: [
-        SliverToBoxAdapter(child: header),
-        for (final (heading, list) in c.groups) ...[
-          if (heading != null)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                child: Text('$heading  (${list.length})', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+      body: CustomScrollView(controller: _scroll, slivers: [
+        SliverToBoxAdapter(child: KeyedSubtree(key: _headerKey, child: header)),
+        // Contents: a chip per season / part / Specials / Extras that jumps there. Stays at the
+        // top while scrolling.
+        if (headed.length > 1)
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _ContentsBar(
+              extent: contentsExtent,
+              child: Material(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                child: Row(children: [
+                  Expanded(
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      children: [
+                        for (final (heading, list) in headed)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ActionChip(
+                              key: ValueKey('contents-$heading'),
+                              avatar: list.any((v) => v.id == next?.id)
+                                  ? Icon(Icons.play_arrow, size: 16, color: accent)
+                                  : (list.every((v) => model.placeOf(v.id)?.watched ?? false)
+                                      ? Icon(Icons.check, size: 16, color: accent)
+                                      : null),
+                              label: Text('$heading (${list.length})'),
+                              onPressed: () => _jumpTo(groups, heading),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    key: const ValueKey('fold-all'),
+                    onPressed: () => setState(() {
+                      if (_collapsed.length == headed.length) {
+                        _collapsed.clear();
+                      } else {
+                        _collapsed.addAll([for (final (h, _) in headed) h]);
+                      }
+                    }),
+                    child: Text(_collapsed.length == headed.length ? 'Open all' : 'Fold all'),
+                  ),
+                  const SizedBox(width: 8),
+                ]),
               ),
             ),
-          SliverList.builder(
-            itemCount: list.length,
-            itemBuilder: (_, i) => EpisodeRow(video: list[i], isNext: list[i].id == next?.id),
           ),
+        for (final (heading, list) in groups) ...[
+          if (heading != null)
+            SliverToBoxAdapter(
+              child: _GroupHeading(
+                heading: heading,
+                count: list.length,
+                watched: list.where((v) => model.placeOf(v.id)?.watched ?? false).length,
+                folded: _collapsed.contains(heading),
+                hasNext: list.any((v) => v.id == next?.id),
+                onTap: () => _toggle(heading),
+              ),
+            ),
+          if (heading == null || !_collapsed.contains(heading))
+            SliverFixedExtentList.builder(
+              itemExtent: rowExtent,
+              itemCount: list.length,
+              itemBuilder: (_, i) => EpisodeRow(video: list[i], isNext: list[i].id == next?.id),
+            ),
         ],
         const SliverToBoxAdapter(child: SizedBox(height: 24)),
       ]),
+    );
+  }
+}
+
+/// The pinned contents bar on a collection's page.
+class _ContentsBar extends SliverPersistentHeaderDelegate {
+  final double extent;
+  final Widget child;
+  _ContentsBar({required this.extent, required this.child});
+
+  @override
+  double get minExtent => extent;
+  @override
+  double get maxExtent => extent;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => SizedBox.expand(child: child);
+
+  @override
+  bool shouldRebuild(_ContentsBar old) => true;
+}
+
+/// A season's heading: tap to fold it up or open it again.
+class _GroupHeading extends StatelessWidget {
+  final String heading;
+  final int count, watched;
+  final bool folded, hasNext;
+  final VoidCallback onTap;
+  const _GroupHeading(
+      {required this.heading,
+      required this.count,
+      required this.watched,
+      required this.folded,
+      required this.hasNext,
+      required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return SizedBox(
+      height: _VideoCollectionScreenState.headingExtent,
+      child: InkWell(
+        key: ValueKey('heading-$heading'),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(children: [
+            AnimatedRotation(
+              turns: folded ? -0.25 : 0,
+              duration: const Duration(milliseconds: 150),
+              child: const Icon(Icons.expand_more),
+            ),
+            const SizedBox(width: 6),
+            Text('$heading  ($count)', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            if (hasNext) ...[
+              const SizedBox(width: 8),
+              Icon(Icons.play_arrow, size: 18, color: accent),
+            ],
+            const Spacer(),
+            Text(
+              watched == 0 ? '' : (watched == count ? 'All watched' : '$watched of $count watched'),
+              style: TextStyle(color: AppColors.textDim, fontSize: 12),
+            ),
+          ]),
+        ),
+      ),
     );
   }
 }
