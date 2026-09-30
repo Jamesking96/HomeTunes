@@ -167,6 +167,15 @@ class VideoLibraryModel extends ChangeNotifier {
     return next.extra && !v.extra ? null : next;
   }
 
+  /// The video before [v] in its collection (the previous-video button), or null at the start.
+  /// From an extra it goes back through the extras, then to the last episode.
+  VideoItem? before(VideoItem v) {
+    final c = collectionOf(v);
+    if (c == null) return null;
+    final i = c.videos.indexWhere((x) => x.id == v.id);
+    return i <= 0 ? null : c.videos[i - 1];
+  }
+
   /// How many of [c]'s episodes (not extras) are watched.
   int watchedCount(VideoCollection c) => c.main.where((v) => _places[v.id]?.watched ?? false).length;
 

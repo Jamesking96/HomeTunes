@@ -112,7 +112,12 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
       mediaItem.add(item);
     }
     playbackState.add(PlaybackState(
-      controls: [MediaControl.rewind, w.playing ? MediaControl.pause : MediaControl.play, MediaControl.fastForward],
+      // Previous / next video in the collection (seconds back / forward when there isn't one).
+      controls: [
+        w.hasPrevious ? MediaControl.skipToPrevious : MediaControl.rewind,
+        w.playing ? MediaControl.pause : MediaControl.play,
+        w.hasNext ? MediaControl.skipToNext : MediaControl.fastForward,
+      ],
       androidCompactActionIndices: const [0, 1, 2],
       systemActions: const {MediaAction.seek, MediaAction.seekForward, MediaAction.seekBackward},
       processingState: AudioProcessingState.ready,
@@ -238,13 +243,26 @@ class MediaSession extends BaseAudioHandler with SeekHandler {
 
   // Next / previous (headset buttons, keyboard media keys, the Windows media
   // overlay) skip by seconds while a book plays.
+  // A video: the next / previous one in its collection, else by seconds.
   @override
-  Future<void> skipToNext() =>
-      _video ? watching!.skip(forward: true) : (player.inBook ? player.skipForward() : player.next());
+  Future<void> skipToNext() async {
+    if (_video) {
+      final w = watching!;
+      w.hasNext ? w.next() : await w.skip(forward: true);
+      return;
+    }
+    await (player.inBook ? player.skipForward() : player.next());
+  }
 
   @override
-  Future<void> skipToPrevious() =>
-      _video ? watching!.skip(forward: false) : (player.inBook ? player.skipBack() : player.previous());
+  Future<void> skipToPrevious() async {
+    if (_video) {
+      final w = watching!;
+      w.hasPrevious ? w.previous() : await w.skip(forward: false);
+      return;
+    }
+    await (player.inBook ? player.skipBack() : player.previous());
+  }
 
   @override
   Future<void> fastForward() => _video ? watching!.skip(forward: true) : player.skipForward();

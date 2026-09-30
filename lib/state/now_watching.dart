@@ -76,10 +76,19 @@ class NowWatching extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Opens the next / previous video in the collection on the page; null when there isn't one.
+  VoidCallback? onNext, onPrevious;
+
+  bool get hasNext => onNext != null;
+  bool get hasPrevious => onPrevious != null;
+
   /// Which video is on the page now (it moves on to the next episode by itself).
-  void showing(VideoItem v, {String? picture, int? skipBack, int? skipForward}) {
+  void showing(VideoItem v,
+      {String? picture, int? skipBack, int? skipForward, VoidCallback? onNext, VoidCallback? onPrevious}) {
     video = v;
     this.picture = picture;
+    this.onNext = onNext;
+    this.onPrevious = onPrevious;
     if (skipBack != null) skipBackSeconds = skipBack;
     if (skipForward != null) skipForwardSeconds = skipForward;
     notifyListeners();
@@ -93,6 +102,8 @@ class NowWatching extends ChangeNotifier {
     video = null;
     picture = null;
     onOpen = null;
+    onNext = null;
+    onPrevious = null;
     _front = false;
     notifyListeners();
   }
@@ -141,6 +152,10 @@ class NowWatching extends ChangeNotifier {
   /// Back or forward by the page's skip amounts (Settings › Videos).
   Future<void> skip({required bool forward}) =>
       seek(position + Duration(seconds: forward ? skipForwardSeconds : -skipBackSeconds));
+
+  /// The next / previous video in the collection, when there is one.
+  void next() => onNext?.call();
+  void previous() => onPrevious?.call();
 
   double get volume => _transport?.volume ?? 100;
   Future<void> setVolume(double v) async {
