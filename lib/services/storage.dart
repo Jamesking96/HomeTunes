@@ -225,6 +225,7 @@ class Storage with ChangeNotifier {
         'bookmarks.json' => 'bookmarks',
         'lyrics.json' => 'saved lyrics',
         'equalizer.json' => 'equaliser settings',
+        'videos.json' => 'videos, their edits and watched places',
         _ => name,
       };
 }

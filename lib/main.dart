@@ -11,6 +11,7 @@ import 'package:audio_service_win/audio_service_win.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:path/path.dart' as p;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
@@ -18,6 +19,7 @@ import 'services/app_licences.dart';
 import 'services/media_session.dart';
 import 'services/playback_log.dart';
 import 'services/storage.dart';
+import 'services/video_thumbnails.dart';
 import 'state/bookmarks_model.dart';
 import 'state/equalizer_model.dart';
 import 'state/library_model.dart';
@@ -28,6 +30,7 @@ import 'state/playlists_model.dart';
 import 'state/selection_model.dart';
 import 'state/sleep_timer.dart';
 import 'state/update_model.dart';
+import 'state/video_library_model.dart';
 import 'ui/nav.dart';
 import 'ui/screens/settings/appearance_settings.dart';
 import 'ui/screens/settings/update_ui.dart';
@@ -95,6 +98,11 @@ Future<void> main() async {
       bookmarks.removeIds(ids);
     });
 
+  // The Videos tab (0.1.32). Made after the library has loaded, as it follows the library's
+  // video folders from their saved state.
+  final videos = VideoLibraryModel(storage, library)..thumbnailer = VideoThumbnailer(p.join(storage.artDir, 'video'));
+  await safely('videos', videos.load);
+
   // Books whose folder moved get a new id: their listening place follows (after each rebuild,
   // only when the list of books actually changed).
   var lastBooks = library.books;
@@ -109,7 +117,7 @@ Future<void> main() async {
   // (Android notification/lock screen, Windows media keys) are wired to it.
   final player = PlayerModel(library, listening: listening, equalizer: equalizer);
   // Save the place in an audiobook whenever the app is put away.
-  WidgetsBinding.instance.addObserver(_SaveOnBackground(player));
+  WidgetsBinding.instance.addObserver(_SaveOnBackground(player, videos));
   if (Platform.isWindows) {
     // Make sure the Windows media-controls plugin is the one audio_service uses.
     AudioServiceWin.registerWith();
@@ -131,6 +139,7 @@ Future<void> main() async {
     equalizer: equalizer,
     player: player,
     updates: updates,
+    videos: videos,
   ));
 
   // First start after an update: show what changed since the version that ran before
@@ -151,12 +160,14 @@ Future<void> main() async {
 
   // Pick up new / changed files in the background after start-up.
   if (library.folders.isNotEmpty) library.scanLocal(); // not awaited on purpose
+  if (library.videoFolders.isNotEmpty) videos.scan(); // runs alongside; thumbnails follow
 }
 
 /// Watches the app going into / coming out of the background (a Flutter lifecycle observer).
 class _SaveOnBackground with WidgetsBindingObserver {
   final PlayerModel player;
-  _SaveOnBackground(this.player);
+  final VideoLibraryModel videos;
+  _SaveOnBackground(this.player, this.videos);
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -171,6 +182,7 @@ class _SaveOnBackground with WidgetsBindingObserver {
       // before the app is closed, so save the book place (and anything else waiting) now.
       player.saveBookPlace();
       player.library.flushPendingSaves();
+      videos.flushPendingSaves();
     }
   }
 }
@@ -186,6 +198,7 @@ class HomeTunesApp extends StatelessWidget {
   final EqualizerModel equalizer;
   final PlayerModel player;
   final UpdateModel updates;
+  final VideoLibraryModel videos;
   const HomeTunesApp({
     super.key,
     required this.library,
@@ -196,6 +209,7 @@ class HomeTunesApp extends StatelessWidget {
     required this.equalizer,
     required this.player,
     required this.updates,
+    required this.videos,
   });
 
   @override
@@ -211,6 +225,7 @@ class HomeTunesApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: equalizer),
         ChangeNotifierProvider.value(value: player),
         ChangeNotifierProvider.value(value: updates),
+        ChangeNotifierProvider.value(value: videos),
         // These only matter to the UI, so Provider creates (and owns) them itself.
         ChangeNotifierProvider(create: (_) => SleepTimer(player, library)),
         ChangeNotifierProvider(create: (_) => AppNav()),

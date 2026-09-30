@@ -56,6 +56,7 @@ class SettingInfo {
 const settingsCatalog = <SettingInfo>[
   SettingInfo('music-folders', SettingsPage.library, 'Music folders', 'add folder rescan scan location library'),
   SettingInfo('library-book-folders', SettingsPage.library, 'Audiobook folders', 'add folder books location scan rescan library'),
+  SettingInfo('library-video-folders', SettingsPage.library, 'Video folders', 'add folder videos films movies mp4 mkv location scan rescan'),
   SettingInfo('gapless', SettingsPage.playback, 'Gapless playback', 'gap silence live album mix'),
   SettingInfo('equaliser', SettingsPage.playback, 'Equaliser', 'equalizer eq bass treble presets sound tone'),
   SettingInfo('swipe-to-skip', SettingsPage.playback, 'Swipe gestures', 'swipe gesture next previous song audiobook phone touch'),

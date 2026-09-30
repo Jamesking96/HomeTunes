@@ -118,6 +118,8 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
   - A Windows build folder that ever held the audio engine keeps it: CMake skips unpacking the video archive while `build\windows\x64\libmpv\` isn't empty. Delete that folder (and the stale `media_kit_libs_windows_audio_plugin.dll` in the Release folder) once, or `build_release.ps1` ships the old audio-only DLL and videos never show.
   - Not yet tried on the phone (APK size and 4K VP9 decoding speed on the Pixel 8 are worth checking).
   - Ideas not done: a small video in the desktop player bar or mini player; a "Music video" row on the Details page.
+  - The Videos tab (same branch) adds the `image` package (MIT) for thumbnails: list it in `THIRD_PARTY_NOTICES.md` with the engine update. Flutter's licence page lists it by itself.
+  - Videos tab, not tried yet: on the phone (the new "Photos and videos" permission, full screen turning the phone sideways, thumbnail speed), and the full-screen buttons on a real window (checked with tests and the engine bench only; the preview pictures can't draw the video engine).
 
 ## Offered earlier, not done (only if the user wants)
 - Delete old installers in `build\dist` (0.1.0/0.1.2/0.1.3).

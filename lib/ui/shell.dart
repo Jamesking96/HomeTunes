@@ -1,6 +1,6 @@
 // The app's outer frame: everything that stays on screen around the pages.
 //
-// main.dart shows [Shell] as the MaterialApp's home. It lays out the five tabs (each with its
+// main.dart shows [Shell] as the MaterialApp's home. It lays out the six tabs (each with its
 // own Navigator from AppNav), plus the status strip (scan progress / errors), the multi-select
 // bar and the player. Wide windows (desktop) get a left sidebar and a full player bar along the
 // bottom; phones get a mini player above a bottom navigation bar. It also decides what the
@@ -25,6 +25,7 @@ import 'screens/edit_book.dart';
 import 'screens/edit_details.dart';
 import 'screens/search_screen.dart';
 import 'screens/settings/settings_screen.dart';
+import 'screens/videos_screen.dart';
 import 'theme.dart';
 import 'widgets/player_controls.dart';
 import 'widgets/quick_actions.dart';
@@ -43,7 +44,7 @@ class Shell extends StatelessWidget {
     final nav = context.watch<AppNav>();
     final wide = MediaQuery.sizeOf(context).width >= wideBreakpoint;
 
-    // All five tabs stay alive in an IndexedStack (only the chosen one is shown), so each tab
+    // All six tabs stay alive in an IndexedStack (only the chosen one is shown), so each tab
     // keeps its scroll position and open pages while you're on another tab.
     final tabs = IndexedStack(
       index: nav.tab,
@@ -52,6 +53,7 @@ class Shell extends StatelessWidget {
         _TabNavigator(navKey: nav.keys[1], root: const SearchScreen()),
         _TabNavigator(navKey: nav.keys[2], root: const LibraryScreen()),
         _TabNavigator(navKey: nav.keys[AppNav.booksTab], root: const BooksScreen()),
+        _TabNavigator(navKey: nav.keys[AppNav.videosTab], root: const VideosScreen()),
         _TabNavigator(navKey: nav.keys[AppNav.settingsTab], root: const SettingsScreen()),
       ],
     );
@@ -116,6 +118,8 @@ class Shell extends StatelessWidget {
                 icon: Icon(Icons.library_music_outlined), selectedIcon: Icon(Icons.library_music), label: 'Library'),
             NavigationDestination(
                 icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book), label: 'Books'),
+            NavigationDestination(
+                icon: Icon(Icons.video_library_outlined), selectedIcon: Icon(Icons.video_library), label: 'Videos'),
             NavigationDestination(
                 icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),
           ],
@@ -242,6 +246,7 @@ class _Sidebar extends StatelessWidget {
         item(1, Icons.search, 'Search'),
         item(AppNav.libraryTab, Icons.library_music, 'Your Library'),
         item(AppNav.booksTab, Icons.menu_book, 'Audiobooks'),
+        item(AppNav.videosTab, Icons.video_library, 'Videos'),
         item(AppNav.settingsTab, Icons.settings, 'Settings'),
         const Divider(height: 24),
         // Liked Songs and the playlists open on the Library tab.

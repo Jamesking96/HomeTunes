@@ -10,9 +10,13 @@
 //  * a new song with a video reuses the same player; the page shows the cover for songs without.
 // Until the first picture arrives (or if the file can't be shown) the [fallback] (the cover) is
 // shown instead, so there's never an empty black box.
+// Buttons over the video (shown while the mouse is over it, or after a tap) make it bigger on
+// Now Playing (Enlarge) or fill the screen (Full screen). In full screen the song's controls and
+// title show over the video when the mouse moves; Esc, F or a double-click leave it.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
@@ -47,7 +51,18 @@ class MusicVideoView extends StatefulWidget {
   /// Shown until the first picture arrives, or instead of the video if it can't be shown.
   final Widget fallback;
 
-  const MusicVideoView({super.key, required this.file, required this.fallback});
+  /// Whether Now Playing shows the video enlarged, and the button that switches it (null: no
+  /// Enlarge button).
+  final bool enlarged;
+  final VoidCallback? onToggleEnlarge;
+
+  const MusicVideoView({
+    super.key,
+    required this.file,
+    required this.fallback,
+    this.enlarged = false,
+    this.onToggleEnlarge,
+  });
 
   @override
   State<MusicVideoView> createState() => _MusicVideoViewState();
@@ -57,6 +72,8 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
   // The video's own player: muted, no sound decoded, no subtitles.
   final Player _video = Player(configuration: const PlayerConfiguration(title: 'HomeTunes music video'));
   late final VideoController _controller = VideoController(_video);
+  // Reaches the Video widget to go full screen.
+  final GlobalKey<VideoState> _videoKey = GlobalKey<VideoState>();
   late final PlayerModel _song;
   final List<StreamSubscription> _subs = [];
 
@@ -182,7 +199,15 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
     for (final s in _subs) {
       s.cancel();
     }
-    _video.dispose();
+    // Still full screen (e.g. the next song has no video): leave it first, and let the
+    // full-screen page go before its player does.
+    final state = _videoKey.currentState;
+    if (state != null && state.isFullscreen()) {
+      state.exitFullscreen();
+      Future<void>.delayed(const Duration(milliseconds: 500), _video.dispose);
+    } else {
+      _video.dispose();
+    }
     super.dispose();
   }
 
@@ -209,8 +234,12 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
                 width: width,
                 height: height,
                 child: Video(
+                  key: _videoKey,
                   controller: _controller,
-                  controls: NoVideoControls,
+                  controls: (state) => MusicVideoControls(
+                    enlarged: widget.enlarged,
+                    onToggleEnlarge: widget.onToggleEnlarge,
+                  ),
                   fill: Colors.black,
                   // The video plays and pauses with the song; see didChangeAppLifecycleState.
                   pauseUponEnteringBackgroundMode: false,
@@ -222,4 +251,186 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
       if (_failed || !_ready) widget.fallback,
     ]);
   }
+}
+
+/// The buttons over a music video. On Now Playing: Enlarge / Shrink and Full screen, in the
+/// bottom corner. In full screen: the song's title, previous / play-pause / next and a button to
+/// leave full screen. Both fade in when the mouse moves (or on a tap) and out after 3 seconds.
+/// Keys in full screen: Esc or F leaves, Space plays or pauses the song. Double-click switches
+/// full screen on and off.
+class MusicVideoControls extends StatefulWidget {
+  final bool enlarged;
+  final VoidCallback? onToggleEnlarge;
+  const MusicVideoControls({super.key, this.enlarged = false, this.onToggleEnlarge});
+
+  @override
+  State<MusicVideoControls> createState() => _MusicVideoControlsState();
+}
+
+class _MusicVideoControlsState extends State<MusicVideoControls> {
+  bool _visible = true;
+  Timer? _hide;
+
+  @override
+  void initState() {
+    super.initState();
+    _poke();
+  }
+
+  /// Shows the buttons and hides them again after a few seconds of no movement.
+  void _poke() {
+    _hide?.cancel();
+    if (!_visible) setState(() => _visible = true);
+    _hide = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _visible = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _hide?.cancel();
+    super.dispose();
+  }
+
+  KeyEventResult _onKey(FocusNode _, KeyEvent e) {
+    if (e is! KeyDownEvent || !isFullscreen(context)) return KeyEventResult.ignored;
+    if (e.logicalKey == LogicalKeyboardKey.escape || e.logicalKey == LogicalKeyboardKey.keyF) {
+      exitFullscreen(context);
+      return KeyEventResult.handled;
+    }
+    if (e.logicalKey == LogicalKeyboardKey.space) {
+      context.read<PlayerModel>().togglePlay();
+      _poke();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final full = isFullscreen(context);
+    return Focus(
+      autofocus: full,
+      onKeyEvent: _onKey,
+      child: MouseRegion(
+        onHover: (_) => _poke(),
+        cursor: _visible || !full ? MouseCursor.defer : SystemMouseCursors.none,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: _poke,
+          onDoubleTap: () => toggleFullscreen(context),
+          child: Stack(children: [
+            const Positioned.fill(child: SizedBox.expand()),
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: !_visible,
+                child: AnimatedOpacity(
+                  opacity: _visible ? 1 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: full ? const _FullScreenBar() : _cornerButtons(context),
+                ),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _cornerButtons(BuildContext context) => Align(
+        alignment: Alignment.bottomRight,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (widget.onToggleEnlarge != null)
+              _RoundButton(
+                icon: widget.enlarged ? Icons.close_fullscreen : Icons.open_in_full,
+                tooltip: widget.enlarged ? 'Make the video smaller' : 'Enlarge the video',
+                onPressed: widget.onToggleEnlarge!,
+              ),
+            const SizedBox(width: 8),
+            _RoundButton(icon: Icons.fullscreen, tooltip: 'Full screen', onPressed: () => enterFullscreen(context)),
+          ]),
+        ),
+      );
+}
+
+/// Full screen: the song's title and controls along the bottom, and a way out.
+class _FullScreenBar extends StatelessWidget {
+  const _FullScreenBar();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<PlayerModel>();
+    final t = p.current;
+    return Stack(children: [
+      Positioned(
+        left: 16,
+        top: 16,
+        child: _RoundButton(icon: Icons.fullscreen_exit, tooltip: 'Leave full screen (Esc)', onPressed: () => exitFullscreen(context)),
+      ),
+      Positioned(
+        left: 0,
+        right: 0,
+        bottom: 0,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black87]),
+          ),
+          child: Row(children: [
+            Expanded(
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(t?.title ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)),
+                Text(t?.artist ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white70, fontSize: 16)),
+              ]),
+            ),
+            IconButton(
+              tooltip: 'Previous',
+              iconSize: 32,
+              color: Colors.white,
+              icon: const Icon(Icons.skip_previous),
+              onPressed: () => p.previous(),
+            ),
+            IconButton(
+              tooltip: p.playing ? 'Pause' : 'Play',
+              iconSize: 48,
+              color: Colors.white,
+              icon: Icon(p.playing ? Icons.pause_circle_filled : Icons.play_circle_filled),
+              onPressed: p.togglePlay,
+            ),
+            IconButton(
+              tooltip: 'Next',
+              iconSize: 32,
+              color: Colors.white,
+              icon: const Icon(Icons.skip_next),
+              onPressed: p.next,
+            ),
+            const SizedBox(width: 12),
+            _RoundButton(icon: Icons.fullscreen_exit, tooltip: 'Leave full screen', onPressed: () => exitFullscreen(context)),
+          ]),
+        ),
+      ),
+    ]);
+  }
+}
+
+class _RoundButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+  const _RoundButton({required this.icon, required this.tooltip, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: Colors.black54,
+        shape: const CircleBorder(),
+        child: IconButton(
+          tooltip: tooltip,
+          icon: Icon(icon, color: Colors.white),
+          onPressed: onPressed,
+        ),
+      );
 }

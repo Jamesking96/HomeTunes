@@ -68,6 +68,8 @@ dependencies:
   flutter_secure_storage: ^11.2.0
   # package_info_plus: reads the app's own version number for the About page.
   package_info_plus: ^10.2.1
+  # image: shrinks a video's thumbnail to a small JPEG (Videos tab, 0.1.32; pure Dart, MIT).
+  image: ^4.10.1
 
 # Only needed while developing: the test framework and the recommended lint rules.
 dev_dependencies:

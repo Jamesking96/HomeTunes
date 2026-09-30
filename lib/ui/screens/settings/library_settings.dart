@@ -1,6 +1,7 @@
 // Settings › Folders & scanning (called "Library" before 0.1.26; its code name is still
 // `library`): the music folders and the audiobook folders HomeTunes reads, the Rescan button
-// (which scans both), and the list of "missing" songs (known songs whose files have gone).
+// (which scans both), the video folders for the Videos tab (0.1.32, scanned separately with
+// their own Rescan), and the list of "missing" songs (known songs whose files have gone).
 //
 // Also home to [pickFolderWithPermission] and [AudiobookFoldersSection], which the Audiobooks
 // page shows too (the same setting in both places, as the user asked on 29 Sep). On Android the
@@ -12,6 +13,7 @@ import 'package:provider/provider.dart';
 
 import '../../../services/music_permission.dart';
 import '../../../state/library_model.dart';
+import '../../../state/video_library_model.dart';
 import '../../theme.dart';
 import 'settings_widgets.dart';
 
@@ -205,6 +207,78 @@ class AudiobookFoldersSection extends StatelessWidget {
   }
 }
 
+/// The video folders for the Videos tab (0.1.32), with Add, Rescan and a count. The folders are
+/// a setting in LibraryModel; VideoLibraryModel scans them.
+class VideoFoldersSection extends StatelessWidget {
+  const VideoFoldersSection({super.key});
+
+  Future<void> _addFolder(BuildContext context) async {
+    final lib = context.read<LibraryModel>();
+    final messenger = ScaffoldMessenger.of(context);
+    // Android keeps video files behind "Photos and videos", separate from "Music and audio".
+    final access = await MusicPermission.requestVideos();
+    if (access != MusicAccess.allowed) {
+      messenger.showSnackBar(const SnackBar(
+        content: Text('HomeTunes needs "Photos and videos" access to list your videos.'),
+        action: SnackBarAction(label: 'Open settings', onPressed: MusicPermission.openSettings),
+        duration: Duration(seconds: 8),
+      ));
+      return;
+    }
+    final path = await FilePicker.getDirectoryPath(dialogTitle: 'Choose a video folder');
+    if (path == null) return;
+    await lib.addVideoFolder(path);
+    messenger.showSnackBar(const SnackBar(content: Text('Looking for videos… They appear in the Videos tab.')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lib = context.watch<LibraryModel>();
+    final videos = context.watch<VideoLibraryModel>();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      for (final f in lib.videoFolders)
+        ListTile(
+          leading: const Icon(Icons.video_library_outlined),
+          title: Text(f, maxLines: 2, overflow: TextOverflow.ellipsis),
+          subtitle: videos.offlineFolders.contains(f)
+              ? const Text('Not available right now: its videos are kept as they were')
+              : null,
+          trailing: IconButton(
+            tooltip: 'Remove folder',
+            icon: const Icon(Icons.close),
+            onPressed: videos.busy ? null : () => lib.removeVideoFolder(f),
+          ),
+        ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Wrap(spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          OutlinedButton.icon(
+            icon: const Icon(Icons.create_new_folder_outlined),
+            label: const Text('Add video folder'),
+            onPressed: videos.busy ? null : () => _addFolder(context),
+          ),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.refresh),
+            label: const Text('Rescan videos'),
+            onPressed: videos.busy || lib.videoFolders.isEmpty ? null : videos.scan,
+          ),
+          Text(
+            videos.busy
+                ? (videos.status ?? 'Working…')
+                : '${videos.videos.length} video${videos.videos.length == 1 ? '' : 's'}',
+            style: TextStyle(color: AppColors.textDim),
+          ),
+        ]),
+      ),
+      if (videos.error != null && !videos.busy)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Text(videos.error!, style: const TextStyle(color: Colors.orangeAccent, fontSize: 12)),
+        ),
+    ]);
+  }
+}
+
 /// Settings › Folders & scanning: the music and audiobook folders HomeTunes reads.
 class LibrarySettings extends StatelessWidget {
   const LibrarySettings({super.key});
@@ -280,6 +354,12 @@ class LibrarySettings extends StatelessWidget {
             'Settings › Audiobooks. Rescan above checks these too.',
       ),
       SettingTarget('library-book-folders', child: const AudiobookFoldersSection(heading: false)),
+      const SettingsGroupTitle(
+        'Video folders',
+        'Every video in these folders shows in the Videos tab: MP4, MKV, WebM, AVI, MOV and most other video '
+            'files. An MP4 in one of these is a video, not a song. They have their own Rescan below.',
+      ),
+      SettingTarget('library-video-folders', child: const VideoFoldersSection()),
       // Only shown when there are missing songs, so it isn't in the search catalog.
       if (lib.missingTracks.isNotEmpty) _MissingSongsTile(count: lib.missingTracks.length),
     ]);
