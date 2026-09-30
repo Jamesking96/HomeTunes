@@ -19,6 +19,7 @@ import 'package:hometunes/state/update_model.dart';
 import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/settings/settings_screen.dart';
+import 'package:hometunes/ui/screens/video_collection_screen.dart';
 import 'package:hometunes/ui/screens/videos_screen.dart';
 import 'package:hometunes/ui/theme.dart';
 import 'package:image/image.dart' as img;
@@ -44,12 +45,14 @@ void main() {
     final vids = Directory(p.join(dir.path, 'Videos'))..createSync();
     final data = Directory(p.join(dir.path, 'data'))..createSync();
     final names = {
-      'Harbour Days': ['01 Arrival.mkv', '02 The Storm.mkv', '03 Lanterns.mkv', '04 Home Again.mkv'],
+      'TV/Harbour Days/Season 1': ['Harbour.Days.S01E01.Arrival.mkv', 'Harbour.Days.S01E02.The.Storm.mkv'],
+      'TV/Harbour Days/Season 2': ['Harbour.Days.S02E01.Lanterns.mkv', 'Harbour.Days.S02E02.Home.Again.mkv'],
+      'TV/Harbour Days/Extras': ['Behind the scenes.mp4'],
       'Holiday 2024': ['Beach morning.mp4', 'Mountain.Walk.2024.webm', 'Night market.mov'],
       'Films': ['Paper.Boats.1998.avi', 'The_Long_Road_(2011).mkv'],
     };
     for (final e in names.entries) {
-      final d = Directory(p.join(vids.path, e.key))..createSync();
+      final d = Directory(p.join(vids.path, e.key))..createSync(recursive: true);
       for (final n in e.value) {
         File(p.join(d.path, n)).writeAsBytesSync([0]);
       }
@@ -83,6 +86,7 @@ void main() {
       videos.savePlace(list[0].id, const Duration(minutes: 12), const Duration(minutes: 27));
       videos.savePlace(list[5].id, const Duration(minutes: 40), const Duration(minutes: 62));
       await videos.setWatched([list[1].id, list[2].id], true);
+      await videos.setFavourite(videos.collectionNamed('Harbour Days')!, true);
       await videos.settle();
     });
 
@@ -116,8 +120,21 @@ void main() {
           File('$out\\$name.png').writeAsBytesSync(png!.buffer.asUint8List());
         });
 
+    // 0. Collections, a collection's page, and Edit collection.
+    await show(const VideosScreen());
+    await shoot('videos-collections');
+    await show(const VideoCollectionScreen(name: 'Harbour Days'));
+    await shoot('videos-collection-page');
+    await tester.tap(find.text('Edit collection'));
+    await tester.pumpAndSettle();
+    await shoot('videos-edit-collection');
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
     // 1. The grid.
     await show(const VideosScreen());
+    await tester.tap(find.text('All videos'));
+    await tester.pumpAndSettle();
     await shoot('videos-grid');
 
     // 2. A video's menu.
@@ -142,11 +159,11 @@ void main() {
     // 5. The filter sheet, then the grid with a filter on.
     await tester.tap(find.byTooltip('Clear selection'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Filter by collection, genre, decade, length, picture or file type'));
+    await tester.tap(find.byTooltip('Filter').hitTestable());
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('filter-Collection')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Harbour Days  (4)').last);
+    await tester.tap(find.text('Harbour Days  (5)').last);
     await tester.pumpAndSettle();
     await shoot('videos-filter-sheet');
     await tester.tap(find.text('Show videos'));

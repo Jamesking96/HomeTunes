@@ -120,6 +120,7 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
   - Ideas not done: a small video in the desktop player bar or mini player; a "Music video" row on the Details page.
   - The Videos tab (same branch) adds the `image` package (MIT) for thumbnails: list it in `THIRD_PARTY_NOTICES.md` with the engine update. Flutter's licence page lists it by itself.
   - Videos tab, not tried yet: on the phone (the new "Photos and videos" permission, full screen turning the phone sideways, thumbnail speed), and the full-screen buttons on a real window (checked with tests and the engine bench only; the preview pictures can't draw the video engine).
+  - Collections, audio / subtitle choice and .nfo files (same branch): mpv drawing subtitles (`libass: true` on Windows) was checked on the real engine for track switching but not yet looked at in the app window (ASS styling, DVD picture subtitles on Claymore). On Android only text subtitles show (Flutter subtitle view); picture / styled ones would need libass there too. Writing details inside MKV / MP4 files themselves was left out on purpose (multi-GB rewrites); .nfo files are written instead. Ideas: a "Save all edits into .nfo files" button in Settings like the music one; reading `movie.nfo` for single-film folders; posters from .nfo `<thumb>` links.
 
 ## Offered earlier, not done (only if the user wants)
 - Delete old installers in `build\dist` (0.1.0/0.1.2/0.1.3).

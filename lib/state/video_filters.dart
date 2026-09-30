@@ -1,6 +1,7 @@
 // Videos (0.1.32): the Videos tab's search, "show" chips, filters and sort orders, as plain functions
 // (no Flutter), so they're unit tested directly (test/videos_test.dart).
 import '../models/video_item.dart';
+import 'library_index.dart' show sortKey;
 import 'music_filters.dart';
 
 /// The chips along the top of the Videos tab.
@@ -153,6 +154,7 @@ int Function(String, String) _inOrder(List<String> order) => (a, b) => order.ind
 
 /// What the Videos tab can be filtered by.
 final videoFilterFields = <FilterField<VideoItem>>[
+  FilterField('Category', (v) => [if (v.category != null && v.category!.trim().isNotEmpty) v.category!.trim()]),
   FilterField('Collection', (v) => [if (v.collection.trim().isNotEmpty) v.collection.trim()]),
   FilterField('Genre', (v) => [if (v.genre != null && v.genre!.trim().isNotEmpty) v.genre!.trim()]),
   FilterField('Decade', (v) => [?decadeOf(v.year)]),
@@ -164,3 +166,66 @@ final videoFilterFields = <FilterField<VideoItem>>[
 /// The videos that have every picked value.
 List<VideoItem> filterVideos(List<VideoItem> videos, MusicFilters filters) =>
     filters.isEmpty ? videos : [for (final v in videos) if (filters.matches(v, videoFilterFields)) v];
+
+// ---- the Collections and Favourites sub-tabs ----
+
+/// The Collections tab's sort menu.
+enum CollectionSort { category, name, recentlyAdded, recentlyWatched, mostVideos, year }
+
+String collectionSortLabel(CollectionSort s) => switch (s) {
+      CollectionSort.category => 'Category',
+      CollectionSort.name => 'Name',
+      CollectionSort.recentlyAdded => 'Recently added',
+      CollectionSort.recentlyWatched => 'Recently watched',
+      CollectionSort.mostVideos => 'Most videos',
+      CollectionSort.year => 'Year (newest first)',
+    };
+
+/// What the Collections tab can be filtered by.
+final collectionFilterFields = <FilterField<VideoCollection>>[
+  FilterField('Category', (c) => [if (c.category != null && c.category!.trim().isNotEmpty) c.category!.trim()]),
+  FilterField('Genre', (c) => {for (final v in c.videos) if (v.genre != null && v.genre!.trim().isNotEmpty) v.genre!.trim()}),
+  FilterField('Decade', (c) => [?decadeOf(c.year)]),
+];
+
+/// Collections whose name, category, genre or year contain every word of [query].
+List<VideoCollection> searchCollections(List<VideoCollection> list, String query) {
+  final words = filterWords(query);
+  if (words.isEmpty) return list;
+  return [
+    for (final c in list)
+      if (words.every((w) => '${c.name} ${c.category ?? ''} ${c.genre ?? ''} ${c.year ?? ''}'.toLowerCase().contains(w))) c
+  ];
+}
+
+/// Sorts collections; the category sort splits them into headed groups (TV, Anime, Films…).
+List<(String?, List<VideoCollection>)> sortCollections(
+  List<VideoCollection> list,
+  CollectionSort sort, {
+  int Function(VideoCollection c)? lastWatched,
+}) {
+  int byName(VideoCollection a, VideoCollection b) => sortKey(a.name).compareTo(sortKey(b.name));
+  final out = List.of(list);
+  switch (sort) {
+    case CollectionSort.category:
+      final groups = <String, List<VideoCollection>>{};
+      for (final c in out..sort(byName)) {
+        (groups[c.category ?? 'Other'] ??= []).add(c);
+      }
+      final keys = groups.keys.toList()
+        ..sort((a, b) => a == 'Other' ? 1 : b == 'Other' ? -1 : a.toLowerCase().compareTo(b.toLowerCase()));
+      if (keys.length == 1) return [(null, groups[keys.single]!)];
+      return [for (final k in keys) (k, groups[k]!)];
+    case CollectionSort.name:
+      return [(null, out..sort(byName))];
+    case CollectionSort.recentlyAdded:
+      return [(null, out..sort((a, b) => b.addedMs != a.addedMs ? b.addedMs.compareTo(a.addedMs) : byName(a, b)))];
+    case CollectionSort.recentlyWatched:
+      final w = lastWatched ?? (_) => 0;
+      return [(null, out..sort((a, b) => w(b) != w(a) ? w(b).compareTo(w(a)) : byName(a, b)))];
+    case CollectionSort.mostVideos:
+      return [(null, out..sort((a, b) => b.videos.length != a.videos.length ? b.videos.length.compareTo(a.videos.length) : byName(a, b)))];
+    case CollectionSort.year:
+      return [(null, out..sort((a, b) => (b.year ?? 0) != (a.year ?? 0) ? (b.year ?? 0).compareTo(a.year ?? 0) : byName(a, b)))];
+  }
+}
