@@ -79,15 +79,41 @@ class NowWatching extends ChangeNotifier {
   void _listenTo(VideoTransport t) {
     _clearSubs();
     _transport = t;
+    _seenPlaying = t.playing;
     _subs.addAll([
       t.playingStream.listen((playing) {
+        _seenPlaying = playing;
         if (playing) _front = true;
         notifyListeners();
       }),
       t.durationStream.listen((_) => notifyListeners()),
       // 1 Oct: the video player's own volume bar and the bottom bar's move together.
       t.volumeStream.listen((_) => notifyListeners()),
+      // 1 Oct: a safety net for the bar not switching from music to video until something else
+      // redrew it. While the video moves, check what's really going on rather than trusting one
+      // "started" signal to have arrived in the right order.
+      t.positionStream.listen((_) => _check()),
     ]);
+  }
+
+  /// What the bar last showed for the video's play / pause.
+  bool _seenPlaying = false;
+
+  /// Brings the bar in line with the players as they are now; tells the bar only on a change.
+  void _check() {
+    final t = _transport;
+    if (t == null) return;
+    var changed = false;
+    if (t.playing != _seenPlaying) {
+      _seenPlaying = t.playing;
+      changed = true;
+    }
+    // The video is going and the music isn't: the video is in front.
+    if (t.playing && !music.playing && !_front) {
+      _front = true;
+      changed = true;
+    }
+    if (changed) notifyListeners();
   }
 
   _Page _snapshot() => _Page(_transport!, video, picture, onOpen, onNext, onPrevious, skipBackSeconds, skipForwardSeconds);
@@ -167,11 +193,15 @@ class NowWatching extends ChangeNotifier {
   /// Music that starts playing takes the bar and media keys back.
   void _onMusic() {
     final now = music.playing;
-    if (now && !_musicWasPlaying && _front) {
+    final was = _musicWasPlaying;
+    _musicWasPlaying = now;
+    if (now && !was && _front) {
       _front = false;
       notifyListeners();
+      return;
     }
-    _musicWasPlaying = now;
+    // The music stopped (the video paused it) while the video plays: make sure the bar shows it.
+    if (!now) _check();
   }
 
   // ---- controls ----
@@ -181,6 +211,7 @@ class NowWatching extends ChangeNotifier {
     if (t == null) return;
     if (music.playing) await music.pause(); // one thing at a time
     _front = true;
+    notifyListeners();
     await t.play();
   }
 

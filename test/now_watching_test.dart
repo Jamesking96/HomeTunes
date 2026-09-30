@@ -188,6 +188,33 @@ void main() {
       expect((w.inFront, w.video), (false, null));
     });
 
+    test('music to video: the bar switches even if the "started" signal was missed', () async {
+      final music = FakeMusic();
+      final w = NowWatching(music);
+      final video = FakeVideo();
+      w.attach(video);
+      w.showing(_episode);
+      await music.play();
+      var told = 0;
+      w.addListener(() => told++);
+      // The video starts, but its "playing" signal never reaches NowWatching...
+      video.playing = true;
+      await music.pause();
+      // ...the video moving (or the music stopping) is enough.
+      expect(w.inFront, isTrue);
+      expect(told, greaterThan(0));
+
+      // And from the position alone, with the music already quiet.
+      final w2 = NowWatching(FakeMusic());
+      final v2 = FakeVideo();
+      w2.attach(v2);
+      w2.showing(_episode);
+      v2.playing = true;
+      v2._position.add(const Duration(minutes: 10, seconds: 1));
+      await settle();
+      expect(w2.inFront, isTrue);
+    });
+
     test('the video player\'s own volume changes reach the bar', () async {
       final w = NowWatching(FakeMusic());
       final video = FakeVideo();

@@ -531,11 +531,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Future<void> _fullScreen() async => _videoKey.currentState?.enterFullscreen();
 
   /// The bottom bar's video was tapped: back to the Videos tab, with this page on top.
+  ///
+  /// 1 Oct fix: this used selectTab, which on the Videos tab itself went back to the tab's first
+  /// page (closing this one), and then popUntil never found this page and emptied the tab, which
+  /// stayed blank until a restart. Now the tab is only switched to, pages above this one are closed
+  /// only while this one is still in the stack, and the tab's first page is never closed.
   void _bringBack() {
     if (!mounted) return;
     final route = ModalRoute.of(context);
-    context.read<AppNav>().selectTab(AppNav.videosTab);
-    if (route != null && !route.isCurrent) Navigator.of(context).popUntil((r) => r == route);
+    context.read<AppNav>().showTab(AppNav.videosTab);
+    if (route != null && route.isActive && !route.isCurrent) {
+      Navigator.of(context).popUntil((r) => r == route || r.isFirst);
+    }
   }
 
   /// The video with its controls, plus the Audio and subtitles button (in full screen too).
