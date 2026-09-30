@@ -11,6 +11,7 @@
 // Tapping a video opens its player page (video_player_screen.dart). Right-click / press and
 // hold / ⋮ gives the video's or collection's menu. Everything comes from VideoLibraryModel.
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
@@ -157,8 +158,6 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
         child: LayoutBuilder(builder: (context, c) {
           final cols = (c.maxWidth / 250).floor().clamp(1, 8);
           final itemWidth = (c.maxWidth - 16) / cols;
-          final grid = SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: cols, mainAxisExtent: collectionCardHeight(itemWidth));
           return CustomScrollView(slivers: [
             if (shown.isEmpty)
               SliverToBoxAdapter(
@@ -177,10 +176,11 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
                 ),
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                sliver: SliverGrid.builder(
-                  gridDelegate: grid,
-                  itemCount: list.length,
-                  itemBuilder: (_, i) => CollectionCard(collection: list[i]),
+                sliver: sliverCardRows<VideoCollection>(
+                  items: list,
+                  cols: cols,
+                  height: (x) => collectionCardHeight(itemWidth, model.collectionShapeOf(x)),
+                  card: (x) => CollectionCard(collection: x),
                 ),
               ),
             ],
@@ -336,10 +336,6 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
         child: LayoutBuilder(builder: (context, c) {
           final cols = (c.maxWidth / 250).floor().clamp(1, 8);
           final itemWidth = (c.maxWidth - 16) / cols;
-          final grid = SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: cols,
-            mainAxisExtent: videoCardHeight(itemWidth),
-          );
           return CustomScrollView(slivers: [
             SliverToBoxAdapter(
               child: SizedBox(
@@ -385,7 +381,7 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
               ),
               SliverToBoxAdapter(
                 child: SizedBox(
-                  height: videoCardHeight(260),
+                  height: continuing.map((v) => videoCardHeight(260, model.shapeOf(v))).reduce(math.max),
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -422,14 +418,15 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
                 ),
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                sliver: SliverGrid.builder(
-                  gridDelegate: grid,
-                  itemCount: list.length,
-                  itemBuilder: (_, i) => VideoCard(
-                    video: list[i],
-                    selected: _selected.contains(list[i].id),
+                sliver: sliverCardRows<VideoItem>(
+                  items: list,
+                  cols: cols,
+                  height: (v) => videoCardHeight(itemWidth, model.shapeOf(v)),
+                  card: (v) => VideoCard(
+                    video: v,
+                    selected: _selected.contains(v.id),
                     selecting: selecting,
-                    onSelect: () => _toggle(list[i].id),
+                    onSelect: () => _toggle(v.id),
                   ),
                 ),
               ),
@@ -442,8 +439,31 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
   }
 }
 
-/// How tall a video card is at [width]: a 16:9 picture plus two lines of text.
-double videoCardHeight(double width) => (width - 16) * 9 / 16 + 16 + 64;
+/// How tall a video card is at [width]: its picture (16:9 unless [shape] says otherwise) plus
+/// two lines of text.
+double videoCardHeight(double width, [PictureShape shape = PictureShape.wide]) => (width - 16) / shape.aspect + 16 + 64;
+
+/// Cards in rows of [cols], each row as tall as its tallest card (videos and collections can
+/// each have their own picture shape, so a plain grid's equal cells won't do).
+Widget sliverCardRows<T>({
+  required List<T> items,
+  required int cols,
+  required double Function(T) height,
+  required Widget Function(T) card,
+}) =>
+    SliverList.builder(
+      itemCount: (items.length / cols).ceil(),
+      itemBuilder: (_, r) {
+        final row = items.skip(r * cols).take(cols).toList();
+        return SizedBox(
+          height: row.map(height).reduce(math.max),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            for (final x in row) Expanded(child: card(x)),
+            for (var i = row.length; i < cols; i++) const Expanded(child: SizedBox()),
+          ]),
+        );
+      },
+    );
 
 /// "1:05:12" / "4:31".
 String videoLength(Duration d) {
@@ -479,7 +499,7 @@ class VideoCard extends StatelessWidget {
           onTap: selecting ? onSelect : () => context.read<AppNav>().openVideo(video),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             AspectRatio(
-              aspectRatio: 16 / 9,
+              aspectRatio: model.shapeOf(video).aspect,
               child: ClipRRect(
                 borderRadius: AppShape.circular(8),
                 child: Stack(fit: StackFit.expand, children: [

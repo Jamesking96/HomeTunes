@@ -14,6 +14,7 @@ import '../../models/video_item.dart';
 import '../../state/video_library_model.dart';
 import '../theme.dart';
 import '../widgets/save_nfo.dart';
+import 'video_pictures.dart' show PictureShapePicker;
 
 /// Opens the editor for [videos] (one or more).
 Future<void> showEditVideos(BuildContext context, List<VideoItem> videos) async {
@@ -41,6 +42,14 @@ class _EditVideosState extends State<_EditVideos> {
   String? _numberError;
   String? _yearError;
   bool _saving = false;
+
+  // Picture shape (Look): each video's own, or the usual one (null). [_shapeMixed]: several
+  // videos that differ and no shape picked yet (then they're left as they are).
+  late final VideoLibraryModel _model = context.read<VideoLibraryModel>();
+  late final Set<PictureShape?> _startShapes = {for (final v in widget.videos) _model.ownShapeOf(v)};
+  late PictureShape? _shape = _startShapes.length == 1 ? _startShapes.single : null;
+  late bool _shapeMixed = _startShapes.length > 1;
+  bool _shapeChanged = false;
 
   /// The value all the videos share, or null when they differ.
   String? _common(String? Function(VideoItem) get) {
@@ -121,6 +130,7 @@ class _EditVideosState extends State<_EditVideos> {
       }
     }
     await model.setEdits(edits);
+    if (_shapeChanged) await model.setShapes([for (final v in widget.videos) v.id], _shape);
     if (!mounted) return;
     saveNfoAfterEdit(context, widget.videos);
     Navigator.of(context).pop();
@@ -239,6 +249,19 @@ class _EditVideosState extends State<_EditVideos> {
               minLines: 2,
               maxLines: 6,
               decoration: InputDecoration(labelText: 'Description', hintText: _hint((v) => v.description)),
+            ),
+            const SizedBox(height: 12),
+            // Look: the shape of its picture on the Videos tab.
+            PictureShapePicker(
+              title: _several ? 'Picture shape (Look)${_shapeMixed ? ': these differ' : ''}' : 'Picture shape (Look)',
+              value: _shape,
+              usual: model.library.videoPictureShape,
+              mixed: _shapeMixed,
+              onChanged: (s) => setState(() {
+                _shape = s;
+                _shapeMixed = false;
+                _shapeChanged = true;
+              }),
             ),
             if (_several)
               Padding(

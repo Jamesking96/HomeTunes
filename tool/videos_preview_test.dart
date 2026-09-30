@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hometunes/models/video_item.dart';
 import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/equalizer_model.dart';
 import 'package:hometunes/state/library_model.dart';
@@ -93,6 +94,8 @@ void main() {
       img.fillRect(poster, x1: 40, y1: 60, x2: 360, y2: 160, color: _hsv(50, 0.2, 0.95));
       img.fillCircle(poster, x: 200, y: 400, radius: 120, color: _hsv(200, 0.5, 0.8));
       await videos.setPoster(videos.collectionNamed('Harbour Days')!, img.encodeJpg(poster));
+      // Its card is tall (Edit collection › Poster shape); the others stay wide.
+      await videos.setCollectionShape(videos.collectionNamed('Harbour Days')!, PictureShape.tall);
       await videos.settle();
     });
 
@@ -186,6 +189,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 3));
     await shoot('videos-settings');
+    // Settings › Videos.
+    nav.openSettings('videos');
+    await tester.pumpAndSettle();
+    await shoot('videos-settings-page');
 
     await tester.runAsync(() async {
       await videos.settle();

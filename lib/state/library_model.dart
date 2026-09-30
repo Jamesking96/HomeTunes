@@ -18,6 +18,7 @@ import 'package:path/path.dart' as p;
 import '../models/book.dart';
 import '../models/track.dart';
 import '../models/track_edit.dart';
+import '../models/video_item.dart' show PictureShape;
 import '../services/app_backup.dart';
 import '../services/local_scanner.dart';
 import '../services/music_permission.dart';
@@ -176,6 +177,22 @@ class LibraryModel extends ChangeNotifier {
 
   /// Speed for books that haven't had one chosen.
   double defaultBookSpeed = 1.0;
+
+  // ---- video settings (Settings › Videos, 0.1.32) ----
+
+  /// Skip buttons (and ← → keys) while a video plays (seconds).
+  int videoSkipBackSeconds = 10;
+  int videoSkipForwardSeconds = 10;
+
+  /// Speed for collections that haven't had one chosen (each remembers its own).
+  double defaultVideoSpeed = 1.0;
+
+  /// Go back a few seconds when carrying on with a video.
+  bool videoRewindOnResume = true;
+
+  /// The usual picture shape for videos and for collections (each can have its own).
+  PictureShape videoPictureShape = PictureShape.wide;
+  PictureShape collectionPictureShape = PictureShape.wide;
 
   /// Show the sleep timer button beside play/pause.
   bool sleepButtonShown = true;
@@ -358,6 +375,12 @@ class LibraryModel extends ChangeNotifier {
     skipForwardSeconds = 30;
     rewindOnResume = true;
     defaultBookSpeed = 1.0;
+    videoSkipBackSeconds = 10;
+    videoSkipForwardSeconds = 10;
+    defaultVideoSpeed = 1.0;
+    videoRewindOnResume = true;
+    videoPictureShape = PictureShape.wide;
+    collectionPictureShape = PictureShape.wide;
     sleepButtonShown = true;
     sleepBookMinutes = 30;
     sleepMusicMinutes = 30;
@@ -411,6 +434,12 @@ class LibraryModel extends ChangeNotifier {
       skipForwardSeconds = s.integer('skipForwardSeconds', 30);
       rewindOnResume = s.get('rewindOnResume', true);
       defaultBookSpeed = s.number('defaultBookSpeed', 1.0);
+      videoSkipBackSeconds = s.integer('videoSkipBackSeconds', 10);
+      videoSkipForwardSeconds = s.integer('videoSkipForwardSeconds', 10);
+      defaultVideoSpeed = s.number('defaultVideoSpeed', 1.0);
+      videoRewindOnResume = s.get('videoRewindOnResume', true);
+      videoPictureShape = PictureShape.byName(raw['videoPictureShape']) ?? PictureShape.wide;
+      collectionPictureShape = PictureShape.byName(raw['collectionPictureShape']) ?? PictureShape.wide;
       sleepButtonShown = s.get('sleepButtonShown', true);
       sleepBookMinutes = s.integer('sleepBookMinutes', 30);
       sleepMusicMinutes = s.integer('sleepMusicMinutes', 30);
@@ -558,6 +587,12 @@ class LibraryModel extends ChangeNotifier {
         'skipForwardSeconds': skipForwardSeconds,
         'rewindOnResume': rewindOnResume,
         'defaultBookSpeed': defaultBookSpeed,
+        'videoSkipBackSeconds': videoSkipBackSeconds,
+        'videoSkipForwardSeconds': videoSkipForwardSeconds,
+        'defaultVideoSpeed': defaultVideoSpeed,
+        'videoRewindOnResume': videoRewindOnResume,
+        'videoPictureShape': videoPictureShape.name,
+        'collectionPictureShape': collectionPictureShape.name,
         'sleepButtonShown': sleepButtonShown,
         'sleepBookMinutes': sleepBookMinutes,
         'sleepMusicMinutes': sleepMusicMinutes,
@@ -816,6 +851,25 @@ class LibraryModel extends ChangeNotifier {
     this.sleepBookMinutes = sleepBookMinutes ?? this.sleepBookMinutes;
     this.sleepMusicMinutes = sleepMusicMinutes ?? this.sleepMusicMinutes;
     this.sleepFadeSeconds = sleepFadeSeconds ?? this.sleepFadeSeconds;
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Changes any of the video settings (Settings › Videos).
+  Future<void> updateVideoSettings({
+    int? skipBackSeconds,
+    int? skipForwardSeconds,
+    double? defaultSpeed,
+    bool? rewindOnResume,
+    PictureShape? videoShape,
+    PictureShape? collectionShape,
+  }) async {
+    videoSkipBackSeconds = skipBackSeconds ?? videoSkipBackSeconds;
+    videoSkipForwardSeconds = skipForwardSeconds ?? videoSkipForwardSeconds;
+    defaultVideoSpeed = defaultSpeed ?? defaultVideoSpeed;
+    videoRewindOnResume = rewindOnResume ?? videoRewindOnResume;
+    videoPictureShape = videoShape ?? videoPictureShape;
+    collectionPictureShape = collectionShape ?? collectionPictureShape;
     notifyListeners();
     await _saveSettings();
   }

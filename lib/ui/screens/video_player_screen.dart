@@ -19,20 +19,26 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
+import '../../models/eq_preset.dart' show eqFilter;
 import '../../models/video_item.dart';
 import '../../services/path_safety.dart';
 import '../../services/video_names.dart';
+import '../../state/equalizer_model.dart';
+import '../../state/library_model.dart';
 import '../../state/player_model.dart';
 import '../../state/video_filters.dart';
 import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../widgets/listening_controls.dart' show SpeedButton;
 import 'edit_video.dart';
+import 'equalizer_screen.dart' show openEqualizer;
 import 'video_pictures.dart';
 import 'videos_screen.dart' show videoLength;
 
@@ -119,6 +125,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   final GlobalKey<VideoState> _videoKey = GlobalKey<VideoState>();
   late final VideoLibraryModel _videos;
   late final PlayerModel _music;
+  late final LibraryModel _settings;
+  // The equaliser (Settings › Videos can give videos their own preset). Null in tests without one.
+  EqualizerModel? _eq;
+  String? _appliedEq;
+
+  /// The speed now (starts at the collection's own, else Settings › Videos' usual one).
+  double _speed = 1.0;
   final List<StreamSubscription> _subs = [];
   Timer? _saveTimer;
 
@@ -146,6 +159,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _videos = context.read<VideoLibraryModel>();
     _music = context.read<PlayerModel>();
     _music.addListener(_onMusicChanged);
+    _settings = _videos.library;
+    _eq = Provider.of<EqualizerModel?>(context, listen: false);
+    _eq?.addListener(_applyEqualizer);
     _subs.addAll([
       _player.stream.completed.listen((done) {
         if (done) _finished();
@@ -183,8 +199,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
     // One thing at a time: the music pauses while a video plays.
     if (_music.playing) await _music.pause();
-    final start = resumeAt(_videos.placeOf(v.id), v.duration);
+    final place = _videos.placeOf(v.id);
+    var start = resumeAt(place, v.duration);
+    // Settings › Videos: go back a little, more after a long break (like audiobooks).
+    if (start > Duration.zero && place != null && _settings.videoRewindOnResume) {
+      final since = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(place.updatedMs));
+      start -= PlayerModel.resumeRewind(since);
+      if (start < Duration.zero) start = Duration.zero;
+    }
+    await _applyEqualizer();
     await _player.open(Media(file, start: start > Duration.zero ? start : null));
+    _speed = _videos.speedFor(v.collection);
+    await _player.setRate(_speed);
     if (start > Duration.zero && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Carrying on from ${videoLength(start)}'),
@@ -246,6 +272,86 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         });
       }
     } catch (_) {}
+  }
+
+  // ---- skipping, speed and the equaliser (Settings › Videos) ----
+
+  /// Back ([forward] false) or forward by the seconds set in Settings › Videos.
+  void _skip({required bool forward}) {
+    final by = Duration(seconds: forward ? _settings.videoSkipForwardSeconds : _settings.videoSkipBackSeconds);
+    var to = forward ? _player.state.position + by : _player.state.position - by;
+    if (to < Duration.zero) to = Duration.zero;
+    final length = _player.state.duration;
+    if (length > Duration.zero && to > length) to = length;
+    _player.seek(to);
+  }
+
+  static IconData skipIcon({required bool forward, required int seconds}) => switch ((forward, seconds)) {
+        (false, 5) => Icons.replay_5,
+        (false, 10) => Icons.replay_10,
+        (false, 30) => Icons.replay_30,
+        (true, 5) => Icons.forward_5,
+        (true, 10) => Icons.forward_10,
+        (true, 30) => Icons.forward_30,
+        (false, _) => Icons.fast_rewind,
+        (true, _) => Icons.fast_forward,
+      };
+
+  Future<void> _setSpeed(double speed) async {
+    await _player.setRate(speed);
+    if (mounted) setState(() => _speed = speed);
+    final v = _videos.byId(_id);
+    if (v != null) _videos.rememberSpeed(v.collection, speed);
+  }
+
+  Future<void> _chooseSpeed(BuildContext from) async {
+    final collection = _videos.byId(_id)?.collection;
+    final picked = await showDialog<double>(
+      context: from,
+      useRootNavigator: true,
+      builder: (context) => SimpleDialog(
+        title: const Text('Speed'),
+        children: [
+          for (final s in PlayerModel.speeds)
+            SimpleDialogOption(
+              key: ValueKey('speed-$s'),
+              onPressed: () => Navigator.of(context).pop(s),
+              child: Row(children: [
+                Icon(s == _speed ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                    size: 20, color: s == _speed ? Theme.of(context).colorScheme.primary : null),
+                const SizedBox(width: 12),
+                Text(SpeedButton.label(s)),
+              ]),
+            ),
+          if (collection != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+              child: Text('Used for the rest of "$collection" too.', style: TextStyle(color: AppColors.textDim, fontSize: 12)),
+            ),
+        ],
+      ),
+    );
+    if (picked != null) await _setSpeed(picked);
+  }
+
+  /// Sends the videos' equaliser preset to this player: the bands as a filter, and the overall
+  /// level as mpv's `replaygain-fallback` (the gain used for files without ReplayGain tags, as
+  /// videos are), so the volume slider stays the listener's. A volume filter in the lavfi graph
+  /// stalled playback on this engine (tool/bench/frame_picker_engine_test.dart).
+  Future<void> _applyEqualizer() async {
+    final preset = _eq?.activeForVideos;
+    final filter = eqFilter(preset);
+    final level = (preset?.level ?? 0).toStringAsFixed(1);
+    if ('$filter|$level' == _appliedEq) return;
+    final engine = _engine;
+    if (engine == null) return;
+    _appliedEq = '$filter|$level';
+    try {
+      await engine.setProperty('af', filter);
+      await engine.setProperty('replaygain-fallback', level);
+    } catch (e) {
+      debugPrint('HomeTunes: the video player refused the equaliser: $e');
+    }
   }
 
   /// The frame on screen now becomes the video's picture.
@@ -387,6 +493,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _saveTimer?.cancel();
     _upNextTimer?.cancel();
     _music.removeListener(_onMusicChanged);
+    _eq?.removeListener(_applyEqualizer);
     for (final s in _subs) {
       s.cancel();
     }
@@ -404,29 +511,73 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         onPressed: () => _chooseTracks(context),
       ),
     );
+    // Skip buttons and speed (Settings › Videos sets how far the skips go).
+    final back = _settings.videoSkipBackSeconds, ahead = _settings.videoSkipForwardSeconds;
+    final speedButton = Builder(
+      builder: (context) => MaterialDesktopCustomButton(icon: const Icon(Icons.speed), onPressed: () => _chooseSpeed(context)),
+    );
     final desktopBar = [
-      const MaterialDesktopSkipPreviousButton(),
+      MaterialDesktopCustomButton(
+          icon: Icon(skipIcon(forward: false, seconds: back)), onPressed: () => _skip(forward: false)),
       const MaterialDesktopPlayOrPauseButton(),
-      const MaterialDesktopSkipNextButton(),
+      MaterialDesktopCustomButton(
+          icon: Icon(skipIcon(forward: true, seconds: ahead)), onPressed: () => _skip(forward: true)),
       const MaterialDesktopVolumeButton(),
       const MaterialDesktopPositionIndicator(),
       const Spacer(),
+      speedButton,
       tracksButton,
       const MaterialDesktopFullscreenButton(),
     ];
+    // Keys: as media_kit's, but ← → and J / L skip by the chosen amounts.
+    final keys = <ShortcutActivator, VoidCallback>{
+      const SingleActivator(LogicalKeyboardKey.mediaPlay): _player.play,
+      const SingleActivator(LogicalKeyboardKey.mediaPause): _player.pause,
+      const SingleActivator(LogicalKeyboardKey.mediaPlayPause): _player.playOrPause,
+      const SingleActivator(LogicalKeyboardKey.space): _player.playOrPause,
+      const SingleActivator(LogicalKeyboardKey.keyK): _player.playOrPause,
+      const SingleActivator(LogicalKeyboardKey.arrowLeft): () => _skip(forward: false),
+      const SingleActivator(LogicalKeyboardKey.arrowRight): () => _skip(forward: true),
+      const SingleActivator(LogicalKeyboardKey.keyJ): () => _skip(forward: false),
+      const SingleActivator(LogicalKeyboardKey.keyL): () => _skip(forward: true),
+      const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
+          _player.setVolume((_player.state.volume + 5).clamp(0.0, 100.0)),
+      const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
+          _player.setVolume((_player.state.volume - 5).clamp(0.0, 100.0)),
+      const SingleActivator(LogicalKeyboardKey.keyF): () => _videoKey.currentState?.toggleFullscreen(),
+      const SingleActivator(LogicalKeyboardKey.escape): () => _videoKey.currentState?.exitFullscreen(),
+    };
     final phoneTracks = Builder(
       builder: (context) => MaterialCustomButton(
         icon: const Icon(Icons.subtitles_outlined),
         onPressed: () => _chooseTracks(context),
       ),
     );
-    final phoneBar = [const MaterialPositionIndicator(), const Spacer(), phoneTracks, const MaterialFullscreenButton()];
+    final phoneSpeed = Builder(
+      builder: (context) => MaterialCustomButton(icon: const Icon(Icons.speed), onPressed: () => _chooseSpeed(context)),
+    );
+    final phoneBar = [
+      MaterialCustomButton(icon: Icon(skipIcon(forward: false, seconds: back)), onPressed: () => _skip(forward: false)),
+      MaterialCustomButton(icon: Icon(skipIcon(forward: true, seconds: ahead)), onPressed: () => _skip(forward: true)),
+      const MaterialPositionIndicator(),
+      const Spacer(),
+      phoneSpeed,
+      phoneTracks,
+      const MaterialFullscreenButton(),
+    ];
+    // Double-tap the left or right of the picture on a phone: skip by the chosen amounts too.
+    MaterialVideoControlsThemeData phone() => MaterialVideoControlsThemeData(
+          bottomButtonBar: phoneBar,
+          seekOnDoubleTap: true,
+          seekOnDoubleTapBackwardDuration: Duration(seconds: back),
+          seekOnDoubleTapForwardDuration: Duration(seconds: ahead),
+        );
     return MaterialDesktopVideoControlsTheme(
-      normal: MaterialDesktopVideoControlsThemeData(bottomButtonBar: desktopBar),
-      fullscreen: MaterialDesktopVideoControlsThemeData(bottomButtonBar: desktopBar),
+      normal: MaterialDesktopVideoControlsThemeData(bottomButtonBar: desktopBar, keyboardShortcuts: keys),
+      fullscreen: MaterialDesktopVideoControlsThemeData(bottomButtonBar: desktopBar, keyboardShortcuts: keys),
       child: MaterialVideoControlsTheme(
-        normal: MaterialVideoControlsThemeData(bottomButtonBar: phoneBar),
-        fullscreen: MaterialVideoControlsThemeData(bottomButtonBar: phoneBar),
+        normal: phone(),
+        fullscreen: phone(),
         child: Video(
           key: _videoKey,
           controller: _controller,
@@ -575,6 +726,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   icon: const Icon(Icons.subtitles_outlined),
                   label: const Text('Audio and subtitles'),
                   onPressed: _problem == null ? () => _chooseTracks(context) : null,
+                ),
+                FilledButton.tonalIcon(
+                  key: const ValueKey('video-speed'),
+                  icon: const Icon(Icons.speed),
+                  label: Text('Speed ${SpeedButton.label(_speed)}'),
+                  onPressed: _problem == null ? () => _chooseSpeed(context) : null,
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.equalizer),
+                  label: const Text('Equaliser'),
+                  onPressed: () => openEqualizer(context, forVideos: true),
                 ),
                 OutlinedButton.icon(
                   icon: const Icon(Icons.edit_outlined),

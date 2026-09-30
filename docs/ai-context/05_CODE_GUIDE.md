@@ -147,7 +147,8 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `videos_screen.dart` | The Videos tab (0.1.32): sub-tabs Collections / All videos / Favourites; the All videos grid with Continue watching, chips, filters, search, sorts, the video menu and select mode (`VideoCard`, `showVideoMenu`). |
 | `video_collection_screen.dart` | Collections (0.1.32): `CollectionCard` and its menu, a collection's page (seasons / parts / specials / extras, Continue, favourite), and the Edit collection dialog. |
 | `video_player_screen.dart` | One video's player page: media_kit's controls, carrying on from the saved place, Enlarge, Full screen, details, Edit, Mark as watched, the audio / subtitle chooser (`trackLabel`, `matchTrack`, subtitle files via `sub-add`) and Up next (0.1.32). |
-| `video_pictures.dart` | Change picture… / Change poster… (0.1.32): the choices, the Pick a frame player, the Search online dialog, and `PosterPicture` (a picture shown whole over a blurred copy). |
+| `video_pictures.dart` | Change picture… / Change poster… (0.1.32): the choices, the Pick a frame player, the Search online dialog, `PictureShapePicker` (Edit details / Edit collection) and `PosterPicture` (a picture shown whole over a blurred copy). |
+| `settings/video_settings.dart` | Settings › Videos (0.1.32): skip amounts, speed, rewinding, the videos' equaliser, video folders, .nfo saving, and the usual picture shapes. |
 | `edit_video.dart` | Edit details for one video or several (`--:--` for details that differ), including season and episode (0.1.32). |
 | `playlist_screen.dart` | One playlist or Liked Songs, with drag to reorder. |
 | `queue_screen.dart` | The queue drawer (slides in from the right, 0.1.26): now playing and up next; drag, swipe to remove, tap to jump. |
@@ -282,7 +283,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `tool/probe_video_names.dart` | Shows the collections, seasons and episodes the Videos tab will make from a folder | `dart run tool/probe_video_names.dart <folder> [n]` |
 | `tool/probe_video_art.dart` | Asks TVmaze, AniList and Wikipedia for pictures, as "Search online" does, and prints what each found (downloads nothing) | `dart run tool/probe_video_art.dart "<name>" [season episode]` |
 | `tool/poster_preview_test.dart` | Draws a collection picture (`PosterPicture`) with a tall and a wide picture into `C:\Temp\ht\preview\poster-*.png` | `flutter test tool/poster_preview_test.dart` |
-| `tool/bench/frame_picker_engine_test.dart` | Checks Pick a frame on the real engine: exact seek, one frame forward and back, screenshot to picture | `flutter test tool/bench/frame_picker_engine_test.dart --dart-define=LIBMPV=<libmpv-2.dll> --dart-define=VIDEO=<video>` |
+| `tool/bench/frame_picker_engine_test.dart` | Checks Pick a frame on the real engine (exact seek, one frame forward and back, screenshot to picture) and the video player's equaliser and speed | `flutter test tool/bench/frame_picker_engine_test.dart --dart-define=LIBMPV=<libmpv-2.dll> --dart-define=VIDEO=<video>` |
 | `tool/videos_preview_test.dart` | Draws the Videos tab (Collections, a collection's page, Edit collection, All videos), a video's menu, the editor for several videos and the video folders off-screen into `C:\Temp\ht\preview` (0.1.32) | `flutter test tool/videos_preview_test.dart` |
 | `tool/bench_scan.dart` | Times tag reading with one worker against several, and a rescan where nothing changed | `dart run tool/bench_scan.dart <folder> [files to read, default 400]` |
 | `tool/bench/engine_test.dart`, `player_gapless_test.dart` | Checks the real mpv engine and the app's player with generated test tones: gapless, Play next, repeat-one, equaliser and ReplayGain filters | `flutter test tool/bench/engine_test.dart --dart-define=LIBMPV=<path to libmpv-2.dll>` (the DLL is in `build\windows\x64\runner\Release\` after a Windows build) |
@@ -336,6 +337,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `video_nfo_test.dart` | Reading .nfo files, and writing into one made by another program without losing its other tags |
 | `video_art_search_test.dart` | Search online against fake TVmaze / AniList / Wikipedia answers: order, episode still, infobox pictures, one service failing, downloads that aren't pictures |
 | `video_pictures_test.dart` | Change picture / poster: the choices (online switched off, back to automatic) and picking a search result saving it as the poster |
+| `video_settings_test.dart` | Settings › Videos: saving the settings, the videos' own equaliser preset, picture shapes and speeds (usual and own, kept on rename), the page, and Edit details' shape |
 | `video_tracks_test.dart` | Audio / subtitle labels and finding the remembered choice among a new video's tracks |
 
 ## Working with the code

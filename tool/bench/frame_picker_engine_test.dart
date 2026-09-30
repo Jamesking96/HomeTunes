@@ -1,10 +1,12 @@
 // Checks "Pick a frame" (ui/screens/video_pictures.dart) against the real engine: a silent,
 // paused player seeks exactly, steps one frame forward and back, and gives a screenshot that
-// becomes a picture of at most 1280 px. (The dialog's picture itself needs a window.)
+// becomes a picture of at most 1280 px. (The dialog's picture itself needs a window.) Also the
+// video player's equaliser and speed (Settings › Videos).
 //   flutter test tool/bench/frame_picker_engine_test.dart --dart-define=LIBMPV=<libmpv-2.dll>
 //     --dart-define=VIDEO=<any video>
 // ignore_for_file: avoid_print
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hometunes/models/eq_preset.dart';
 import 'package:hometunes/services/video_thumbnails.dart';
 import 'package:media_kit/media_kit.dart';
 
@@ -63,4 +65,30 @@ void main() {
     expect(picture, isNotNull);
     await player.dispose();
   }, timeout: const Timeout(Duration(minutes: 2)));
+
+  // Settings › Videos: the video player takes the equaliser (as video_player_screen.dart sends
+  // it) and a speed, and keeps playing.
+  test('equaliser and speed on a video player', () async {
+    MediaKit.ensureInitialized(libmpv: lib.isEmpty ? null : lib);
+    final player = Player();
+    final engine = player.platform as NativePlayer;
+    await engine.setProperty('vid', 'no');
+    await player.setVolume(0);
+    const preset = EqPreset(id: 'x', name: 'x', gains: [4, 2, 0, 0, 0, 0, 0, 1, 2, 3], level: -3);
+    // The bands as a filter, the overall level as mpv's replaygain-fallback (the gain used when a
+    // file has no ReplayGain tags, which videos don't). A volume filter inside the lavfi graph
+    // stalled playback on this engine, and it has no volume-gain yet.
+    await engine.setProperty('af', eqFilter(preset));
+    await engine.setProperty('replaygain-fallback', preset.level.toStringAsFixed(1));
+    await player.open(Media(video));
+    await player.setRate(1.5);
+    await _wait(() => player.state.position > const Duration(seconds: 2), seconds: 8);
+    final af = await engine.getProperty('af');
+    final gain = await engine.getProperty('replaygain-fallback');
+    print('af: $af\nreplaygain-fallback $gain, rate ${player.state.rate}, position ${player.state.position}');
+    expect(player.state.position, greaterThan(const Duration(seconds: 1)));
+    expect(player.state.rate, 1.5);
+    expect(double.parse(gain), -3.0);
+    await player.dispose();
+  }, timeout: const Timeout(Duration(minutes: 1)));
 }
