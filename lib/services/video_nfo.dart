@@ -25,8 +25,24 @@ class NfoInfo {
   final String? set;
   final int? season, episode, year;
   final String? genre, plot;
-  const NfoInfo({this.title, this.showTitle, this.set, this.season, this.episode, this.year, this.genre, this.plot});
+
+  /// A series' season titles (`<namedseason number="1">Offline News</namedseason>` in tvshow.nfo).
+  final Map<int, String> namedSeasons;
+  const NfoInfo({
+    this.title,
+    this.showTitle,
+    this.set,
+    this.season,
+    this.episode,
+    this.year,
+    this.genre,
+    this.plot,
+    this.namedSeasons = const {},
+  });
 }
+
+/// The .nfo field key for a season's title: written as `<namedseason number="n">`.
+String namedSeasonKey(int season) => 'namedseason:$season';
 
 /// The .nfo file that goes with a video: same name, .nfo ending.
 String nfoPathFor(String videoPath) => '${p.withoutExtension(videoPath)}.nfo';
@@ -71,6 +87,12 @@ NfoInfo parseNfo(String xml) {
     year: (year != null && year > 1800) ? year : null,
     genre: tag('genre'),
     plot: tag('plot') ?? tag('outline'),
+    namedSeasons: {
+      for (final m in RegExp(r'''<namedseason\s[^>]*number\s*=\s*["']?(\d+)["']?[^>]*>([\s\S]*?)</namedseason\s*>''',
+              caseSensitive: false)
+          .allMatches(xml))
+        if (_unescape(m[2]!).trim().isNotEmpty) int.parse(m[1]!): _unescape(m[2]!).trim(),
+    },
   );
 }
 
@@ -123,15 +145,20 @@ String updateNfo(String? existing, String root, Map<String, String?> fields) {
   }
   final rootName = RegExp('<($root)(\\s[^>]*)?>', caseSensitive: false).firstMatch(text)![1]!;
   for (final e in fields.entries) {
-    final tag = e.key;
-    final element = RegExp('[ \\t]*<$tag(?:\\s[^>]*)?(?:/>|>[\\s\\S]*?</$tag\\s*>)[ \\t]*\\r?\\n?', caseSensitive: false);
+    // "namedseason:2" is <namedseason number="2">: one of several, told apart by its number.
+    final named = RegExp(r'^namedseason:(\d+)$').firstMatch(e.key);
+    final tag = named == null ? e.key : 'namedseason';
+    final attrs = named == null ? '(?:\\s[^>]*)?' : '\\s[^>]*number\\s*=\\s*["\']?${named[1]}["\']?(?![0-9])[^>]*';
+    final element = RegExp('[ \\t]*<$tag$attrs(?:/>|>[\\s\\S]*?</$tag\\s*>)[ \\t]*\\r?\\n?', caseSensitive: false);
     final first = element.firstMatch(text!);
     final value = e.value?.trim();
     final line = (value == null || value.isEmpty)
         ? ''
         : tag == 'set'
             ? '  <set>\n    <name>${_escape(value)}</name>\n  </set>\n'
-            : '  <$tag>${_escape(value)}</$tag>\n';
+            : named != null
+                ? '  <namedseason number="${named[1]}">${_escape(value)}</namedseason>\n'
+                : '  <$tag>${_escape(value)}</$tag>\n';
     if (first != null) {
       text = text.replaceRange(first.start, first.end, line);
       // Any repeats (several <genre> tags) go: HomeTunes keeps one.

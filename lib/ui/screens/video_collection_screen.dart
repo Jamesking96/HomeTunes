@@ -23,7 +23,7 @@ import '../theme.dart';
 import '../widgets/cards.dart' show HoverPlayCover;
 import '../widgets/save_nfo.dart';
 import 'video_pictures.dart';
-import 'videos_screen.dart' show showVideoMenu, videoLength;
+import 'videos_screen.dart' show VideoSelectionBar, showVideoMenu, videoLength;
 
 /// "12 h 5 min", "45 min".
 String collectionLength(Duration d) {
@@ -171,7 +171,7 @@ class CollectionContentsPanel extends StatefulWidget {
   State<CollectionContentsPanel> createState() => _CollectionContentsPanelState();
 }
 
-class _CollectionContentsPanelState extends State<CollectionContentsPanel> {
+class _CollectionContentsPanelState extends State<CollectionContentsPanel> with _EpisodeSelection {
   Set<String>? _folded;
 
   @override
@@ -270,6 +270,7 @@ class _CollectionContentsPanelState extends State<CollectionContentsPanel> {
               ),
             ]),
           ),
+          if (selectingVideos) selectionBar(c),
           for (final (heading, list) in groups) ...[
             if (heading != null)
               _GroupHeading(
@@ -279,12 +280,18 @@ class _CollectionContentsPanelState extends State<CollectionContentsPanel> {
                 folded: folded.contains(heading),
                 hasNext: list.any((v) => v.id == next?.id),
                 onTap: () => setState(() => folded.contains(heading) ? folded.remove(heading) : folded.add(heading)),
+                label: model.groupLabel(c, heading, list),
+                onRename: seasonOfGroup(heading, list) == null
+                    ? null
+                    : () => showSeasonTitleDialog(context, c, seasonOfGroup(heading, list)!),
+                ticked: seasonTicked(list),
+                onTick: selectingVideos ? () => tickSeason(list) : null,
               ),
             if (heading == null || !folded.contains(heading))
               for (final v in list)
                 SizedBox(
                   height: _VideoCollectionScreenState.rowExtent,
-                  child: EpisodeRow(video: v, isNext: v.id == next?.id),
+                  child: episodeRow(v, next),
                 ),
           ],
           const SizedBox(height: 8),
@@ -390,7 +397,7 @@ class VideoCollectionScreen extends StatefulWidget {
   State<VideoCollectionScreen> createState() => _VideoCollectionScreenState();
 }
 
-class _VideoCollectionScreenState extends State<VideoCollectionScreen> {
+class _VideoCollectionScreenState extends State<VideoCollectionScreen> with _EpisodeSelection {
   // Follows the collection if it's renamed from this page.
   late String _name = widget.name;
 
@@ -550,7 +557,12 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> {
           ),
         ],
       ),
-      body: CustomScrollView(controller: _scroll, slivers: [
+      // Ticked videos (right-click › Select): the selection bar sits above the list.
+      body: Column(
+        children: [
+          if (selectingVideos) selectionBar(c),
+          Expanded(
+            child: CustomScrollView(controller: _scroll, slivers: [
         SliverToBoxAdapter(child: KeyedSubtree(key: _headerKey, child: header)),
         // Contents: a chip per season / part / Specials / Extras that jumps there. Stays at the
         // top while scrolling.
@@ -577,7 +589,7 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> {
                                   : (list.every((v) => model.placeOf(v.id)?.watched ?? false)
                                       ? Icon(Icons.check, size: 16, color: accent)
                                       : null),
-                              label: Text('$heading (${list.length})'),
+                              label: Text('${model.groupLabel(c, heading, list)} (${list.length})'),
                               onPressed: () => _jumpTo(groups, heading),
                             ),
                           ),
@@ -610,17 +622,26 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> {
                 folded: _collapsed.contains(heading),
                 hasNext: list.any((v) => v.id == next?.id),
                 onTap: () => _toggle(heading),
+                label: model.groupLabel(c, heading, list),
+                onRename: seasonOfGroup(heading, list) == null
+                    ? null
+                    : () => showSeasonTitleDialog(context, c, seasonOfGroup(heading, list)!),
+                ticked: seasonTicked(list),
+                onTick: selectingVideos ? () => tickSeason(list) : null,
               ),
             ),
           if (heading == null || !_collapsed.contains(heading))
             SliverFixedExtentList.builder(
               itemExtent: rowExtent,
               itemCount: list.length,
-              itemBuilder: (_, i) => EpisodeRow(video: list[i], isNext: list[i].id == next?.id),
+              itemBuilder: (_, i) => episodeRow(list[i], next),
             ),
         ],
         const SliverToBoxAdapter(child: SizedBox(height: 24)),
       ]),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -643,19 +664,170 @@ class _ContentsBar extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(_ContentsBar old) => true;
 }
 
+/// Ticking videos in a collection's list (its page and its in-place contents): right-click ›
+/// Select starts it, each season's heading gets a box for the whole season, and a
+/// [VideoSelectionBar] offers Edit details (one or several), Select all and watched / not watched.
+mixin _EpisodeSelection<T extends StatefulWidget> on State<T> {
+  final Set<String> selectedVideos = {};
+
+  bool get selectingVideos => selectedVideos.isNotEmpty;
+
+  void toggleVideo(String id) =>
+      setState(() => selectedVideos.contains(id) ? selectedVideos.remove(id) : selectedVideos.add(id));
+
+  /// true when all of [list] is ticked, false when none, null when some.
+  bool? seasonTicked(List<VideoItem> list) {
+    final n = list.where((v) => selectedVideos.contains(v.id)).length;
+    return n == 0 ? false : (n == list.length ? true : null);
+  }
+
+  void tickSeason(List<VideoItem> list) => setState(() {
+        if (seasonTicked(list) == true) {
+          selectedVideos.removeAll([for (final v in list) v.id]);
+        } else {
+          selectedVideos.addAll([for (final v in list) v.id]);
+        }
+      });
+
+  Widget episodeRow(VideoItem v, VideoItem? next) => EpisodeRow(
+        video: v,
+        isNext: v.id == next?.id,
+        selecting: selectingVideos,
+        selected: selectedVideos.contains(v.id),
+        onSelect: () => toggleVideo(v.id),
+      );
+
+  Widget selectionBar(VideoCollection c) => VideoSelectionBar(
+        selected: selectedVideos,
+        onClear: () => setState(selectedVideos.clear),
+        onSelectAll: () => setState(() => selectedVideos.addAll([for (final v in c.videos) v.id])),
+      );
+}
+
+/// The season number a group heading stands for ("Season 2" → 2); null for Specials, named parts,
+/// Episodes and Extras (they have no season title).
+int? seasonOfGroup(String heading, List<VideoItem> list) {
+  final s = list.firstOrNull?.season;
+  return s != null && s > 0 && heading == 'Season $s' ? s : null;
+}
+
+/// Name a season ("Season 1 – Offline News"). The title the season's folder gives is offered;
+/// an empty box shows none. Saved into the series' tvshow.nfo too when that's ticked.
+Future<void> showSeasonTitleDialog(BuildContext context, VideoCollection c, int season) async {
+  final model = context.read<VideoLibraryModel>();
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final result = await showDialog<String>(
+    context: context,
+    builder: (_) => _SeasonTitleDialog(
+      season: season,
+      current: model.seasonTitleOf(c, season) ?? '',
+      fromFolder: model.folderSeasonTitle(c, season),
+    ),
+  );
+  if (result == null) return;
+  final errors = await model.setSeasonTitle(c, season, result.trim(), writeNfo: canSaveNfo && model.saveNfo);
+  if (errors.isNotEmpty) {
+    messenger?.showSnackBar(SnackBar(content: Text('Couldn\'t save into tvshow.nfo (${errors.first})')));
+  }
+}
+
+class _SeasonTitleDialog extends StatefulWidget {
+  final int season;
+  final String current;
+  final String? fromFolder;
+  const _SeasonTitleDialog({required this.season, required this.current, required this.fromFolder});
+
+  @override
+  State<_SeasonTitleDialog> createState() => _SeasonTitleDialogState();
+}
+
+class _SeasonTitleDialogState extends State<_SeasonTitleDialog> {
+  late final controller = TextEditingController(text: widget.current);
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final season = widget.season, fromFolder = widget.fromFolder;
+    return AlertDialog(
+        title: Text('Season $season title'),
+        content: SizedBox(
+          width: 420,
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            TextField(
+              key: const ValueKey('season-title-field'),
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Title',
+                hintText: 'e.g. Offline News',
+                prefixText: 'Season $season – ',
+                suffixIcon: IconButton(
+                  tooltip: 'No title',
+                  icon: const Icon(Icons.clear),
+                  onPressed: () => setState(controller.clear),
+                ),
+              ),
+              onSubmitted: (v) => Navigator.pop(context, v),
+            ),
+            const SizedBox(height: 8),
+            if (fromFolder != null)
+              TextButton.icon(
+                key: const ValueKey('season-title-folder'),
+                icon: const Icon(Icons.folder_outlined),
+                label: Text('Use the folder\'s title: $fromFolder', maxLines: 1, overflow: TextOverflow.ellipsis),
+                onPressed: () => setState(() => controller.text = fromFolder),
+              )
+            else
+              Text('The season\'s folder doesn\'t give it a title.',
+                  style: TextStyle(color: AppColors.textDim, fontSize: 12)),
+            const SaveNfoCheckbox(),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            key: const ValueKey('season-title-save'),
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      );
+  }
+}
+
 /// A season's heading: tap to fold it up or open it again.
 class _GroupHeading extends StatelessWidget {
   final String heading;
+
+  /// What's shown: the heading with the season's title, if it has one.
+  final String? label;
   final int count, watched;
   final bool folded, hasNext;
   final VoidCallback onTap;
+
+  /// Names the season (seasons with a number only).
+  final VoidCallback? onRename;
+
+  /// In select mode: a box that ticks or unticks the whole season (true = all ticked,
+  /// null = some). [onTick] null hides it.
+  final bool? ticked;
+  final VoidCallback? onTick;
   const _GroupHeading(
       {required this.heading,
       required this.count,
       required this.watched,
       required this.folded,
       required this.hasNext,
-      required this.onTap});
+      required this.onTap,
+      this.label,
+      this.onRename,
+      this.ticked = false,
+      this.onTick});
 
   @override
   Widget build(BuildContext context) {
@@ -674,11 +846,29 @@ class _GroupHeading extends StatelessWidget {
               child: const Icon(Icons.expand_more),
             ),
             const SizedBox(width: 6),
-            Text('$heading  ($count)', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            if (onTick != null)
+              Checkbox(
+                key: ValueKey('season-tick:$heading'),
+                tristate: true,
+                value: ticked,
+                onChanged: (_) => onTick!(),
+              ),
+            Flexible(
+              child: Text('${label ?? heading}  ($count)',
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            ),
             if (hasNext) ...[
               const SizedBox(width: 8),
               Icon(Icons.play_arrow, size: 18, color: accent),
             ],
+            if (onRename != null)
+              IconButton(
+                key: ValueKey('season-title:$heading'),
+                tooltip: 'Season title',
+                visualDensity: VisualDensity.compact,
+                icon: Icon(Icons.edit_outlined, size: 18, color: AppColors.textDim),
+                onPressed: onRename,
+              ),
             const Spacer(),
             Text(
               watched == 0 ? '' : (watched == count ? 'All watched' : '$watched of $count watched'),
@@ -692,10 +882,24 @@ class _GroupHeading extends StatelessWidget {
 }
 
 /// One video in a collection's list: picture, "S1 E4 · Title", length and progress.
+/// Right-click (or long-press) › Select starts select mode: then a tap ticks or unticks the row.
 class EpisodeRow extends StatelessWidget {
   final VideoItem video;
   final bool isNext;
-  const EpisodeRow({super.key, required this.video, this.isNext = false});
+
+  /// Select mode is on (some video in this list is ticked), and whether this one is.
+  final bool selecting, selected;
+
+  /// Ticks or unticks this video; null where selecting isn't offered.
+  final VoidCallback? onSelect;
+  const EpisodeRow({
+    super.key,
+    required this.video,
+    this.isNext = false,
+    this.selecting = false,
+    this.selected = false,
+    this.onSelect,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -704,19 +908,29 @@ class EpisodeRow extends StatelessWidget {
     final accent = Theme.of(context).colorScheme.primary;
     final label = video.episodeLabel;
     final progress = place?.progress(video.duration) ?? 0;
-    void menu(Offset at) => showVideoMenu(context, video, at: at);
+    void menu(Offset at) => showVideoMenu(context, video, at: at, onSelect: onSelect);
+    final ticking = selecting && onSelect != null;
     return GestureDetector(
       onSecondaryTapUp: (d) => menu(d.globalPosition),
       child: InkWell(
-        onTap: () => context.read<AppNav>().openVideo(video),
-        onLongPress: () {
-          final box = context.findRenderObject() as RenderBox;
-          menu(box.localToGlobal(box.size.center(Offset.zero)));
-        },
+        key: ValueKey('episode-row:${video.id}'),
+        onTap: ticking ? onSelect : () => context.read<AppNav>().openVideo(video),
+        onLongPress: ticking
+            ? onSelect
+            : () {
+                final box = context.findRenderObject() as RenderBox;
+                menu(box.localToGlobal(box.size.center(Offset.zero)));
+              },
         child: Container(
-          color: isNext ? accent.withValues(alpha: 0.08) : null,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          color: selected ? accent.withValues(alpha: 0.18) : (isNext ? accent.withValues(alpha: 0.08) : null),
+          padding: EdgeInsets.fromLTRB(ticking ? 4 : 16, 6, 16, 6),
           child: Row(children: [
+            if (ticking)
+              Checkbox(
+                key: ValueKey('episode-tick:${video.id}'),
+                value: selected,
+                onChanged: (_) => onSelect!(),
+              ),
             SizedBox(
               width: 150,
               child: AspectRatio(

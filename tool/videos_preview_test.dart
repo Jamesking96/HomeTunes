@@ -14,6 +14,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/video_item.dart';
+import 'package:hometunes/models/video_player_look.dart';
 import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/equalizer_model.dart';
 import 'package:hometunes/state/library_model.dart';
@@ -47,7 +48,7 @@ void main() {
     final vids = Directory(p.join(dir.path, 'Videos'))..createSync();
     final data = Directory(p.join(dir.path, 'data'))..createSync();
     final names = {
-      'TV/Harbour Days/Season 1': ['Harbour.Days.S01E01.Arrival.mkv', 'Harbour.Days.S01E02.The.Storm.mkv'],
+      'TV/Harbour Days/Season 1 - First Light': ['Harbour.Days.S01E01.Arrival.mkv', 'Harbour.Days.S01E02.The.Storm.mkv'],
       'TV/Harbour Days/Season 2': ['Harbour.Days.S02E01.Lanterns.mkv', 'Harbour.Days.S02E02.Home.Again.mkv'],
       'TV/Harbour Days/Extras': ['Behind the scenes.mp4'],
       'Holiday 2024': ['Beach morning.mp4', 'Mountain.Walk.2024.webm', 'Night market.mov'],
@@ -153,6 +154,25 @@ void main() {
     await shoot('videos-collections-selected');
     await show(const VideoCollectionScreen(name: 'Harbour Days'));
     await shoot('videos-collection-page');
+    // Season 2's title, then right-click › Select on episodes.
+    await tester.tap(find.byKey(const ValueKey('season-title:Season 2')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('season-title-field')), 'Lanterns');
+    await shoot('videos-season-title');
+    await tester.runAsync(() async {
+      await tester.tap(find.byKey(const ValueKey('season-title-save')));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await tester.pumpAndSettle();
+    final hd = videos.collectionNamed('Harbour Days')!;
+    await tester.tap(find.byKey(ValueKey('episode-row:${hd.videos[0].id}')), buttons: kSecondaryButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('episode-row:${hd.videos[2].id}')));
+    await tester.pumpAndSettle();
+    await shoot('videos-episodes-selected');
+    await show(const VideoCollectionScreen(name: 'Harbour Days'));
     await tester.tap(find.text('Edit collection'));
     await tester.pumpAndSettle();
     await shoot('videos-edit-collection');
@@ -183,7 +203,7 @@ void main() {
     await tester.tap(find.byType(VideoCard).at(3));
     await tester.pumpAndSettle();
     await shoot('videos-selected');
-    await tester.tap(find.byTooltip('Edit details'));
+    await tester.tap(find.byKey(const ValueKey('selection-edit')));
     await tester.pumpAndSettle();
     await shoot('videos-edit-several');
     await tester.tap(find.text('Cancel'));
@@ -212,6 +232,23 @@ void main() {
     nav.openSettings('videos');
     await tester.pumpAndSettle();
     await shoot('videos-settings-page');
+    // Settings › Appearance › Video player, with circles behind black buttons over a bright scene.
+    await tester.runAsync(() => lib.setVideoPlayerLook(
+        const VideoPlayerLook(buttonColour: 'black', backing: VideoButtonBacking.circle, backingStrength: 0.6)));
+    nav.openSettings('appearance', setting: 'video-player-preview');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bright scene'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 3));
+    await shoot('videos-player-look');
+    await tester.runAsync(() => lib.setVideoPlayerLook(VideoPlayerLook.standard));
+    await tester.tap(find.text('Dark scene'));
+    await tester.pumpAndSettle();
+    await shoot('videos-player-look-default');
+    // Settings › Music.
+    nav.openSettings('music');
+    await tester.pumpAndSettle();
+    await shoot('music-settings-page');
 
     await tester.runAsync(() async {
       await videos.settle();

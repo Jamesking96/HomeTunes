@@ -367,46 +367,22 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
     };
     final shown = [for (final v in narrowed) if (videoShown(_show, places[v.id])) v];
     final groups = sortVideos(shown, _show == VideoShow.continueWatching ? VideoSort.recentlyWatched : _sort,
-        places: places);
+        places: places, groupLabel: (name, heading, list) {
+      // Season headings with their titles, the user's own included ("Silo · Season 1 – Offline News").
+      final c = model.collectionNamed(name);
+      return c == null ? heading : model.groupLabel(c, heading, list);
+    });
     final shownIds = [for (final (_, g) in groups) for (final v in g) v.id];
     final continuing =
         _show == VideoShow.all && _query.trim().isEmpty && _only.isEmpty ? model.continueWatching : const <VideoItem>[];
     final selecting = _selected.isNotEmpty;
-    final accent = Theme.of(context).colorScheme.primary;
 
     return Column(children: [
       if (selecting)
-        Material(
-          color: accent.withValues(alpha: 0.18),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            child: Row(children: [
-              IconButton(tooltip: 'Clear selection', icon: const Icon(Icons.close), onPressed: () => setState(_selected.clear)),
-              Expanded(child: Text('${_selected.length} selected', style: const TextStyle(fontWeight: FontWeight.w600))),
-              TextButton(onPressed: () => setState(() => _selected.addAll(shownIds)), child: const Text('Select all')),
-              IconButton(
-                tooltip: 'Edit details',
-                icon: const Icon(Icons.edit_outlined),
-                onPressed: () => showEditVideos(context, [for (final id in _selected) model.byId(id)].whereType<VideoItem>().toList()),
-              ),
-              IconButton(
-                tooltip: 'Mark as watched',
-                icon: const Icon(Icons.check_circle_outline),
-                onPressed: () async {
-                  await model.setWatched(_selected, true);
-                  setState(_selected.clear);
-                },
-              ),
-              IconButton(
-                tooltip: 'Mark as not watched',
-                icon: const Icon(Icons.remove_done),
-                onPressed: () async {
-                  await model.setWatched(_selected, false);
-                  setState(_selected.clear);
-                },
-              ),
-            ]),
-          ),
+        VideoSelectionBar(
+          selected: _selected,
+          onClear: () => setState(_selected.clear),
+          onSelectAll: () => setState(() => _selected.addAll(shownIds)),
         )
       else
         MusicFilterBar<VideoSort>(
@@ -524,6 +500,65 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
         }),
       ),
     ]);
+  }
+}
+
+/// The bar shown instead of the search while videos are ticked (All videos, a collection's page
+/// and its in-place contents): how many, Select all, Edit details (one or several), and mark
+/// them watched or not watched.
+class VideoSelectionBar extends StatelessWidget {
+  const VideoSelectionBar({
+    super.key,
+    required this.selected,
+    required this.onClear,
+    required this.onSelectAll,
+  });
+
+  final Set<String> selected;
+  final VoidCallback onClear, onSelectAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final model = context.read<VideoLibraryModel>();
+    final accent = Theme.of(context).colorScheme.primary;
+    List<VideoItem> picked() => [for (final id in selected) model.byId(id)].whereType<VideoItem>().toList();
+    return Material(
+      key: const ValueKey('video-selection-bar'),
+      color: accent.withValues(alpha: 0.18),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        child: Row(children: [
+          IconButton(tooltip: 'Clear selection', icon: const Icon(Icons.close), onPressed: onClear),
+          Expanded(
+            child: Text('${selected.length} selected',
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+          ),
+          TextButton(onPressed: onSelectAll, child: const Text('Select all')),
+          IconButton(
+            key: const ValueKey('selection-edit'),
+            tooltip: selected.length == 1 ? 'Edit details' : 'Edit ${selected.length} videos',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () => showEditVideos(context, picked()),
+          ),
+          IconButton(
+            tooltip: 'Mark as watched',
+            icon: const Icon(Icons.check_circle_outline),
+            onPressed: () async {
+              await model.setWatched(selected.toList(), true);
+              onClear();
+            },
+          ),
+          IconButton(
+            tooltip: 'Mark as not watched',
+            icon: const Icon(Icons.remove_done),
+            onPressed: () async {
+              await model.setWatched(selected.toList(), false);
+              onClear();
+            },
+          ),
+        ]),
+      ),
+    );
   }
 }
 

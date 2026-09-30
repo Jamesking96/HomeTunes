@@ -33,7 +33,7 @@ const _taggedExtensions = {'.mp4', '.m4v', '.mov'};
 
 /// The current version of the name-reading rules. Videos saved by an older one are read again
 /// once (keeping their thumbnail, length and "added" date).
-const videoScanVersion = 3; // 3: .nfo files
+const videoScanVersion = 4; // 3: .nfo files; 4: season titles
 
 /// Picture names that are a collection's poster, best first (lower case, without extension).
 const _posterNames = ['poster', 'folder', 'cover', 'season-all-poster', 'show', 'movie'];
@@ -178,6 +178,11 @@ VideoItem readVideo(String path, int modifiedMs, int sizeBytes,
     season: season,
     episode: episode,
     part: info.part,
+    // The series' tvshow.nfo names seasons (HomeTunes saves the user's names there too); else
+    // the season folder's own title ("Season 1 - Offline News").
+    seasonTitle: season == null || season == 0
+        ? null
+        : (show?.namedSeasons[season] ?? (season == info.season ? info.seasonTitle : null)),
     // An .nfo that numbers it makes it an episode, even in an Extras folder.
     extra: info.extra && nfo?.season == null && nfo?.episode == null,
     year: nfo?.year ?? year ?? info.year,
