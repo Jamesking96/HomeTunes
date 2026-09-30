@@ -113,6 +113,17 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
   MusicFilters _only = MusicFilters.none;
   CollectionSort _sort = CollectionSort.category;
 
+  /// The collection whose contents are open under its row (by key), like an album on an artist
+  /// page.
+  String? _open;
+
+  /// Ticked collections (select mode is on while this isn't empty), by key.
+  final Set<String> _selected = {};
+
+  void _toggleOpen(VideoCollection c) => setState(() => _open = _open == c.key ? null : c.key);
+  void _toggleSelected(VideoCollection c) =>
+      setState(() => _selected.contains(c.key) ? _selected.remove(c.key) : _selected.add(c.key));
+
   @override
   bool get wantKeepAlive => true;
 
@@ -137,7 +148,64 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
     final shown = searchCollections(
         [for (final c in all) if (_only.matches(c, collectionFilterFields)) c], _query);
     final groups = sortCollections(shown, _sort, lastWatched: model.lastWatchedMs);
+    final picked = [for (final c in all) if (_selected.contains(c.key)) c];
+    final selecting = picked.isNotEmpty;
+    final accent = Theme.of(context).colorScheme.primary;
     return Column(children: [
+      if (selecting)
+        Material(
+          color: accent.withValues(alpha: 0.18),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            child: Row(children: [
+              IconButton(tooltip: 'Clear selection', icon: const Icon(Icons.close), onPressed: () => setState(_selected.clear)),
+              Expanded(child: Text('${picked.length} selected', style: const TextStyle(fontWeight: FontWeight.w600))),
+              TextButton(
+                  onPressed: () => setState(() => _selected.addAll([for (final c in shown) c.key])),
+                  child: const Text('Select all')),
+              IconButton(
+                tooltip: picked.length == 1 ? 'Edit collection' : 'Edit ${picked.length} collections',
+                icon: const Icon(Icons.edit_outlined),
+                onPressed: () => showEditCollections(context, picked),
+              ),
+              if (picked.length == 1)
+                IconButton(
+                  tooltip: 'Change poster',
+                  icon: const Icon(Icons.image_outlined),
+                  onPressed: () => showCollectionPosterOptions(context, picked.single),
+                ),
+              Builder(builder: (context) {
+                final allFav = picked.every(model.isFavourite);
+                return IconButton(
+                  tooltip: allFav ? 'Remove from favourites' : 'Add to favourites',
+                  icon: Icon(allFav ? Icons.favorite : Icons.favorite_border),
+                  onPressed: () async {
+                    for (final c in picked) {
+                      await model.setFavourite(c, !allFav);
+                    }
+                  },
+                );
+              }),
+              IconButton(
+                tooltip: 'Mark all as watched',
+                icon: const Icon(Icons.done_all),
+                onPressed: () async {
+                  await model.setWatched([for (final c in picked) for (final v in c.main) v.id], true);
+                  setState(_selected.clear);
+                },
+              ),
+              IconButton(
+                tooltip: 'Mark all as not watched',
+                icon: const Icon(Icons.remove_done),
+                onPressed: () async {
+                  await model.setWatched([for (final c in picked) for (final v in c.main) v.id], false);
+                  setState(_selected.clear);
+                },
+              ),
+            ]),
+          ),
+        )
+      else
       MusicFilterBar<CollectionSort>(
         controller: _search,
         hint: 'Filter by name, category, genre or year',
@@ -180,7 +248,27 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
                   items: list,
                   cols: cols,
                   height: (x) => collectionCardHeight(itemWidth, model.collectionShapeOf(x)),
-                  card: (x) => CollectionCard(collection: x),
+                  card: (x) => CollectionCard(
+                    key: ValueKey('collection-card:${x.key}'),
+                    collection: x,
+                    // A tap opens its contents under the row (right-click › Open collection page
+                    // for the full page).
+                    onTap: () => _toggleOpen(x),
+                    highlighted: x.key == _open,
+                    selecting: selecting,
+                    selected: _selected.contains(x.key),
+                    onSelect: () => _toggleSelected(x),
+                  ),
+                  after: (row) {
+                    final open = row.where((x) => x.key == _open).firstOrNull;
+                    return open == null
+                        ? null
+                        : CollectionContentsPanel(
+                            key: ValueKey('panel:${open.key}'),
+                            collection: open,
+                            onClose: () => setState(() => _open = null),
+                          );
+                  },
                 ),
               ),
             ],
@@ -445,23 +533,28 @@ double videoCardHeight(double width, [PictureShape shape = PictureShape.wide]) =
 
 /// Cards in rows of [cols], each row as tall as its tallest card (videos and collections can
 /// each have their own picture shape, so a plain grid's equal cells won't do).
+/// [after] can put something under a row (an open collection's contents, like an album's songs
+/// on an artist page).
 Widget sliverCardRows<T>({
   required List<T> items,
   required int cols,
   required double Function(T) height,
   required Widget Function(T) card,
+  Widget? Function(List<T> row)? after,
 }) =>
     SliverList.builder(
       itemCount: (items.length / cols).ceil(),
       itemBuilder: (_, r) {
         final row = items.skip(r * cols).take(cols).toList();
-        return SizedBox(
+        final cards = SizedBox(
           height: row.map(height).reduce(math.max),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             for (final x in row) Expanded(child: card(x)),
             for (var i = row.length; i < cols; i++) const Expanded(child: SizedBox()),
           ]),
         );
+        final below = after?.call(row);
+        return below == null ? cards : Column(mainAxisSize: MainAxisSize.min, children: [cards, below]);
       },
     );
 

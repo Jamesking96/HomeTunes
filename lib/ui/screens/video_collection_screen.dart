@@ -20,6 +20,7 @@ import '../../models/video_item.dart';
 import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../widgets/cards.dart' show HoverPlayCover;
 import '../widgets/save_nfo.dart';
 import 'video_pictures.dart';
 import 'videos_screen.dart' show showVideoMenu, videoLength;
@@ -55,7 +56,28 @@ class _Picture extends StatelessWidget {
 /// One collection in a grid.
 class CollectionCard extends StatelessWidget {
   final VideoCollection collection;
-  const CollectionCard({super.key, required this.collection});
+
+  /// What a tap does (the Collections tab opens its contents under the row); without it, a tap
+  /// opens the collection's page.
+  final VoidCallback? onTap;
+
+  /// Its contents are showing under its row.
+  final bool highlighted;
+
+  /// Select mode: [onSelect] ticks or unticks it (right-click › Select, or press and hold).
+  final bool selecting;
+  final bool selected;
+  final VoidCallback? onSelect;
+
+  const CollectionCard({
+    super.key,
+    required this.collection,
+    this.onTap,
+    this.highlighted = false,
+    this.selecting = false,
+    this.selected = false,
+    this.onSelect,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -72,22 +94,24 @@ class CollectionCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(8),
       child: GestureDetector(
-        onSecondaryTapUp: (d) => showCollectionMenu(context, c, at: d.globalPosition),
-        onLongPress: () {
-          final box = context.findRenderObject() as RenderBox;
-          showCollectionMenu(context, c, at: box.localToGlobal(box.size.center(Offset.zero)));
-        },
+        onSecondaryTapUp: (d) => showCollectionMenu(context, c, at: d.globalPosition, onSelect: onSelect),
+        onLongPress: onSelect ??
+            () {
+              final box = context.findRenderObject() as RenderBox;
+              showCollectionMenu(context, c, at: box.localToGlobal(box.size.center(Offset.zero)));
+            },
         child: InkWell(
           borderRadius: AppShape.circular(8),
-          onTap: () => context.read<AppNav>().openVideoCollection(c.name),
+          onTap: selecting ? onSelect : (onTap ?? () => context.read<AppNav>().openVideoCollection(c.name)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             AspectRatio(
               aspectRatio: model.collectionShapeOf(c).aspect,
               child: ClipRRect(
                 borderRadius: AppShape.circular(8),
                 child: Stack(fit: StackFit.expand, children: [
-                  // A picture of another shape is shown whole, over a blurred copy.
-                  PosterPicture(file: model.coverFile(c)),
+                  // A picture of another shape is shown whole, over a blurred copy. Hovering it
+                  // shows a play button (like album covers) that plays or carries on.
+                  _PlayablePoster(collection: c, enabled: !selecting),
                   if (model.isFavourite(c))
                     Positioned(
                       right: 6,
@@ -101,6 +125,22 @@ class CollectionCard extends StatelessWidget {
                       bottom: 0,
                       child: LinearProgressIndicator(
                           value: watched / total, minHeight: 4, color: accent, backgroundColor: Colors.black45),
+                    ),
+                  if (selecting)
+                    Positioned(
+                      left: 4,
+                      top: 4,
+                      child: Icon(selected ? Icons.check_circle : Icons.radio_button_unchecked,
+                          color: selected ? accent : Colors.white70, shadows: const [Shadow(blurRadius: 4)]),
+                    ),
+                  if (selected) Container(color: accent.withValues(alpha: 0.25)),
+                  // Its contents are open under the row.
+                  if (highlighted)
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: accent, width: 3),
+                        borderRadius: AppShape.circular(8),
+                      ),
                     ),
                 ]),
               ),
@@ -118,8 +158,169 @@ class CollectionCard extends StatelessWidget {
   }
 }
 
-/// A collection's menu (right-click / press and hold on its card, ⋮ on its page).
-Future<void> showCollectionMenu(BuildContext context, VideoCollection c, {required Offset at}) async {
+/// A collection's contents shown in place under its row on the Collections tab (like an album's
+/// songs on an artist page): name and details, Play / Continue, "Open collection page" and a
+/// close button, then its seasons. With several seasons only the one with the next episode starts
+/// open; the others open from their headings.
+class CollectionContentsPanel extends StatefulWidget {
+  final VideoCollection collection;
+  final VoidCallback onClose;
+  const CollectionContentsPanel({super.key, required this.collection, required this.onClose});
+
+  @override
+  State<CollectionContentsPanel> createState() => _CollectionContentsPanelState();
+}
+
+class _CollectionContentsPanelState extends State<CollectionContentsPanel> {
+  Set<String>? _folded;
+
+  @override
+  void initState() {
+    super.initState();
+    // Opened low down the screen (under a tall card, say): scroll it up into view, keeping a
+    // little of the card row above it.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final scrollable = Scrollable.maybeOf(context);
+      final box = context.findRenderObject();
+      final view = scrollable?.context.findRenderObject();
+      if (scrollable == null || box is! RenderBox || view is! RenderBox || !box.hasSize) return;
+      final top = box.localToGlobal(Offset.zero, ancestor: view).dy;
+      final height = view.size.height;
+      if (top < height * 0.6) return;
+      final position = scrollable.position;
+      final to = (position.pixels + top - height * 0.35).clamp(position.minScrollExtent, position.maxScrollExtent);
+      position.animateTo(to, duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final model = context.watch<VideoLibraryModel>();
+    // The collection as it is now (it may have been edited while open).
+    final c = model.collectionNamed(widget.collection.name) ?? widget.collection;
+    final next = model.nextUp(c);
+    final groups = c.groups;
+    final headed = [for (final (h, _) in groups) ?h];
+    _folded ??= headed.length < 2
+        ? <String>{}
+        : {
+            for (final (h, list) in groups)
+              if (h != null && !list.any((v) => v.id == (next ?? c.videos.first).id)) h
+          };
+    final folded = _folded!;
+    final started = next != null && (model.placeOf(next.id)?.inProgress ?? false);
+    final details = [
+      if (c.category != null) c.category!,
+      if (c.year != null) '${c.year}',
+      '${c.main.length} ${c.main.length == 1 ? 'video' : 'videos'}',
+      if (c.totalDuration > Duration.zero) collectionLength(c.totalDuration),
+      if (c.main.length > 1) '${model.watchedCount(c)} watched',
+    ].join(' · ');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+      child: Material(
+        key: ValueKey('collection-panel:${c.key}'),
+        color: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: AppShape.circular(12)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 4, 4),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(c.name,
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  Text(details, style: TextStyle(color: AppColors.textDim, fontSize: 13)),
+                ]),
+              ),
+              if (next != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: FilledButton.icon(
+                    key: const ValueKey('panel-play'),
+                    icon: const Icon(Icons.play_arrow),
+                    label: Text('${started ? 'Continue' : 'Play'} ${next.episodeLabel ?? ''}'.trim()),
+                    onPressed: () => context.read<AppNav>().openVideo(next),
+                  ),
+                ),
+              IconButton(
+                key: const ValueKey('panel-open-page'),
+                tooltip: 'Open collection page',
+                icon: const Icon(Icons.open_in_new),
+                onPressed: () => context.read<AppNav>().openVideoCollection(c.name),
+              ),
+              Builder(
+                builder: (context) => IconButton(
+                  tooltip: 'More',
+                  icon: const Icon(Icons.more_vert),
+                  onPressed: () {
+                    final box = context.findRenderObject() as RenderBox;
+                    showCollectionMenu(context, c, at: box.localToGlobal(box.size.center(Offset.zero)));
+                  },
+                ),
+              ),
+              IconButton(
+                key: const ValueKey('panel-close'),
+                tooltip: 'Close',
+                icon: const Icon(Icons.close),
+                onPressed: widget.onClose,
+              ),
+            ]),
+          ),
+          for (final (heading, list) in groups) ...[
+            if (heading != null)
+              _GroupHeading(
+                heading: heading,
+                count: list.length,
+                watched: list.where((v) => model.placeOf(v.id)?.watched ?? false).length,
+                folded: folded.contains(heading),
+                hasNext: list.any((v) => v.id == next?.id),
+                onTap: () => setState(() => folded.contains(heading) ? folded.remove(heading) : folded.add(heading)),
+              ),
+            if (heading == null || !folded.contains(heading))
+              for (final v in list)
+                SizedBox(
+                  height: _VideoCollectionScreenState.rowExtent,
+                  child: EpisodeRow(video: v, isNext: v.id == next?.id),
+                ),
+          ],
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+  }
+}
+
+/// A collection's picture with a play button that shows on hover (plays the next episode, or
+/// carries on with it).
+class _PlayablePoster extends StatelessWidget {
+  final VideoCollection collection;
+  final bool enabled;
+  const _PlayablePoster({required this.collection, this.enabled = true});
+
+  @override
+  Widget build(BuildContext context) {
+    final model = context.watch<VideoLibraryModel>();
+    final picture = PosterPicture(file: model.coverFile(collection));
+    final next = model.nextUp(collection);
+    if (!enabled || next == null) return picture;
+    final started = model.placeOf(next.id)?.inProgress ?? false;
+    final what = next.episodeLabel ?? next.title;
+    return HoverPlayCover(
+      tooltip: started ? 'Continue $what' : 'Play $what',
+      onPlay: () => context.read<AppNav>().openVideo(next),
+      child: picture,
+    );
+  }
+}
+
+/// A collection's menu (right-click / press and hold on its card, ⋮ on its page). [onSelect]
+/// adds "Select" (the Collections tab's select mode).
+Future<void> showCollectionMenu(BuildContext context, VideoCollection c,
+    {required Offset at, VoidCallback? onSelect}) async {
   final model = context.read<VideoLibraryModel>();
   final nav = context.read<AppNav>();
   final fav = model.isFavourite(c);
@@ -130,7 +331,8 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c, {requir
     context: context,
     position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
     items: [
-      const PopupMenuItem(value: 'open', child: ListTile(leading: Icon(Icons.video_library_outlined), title: Text('Open'))),
+      const PopupMenuItem(
+          value: 'open', child: ListTile(leading: Icon(Icons.open_in_new), title: Text('Open collection page'))),
       if (next != null)
         PopupMenuItem(
           value: 'play',
@@ -156,10 +358,14 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c, {requir
           title: Text(allWatched ? 'Mark all as not watched' : 'Mark all as watched'),
         ),
       ),
+      if (onSelect != null)
+        const PopupMenuItem(value: 'select', child: ListTile(leading: Icon(Icons.check_box_outlined), title: Text('Select'))),
     ],
   );
   if (!context.mounted) return;
   switch (choice) {
+    case 'select':
+      onSelect?.call();
     case 'open':
       nav.openVideoCollection(c.name);
     case 'play':
@@ -268,7 +474,7 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> {
           width: wide ? width : (shape == PictureShape.wide ? box.maxWidth : math.min(box.maxWidth, 260.0)),
           child: AspectRatio(
             aspectRatio: shape.aspect,
-            child: PosterPicture(file: model.coverFile(c)),
+            child: _PlayablePoster(collection: c),
           ),
         ),
       );
@@ -565,6 +771,160 @@ class EpisodeRow extends StatelessWidget {
           ]),
         ),
       ),
+    );
+  }
+}
+
+/// Edit collection for one or several (select mode on the Collections tab). For several, only
+/// what's typed or picked is changed: category, year, genre and poster shape (a name or a
+/// description for several at once wouldn't make sense).
+Future<void> showEditCollections(BuildContext context, List<VideoCollection> list) async {
+  if (list.isEmpty) return;
+  if (list.length == 1) {
+    await showEditCollection(context, list.single);
+    return;
+  }
+  await showDialog<void>(context: context, builder: (_) => _EditSeveralCollections(collections: list));
+}
+
+class _EditSeveralCollections extends StatefulWidget {
+  final List<VideoCollection> collections;
+  const _EditSeveralCollections({required this.collections});
+
+  @override
+  State<_EditSeveralCollections> createState() => _EditSeveralCollectionsState();
+}
+
+class _EditSeveralCollectionsState extends State<_EditSeveralCollections> {
+  late final List<VideoCollection> _list = widget.collections;
+  late final _category = TextEditingController(text: _common((c) => c.category) ?? '');
+  late final _year = TextEditingController(text: _common((c) => c.year?.toString()) ?? '');
+  late final _genre = TextEditingController(text: _common((c) => c.genre) ?? '');
+  late final VideoLibraryModel _model = context.read<VideoLibraryModel>();
+  late final Set<PictureShape?> _startShapes = {for (final c in _list) _model.ownCollectionShapeOf(c)};
+  late PictureShape? _shape = _startShapes.length == 1 ? _startShapes.single : null;
+  late bool _shapeMixed = _startShapes.length > 1;
+  bool _shapeChanged = false;
+  String? _yearError;
+  bool _saving = false;
+
+  String? _common(String? Function(VideoCollection) get) {
+    final values = {for (final c in _list) get(c)};
+    return values.length == 1 ? values.single : null;
+  }
+
+  String? _hint(String? Function(VideoCollection) get) => _common(get) == null ? '--:--' : null;
+
+  @override
+  void dispose() {
+    for (final t in [_category, _year, _genre]) {
+      t.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final y = _year.text.trim();
+    final year = y.isEmpty ? null : int.tryParse(y);
+    if (y.isNotEmpty && (year == null || year < 1800 || year > 2200)) {
+      setState(() => _yearError = 'A year like 2019');
+      return;
+    }
+    setState(() => _saving = true);
+    String? typed(TextEditingController t, String? Function(VideoCollection) get) {
+      final v = t.text.trim();
+      return v.isEmpty || v == _common(get) ? null : v;
+    }
+
+    final category = typed(_category, (c) => c.category);
+    final genre = typed(_genre, (c) => c.genre);
+    final newYear = year != null && '$year' != _common((c) => c.year?.toString()) ? year : null;
+    for (final c in _list) {
+      if (_shapeChanged) await _model.setCollectionShape(c, _shape);
+      if (category != null || genre != null || newYear != null) {
+        await _model.editCollection(c, category: category, genre: genre, year: newYear);
+      }
+    }
+    if (!mounted) return;
+    saveNfoAfterEdit(context, [for (final c in _list) ...c.videos]);
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final categories = {for (final x in _model.collections) if (x.category != null) x.category!}.toList()..sort();
+    return AlertDialog(
+      title: Text('Edit ${_list.length} collections'),
+      content: SizedBox(
+        width: 480,
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(_list.map((c) => c.name).join(', '),
+                maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.textDim, fontSize: 12)),
+            const SizedBox(height: 8),
+            TextField(
+              key: const ValueKey('collections-category'),
+              controller: _category,
+              decoration: InputDecoration(
+                labelText: 'Category',
+                hintText: _hint((c) => c.category) ?? 'TV, Anime, Films…',
+                suffixIcon: categories.isEmpty
+                    ? null
+                    : PopupMenuButton<String>(
+                        tooltip: 'Choose a category',
+                        icon: const Icon(Icons.arrow_drop_down),
+                        onSelected: (x) => setState(() => _category.text = x),
+                        itemBuilder: (_) => [for (final x in categories) PopupMenuItem(value: x, child: Text(x))],
+                      ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(children: [
+              SizedBox(
+                width: 120,
+                child: TextField(
+                  key: const ValueKey('collections-year'),
+                  controller: _year,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() => _yearError = null),
+                  decoration: InputDecoration(labelText: 'Year', hintText: _hint((c) => c.year?.toString()), errorText: _yearError),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  key: const ValueKey('collections-genre'),
+                  controller: _genre,
+                  decoration: InputDecoration(labelText: 'Genre', hintText: _hint((c) => c.genre)),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            PictureShapePicker(
+              title: 'Poster shape (Look)${_shapeMixed ? ': these differ' : ''}',
+              value: _shape,
+              usual: _model.library.collectionPictureShape,
+              mixed: _shapeMixed,
+              onChanged: (s) => setState(() {
+                _shape = s;
+                _shapeMixed = false;
+                _shapeChanged = true;
+              }),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text('Only what you type or pick is changed; the rest is left as it is. Changes are saved on every '
+                  'video in these collections.', style: TextStyle(color: AppColors.textDim, fontSize: 12)),
+            ),
+            const SizedBox(height: 8),
+            const SaveNfoCheckbox(),
+          ]),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        FilledButton(onPressed: _saving ? null : _save, child: const Text('Save')),
+      ],
     );
   }
 }
