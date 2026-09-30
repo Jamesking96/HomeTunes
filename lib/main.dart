@@ -25,6 +25,7 @@ import 'state/equalizer_model.dart';
 import 'state/library_model.dart';
 import 'state/listening_model.dart';
 import 'state/lyrics_model.dart';
+import 'state/now_watching.dart';
 import 'state/player_model.dart';
 import 'state/playlists_model.dart';
 import 'state/selection_model.dart';
@@ -124,7 +125,9 @@ Future<void> main() async {
   }
   // Can come back null (e.g. the platform refused); the app still works, just without
   // the system controls.
-  final session = await MediaSession.start(player, library);
+  // The video playing on its page (30 Sep): the player bar and media keys follow it while it's in front.
+  final watching = NowWatching(player);
+  final session = await MediaSession.start(player, library, watching: watching);
   debugPrint(session == null
       ? 'HomeTunes: system media controls are off'
       : 'HomeTunes: system media controls connected');
@@ -140,6 +143,7 @@ Future<void> main() async {
     player: player,
     updates: updates,
     videos: videos,
+    watching: watching,
   ));
 
   // First start after an update: show what changed since the version that ran before
@@ -199,6 +203,7 @@ class HomeTunesApp extends StatelessWidget {
   final PlayerModel player;
   final UpdateModel updates;
   final VideoLibraryModel videos;
+  final NowWatching watching;
   const HomeTunesApp({
     super.key,
     required this.library,
@@ -210,6 +215,7 @@ class HomeTunesApp extends StatelessWidget {
     required this.player,
     required this.updates,
     required this.videos,
+    required this.watching,
   });
 
   @override
@@ -226,6 +232,7 @@ class HomeTunesApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: player),
         ChangeNotifierProvider.value(value: updates),
         ChangeNotifierProvider.value(value: videos),
+        ChangeNotifierProvider.value(value: watching),
         // These only matter to the UI, so Provider creates (and owns) them itself.
         ChangeNotifierProvider(create: (_) => SleepTimer(player, library)),
         ChangeNotifierProvider(create: (_) => AppNav()),

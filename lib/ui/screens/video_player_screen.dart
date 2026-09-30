@@ -31,6 +31,7 @@ import '../../services/path_safety.dart';
 import '../../services/video_names.dart';
 import '../../state/equalizer_model.dart';
 import '../../state/library_model.dart';
+import '../../state/now_watching.dart';
 import '../../state/player_model.dart';
 import '../../state/video_filters.dart';
 import '../../state/video_library_model.dart';
@@ -130,6 +131,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   // The equaliser (Settings › Videos can give videos their own preset). Null in tests without one.
   EqualizerModel? _eq;
   String? _appliedEq;
+  // What the bottom bar and media keys use to reach this player. Null in tests without one.
+  NowWatching? _watching;
+  late final VideoTransport _transport = MediaKitTransport(_player);
 
   /// The speed now (starts at the collection's own, else Settings › Videos' usual one).
   double _speed = 1.0;
@@ -160,6 +164,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _videos = context.read<VideoLibraryModel>();
     _music = context.read<PlayerModel>();
     _music.addListener(_onMusicChanged);
+    // The bottom bar and the system media controls show and control this video (30 Sep).
+    _watching = Provider.of<NowWatching?>(context, listen: false);
+    _watching?.attach(_transport, onOpen: _bringBack);
     _settings = _videos.library;
     _eq = Provider.of<EqualizerModel?>(context, listen: false);
     _eq?.addListener(_applyEqualizer);
@@ -198,6 +205,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       setState(() => _problem = 'This video isn\'t there any more. Rescan your video folders to tidy the list.');
       return;
     }
+    _watching?.showing(v,
+        picture: _videos.thumbFile(v),
+        skipBack: _settings.videoSkipBackSeconds,
+        skipForward: _settings.videoSkipForwardSeconds);
     // One thing at a time: the music pauses while a video plays.
     if (_music.playing) await _music.pause();
     final place = _videos.placeOf(v.id);
@@ -494,6 +505,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _saveTimer?.cancel();
     _upNextTimer?.cancel();
     _music.removeListener(_onMusicChanged);
+    _watching?.detach(_transport);
     _eq?.removeListener(_applyEqualizer);
     for (final s in _subs) {
       s.cancel();
@@ -503,6 +515,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _fullScreen() async => _videoKey.currentState?.enterFullscreen();
+
+  /// The bottom bar's video was tapped: back to the Videos tab, with this page on top.
+  void _bringBack() {
+    if (!mounted) return;
+    final route = ModalRoute.of(context);
+    context.read<AppNav>().selectTab(AppNav.videosTab);
+    if (route != null && !route.isCurrent) Navigator.of(context).popUntil((r) => r == route);
+  }
 
   /// The video with its controls, plus the Audio and subtitles button (in full screen too).
   Widget _videoWidget() {
@@ -582,6 +602,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           key: _videoKey,
           controller: _controller,
           fill: Colors.black,
+          // The mouse wheel: 5 s skips over the progress bar, volume elsewhere (30 Sep).
+          controls: (state) => VideoWheel(player: _player, look: look, child: AdaptiveVideoControls(state)),
           // With libass the engine draws the subtitles into the picture; the app's own text
           // subtitles would show them twice.
           subtitleViewConfiguration: SubtitleViewConfiguration(visible: Platform.isAndroid),
@@ -804,4 +826,35 @@ class _OverlayButton extends StatelessWidget {
           onPressed: onPressed,
         ),
       );
+}
+
+/// A media_kit player as seen by [NowWatching] (the bottom bar and the system media controls).
+class MediaKitTransport implements VideoTransport {
+  MediaKitTransport(this.player);
+  final Player player;
+
+  @override
+  bool get playing => player.state.playing;
+  @override
+  Stream<bool> get playingStream => player.stream.playing;
+  @override
+  Duration get position => player.state.position;
+  @override
+  Stream<Duration> get positionStream => player.stream.position;
+  @override
+  Duration get duration => player.state.duration;
+  @override
+  Stream<Duration> get durationStream => player.stream.duration;
+  @override
+  double get volume => player.state.volume;
+  @override
+  double get rate => player.state.rate;
+  @override
+  Future<void> play() => player.play();
+  @override
+  Future<void> pause() => player.pause();
+  @override
+  Future<void> seek(Duration to) => player.seek(to);
+  @override
+  Future<void> setVolume(double volume) => player.setVolume(volume);
 }

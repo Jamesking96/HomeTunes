@@ -92,6 +92,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `selection_model.dart` | What's ticked in select mode: songs, albums or audiobooks (one kind at a time), plus what "Select all" covers. |
 | `update_model.dart` | Check for updates (0.1.23): where the check has got to, the newest release found, download progress, the once-a-day check and its switch (`updates.json`). Since 0.1.28 it also remembers the version that last ran, so it knows when to show "What's new" and fetches the release notes for it. |
 | `video_library_model.dart` | The Videos tab's live data (0.1.32): scans the video folders (a setting in `LibraryModel`), makes thumbnails in the background, and owns the edits and watched places (`videos.json`). Builds the collections; favourites, collection descriptions and per-collection track choices; `editCollection`, `nextUp` / `after`; `saveNfoFiles` writes .nfo files; season titles (`seasonTitleOf`, `folderSeasonTitle`, `setSeasonTitle` which can also write tvshow.nfo `<namedseason>`, `groupLabel` for "Season 1 – Offline News"). |
+| `now_watching.dart` | The video playing on its page, for the bottom bar and the system media controls (30 Sep): `NowWatching` (attach / detach by the video page, `inFront` = the video was started after the music, play / pause / skip / seek / volume) and `VideoTransport` (what it needs from a player; `MediaKitTransport` in `video_player_screen.dart`, a fake in tests). |
 | `video_filters.dart` | The Videos tab's search, chips, filters (`videoFilterFields`: collection, genre, decade, length, picture, file type) and sorts (including Season, with a `GroupLabel` for season titles), and where to carry on from (`resumeAt`, `isNearEnd`). No Flutter, so unit tested directly. |
 
 ### Services (`lib/services/`): files, network and the OS
@@ -187,7 +188,9 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `artwork.dart` | Cover images, loaded at a sensible size to save memory. |
 | `save_nfo.dart` | The "Also save into .nfo files" tick box in the video editors, and `saveNfoAfterEdit` (0.1.32). |
 | `music_video_view.dart` | The music video on Now Playing (0.1.32): a second, muted player showing the song's video, kept in step with the song (`videoSeekTarget`), with the cover until the first picture. |
-| `video_controls_look.dart` | Applies `VideoPlayerLook` to media_kit's controls (30 Sep): `ButtonBacking` (glow or disc behind each control), `backedBar`, `timeTextStyle`, `desktopControlsTheme` / `phoneControlsTheme` (normal and full screen), and `VideoControlsPreview` for Settings. |
+| `video_controls_look.dart` | Applies `VideoPlayerLook` to media_kit's controls (30 Sep): `ButtonBacking` (glow or disc behind each control), `backedBar`, `timeTextStyle`, `desktopControlsTheme` / `phoneControlsTheme` (normal and full screen), `VideoWheel` (the mouse wheel over the video: 5 s skips over its progress bar, volume elsewhere) and `VideoControlsPreview` for Settings. |
+| `video_now_playing.dart` | The bottom player bar and mini player while a video plays (`VideoPlayerBar`, `VideoMiniPlayer`, `VideoSeekBar`, `VideoTransportControls`), from `NowWatching` (30 Sep). |
+| `wheel_seek.dart` | Scroll to skip: `WheelSeek` wraps a progress bar so a wheel notch (or a two-finger touchpad swipe) skips 5 s; `wheelSeekTarget` (30 Sep). |
 | `music_access_banner.dart` | The amber "can't read your music" card on Android. |
 
 ## How things flow
@@ -343,6 +346,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `video_collection_page_test.dart` | A collection's page: seasons fold up from their headings; the contents chips jump to (and open) a season; Fold all / Open all. The Collections tab: a tap opens the contents under the row; right-click › Select and editing several collections |
 | `video_look_and_seasons_test.dart` | The video player look (colours, backing shade, saved, theme data), season titles (from folders, tvshow.nfo `<namedseason>` read and written, the user's own kept), the All videos Season sort, a collection page's titled headings, renaming a season and right-click › Select to edit several, and the Appearance › Video player section |
 | `video_sub_seasons_test.dart` | Season sub numbers: "Season 1.2" folders, S1.2 labels and order, Edit details' "1.2", a sub season's own title (not written to .nfo) |
+| `now_watching_test.dart` | The wheel over a progress bar (5 s steps, adding up), `NowWatching` coming to the front and giving way to music, the bottom bar showing and controlling the video, and the system media controls showing the video and sending their buttons to it |
 | `music_settings_test.dart` | Settings › Music: show / auto-play music videos saved, the page's place in the list, the switches |
 | `video_settings_test.dart` | Settings › Videos: saving the settings, the videos' own equaliser preset, picture shapes and speeds (usual and own, kept on rename), the page, and Edit details' shape |
 | `video_tracks_test.dart` | Audio / subtitle labels and finding the remembered choice among a new video's tracks |
