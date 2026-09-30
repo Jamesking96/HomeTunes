@@ -87,6 +87,12 @@ void main() {
       videos.savePlace(list[5].id, const Duration(minutes: 40), const Duration(minutes: 62));
       await videos.setWatched([list[1].id, list[2].id], true);
       await videos.setFavourite(videos.collectionNamed('Harbour Days')!, true);
+      // A tall poster chosen for Harbour Days (shown whole over a blurred copy).
+      final poster = img.Image(width: 400, height: 600);
+      img.fillRect(poster, x1: 0, y1: 0, x2: 399, y2: 599, color: _hsv(20, 0.6, 0.5));
+      img.fillRect(poster, x1: 40, y1: 60, x2: 360, y2: 160, color: _hsv(50, 0.2, 0.95));
+      img.fillCircle(poster, x: 200, y: 400, radius: 120, color: _hsv(200, 0.5, 0.8));
+      await videos.setPoster(videos.collectionNamed('Harbour Days')!, img.encodeJpg(poster));
       await videos.settle();
     });
 
@@ -129,6 +135,11 @@ void main() {
     await tester.pumpAndSettle();
     await shoot('videos-edit-collection');
     await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Change poster'));
+    await tester.pumpAndSettle();
+    await shoot('videos-poster-options');
+    await tester.tapAt(const Offset(5, 5));
     await tester.pumpAndSettle();
 
     // 1. The grid.

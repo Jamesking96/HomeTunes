@@ -10,6 +10,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
@@ -173,8 +174,11 @@ class VideoLibraryModel extends ChangeNotifier {
   int lastWatchedMs(VideoCollection c) =>
       c.videos.fold<int>(0, (m, v) => (_places[v.id]?.updatedMs ?? 0) > m ? _places[v.id]!.updatedMs : m);
 
-  /// The collection's picture: its poster, else its first video's thumbnail.
+  /// The collection's picture: the one the user chose, its poster, else its first video's
+  /// thumbnail.
   String? coverFile(VideoCollection c) {
+    final own = _ownPicture(_posters[c.key]);
+    if (own != null) return own;
     final cover = c.cover;
     if (cover != null && library.videoFolders.any((f) => isInsideAny(cover, [f]))) return cover;
     for (final v in c.main.isEmpty ? c.videos : c.main) {
@@ -238,6 +242,8 @@ class VideoLibraryModel extends ChangeNotifier {
       if (d != null) _descriptions[newKey] = d;
       final t = _trackChoices.remove(oldKey);
       if (t != null) _trackChoices[newKey] = t;
+      final poster = _posters.remove(oldKey);
+      if (poster != null) _posters[newKey] = poster;
     }
     _rebuild();
     await _save();
@@ -323,10 +329,76 @@ class VideoLibraryModel extends ChangeNotifier {
     return folder;
   }
 
-  /// The thumbnail, if it's inside the app's own art folder.
+  /// The video's picture: the one the user chose, else its thumbnail (if it's inside the app's
+  /// own art folder).
   String? thumbFile(VideoItem v) {
+    final own = _ownPicture(_pictures[v.id]);
+    if (own != null) return own;
     final t = v.thumb;
     return t != null && isInsideAny(t, [storage.artDir]) ? t : null;
+  }
+
+  // ---- pictures the user chose (Change picture… / Change poster…) ----
+
+  // By video id, and by collection key: files in art/video/custom/.
+  Map<String, String> _pictures = {};
+  Map<String, String> _posters = {};
+
+  /// Where chosen pictures are kept (inside the thumbnail folder, whose tidy-up only looks at
+  /// its own files, not sub-folders).
+  String get customPictureDir => p.join(thumbDir, 'custom');
+
+  String? _ownPicture(String? path) => path != null && isInsideAny(path, [storage.artDir]) ? path : null;
+
+  bool hasOwnPicture(VideoItem v) => _pictures.containsKey(v.id);
+  bool hasOwnPoster(VideoCollection c) => _posters.containsKey(c.key);
+
+  /// Gives [v] the picture [bytes] (a JPEG or PNG, already made a sensible size), or with null
+  /// goes back to the automatic one.
+  Future<void> setPicture(VideoItem v, List<int>? bytes) async {
+    if (bytes == null) {
+      _pictures.remove(v.id);
+    } else {
+      _pictures[v.id] = await _keep(bytes);
+    }
+    await _afterPictureChange();
+  }
+
+  /// Gives collection [c] the poster [bytes], or with null goes back to the automatic one.
+  Future<void> setPoster(VideoCollection c, List<int>? bytes) async {
+    if (bytes == null) {
+      _posters.remove(c.key);
+    } else {
+      _posters[c.key] = await _keep(bytes);
+    }
+    await _afterPictureChange();
+  }
+
+  /// Saves a chosen picture under a name made from its contents (so the same one is kept once,
+  /// and a changed picture never shows an old cached copy).
+  Future<String> _keep(List<int> bytes) async {
+    final png = bytes.length > 4 && bytes[0] == 0x89 && bytes[1] == 0x50;
+    final dir = Directory(customPictureDir);
+    await dir.create(recursive: true);
+    final file = File(p.join(dir.path, '${md5.convert(bytes)}${png ? '.png' : '.jpg'}'));
+    if (!await file.exists()) await file.writeAsBytes(bytes, flush: true);
+    return file.path;
+  }
+
+  Future<void> _afterPictureChange() async {
+    notifyListeners();
+    await _save();
+    // Pictures no longer used by anything go.
+    final dir = Directory(customPictureDir);
+    if (!await dir.exists()) return;
+    final used = {for (final f in [..._pictures.values, ..._posters.values]) p.normalize(f)};
+    await for (final e in dir.list()) {
+      if (e is File && !used.contains(p.normalize(e.path))) {
+        try {
+          await e.delete();
+        } catch (_) {}
+      }
+    }
   }
 
   // ---- loading and saving ----
@@ -392,6 +464,10 @@ class VideoLibraryModel extends ChangeNotifier {
     _descriptions = descriptions;
     _trackChoices = choices;
     saveNfo = j['saveNfo'] != false;
+    Map<String, String> strings(Object? m) =>
+        m is Map ? {for (final e in m.entries) if (e.key is String && e.value is String) e.key as String: e.value as String} : {};
+    _pictures = strings(j['pictures']);
+    _posters = strings(j['posters']);
     _rebuild();
   }
 
@@ -405,6 +481,8 @@ class VideoLibraryModel extends ChangeNotifier {
       'edits': {for (final e in _edits.entries) e.key: e.value.toJson()},
       'places': {for (final e in _places.entries) e.key: e.value.toJson()},
       if (!saveNfo) 'saveNfo': false,
+      if (_pictures.isNotEmpty) 'pictures': _pictures,
+      if (_posters.isNotEmpty) 'posters': _posters,
       if (_favourites.isNotEmpty) 'favourites': _favourites.toList()..sort(),
       if (_descriptions.isNotEmpty) 'descriptions': _descriptions,
       if (_trackChoices.isNotEmpty)

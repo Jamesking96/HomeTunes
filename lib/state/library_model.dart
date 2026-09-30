@@ -117,6 +117,10 @@ class LibraryModel extends ChangeNotifier {
   /// Look up lyrics on LRCLIB when a song has none of its own.
   bool onlineLyrics = true;
 
+  /// Offer "Search online" for video pictures and collection posters (TVmaze, AniList,
+  /// Wikipedia; 0.1.32).
+  bool onlineVideoArt = true;
+
   /// Audiobooks on the music server show in the Books tab (Settings › Servers).
   bool serverBooks = true;
 
@@ -340,6 +344,7 @@ class LibraryModel extends ChangeNotifier {
     onlineCovers = true;
     onlineDetails = true;
     onlineLyrics = true;
+    onlineVideoArt = true;
     serverBooks = true;
     gaplessPlayback = true;
     replayGain = ReplayGainMode.off;
@@ -392,6 +397,7 @@ class LibraryModel extends ChangeNotifier {
       onlineCovers = s.get('onlineCovers', true);
       onlineDetails = s.get('onlineDetails', true);
       onlineLyrics = s.get('onlineLyrics', true);
+      onlineVideoArt = s.get('onlineVideoArt', true);
       serverBooks = s.get('serverBooks', true);
       gaplessPlayback = s.get('gaplessPlayback', true);
       replayGain = ReplayGainMode.values.asNameMap()[raw['replayGain']] ?? ReplayGainMode.off;
@@ -538,6 +544,7 @@ class LibraryModel extends ChangeNotifier {
         'onlineCovers': onlineCovers,
         'onlineDetails': onlineDetails,
         'onlineLyrics': onlineLyrics,
+        'onlineVideoArt': onlineVideoArt,
         'serverBooks': serverBooks,
         'gaplessPlayback': gaplessPlayback,
         'replayGain': replayGain.name,
@@ -640,6 +647,12 @@ class LibraryModel extends ChangeNotifier {
 
   Future<void> setOnlineLyrics(bool on) async {
     onlineLyrics = on;
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  Future<void> setOnlineVideoArt(bool on) async {
+    onlineVideoArt = on;
     notifyListeners();
     await _saveSettings();
   }
