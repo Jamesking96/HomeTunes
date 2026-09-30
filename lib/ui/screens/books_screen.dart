@@ -101,6 +101,20 @@ class _BooksScreenState extends State<BooksScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // The sidebar's Favourite audiobooks (1 Oct): show the Favourites chip, nothing else narrowing.
+    context.select<AppNav, String?>((n) => n.viewRequest);
+    if (context.read<AppNav>().takeView(AppNav.favouriteBooksView)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _search.clear();
+        setState(() {
+          _filter = BookFilter.favourites;
+          _only = BookFilters.none;
+          _searching = false;
+          _query = '';
+        });
+      });
+    }
     final lib = context.watch<LibraryModel>();
     final listening = context.watch<ListeningModel>();
     final playlists = context.watch<PlaylistsModel>();

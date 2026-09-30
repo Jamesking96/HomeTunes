@@ -185,6 +185,25 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## The computer's sidebar (1 Oct 2026, 0.1.32)
+- **What the user asked for:** "the left hand side bar can be scaled and hidden away by dragging
+  or a click of a button", and two more entries like Liked Songs under Settings: one for
+  audiobooks and one for videos.
+- **Resize:** drag the sidebar's right edge (a resize cursor shows over it) between 180 and
+  420 px. The drag is measured from where the mouse was pressed so the edge stays under it.
+- **Fold:** the ☰ button at its top, a double-click on the edge, or dragging it narrower than
+  130 px folds it to a 64 px strip of icons with tooltips (tabs, then Liked Songs, Favourite
+  audiobooks, Favourite videos; playlists are hidden while folded). The same button, a
+  double-click or a drag opens it again at the width it had. It animates (160 ms) except while
+  dragging. Width and folded are saved in settings.json (`sidebarWidth`, `sidebarFolded`,
+  `LibraryModel.setSidebar`), written when a drag ends, not on every move.
+- **Favourite audiobooks** goes to the Audiobooks tab's first page with the Favourites chip on
+  (other filters and the search cleared); **Favourite videos** goes to the Videos tab's
+  Favourites sub-tab. Both use `AppNav.openView` / `takeView` (a one-off request the tab's first
+  page picks up, like `openSettings`).
+- **Code:** `ui/widgets/sidebar.dart` (`Sidebar`, moved out of `shell.dart`). Tests:
+  `test/sidebar_test.dart`.
+
 ## Music videos (0.1.32, branch `feature/music-videos`, not released yet)
 
 - **Which songs have one.** A song whose folder holds a video with the same name (`Song.m4a` + `Song.mp4`, any case; `.mp4`, `.m4v`, `.webm`, `.mkv` or `.mov`, `.mp4` preferred) gets it as its music video (`Track.video`). The video file is no longer listed as a second copy of the song. This is the layout the YouTube offline player writes (checked on `C:\Users\James.Miller\Videos\YouTubeOfflinePlayer`: 5 songs, 4 with videos).

@@ -53,6 +53,28 @@ class AppNav extends ChangeNotifier {
     notifyListeners();
   }
 
+  // A "please show this view" note for a tab's first page (1 Oct: the sidebar's Favourite
+  // audiobooks and Favourite videos). The page picks it up with [takeView].
+  String? _viewRequest;
+  String? get viewRequest => _viewRequest;
+
+  static const favouriteBooksView = 'favourite-books', favouriteVideosView = 'favourite-videos';
+
+  /// Goes to tab [i]'s first page and asks it to show [view].
+  void openView(int i, String view) {
+    tab = i;
+    keys[i].currentState?.popUntil((r) => r.isFirst);
+    _viewRequest = view;
+    notifyListeners();
+  }
+
+  /// True (once) when [view] was asked for.
+  bool takeView(String view) {
+    if (_viewRequest != view) return false;
+    _viewRequest = null;
+    return true;
+  }
+
   // A "please open this settings page" note left by openSettings, waiting for the Settings
   // screen to pick it up (it may not be built yet when the request is made).
   ({String page, String? setting})? _settingsRequest;

@@ -29,6 +29,7 @@ import 'screens/videos_screen.dart';
 import 'theme.dart';
 import 'widgets/player_controls.dart';
 import 'widgets/quick_actions.dart';
+import 'widgets/sidebar.dart';
 import 'widgets/track_tile.dart';
 
 /// Wide screens get a sidebar + bottom player bar; phones get a mini player
@@ -88,8 +89,7 @@ class Shell extends StatelessWidget {
         body: Column(children: [
           Expanded(
             child: Row(children: [
-              const _Sidebar(),
-              VerticalDivider(width: 1, color: AppColors.divider),
+              const Sidebar(),
               Expanded(child: body),
             ]),
           ),
@@ -201,78 +201,6 @@ class _StatusStrip extends StatelessWidget {
               onPressed: lib.clearError,
             ),
         ]),
-      ),
-    );
-  }
-}
-
-/// Desktop sidebar: nav items + playlists.
-class _Sidebar extends StatelessWidget {
-  const _Sidebar();
-
-  @override
-  Widget build(BuildContext context) {
-    final nav = context.watch<AppNav>();
-    final pl = context.watch<PlaylistsModel>();
-    final accent = Theme.of(context).colorScheme.primary;
-
-    // One sidebar entry; the selected tab is shown in white, the rest dimmed.
-    Widget item(int i, IconData icon, String label) => ListTile(
-          leading: Icon(icon, color: nav.tab == i ? AppColors.text : null),
-          title: Text(label,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: nav.tab == i ? AppColors.text : AppColors.textDim,
-              )),
-          onTap: () => nav.selectTab(i),
-        );
-
-    // Material (not a plain coloured box) so the ListTiles' hover/tap
-    // highlights can paint on it.
-    return Material(
-      color: AppColors.bg,
-      child: SizedBox(
-      width: 250,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
-          child: Row(children: [
-            Icon(Icons.graphic_eq, color: accent),
-            const SizedBox(width: 8),
-            const Text('HomeTunes', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-          ]),
-        ),
-        item(0, Icons.home, 'Home'),
-        item(1, Icons.search, 'Search'),
-        item(AppNav.libraryTab, Icons.library_music, 'Your Library'),
-        item(AppNav.booksTab, Icons.menu_book, 'Audiobooks'),
-        item(AppNav.videosTab, Icons.video_library, 'Videos'),
-        item(AppNav.settingsTab, Icons.settings, 'Settings'),
-        const Divider(height: 24),
-        // Liked Songs and the playlists open on the Library tab.
-        ListTile(
-          dense: true,
-          leading: Icon(Icons.favorite, color: accent),
-          title: const Text('Liked Songs'),
-          onTap: () {
-            nav.selectTab(AppNav.libraryTab);
-            nav.openLiked();
-          },
-        ),
-        Expanded(
-          child: ListView(children: [
-            for (final p in pl.playlists)
-              ListTile(
-                dense: true,
-                title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                onTap: () {
-                  nav.selectTab(AppNav.libraryTab);
-                  nav.openPlaylist(p);
-                },
-              ),
-          ]),
-        ),
-      ]),
       ),
     );
   }
