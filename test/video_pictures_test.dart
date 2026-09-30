@@ -132,7 +132,8 @@ void main() {
 
     await tester.runAsync(() async {
       await tester.tap(find.text('Poster · TVmaze'));
-      for (var i = 0; i < 40 && !model.hasOwnPoster(model.collections.single); i++) {
+      // Up to 10 s: slow when the whole suite runs at once.
+      for (var i = 0; i < 200 && !model.hasOwnPoster(model.collections.single); i++) {
         await Future<void>.delayed(const Duration(milliseconds: 50));
       }
       await model.settle();

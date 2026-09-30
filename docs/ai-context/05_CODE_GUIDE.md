@@ -145,7 +145,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `artist_screen.dart` | One artist: picture, albums (click one to see its songs underneath, 0.1.26), all songs. |
 | `book_screen.dart` | One audiobook: details, progress, Play/Resume, favourite heart, description, PDF, bookmarks, chapters, Move to Music, Details. |
 | `videos_screen.dart` | The Videos tab (0.1.32): sub-tabs Collections / All videos / Favourites; the All videos grid with Continue watching, chips, filters, search, sorts, the video menu and select mode (`VideoCard`, `showVideoMenu`). |
-| `video_collection_screen.dart` | Collections (0.1.32): `CollectionCard` and its menu, a collection's page (seasons / parts / specials / extras, Continue, favourite), and the Edit collection dialog. |
+| `video_collection_screen.dart` | Collections (0.1.32): `CollectionCard` (tap, select mode, hover play button) and its menu, `CollectionContentsPanel` (contents under the card's row on the Collections tab), a collection's page (foldable seasons, pinned contents chips, Continue, favourite), and the Edit collection dialogs (one, or several with `showEditCollections`). |
 | `video_player_screen.dart` | One video's player page: media_kit's controls, carrying on from the saved place, Enlarge, Full screen, details, Edit, Mark as watched, the audio / subtitle chooser (`trackLabel`, `matchTrack`, subtitle files via `sub-add`) and Up next (0.1.32). |
 | `video_pictures.dart` | Change picture… / Change poster… (0.1.32): the choices, the Pick a frame player, the Search online dialog, `PictureShapePicker` (Edit details / Edit collection) and `PosterPicture` (a picture shown whole over a blurred copy). |
 | `settings/video_settings.dart` | Settings › Videos (0.1.32): skip amounts, speed, rewinding, the videos' equaliser, video folders, .nfo saving, and the usual picture shapes. |
@@ -337,7 +337,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `video_nfo_test.dart` | Reading .nfo files, and writing into one made by another program without losing its other tags |
 | `video_art_search_test.dart` | Search online against fake TVmaze / AniList / Wikipedia answers: order, episode still, infobox pictures, one service failing, downloads that aren't pictures |
 | `video_pictures_test.dart` | Change picture / poster: the choices (online switched off, back to automatic) and picking a search result saving it as the poster |
-| `video_collection_page_test.dart` | A collection's page: seasons fold up from their headings; the contents chips jump to (and open) a season; Fold all / Open all |
+| `video_collection_page_test.dart` | A collection's page: seasons fold up from their headings; the contents chips jump to (and open) a season; Fold all / Open all. The Collections tab: a tap opens the contents under the row; right-click › Select and editing several collections |
 | `video_settings_test.dart` | Settings › Videos: saving the settings, the videos' own equaliser preset, picture shapes and speeds (usual and own, kept on rename), the page, and Edit details' shape |
 | `video_tracks_test.dart` | Audio / subtitle labels and finding the remembered choice among a new video's tracks |
 

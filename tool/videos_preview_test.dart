@@ -8,6 +8,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -132,6 +133,24 @@ void main() {
     // 0. Collections, a collection's page, and Edit collection.
     await show(const VideosScreen());
     await shoot('videos-collections');
+    // A tap opens its contents under the row.
+    await tester.tap(find.widgetWithText(CollectionCard, 'Paper Boats'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CollectionCard, 'Harbour Days'));
+    await tester.pumpAndSettle();
+    await shoot('videos-collection-open');
+    // Right-click › Select on two: the selection bar.
+    await tester.tap(find.byKey(const ValueKey('panel-close')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.widgetWithText(CollectionCard, 'The Long Road'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CollectionCard, 'Paper Boats'), buttons: kSecondaryButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CollectionCard, 'The Long Road'));
+    await tester.pumpAndSettle();
+    await shoot('videos-collections-selected');
     await show(const VideoCollectionScreen(name: 'Harbour Days'));
     await shoot('videos-collection-page');
     await tester.tap(find.text('Edit collection'));
