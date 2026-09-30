@@ -185,6 +185,15 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Music videos (0.1.32, branch `feature/music-videos`, not released yet)
+
+- **Which songs have one.** A song whose folder holds a video with the same name (`Song.m4a` + `Song.mp4`, any case; `.mp4`, `.m4v`, `.webm`, `.mkv` or `.mov`, `.mp4` preferred) gets it as its music video (`Track.video`). The video file is no longer listed as a second copy of the song. This is the layout the YouTube offline player writes (checked on `C:\Users\James.Miller\Videos\YouTubeOfflinePlayer`: 5 songs, 4 with videos).
+- **An `.mp4` on its own** stays a song, as before (it plays as sound). If it has moving pictures (H.264, HEVC, VP8/9, AV1, MPEG-4; `mp4HasVideo` reads only the MP4 headers) it's also its own video. A sound-only `.mp4` has no video; still-picture tracks (audiobook chapter pictures) don't count.
+- **Decided on every scan** (`local_scanner.dart` → `pairMusicVideos`), so a video added or removed beside an unchanged song is picked up by the next scan. Songs saved by older versions load with no video until the next scan. A previously scanned video file that is now paired disappears from the library like any removed file (kept as missing only if it has edits or playlist places).
+- **Showing it.** Now Playing shows the video in place of the cover (wider, up to 16:9, capped at 960 px), muted, in a second player that decodes pictures only (`MusicVideoView`). The song still plays in the main player exactly as before (gapless, equaliser, ReplayGain, media keys). Play/pause follow the song; the video is moved back into step when it's more than 0.4 s out (seeks, skips, repeat-one, drift), then left alone for 2 s so it doesn't chase. Until the first picture arrives, or if the file can't be shown, the cover stays. A video shorter than the song stays on its last picture. With lyrics open on a phone, the lyrics replace it as they replace the cover. Books never show videos.
+- **Turning it off.** The video button beside Lyrics on Now Playing (only for songs with a video) switches between video and cover; the choice is saved as Settings › Playback › **Music videos** (`showMusicVideos` in settings.json, on by default).
+- **The engine.** Needed libmpv's video build (`media_kit_libs_video` instead of `media_kit_libs_audio`, plus `media_kit_video`). The main player keeps `vid=no` so it never decodes pictures. Windows `libmpv-2.dll` goes from 14.8 MB to 28.4 MB; the APK grows too. Real-engine check: `tool/bench/video_engine_test.dart` (4K VP9 opens, seeks in ~0.1 s, stayed within 0.07 s of the song over 8 s). The audio-only engine had no video decoders at all, which is why the videos couldn't have been shown before.
+
 ## Colour themes (0.1.24)
 - **The user's choices (29 Sep):** the original look stays as **Default**; two more dark themes,
   **Midnight** (navy, sky-blue accent) and **Forest** (dark green-grey, green accent); and **Your

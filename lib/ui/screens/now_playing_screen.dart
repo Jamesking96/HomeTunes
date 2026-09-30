@@ -4,18 +4,23 @@
 // the transport buttons, the volume slider and a row of extras. Songs get Like, Lyrics and Queue buttons; books get
 // Bookmark, Speed, Chapters, Bookmarks and (if music is waiting) "Back to music".
 // Lyrics replace the cover on narrow screens and sit in a side panel on windows ≥900 px wide.
+// A song with a music video (0.1.32) shows the video, muted and in step with the song, in place
+// of the cover (MusicVideoView); the video button beside Lyrics switches back to the cover.
 // Everything comes from PlayerModel, which this page watches.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../nav.dart';
 import '../theme.dart';
+import '../../models/track.dart';
+import '../../state/library_model.dart';
 import '../../state/player_model.dart';
 import 'equalizer_screen.dart';
 import '../widgets/artwork.dart';
 import '../widgets/bookmark_widgets.dart';
 import '../widgets/listening_controls.dart';
 import '../widgets/lyrics_view.dart';
+import '../widgets/music_video_view.dart';
 import '../widgets/player_controls.dart';
 import '../widgets/track_tile.dart';
 
@@ -43,6 +48,18 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     NowPlayingScreen.lyricsWereOpen = _lyrics;
   }
 
+  // The playing song's music video file, looked up once per song (it checks the disk).
+  String? _videoKey;
+  String? _videoFile;
+  String? _videoOf(Track t) {
+    final key = '${t.id}\u0000${t.video}';
+    if (key != _videoKey) {
+      _videoKey = key;
+      _videoFile = context.read<LibraryModel>().videoFileFor(t);
+    }
+    return _videoFile;
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.watch<PlayerModel>();
@@ -61,6 +78,10 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     final wide = size.width >= 900;
     // Keyed by song id so the lyrics view starts fresh (and loads new lyrics) on each song change.
     final lyricsPanel = LyricsView(key: ValueKey(t.id), track: t);
+    // Music video (0.1.32): songs only, and only while the setting / video button is on.
+    final videoFile = book == null ? _videoOf(t) : null;
+    final showVideo = context.select<LibraryModel, bool>((l) => l.showMusicVideos);
+    final cover = Artwork(track: t, size: artSize, radius: 8);
 
     return Scaffold(
       // Background: a soft wash of the accent colour fading into the normal background.
@@ -114,7 +135,13 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                           alignment: Alignment.center,
                           child: Padding(
                             padding: const EdgeInsets.all(24),
-                            child: Artwork(track: t, size: artSize, radius: 8),
+                            child: videoFile != null && showVideo
+                                // Wider than the cover, as videos are, but not across a whole big window.
+                                ? ConstrainedBox(
+                                    constraints: BoxConstraints(maxWidth: (artSize * 16 / 9).clamp(artSize, 960.0)),
+                                    child: MusicVideoView(file: videoFile, fallback: cover),
+                                  )
+                                : cover,
                           ),
                         ),
                       ),
@@ -216,6 +243,14 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                           icon: const Icon(Icons.library_music_outlined, size: 18),
                           label: const Text('Back to music'),
                           onPressed: p.resumeMusic,
+                        ),
+                      // Songs with a music video: switch between the video and the cover (0.1.32).
+                      // The choice is remembered (Settings > Playback > Music videos).
+                      if (videoFile != null)
+                        IconButton(
+                          tooltip: showVideo ? 'Show the cover' : 'Show the music video',
+                          icon: Icon(showVideo ? Icons.music_video : Icons.music_video_outlined, color: showVideo ? accent : null),
+                          onPressed: () => context.read<LibraryModel>().updatePlaybackSettings(showMusicVideos: !showVideo),
                         ),
                       if (book == null)
                         IconButton(

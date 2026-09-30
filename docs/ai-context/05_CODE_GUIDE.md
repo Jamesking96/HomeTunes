@@ -110,6 +110,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `music_info.dart` | Looks up song and album details, genres and track lists on MusicBrainz (about one request a second). |
 | `book_info.dart` | Looks up book details and covers on Open Library. |
 | `track_matching.dart` | Matches missing songs to files that turned up somewhere else (by the end of the path, then by the song's details). |
+| `music_video.dart` | Music videos (0.1.32): pairs a song with the video of the same name beside it (`pairMusicVideos`) and checks whether an `.mp4` has moving pictures (`mp4HasVideo`, headers only). |
 | `secret_store.dart` | Keeps the music server's password in the system's protected storage (Windows Credential Manager, Android Keystore, the Linux keyring), one entry per server address and user name. |
 | `path_safety.dart` | `isUsableLocalFile` / `isInsideAny`: checks a path is inside the library folders (or the app's art folder) before it's opened, shown in Explorer, played, read as a cover or written to. Paths from a restored backup can't be trusted. |
 | `server_art_cache.dart` | Downloads server covers into `art/server/` so the system media controls get a `file://` path instead of a server address that carries the login token. |
@@ -168,6 +169,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `quick_actions.dart` | The quick actions for albums and books (edit, cover, favourites, details) used by tile menus and the selection bar. |
 | `music_filter_sheet.dart` | The title box / filter / sort bar (`MusicFilterBar`) and the "Show only" sheet (`showMusicFilterSheet`) used by the Library tabs. |
 | `artwork.dart` | Cover images, loaded at a sensible size to save memory. |
+| `music_video_view.dart` | The music video on Now Playing (0.1.32): a second, muted player showing the song's video, kept in step with the song (`videoSeekTarget`), with the cover until the first picture. |
 | `music_access_banner.dart` | The amber "can't read your music" card on Android. |
 
 ## How things flow
@@ -261,8 +263,10 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `tool/probe_book_extras.dart` | Runs the real scanner and book grouping, then shows each book and what came from files beside it | `dart run tool/probe_book_extras.dart <folder>` |
 | `tool/probe_library.dart` | Shows how a folder will be grouped into books, with series and chapters | `dart run tool/probe_library.dart <folder>` |
 | `tool/probe_lyrics.dart` | Checks the live LRCLIB look-up. Prints counts only, never lyrics. | `dart run tool/probe_lyrics.dart "Title" "Artist" [seconds]` |
+| `tool/probe_videos.dart` | Shows which songs in a folder have a music video, as the scanner will see them | `dart run tool/probe_videos.dart <folder>` |
 | `tool/bench_scan.dart` | Times tag reading with one worker against several, and a rescan where nothing changed | `dart run tool/bench_scan.dart <folder> [files to read, default 400]` |
 | `tool/bench/engine_test.dart`, `player_gapless_test.dart` | Checks the real mpv engine and the app's player with generated test tones: gapless, Play next, repeat-one, equaliser and ReplayGain filters | `flutter test tool/bench/engine_test.dart --dart-define=LIBMPV=<path to libmpv-2.dll>` (the DLL is in `build\windows\x64\runner\Release\` after a Windows build) |
+| `tool/bench/video_engine_test.dart` | Checks music videos on the real engine: the main player stays sound-only, the video player opens, seeks and keeps in step | `flutter test tool/bench/video_engine_test.dart --dart-define=LIBMPV=<libmpv-2.dll> --dart-define=AUDIO=<song.m4a> --dart-define=VIDEO=<song.mp4>` |
 | `tool/probe_update_test.dart` | Live check of Check for updates: reads the real latest release, downloads its Windows installer and checks its checksum. Installs nothing. | `flutter test tool/probe_update_test.dart` |
 | `tool/bench/library_scan_test.dart` | Times a first scan and a rescan through `LibraryModel` and counts screen updates | `flutter test tool/bench/library_scan_test.dart --dart-define=FOLDER=F:\Music` |
 | `tool/theme_preview_test.dart`, `ui_preview_test.dart`, `whats_new_preview_test.dart`, `theme_sharing_preview_test.dart`, `notice_close_preview_test.dart` | Draw screens off-screen and save pictures to `C:\Temp\ht\preview`, so changes can be checked without opening a window: each colour theme (0.1.24), the queue drawer and artist page (0.1.26), the What's new pop-up (0.1.28), sharing themes (0.1.29) and a notice with its ✕ (0.1.30). Nothing is shown on screen. | `flutter test tool/theme_preview_test.dart` (and so on) |
@@ -306,6 +310,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `folder_options_test.dart` | Rescanning one folder, a folder's File types tick boxes, and the speaker icon as mute / unmute |
 | `notice_close_test.dart` | Every notice at the bottom of the screen has a ✕ in every kind of theme, and closing it doesn't do the Undo |
 | `licences_test.dart` | The MIT `LICENSE`, the bundled LGPL and GPL texts, and what Settings › About › Licences adds |
+| `music_video_test.dart` | Pairing songs with videos, telling videos from sound-only MP4s (hand-built MP4 headers), the scanner giving songs their videos on every scan, saving the video with the song, and when the display moves the video |
 
 ## Working with the code
 
@@ -403,6 +408,8 @@ Tests: `test/security_fixes_test.dart`, plus changes in `server_security_test.da
 **New in 0.1.30:** every notice at the bottom of the screen has a ✕ beside Undo, set once for the whole app in `buildTheme` (`showCloseIcon` in `theme.dart`). Tests: `test/notice_close_test.dart`; picture: `flutter test tool/notice_close_preview_test.dart`.
 
 **New in 0.1.31:** HomeTunes is MIT-licensed (`LICENSE`). `THIRD_PARTY_NOTICES.md` and `licenses/` cover the audio engine (libmpv with FFmpeg, LGPL 3.0), Settings › About › Licences adds the engine's notice to Flutter's licence page (`app_licences.dart`), and the Windows downloads carry the licence files. Every release also gets `HomeTunes-audio-engine-source.zip`, the engine's LGPL source (`tool/engine_source.ps1`). Tests: `test/licences_test.dart`.
+
+**New in 0.1.32 (branch `feature/music-videos`, not released yet):** music videos. A video with the same name beside a song (`Song.m4a` + `Song.mp4`) becomes its music video (`Track.video`, set by the scanner on every scan) and is no longer listed as a song; an `.mp4` on its own stays a song and is its own video if it has moving pictures. Now Playing shows it in place of the cover (`MusicVideoView`), muted and in step with the song, with a button beside Lyrics and Settings › Playback › Music videos (`showMusicVideos`). The engine is now libmpv's video build (`media_kit_libs_video` + `media_kit_video`); `PlayerModel` keeps `vid=no` on the main player. See `03_FEATURES_AND_DESIGN_NOTES.md` › Music videos, and `04_ROADMAP_AND_OPEN_ITEMS.md` for what's needed before releasing it (licence notices for the video engine). Tests: `test/music_video_test.dart`; real engine: `tool/bench/video_engine_test.dart`.
 
 A few existing comments are also out of date (left as they were): `Track` says narrator and series are never read from files (side files set them now); `showEditDetails` says music files are never modified (Settings → Your edits can write them); `SeekBar` says it redraws only from the position stream.
 

@@ -21,6 +21,7 @@ import '../models/track_edit.dart';
 import '../services/app_backup.dart';
 import '../services/local_scanner.dart';
 import '../services/music_permission.dart';
+import '../services/music_video.dart';
 import '../services/path_safety.dart';
 import '../services/secret_store.dart';
 import '../services/server_art_cache.dart';
@@ -130,6 +131,10 @@ class LibraryModel extends ChangeNotifier {
   /// Swipe the player left or right (touch screens) to go to the next or previous song, or to
   /// skip forward or back in an audiobook (0.1.17).
   bool swipeToSkip = true;
+
+  /// Now Playing shows a song's music video in place of its cover, when it has one (0.1.32).
+  /// Also switched by the video button on Now Playing.
+  bool showMusicVideos = true;
 
   /// Settings › Appearance: the colour theme, and "Your own" colours ("#RRGGBB"). See setTheme.
   String themeId = 'default';
@@ -335,6 +340,7 @@ class LibraryModel extends ChangeNotifier {
     gaplessPlayback = true;
     replayGain = ReplayGainMode.off;
     swipeToSkip = true;
+    showMusicVideos = true;
     audiobookFolders = [];
     bookGenres = List.of(defaultBookGenres);
     bookCoversTall = false;
@@ -385,6 +391,7 @@ class LibraryModel extends ChangeNotifier {
       gaplessPlayback = s.get('gaplessPlayback', true);
       replayGain = ReplayGainMode.values.asNameMap()[raw['replayGain']] ?? ReplayGainMode.off;
       swipeToSkip = s.get('swipeToSkip', true);
+      showMusicVideos = s.get('showMusicVideos', true);
       audiobookFolders = s.strings('audiobookFolders') ?? [];
       bookGenres = s.strings('bookGenres') ?? List.of(defaultBookGenres);
       bookCoversTall = s.get('bookCoversTall', false);
@@ -529,6 +536,7 @@ class LibraryModel extends ChangeNotifier {
         'gaplessPlayback': gaplessPlayback,
         'replayGain': replayGain.name,
         'swipeToSkip': swipeToSkip,
+        'showMusicVideos': showMusicVideos,
         'audiobookFolders': audiobookFolders,
         'bookGenres': bookGenres,
         'bookCoversTall': bookCoversTall,
@@ -754,10 +762,16 @@ class LibraryModel extends ChangeNotifier {
   }
 
   /// Changes the playback settings (Settings > Playback).
-  Future<void> updatePlaybackSettings({bool? gaplessPlayback, ReplayGainMode? replayGain, bool? swipeToSkip}) async {
+  Future<void> updatePlaybackSettings({
+    bool? gaplessPlayback,
+    ReplayGainMode? replayGain,
+    bool? swipeToSkip,
+    bool? showMusicVideos,
+  }) async {
     this.gaplessPlayback = gaplessPlayback ?? this.gaplessPlayback;
     this.replayGain = replayGain ?? this.replayGain;
     this.swipeToSkip = swipeToSkip ?? this.swipeToSkip;
+    this.showMusicVideos = showMusicVideos ?? this.showMusicVideos;
     notifyListeners();
     await _saveSettings();
   }
@@ -1551,6 +1565,15 @@ class LibraryModel extends ChangeNotifier {
     final c = _client;
     if (c == null || t.remoteId == null) return null;
     return c.streamUrl(t.remoteId!);
+  }
+
+  /// The song's music video file, if it has one that can be shown now (0.1.32): a local song,
+  /// with the video still there and inside the library folders (a restored backup could name any
+  /// path, as with [playableUri]).
+  String? videoFileFor(Track t) {
+    final v = t.video;
+    if (!t.isLocal || v == null) return null;
+    return isUsableLocalFile(v, roots: _scanFolders, extensions: videoExtensions) ? v : null;
   }
 
   /// Cover art location for the system media controls (notification, lock screen).

@@ -113,6 +113,11 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
   - Neither matters for playback.
 - **iOS:** there's no local folder access, only server streaming. (Since 0.1.17 the server
   password is kept in the Keychain, not in the settings file.)
+- **Music videos (branch `feature/music-videos`) — before releasing 0.1.32:**
+  - The engine is now media-kit's **video** build (libmpv-win32-video-build, libmpv-android-video-build), which bundles more libraries than the audio build. `THIRD_PARTY_NOTICES.md`, `licenses/`, `app_licences.dart` and `tool/engine_source.ps1` still describe the audio build and must be updated to the video builds' sources and licences before a release. Not done yet on purpose: check each bundled library's licence against the builds' own notices, don't guess.
+  - A Windows build folder that ever held the audio engine keeps it: CMake skips unpacking the video archive while `build\windows\x64\libmpv\` isn't empty. Delete that folder (and the stale `media_kit_libs_windows_audio_plugin.dll` in the Release folder) once, or `build_release.ps1` ships the old audio-only DLL and videos never show.
+  - Not yet tried on the phone (APK size and 4K VP9 decoding speed on the Pixel 8 are worth checking).
+  - Ideas not done: a small video in the desktop player bar or mini player; a "Music video" row on the Details page.
 
 ## Offered earlier, not done (only if the user wants)
 - Delete old installers in `build\dist` (0.1.0/0.1.2/0.1.3).
