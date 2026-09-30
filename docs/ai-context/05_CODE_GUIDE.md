@@ -70,7 +70,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `eq_preset.dart` | The equaliser's ten bands, a preset (a gain per band plus an overall level), the built-in presets, and the audio-engine filter text a preset turns into. |
 | `video_player_look.dart` | How the video player's buttons look (Settings › Appearance › Video player, 30 Sep): `VideoPlayerLook` (button colour, `VideoButtonSize`, `VideoButtonBacking` none / glow / circles, strength, progress bar colour; `backingColour` is the opposite shade to the buttons), `resolveLookColour`. Saved in settings.json as `videoPlayerLook`. |
 | `playlist.dart` | A named list of song ids. Storing ids means playlists survive rescans and moved files. |
-| `video_item.dart` | Videos tab (0.1.32): `VideoItem` (one video file), `VideoEdit` (the user's changes to its details, laid over it like `TrackEdit`) and `VideoPlace` (how far in, watched). Saved in `videos.json`. Also `VideoCollection` (a series / film / folder of videos, like an album: `groups`, `sortForCollection`) and `TrackPick` (a remembered audio / subtitle choice). |
+| `video_item.dart` | Videos tab (0.1.32): `VideoItem` (one video file), `VideoEdit` (the user's changes to its details, laid over it like `TrackEdit`) and `VideoPlace` (how far in, watched); a season can have a sub number (`subSeason`, `seasonLabel` "1.2", `seasonText`). Saved in `videos.json`. Also `VideoCollection` (a series / film / folder of videos, like an album: `groups`, `sortForCollection`) and `TrackPick` (a remembered audio / subtitle choice). |
 
 ### State (`lib/state/`): the app's live brain
 
@@ -342,6 +342,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `video_pictures_test.dart` | Change picture / poster: the choices (online switched off, back to automatic) and picking a search result saving it as the poster |
 | `video_collection_page_test.dart` | A collection's page: seasons fold up from their headings; the contents chips jump to (and open) a season; Fold all / Open all. The Collections tab: a tap opens the contents under the row; right-click › Select and editing several collections |
 | `video_look_and_seasons_test.dart` | The video player look (colours, backing shade, saved, theme data), season titles (from folders, tvshow.nfo `<namedseason>` read and written, the user's own kept), the All videos Season sort, a collection page's titled headings, renaming a season and right-click › Select to edit several, and the Appearance › Video player section |
+| `video_sub_seasons_test.dart` | Season sub numbers: "Season 1.2" folders, S1.2 labels and order, Edit details' "1.2", a sub season's own title (not written to .nfo) |
 | `music_settings_test.dart` | Settings › Music: show / auto-play music videos saved, the page's place in the list, the switches |
 | `video_settings_test.dart` | Settings › Videos: saving the settings, the videos' own equaliser preset, picture shapes and speeds (usual and own, kept on rename), the page, and Edit details' shape |
 | `video_tracks_test.dart` | Audio / subtitle labels and finding the remembered choice among a new video's tracks |

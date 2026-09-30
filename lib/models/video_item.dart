@@ -42,6 +42,10 @@ class VideoItem {
   final int? season;
   final int? episode;
 
+  /// A part of a season: season 1.2 is [season] 1, [subSeason] 2 (30 Sep; from folders like
+  /// "Season 1.2", or Edit details). Null for a plain season.
+  final int? subSeason;
+
   /// A named part of the collection that has no season number ("Alicization").
   final String? part;
 
@@ -93,6 +97,7 @@ class VideoItem {
     this.category,
     this.season,
     this.episode,
+    this.subSeason,
     this.part,
     this.seasonTitle,
     this.extra = false,
@@ -121,11 +126,14 @@ class VideoItem {
   /// "1920×1080", or null when not known yet.
   String? get resolution => (width != null && height != null && width! > 0) ? '$width×$height' : null;
 
-  /// "S1 E4", "Special 3", "E12", or null.
+  /// "1", "1.2" (a season with a sub number), or null.
+  String? get seasonLabel => season == null ? null : seasonText(season!, subSeason);
+
+  /// "S1 E4", "S1.2 E3", "Special 3", "E12", or null.
   String? get episodeLabel {
     if (extra) return null;
     if (season == 0) return episode != null ? 'Special $episode' : 'Special';
-    if (season != null && episode != null) return 'S$season E$episode';
+    if (season != null && episode != null) return 'S$seasonLabel E$episode';
     if (episode != null) return 'E$episode';
     return null;
   }
@@ -140,23 +148,29 @@ class VideoItem {
     String? category,
     int? season,
     int? episode,
+    int? subSeason,
     int? year,
     String? genre,
     String? description,
     bool? extra,
     Set<String> clear = const {},
-  }) =>
-      VideoItem(
+  }) {
+    final newSeason = clear.contains('season') ? null : (season ?? this.season);
+    // Emptying the season empties its sub number too; a new season number without one keeps the
+    // old sub number only if the edit doesn't say otherwise.
+    final newSub = newSeason == null || clear.contains('subSeason') ? null : (subSeason ?? this.subSeason);
+    return VideoItem(
         id: id,
         path: path,
         title: title ?? this.title,
         collection: collection ?? this.collection,
         category: clear.contains('category') ? null : (category ?? this.category),
-        season: clear.contains('season') ? null : (season ?? this.season),
+        season: newSeason,
         episode: clear.contains('episode') ? null : (episode ?? this.episode),
+        subSeason: newSub,
         part: part,
         // A season number changed by an edit: the old season's title no longer applies.
-        seasonTitle: clear.contains('season') || (season != null && season != this.season) ? null : seasonTitle,
+        seasonTitle: newSeason != this.season || newSub != this.subSeason ? null : seasonTitle,
         extra: extra ?? this.extra,
         year: clear.contains('year') ? null : (year ?? this.year),
         genre: clear.contains('genre') ? null : (genre ?? this.genre),
@@ -174,6 +188,7 @@ class VideoItem {
         showPlot: showPlot,
         nfoMs: nfoMs,
       );
+  }
 
   /// A copy with things learned after the scan: its thumbnail, length and picture size.
   VideoItem copyWith({String? thumb, Duration? duration, int? width, int? height}) =>
@@ -187,6 +202,7 @@ class VideoItem {
         if (category != null) 'category': category,
         if (season != null) 'season': season,
         if (episode != null) 'episode': episode,
+        if (subSeason != null) 'subSeason': subSeason,
         if (part != null) 'part': part,
         if (seasonTitle != null) 'seasonTitle': seasonTitle,
         if (extra) 'extra': true,
@@ -218,6 +234,7 @@ class VideoItem {
       category: j['category'] as String?,
       season: j['season'] as int?,
       episode: j['episode'] as int?,
+      subSeason: j['subSeason'] as int?,
       part: j['part'] as String?,
       seasonTitle: j['seasonTitle'] as String?,
       extra: (j['extra'] as bool?) ?? false,
@@ -253,12 +270,15 @@ class VideoEdit {
   final String? category;
   final int? season;
   final int? episode;
+
+  /// The season's sub number (season 1.2 → 2).
+  final int? subSeason;
   final int? year;
   final String? genre;
   final String? description;
 
   /// Details the user emptied on purpose ('year', 'genre', 'description', 'category', 'season',
-  /// 'episode').
+  /// 'episode', 'subSeason').
   final Set<String> cleared;
 
   const VideoEdit({
@@ -267,6 +287,7 @@ class VideoEdit {
     this.category,
     this.season,
     this.episode,
+    this.subSeason,
     this.year,
     this.genre,
     this.description,
@@ -279,6 +300,7 @@ class VideoEdit {
       category == null &&
       season == null &&
       episode == null &&
+      subSeason == null &&
       year == null &&
       genre == null &&
       description == null &&
@@ -291,6 +313,7 @@ class VideoEdit {
         category: category,
         season: season,
         episode: episode,
+        subSeason: subSeason,
         year: year,
         genre: genre,
         description: description,
@@ -307,6 +330,7 @@ class VideoEdit {
     String? category,
     int? season,
     int? episode,
+    int? subSeason,
     int? year,
     String? genre,
     String? description,
@@ -316,6 +340,7 @@ class VideoEdit {
       if (category != null) 'category',
       if (season != null) 'season',
       if (episode != null) 'episode',
+      if (subSeason != null) 'subSeason',
       if (year != null) 'year',
       if (genre != null) 'genre',
       if (description != null) 'description',
@@ -326,6 +351,7 @@ class VideoEdit {
       category: clear.contains('category') ? null : (category ?? this.category),
       season: clear.contains('season') ? null : (season ?? this.season),
       episode: clear.contains('episode') ? null : (episode ?? this.episode),
+      subSeason: clear.contains('subSeason') ? null : (subSeason ?? this.subSeason),
       year: clear.contains('year') ? null : (year ?? this.year),
       genre: clear.contains('genre') ? null : (genre ?? this.genre),
       description: clear.contains('description') ? null : (description ?? this.description),
@@ -344,6 +370,7 @@ class VideoEdit {
     required String description,
     int? season,
     int? episode,
+    int? subSeason,
     bool seasonKnown = false,
   }) {
     String? differs(String typed, String? was) {
@@ -360,12 +387,14 @@ class VideoEdit {
       description: differs(d, original.description),
       season: !seasonKnown || season == original.season ? null : season,
       episode: !seasonKnown || episode == original.episode ? null : episode,
+      subSeason: !seasonKnown || season == null || subSeason == original.subSeason ? null : subSeason,
       cleared: {
         if (year == null && original.year != null) 'year',
         if (g.isEmpty && original.genre != null) 'genre',
         if (d.isEmpty && original.description != null) 'description',
         if (seasonKnown && season == null && original.season != null) 'season',
         if (seasonKnown && episode == null && original.episode != null) 'episode',
+        if (seasonKnown && season != null && subSeason == null && original.subSeason != null) 'subSeason',
       },
     );
   }
@@ -376,6 +405,7 @@ class VideoEdit {
         if (category != null) 'category': category,
         if (season != null) 'season': season,
         if (episode != null) 'episode': episode,
+        if (subSeason != null) 'subSeason': subSeason,
         if (year != null) 'year': year,
         if (genre != null) 'genre': genre,
         if (description != null) 'description': description,
@@ -388,6 +418,7 @@ class VideoEdit {
         category: j['category'] as String?,
         season: j['season'] as int?,
         episode: j['episode'] as int?,
+        subSeason: j['subSeason'] as int?,
         year: j['year'] as int?,
         genre: j['genre'] as String?,
         description: j['description'] as String?,
@@ -478,10 +509,13 @@ class VideoCollection {
   static String groupOf(VideoItem v) {
     if (v.extra) return 'Extras';
     if (v.season == 0) return 'Specials';
-    if (v.season != null) return 'Season ${v.season}';
+    if (v.season != null) return 'Season ${v.seasonLabel}';
     return v.part ?? 'Episodes';
   }
 }
+
+/// "1", or "1.2" for a season with a sub number.
+String seasonText(int season, int? subSeason) => subSeason == null ? '$season' : '$season.$subSeason';
 
 /// The order videos are listed in within a collection: seasons (by number), then named parts
 /// and loose episodes (in folder order), then specials, then extras; within each by episode
@@ -500,6 +534,8 @@ List<VideoItem> sortForCollection(Iterable<VideoItem> videos) {
     final r = rank(a).compareTo(rank(b));
     if (r != 0) return r;
     if (rank(a) == 0 && a.season != b.season) return a.season!.compareTo(b.season!);
+    // Season 1, then 1.1, 1.2… (a plain season before its sub numbers).
+    if (rank(a) == 0 && a.subSeason != b.subSeason) return (a.subSeason ?? -1).compareTo(b.subSeason ?? -1);
     if (rank(a) == 1) {
       final ga = VideoCollection.groupOf(a), gb = VideoCollection.groupOf(b);
       if (ga != gb) return partStart[ga]!.toLowerCase().compareTo(partStart[gb]!.toLowerCase());

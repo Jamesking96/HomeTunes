@@ -281,9 +281,10 @@ class _CollectionContentsPanelState extends State<CollectionContentsPanel> with 
                 hasNext: list.any((v) => v.id == next?.id),
                 onTap: () => setState(() => folded.contains(heading) ? folded.remove(heading) : folded.add(heading)),
                 label: model.groupLabel(c, heading, list),
-                onRename: seasonOfGroup(heading, list) == null
-                    ? null
-                    : () => showSeasonTitleDialog(context, c, seasonOfGroup(heading, list)!),
+                onRename: switch (seasonOfGroup(heading, list)) {
+                  null => null,
+                  final s => () => showSeasonTitleDialog(context, c, s.season, s.sub),
+                },
                 ticked: seasonTicked(list),
                 onTick: selectingVideos ? () => tickSeason(list) : null,
               ),
@@ -623,9 +624,10 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> with _Epi
                 hasNext: list.any((v) => v.id == next?.id),
                 onTap: () => _toggle(heading),
                 label: model.groupLabel(c, heading, list),
-                onRename: seasonOfGroup(heading, list) == null
-                    ? null
-                    : () => showSeasonTitleDialog(context, c, seasonOfGroup(heading, list)!),
+                onRename: switch (seasonOfGroup(heading, list)) {
+                  null => null,
+                  final s => () => showSeasonTitleDialog(context, c, s.season, s.sub),
+                },
                 ticked: seasonTicked(list),
                 onTick: selectingVideos ? () => tickSeason(list) : null,
               ),
@@ -704,35 +706,38 @@ mixin _EpisodeSelection<T extends StatefulWidget> on State<T> {
       );
 }
 
-/// The season number a group heading stands for ("Season 2" → 2); null for Specials, named parts,
-/// Episodes and Extras (they have no season title).
-int? seasonOfGroup(String heading, List<VideoItem> list) {
-  final s = list.firstOrNull?.season;
-  return s != null && s > 0 && heading == 'Season $s' ? s : null;
+/// The season a group heading stands for ("Season 2" → 2, "Season 1.2" → 1 and sub 2); null for
+/// Specials, named parts, Episodes and Extras (they have no season title).
+({int season, int? sub})? seasonOfGroup(String heading, List<VideoItem> list) {
+  final v = list.firstOrNull;
+  final s = v?.season;
+  return v != null && s != null && s > 0 && heading == 'Season ${v.seasonLabel}' ? (season: s, sub: v.subSeason) : null;
 }
 
 /// Name a season ("Season 1 – Offline News"). The title the season's folder gives is offered;
 /// an empty box shows none. Saved into the series' tvshow.nfo too when that's ticked.
-Future<void> showSeasonTitleDialog(BuildContext context, VideoCollection c, int season) async {
+Future<void> showSeasonTitleDialog(BuildContext context, VideoCollection c, int season, [int? sub]) async {
   final model = context.read<VideoLibraryModel>();
   final messenger = ScaffoldMessenger.maybeOf(context);
   final result = await showDialog<String>(
     context: context,
     builder: (_) => _SeasonTitleDialog(
-      season: season,
-      current: model.seasonTitleOf(c, season) ?? '',
-      fromFolder: model.folderSeasonTitle(c, season),
+      season: seasonText(season, sub),
+      current: model.seasonTitleOf(c, season, sub) ?? '',
+      fromFolder: model.folderSeasonTitle(c, season, sub),
     ),
   );
   if (result == null) return;
-  final errors = await model.setSeasonTitle(c, season, result.trim(), writeNfo: canSaveNfo && model.saveNfo);
+  final errors =
+      await model.setSeasonTitle(c, season, result.trim(), sub: sub, writeNfo: canSaveNfo && model.saveNfo);
   if (errors.isNotEmpty) {
     messenger?.showSnackBar(SnackBar(content: Text('Couldn\'t save into tvshow.nfo (${errors.first})')));
   }
 }
 
 class _SeasonTitleDialog extends StatefulWidget {
-  final int season;
+  /// "1", or "1.2".
+  final String season;
   final String current;
   final String? fromFolder;
   const _SeasonTitleDialog({required this.season, required this.current, required this.fromFolder});
