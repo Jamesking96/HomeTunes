@@ -31,7 +31,11 @@ String? decadeOf(int? year) => year == null || year <= 0 ? null : '${year ~/ 10 
 class FilterField<T> {
   final String label;
   final Iterable<String> Function(T item) values;
-  const FilterField(this.label, this.values);
+
+  /// The order the choices are listed in, when A–Z doesn't fit (e.g. lengths shortest first;
+  /// the Videos tab, 0.1.32). Null: A–Z.
+  final int Function(String a, String b)? order;
+  const FilterField(this.label, this.values, {this.order});
 }
 
 /// The choices picked in a filter sheet, by field label (e.g. {"Genre": "Jazz"}).
@@ -72,7 +76,7 @@ class MusicFilters {
         if (v.isNotEmpty) counts[v] = (counts[v] ?? 0) + 1;
       }
     }
-    final keys = counts.keys.toList()..sort((a, b) => sortKey(a).compareTo(sortKey(b)));
+    final keys = counts.keys.toList()..sort(field.order ?? (a, b) => sortKey(a).compareTo(sortKey(b)));
     return {for (final k in keys) k: counts[k]!};
   }
 }
