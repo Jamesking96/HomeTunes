@@ -20,6 +20,7 @@ import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/save_nfo.dart';
+import 'video_pictures.dart';
 import 'videos_screen.dart' show showVideoMenu, videoLength;
 
 /// "12 h 5 min", "45 min".
@@ -36,14 +37,13 @@ double collectionCardHeight(double width) => (width - 16) * 9 / 16 + 16 + 70;
 class _Picture extends StatelessWidget {
   final String? file;
   final IconData icon;
-  final Alignment alignment;
-  const _Picture({required this.file, this.icon = Icons.video_library_outlined, this.alignment = Alignment.center});
+  const _Picture({required this.file, this.icon = Icons.video_library_outlined});
 
   @override
   Widget build(BuildContext context) => Container(
         color: AppColors.surface,
         child: file != null
-            ? Image.file(File(file!), fit: BoxFit.cover, alignment: alignment, cacheWidth: 640,
+            ? Image.file(File(file!), fit: BoxFit.cover, cacheWidth: 640,
                 errorBuilder: (_, _, _) => Center(child: Icon(icon, size: 40, color: AppColors.textDim)))
             : Center(child: Icon(icon, size: 40, color: AppColors.textDim)),
       );
@@ -83,8 +83,8 @@ class CollectionCard extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: AppShape.circular(8),
                 child: Stack(fit: StackFit.expand, children: [
-                  // Posters are tall: show their top part, where the title usually is.
-                  _Picture(file: model.coverFile(c), alignment: c.cover != null ? const Alignment(0, -0.6) : Alignment.center),
+                  // Posters are tall: shown whole, over a blurred copy.
+                  PosterPicture(file: model.coverFile(c)),
                   if (model.isFavourite(c))
                     Positioned(
                       right: 6,
@@ -145,6 +145,7 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c, {requir
         ),
       ),
       const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Edit collection…'))),
+      const PopupMenuItem(value: 'poster', child: ListTile(leading: Icon(Icons.image_outlined), title: Text('Change poster…'))),
       PopupMenuItem(
         value: 'watched',
         child: ListTile(
@@ -164,6 +165,8 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c, {requir
       await model.setFavourite(c, !fav);
     case 'edit':
       await showEditCollection(context, c);
+    case 'poster':
+      await showCollectionPosterOptions(context, c);
     case 'watched':
       await model.setWatched([for (final v in c.main) v.id], !allWatched);
   }
@@ -221,7 +224,7 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> {
           width: wide ? 320 : box.maxWidth,
           child: AspectRatio(
             aspectRatio: 16 / 9,
-            child: _Picture(file: model.coverFile(c), alignment: c.cover != null ? const Alignment(0, -0.6) : Alignment.center),
+            child: PosterPicture(file: model.coverFile(c)),
           ),
         ),
       );
@@ -248,6 +251,11 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> {
             icon: const Icon(Icons.edit_outlined),
             label: const Text('Edit collection'),
             onPressed: () => _edit(c),
+          ),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.image_outlined),
+            label: const Text('Change poster'),
+            onPressed: () => showCollectionPosterOptions(context, c),
           ),
           OutlinedButton.icon(
             icon: Icon(allWatched ? Icons.remove_done : Icons.done_all),

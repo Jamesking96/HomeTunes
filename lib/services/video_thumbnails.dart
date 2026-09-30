@@ -109,9 +109,14 @@ class VideoThumbnailer {
 /// Shrinks a picture (any format Flutter can read) to [width] pixels wide, as a JPEG.
 /// Flutter's own decoder does the heavy part (it can decode straight to the small size), so a
 /// 4K frame takes a few milliseconds. Null if the picture can't be read.
-Future<List<int>?> shrinkToJpeg(List<int> bytes, {int width = VideoThumbnailer.width, int quality = 80}) async {
+/// With [onlyShrink], a picture that's already narrower keeps its size (chosen pictures and
+/// posters: never blown up).
+Future<List<int>?> shrinkToJpeg(List<int> bytes,
+    {int width = VideoThumbnailer.width, int quality = 80, bool onlyShrink = false}) async {
   try {
-    final codec = await ui.instantiateImageCodec(Uint8List.fromList(bytes), targetWidth: width);
+    final buffer = await ui.ImmutableBuffer.fromUint8List(Uint8List.fromList(bytes));
+    final codec = await ui.instantiateImageCodecWithSize(buffer,
+        getTargetSize: (w, h) => (onlyShrink && w <= width) ? const ui.TargetImageSize() : ui.TargetImageSize(width: width));
     final frame = await codec.getNextFrame();
     final image = frame.image;
     final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);

@@ -77,6 +77,8 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('online-covers', SettingsPage.onlineLookups, 'Find missing covers online', 'album art artwork musicbrainz cover art archive'),
   SettingInfo('online-details', SettingsPage.onlineLookups, 'Find missing song details online', 'year genre track number musicbrainz tags'),
   SettingInfo('online-lyrics', SettingsPage.onlineLookups, 'Find lyrics online', 'lrclib words'),
+  SettingInfo('online-video-art', SettingsPage.onlineLookups, 'Find video pictures online',
+      'poster thumbnail tvmaze anilist wikipedia videos collection'),
   SettingInfo('server', SettingsPage.server, 'Music server address and sign-in', 'subsonic navidrome stream password username connect sync'),
   SettingInfo('server-books', SettingsPage.server, 'Audiobooks from the music server', 'books stream server'),
   SettingInfo('book-server', SettingsPage.server, 'Audiobook server', 'audiobookshelf books stream'),

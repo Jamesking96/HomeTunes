@@ -359,6 +359,10 @@ class AppBackup {
           'favourites': {...(cv['favourites'] as List? ?? const []), ...(bv['favourites'] as List? ?? const [])}.toList(),
           'descriptions': {...part(cv, 'descriptions'), ...part(bv, 'descriptions')},
           'trackChoices': {...part(cv, 'trackChoices'), ...part(bv, 'trackChoices')},
+          // Pictures the user chose for videos and collections: the backup's win.
+          'pictures': {...part(cv, 'pictures'), ...part(bv, 'pictures')},
+          'posters': {...part(cv, 'posters'), ...part(bv, 'posters')},
+          if (cv['saveNfo'] == false) 'saveNfo': false,
         });
       }
     } else if (bv.isNotEmpty) {
@@ -443,6 +447,11 @@ class AppBackup {
           final thumb = v['thumb'];
           if (thumb is String && !p.isWithin(artDir, p.normalize(thumb))) v.remove('thumb');
         }
+      }
+      // So must the pictures chosen for videos and collections (they're copied there).
+      for (final key in const ['pictures', 'posters']) {
+        final m = json[key];
+        if (m is Map) m.removeWhere((_, v) => v is! String || !p.isWithin(artDir, p.normalize(v)));
       }
     } else if (name == 'library.json') {
       for (final key in const ['local', 'remote', 'missing']) {

@@ -593,6 +593,38 @@ void main() {
       await fresh.settle();
     });
 
+    test('chosen pictures and posters: shown instead, kept on rename and restart, tidied when dropped', () async {
+      final silo = model.collectionNamed('Silo')!;
+      final ep = silo.videos.first;
+      final jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3];
+      final png = [0x89, 0x50, 0x4E, 0x47, 9, 9];
+      await model.setPicture(ep, jpeg);
+      await model.setPoster(silo, png);
+      final picture = model.thumbFile(ep)!;
+      final poster = model.coverFile(silo)!;
+      expect((p.isWithin(model.customPictureDir, picture), picture.endsWith('.jpg'), poster.endsWith('.png')), (true, true, true));
+      expect((model.hasOwnPicture(ep), model.hasOwnPoster(silo)), (true, true));
+      // The film keeps its folder poster.
+      expect(model.coverFile(model.collectionNamed('Mickey 17')!), endsWith('poster.jpg'));
+      await model.editCollection(silo, name: 'Silo (TV)');
+      expect(model.coverFile(model.collectionNamed('Silo (TV)')!), poster);
+      await model.settle();
+
+      final lib2 = LibraryModel(storage);
+      await lib2.load();
+      final again = VideoLibraryModel(storage, lib2);
+      addTearDown(again.dispose);
+      await again.load();
+      expect(again.coverFile(again.collectionNamed('Silo (TV)')!), poster);
+      expect(again.thumbFile(again.byId(ep.id)!), picture);
+
+      // Back to automatic: the file goes.
+      await model.setPicture(ep, null);
+      await model.setPoster(model.collectionNamed('Silo (TV)')!, null);
+      expect((model.thumbFile(model.byId(ep.id)!), File(picture).existsSync(), File(poster).existsSync()), (null, false, false));
+      await model.settle();
+    });
+
     test('season and episode can be changed per video', () async {
       final extra = model.collectionNamed('Silo')!.videos.last;
       await model.setEdit(extra.id, const VideoEdit(season: 0, episode: 1));

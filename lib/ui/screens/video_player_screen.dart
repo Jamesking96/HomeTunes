@@ -33,6 +33,7 @@ import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import 'edit_video.dart';
+import 'video_pictures.dart';
 import 'videos_screen.dart' show videoLength;
 
 /// Language codes the engine reports, as words.
@@ -245,6 +246,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         });
       }
     } catch (_) {}
+  }
+
+  /// The frame on screen now becomes the video's picture.
+  Future<void> _useThisFrame(VideoItem v) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      final shot = await _player.screenshot(format: 'image/jpeg');
+      if (shot == null) throw const FormatException('No picture came from the video yet');
+      await _videos.setPicture(v, await preparePicture(shot));
+      messenger?.showSnackBar(const SnackBar(content: Text('This frame is now its picture')));
+    } catch (e) {
+      messenger?.showSnackBar(SnackBar(content: Text('Couldn\'t use this frame: ${e is FormatException ? e.message : e}')));
+    }
   }
 
   Future<void> _chooseTracks(BuildContext from) async {
@@ -566,6 +580,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   icon: const Icon(Icons.edit_outlined),
                   label: const Text('Edit details'),
                   onPressed: () => showEditVideos(context, [v]),
+                ),
+                OutlinedButton.icon(
+                  key: const ValueKey('use-this-frame'),
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  label: const Text('Use this frame as its picture'),
+                  onPressed: _problem == null ? () => _useThisFrame(v) : null,
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.image_outlined),
+                  label: const Text('Change picture…'),
+                  onPressed: () => showVideoPictureOptions(context, v),
                 ),
                 OutlinedButton.icon(
                   icon: Icon(watched ? Icons.remove_done : Icons.check_circle_outline),

@@ -26,6 +26,7 @@ import '../widgets/cards.dart' show EmptyState;
 import '../widgets/music_filter_sheet.dart' show MusicFilterBar, showMusicFilterSheet;
 import 'edit_video.dart';
 import 'video_collection_screen.dart';
+import 'video_pictures.dart';
 
 class VideosScreen extends StatelessWidget {
   const VideosScreen({super.key});
@@ -579,6 +580,7 @@ Future<void> showVideoMenu(BuildContext context, VideoItem video, {required Offs
       if (started)
         const PopupMenuItem(value: 'restart', child: ListTile(leading: Icon(Icons.replay), title: Text('Play from the start'))),
       const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Edit details…'))),
+      const PopupMenuItem(value: 'picture', child: ListTile(leading: Icon(Icons.image_outlined), title: Text('Change picture…'))),
       PopupMenuItem(
         value: 'collection',
         child: ListTile(
@@ -609,6 +611,8 @@ Future<void> showVideoMenu(BuildContext context, VideoItem video, {required Offs
       nav.openVideo(video);
     case 'edit':
       await showEditVideos(context, [video]);
+    case 'picture':
+      await showVideoPictureOptions(context, video);
     case 'collection':
       nav.openVideoCollection(video.collection);
     case 'watched':
