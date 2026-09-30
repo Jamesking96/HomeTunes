@@ -79,6 +79,7 @@ class VideosScreen extends StatelessWidget {
           ),
         ),
         body: Column(children: [
+          const _FavouritesRequest(),
           if (model.busy) const LinearProgressIndicator(minHeight: 2),
           if (model.error != null)
             Padding(
@@ -95,6 +96,21 @@ class VideosScreen extends StatelessWidget {
         ]),
       ),
     );
+  }
+}
+
+/// The sidebar's Favourite videos (1 Oct): switches to the Favourites tab when asked. Draws nothing.
+class _FavouritesRequest extends StatelessWidget {
+  const _FavouritesRequest();
+
+  @override
+  Widget build(BuildContext context) {
+    context.select<AppNav, String?>((n) => n.viewRequest);
+    if (context.read<AppNav>().takeView(AppNav.favouriteVideosView)) {
+      final tabs = DefaultTabController.of(context);
+      WidgetsBinding.instance.addPostFrameCallback((_) => tabs.animateTo(2));
+    }
+    return const SizedBox.shrink();
   }
 }
 

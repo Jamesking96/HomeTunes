@@ -146,6 +146,12 @@ class LibraryModel extends ChangeNotifier {
   /// the video button on Now Playing is pressed (for that song).
   bool autoPlayMusicVideos = true;
 
+  /// The computer's left-hand sidebar (1 Oct): how wide it's been dragged, and whether it's
+  /// folded down to its icons.
+  double sidebarWidth = 250;
+  bool sidebarFolded = false;
+  static const sidebarMinWidth = 180.0, sidebarMaxWidth = 420.0;
+
   /// Settings › Appearance: the colour theme, and "Your own" colours ("#RRGGBB"). See setTheme.
   String themeId = 'default';
   String? customAccent;
@@ -376,6 +382,8 @@ class LibraryModel extends ChangeNotifier {
     swipeToSkip = true;
     showMusicVideos = true;
     autoPlayMusicVideos = true;
+    sidebarWidth = 250;
+    sidebarFolded = false;
     audiobookFolders = [];
     videoFolders = [];
     bookGenres = List.of(defaultBookGenres);
@@ -437,6 +445,8 @@ class LibraryModel extends ChangeNotifier {
       swipeToSkip = s.get('swipeToSkip', true);
       showMusicVideos = s.get('showMusicVideos', true);
       autoPlayMusicVideos = s.get('autoPlayMusicVideos', true);
+      sidebarWidth = s.number('sidebarWidth', 250).clamp(sidebarMinWidth, sidebarMaxWidth).toDouble();
+      sidebarFolded = s.get('sidebarFolded', false);
       audiobookFolders = s.strings('audiobookFolders') ?? [];
       videoFolders = s.strings('videoFolders') ?? [];
       bookGenres = s.strings('bookGenres') ?? List.of(defaultBookGenres);
@@ -592,6 +602,8 @@ class LibraryModel extends ChangeNotifier {
         'swipeToSkip': swipeToSkip,
         'showMusicVideos': showMusicVideos,
         'autoPlayMusicVideos': autoPlayMusicVideos,
+        'sidebarWidth': sidebarWidth,
+        'sidebarFolded': sidebarFolded,
         'audiobookFolders': audiobookFolders,
         'videoFolders': videoFolders,
         'bookGenres': bookGenres,
@@ -829,6 +841,14 @@ class LibraryModel extends ChangeNotifier {
     bookCoversTall = tall;
     await _saveSettings();
     notifyListeners();
+  }
+
+  /// The sidebar's width (kept between [sidebarMinWidth] and [sidebarMaxWidth]) and folded state.
+  Future<void> setSidebar({double? width, bool? folded}) async {
+    if (width != null) sidebarWidth = width.clamp(sidebarMinWidth, sidebarMaxWidth).toDouble();
+    if (folded != null) sidebarFolded = folded;
+    notifyListeners();
+    await _saveSettings();
   }
 
   /// Changes the playback settings (Settings > Playback).
