@@ -178,6 +178,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         if (mounted && _player.state.duration == Duration.zero) setState(() => _problem = 'Can\'t play this video: $e');
       }),
       _player.stream.playing.listen((playing) {
+        // One thing at a time: whenever the video starts (or carries on), the music or
+        // audiobook pauses (30 Sep: before, only when the page first opened).
+        if (playing && _music.playing) _music.pause();
         if (!playing) _savePlace();
       }),
       _player.stream.tracks.listen((_) => _setUpTracks()),
@@ -187,6 +190,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       if (_player.state.playing) _savePlace();
     });
     _open(_id);
+  }
+
+  /// The previous / next video buttons: keep this one's place, then open that one.
+  void _goTo(String id) {
+    if (!mounted) return;
+    _savePlace();
+    _open(id);
   }
 
   Future<void> _open(String id) async {
@@ -205,10 +215,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       setState(() => _problem = 'This video isn\'t there any more. Rescan your video folders to tidy the list.');
       return;
     }
+    final next = _videos.after(v), previous = _videos.before(v);
     _watching?.showing(v,
         picture: _videos.thumbFile(v),
         skipBack: _settings.videoSkipBackSeconds,
-        skipForward: _settings.videoSkipForwardSeconds);
+        skipForward: _settings.videoSkipForwardSeconds,
+        onNext: next == null ? null : () => _goTo(next.id),
+        onPrevious: previous == null ? null : () => _goTo(previous.id));
     // One thing at a time: the music pauses while a video plays.
     if (_music.playing) await _music.pause();
     final place = _videos.placeOf(v.id);
@@ -539,12 +552,34 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final speedButton = Builder(
       builder: (context) => MaterialDesktopCustomButton(icon: const Icon(Icons.speed), onPressed: () => _chooseSpeed(context)),
     );
+    // Previous / next video in the collection (30 Sep); greyed out at either end.
+    final current = _videos.byId(_id);
+    final previousVideo = current == null ? null : _videos.before(current);
+    final nextVideo = current == null ? null : _videos.after(current);
+    final buttonColour = look.buttons(accent);
+    Widget jump({required bool forward, required double size}) {
+      final target = forward ? nextVideo : previousVideo;
+      return IconButton(
+        key: ValueKey(forward ? 'video-next' : 'video-previous'),
+        tooltip: target == null
+            ? (forward ? 'No next video' : 'No previous video')
+            : '${forward ? 'Next' : 'Previous'}: ${[?target.episodeLabel, target.title].join(' · ')}',
+        iconSize: size,
+        color: buttonColour,
+        disabledColor: buttonColour.withValues(alpha: 0.3),
+        icon: Icon(forward ? Icons.skip_next_rounded : Icons.skip_previous_rounded),
+        onPressed: target == null ? null : () => _goTo(target.id),
+      );
+    }
+
     final desktopBar = [
+      jump(forward: false, size: look.size.desktop),
       MaterialDesktopCustomButton(
           icon: Icon(skipIcon(forward: false, seconds: back)), onPressed: () => _skip(forward: false)),
       const MaterialDesktopPlayOrPauseButton(),
       MaterialDesktopCustomButton(
           icon: Icon(skipIcon(forward: true, seconds: ahead)), onPressed: () => _skip(forward: true)),
+      jump(forward: true, size: look.size.desktop),
       const MaterialDesktopVolumeButton(),
       paddedTime(MaterialDesktopPositionIndicator(style: timeTextStyle(look, accent))),
       const Spacer(),
@@ -567,6 +602,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           _player.setVolume((_player.state.volume + 5).clamp(0.0, 100.0)),
       const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
           _player.setVolume((_player.state.volume - 5).clamp(0.0, 100.0)),
+      // Shift+N / Shift+P: next / previous video (as on YouTube).
+      const SingleActivator(LogicalKeyboardKey.keyN, shift: true): () {
+        if (nextVideo != null) _goTo(nextVideo.id);
+      },
+      const SingleActivator(LogicalKeyboardKey.keyP, shift: true): () {
+        if (previousVideo != null) _goTo(previousVideo.id);
+      },
+      const SingleActivator(LogicalKeyboardKey.mediaTrackNext): () {
+        if (nextVideo != null) _goTo(nextVideo.id);
+      },
+      const SingleActivator(LogicalKeyboardKey.mediaTrackPrevious): () {
+        if (previousVideo != null) _goTo(previousVideo.id);
+      },
       const SingleActivator(LogicalKeyboardKey.keyF): () => _videoKey.currentState?.toggleFullscreen(),
       const SingleActivator(LogicalKeyboardKey.escape): () => _videoKey.currentState?.exitFullscreen(),
     };
@@ -580,8 +628,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       builder: (context) => MaterialCustomButton(icon: const Icon(Icons.speed), onPressed: () => _chooseSpeed(context)),
     );
     final phoneBar = [
+      jump(forward: false, size: look.size.phone),
       MaterialCustomButton(icon: Icon(skipIcon(forward: false, seconds: back)), onPressed: () => _skip(forward: false)),
       MaterialCustomButton(icon: Icon(skipIcon(forward: true, seconds: ahead)), onPressed: () => _skip(forward: true)),
+      jump(forward: true, size: look.size.phone),
       paddedTime(MaterialPositionIndicator(style: timeTextStyle(look, accent, phone: true))),
       const Spacer(),
       phoneSpeed,

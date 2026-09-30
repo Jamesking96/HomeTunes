@@ -3,6 +3,7 @@
 // 5 seconds (wheelSeekTarget, WheelSeek on the music / book SeekBar and the video's bar).
 import 'dart:async';
 
+import 'package:audio_service/audio_service.dart' show MediaAction;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -214,6 +215,16 @@ void main() {
     await tester.sendEventToBinding(pointer.hover(tester.getCenter(find.byKey(const ValueKey('video-bar-seek')))));
     await tester.sendEventToBinding(pointer.scroll(const Offset(0, 40)));
     expect(video.seeks.last, const Duration(minutes: 9, seconds: 55));
+
+    // Previous / next video: greyed out without one, and working with one.
+    IconButton button(String key) => tester.widget<IconButton>(find.byKey(ValueKey(key)));
+    expect(button('video-bar-next').onPressed, isNull);
+    var went = '';
+    w.showing(_episode, onNext: () => went = 'next');
+    await tester.pump();
+    expect(button('video-bar-previous').onPressed, isNull);
+    await tester.tap(find.byKey(const ValueKey('video-bar-next')));
+    expect(went, 'next');
   });
 
   test('the system media controls show the video and send their buttons to it', () async {
@@ -234,7 +245,17 @@ void main() {
     expect(video.playing, isFalse);
     expect(session.playbackState.value.playing, isFalse);
     await session.skipToNext();
-    expect(video.seeks.last, const Duration(minutes: 10, seconds: 10));
+    expect(video.seeks.last, const Duration(minutes: 10, seconds: 10)); // no next video: seconds
+
+    // With a next / previous video, the next / previous keys go to them.
+    var went = '';
+    w.showing(_episode, onNext: () => went = 'next', onPrevious: () => went = 'previous');
+    expect(session.playbackState.value.controls.map((c) => c.action),
+        [MediaAction.skipToPrevious, MediaAction.play, MediaAction.skipToNext]);
+    await session.skipToNext();
+    expect(went, 'next');
+    await session.skipToPrevious();
+    expect(went, 'previous');
 
     // The page closes: back to the music (nothing loaded here).
     w.detach(video);

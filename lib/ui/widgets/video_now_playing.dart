@@ -162,6 +162,12 @@ class VideoTransportControls extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
+          key: const ValueKey('video-bar-previous'),
+          tooltip: w.hasPrevious ? 'Previous video' : 'No previous video',
+          icon: const Icon(Icons.skip_previous_rounded),
+          onPressed: w.hasPrevious ? w.previous : null,
+        ),
+        IconButton(
           tooltip: 'Back ${w.skipBackSeconds} seconds',
           icon: Icon(_skipIcon(false, w.skipBackSeconds)),
           onPressed: () => w.skip(forward: false),
@@ -185,6 +191,12 @@ class VideoTransportControls extends StatelessWidget {
           tooltip: 'Forward ${w.skipForwardSeconds} seconds',
           icon: Icon(_skipIcon(true, w.skipForwardSeconds)),
           onPressed: () => w.skip(forward: true),
+        ),
+        IconButton(
+          key: const ValueKey('video-bar-next'),
+          tooltip: w.hasNext ? 'Next video' : 'No next video',
+          icon: const Icon(Icons.skip_next_rounded),
+          onPressed: w.hasNext ? w.next : null,
         ),
       ],
     );

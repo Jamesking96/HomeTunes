@@ -298,6 +298,8 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `tool/bench/library_scan_test.dart` | Times a first scan and a rescan through `LibraryModel` and counts screen updates | `flutter test tool/bench/library_scan_test.dart --dart-define=FOLDER=F:\Music` |
 | `tool/theme_preview_test.dart`, `ui_preview_test.dart`, `whats_new_preview_test.dart`, `theme_sharing_preview_test.dart`, `notice_close_preview_test.dart` | Draw screens off-screen and save pictures to `C:\Temp\ht\preview`, so changes can be checked without opening a window: each colour theme (0.1.24), the queue drawer and artist page (0.1.26), the What's new pop-up (0.1.28), sharing themes (0.1.29) and a notice with its ✕ (0.1.30). Nothing is shown on screen. | `flutter test tool/theme_preview_test.dart` (and so on) |
 
+`tool\check_icons.py` (30 Sep): after a Windows release build, checks every Material icon used in lib\ (and media_kit's controls) is in the built icon font; `build_release.ps1` runs it and stops if any are missing (the icon tree shaker once left the video player's buttons blank, so releases now build with `--no-tree-shake-icons`).
+
 ## Tests
 
 `flutter test` runs everything in `test/` (the scripts in `tool/` aren't part of it). To run one file: `flutter test test/books_test.dart`. Tests use the tiny tagged files in `test/fixtures/` and fake servers, so they need no internet and don't touch your library.
