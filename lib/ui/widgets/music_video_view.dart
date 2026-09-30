@@ -31,6 +31,14 @@ Duration? videoSeekTarget({required Duration song, required Duration video, Dura
   return (song - video).abs() > videoSyncTolerance ? song : null;
 }
 
+/// Whether the video should keep playing in this app state. Only a window that can't be seen
+/// (minimised, hidden, the phone app in the background) pauses it. A window that's merely not
+/// the focused one is `inactive` on Windows but still visible, so the video carries on there.
+/// (Pausing on `inactive` made the video stutter: the song played on, and the paused video was
+/// jumped forward to it every 2 seconds.)
+bool videoVisible(AppLifecycleState? state) =>
+    state == null || state == AppLifecycleState.resumed || state == AppLifecycleState.inactive;
+
 /// Shows [file] (a song's music video) muted and in step with the song that's playing.
 class MusicVideoView extends StatefulWidget {
   /// The video file (LibraryModel.videoFileFor).
@@ -61,7 +69,7 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
   // Seeking a video takes a moment (it decodes from the nearest keyframe), so after a seek the
   // video isn't checked again for a little while, or it would keep chasing the song.
   DateTime _nextCheck = DateTime.fromMillisecondsSinceEpoch(0);
-  // The app is on screen (the video pauses itself in the background to save battery).
+  // The app can be seen (the video pauses while it can't, to save battery). See [videoVisible].
   bool _onScreen = true;
 
   @override
@@ -69,8 +77,7 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _song = context.read<PlayerModel>();
-    _onScreen = WidgetsBinding.instance.lifecycleState == null ||
-        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    _onScreen = videoVisible(WidgetsBinding.instance.lifecycleState);
     _setUp();
   }
 
@@ -137,6 +144,9 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
     if (now.isBefore(_nextCheck)) return;
     _nextCheck = now.add(const Duration(milliseconds: 500));
     _followPlayPause();
+    // Out of sight the video is paused on purpose: don't drag it along behind the song.
+    // It's lined up again as soon as the window can be seen (didChangeAppLifecycleState).
+    if (!_onScreen) return;
     final target = videoSeekTarget(
       song: _song.position,
       video: _video.state.position,
@@ -150,8 +160,12 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _onScreen = state == AppLifecycleState.resumed;
+    final visible = videoVisible(state);
+    if (visible == _onScreen) return;
+    _onScreen = visible;
     _followPlayPause();
+    // Back in sight: line up with the song straight away.
+    if (visible) _nextCheck = DateTime.fromMillisecondsSinceEpoch(0);
   }
 
   @override
