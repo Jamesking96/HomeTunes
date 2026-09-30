@@ -221,7 +221,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         skipBack: _settings.videoSkipBackSeconds,
         skipForward: _settings.videoSkipForwardSeconds,
         onNext: next == null ? null : () => _goTo(next.id),
-        onPrevious: previous == null ? null : () => _goTo(previous.id));
+        onPrevious: previous == null ? null : () => _goTo(previous.id),
+        transport: _transport);
     // One thing at a time: the music pauses while a video plays.
     if (_music.playing) await _music.pause();
     final place = _videos.placeOf(v.id);
@@ -897,6 +898,8 @@ class MediaKitTransport implements VideoTransport {
   Stream<Duration> get durationStream => player.stream.duration;
   @override
   double get volume => player.state.volume;
+  @override
+  Stream<double> get volumeStream => player.stream.volume;
   @override
   double get rate => player.state.rate;
   @override

@@ -38,6 +38,7 @@ import 'ui/screens/settings/update_ui.dart';
 import 'ui/screens/settings/whats_new_ui.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
+import 'ui/widgets/notices.dart';
 
 /// Starts HomeTunes: sets up storage and the models, then shows the app.
 Future<void> main() async {
@@ -251,13 +252,14 @@ class HomeTunesApp extends StatelessWidget {
             child: MaterialApp(
               title: 'HomeTunes',
               debugShowCheckedModeBanner: false,
-              // Let the start-up update notice (and its dialog) be shown from outside the tree.
-              scaffoldMessengerKey: appMessengerKey,
               navigatorKey: appNavigatorKey,
               theme: buildTheme(look.palette, look.corners),
               scrollBehavior: appScrollBehavior,
-              // Text size: on top of the system's own setting.
-              builder: (context, child) => withTextSize(context, look.textSize, child!),
+              // Text size: on top of the system's own setting. Notices go through NoticeMessenger
+              // (15 seconds each, even while waiting; 1 Oct), whose key lets the start-up update
+              // notice (and its dialog) be shown from outside the tree.
+              builder: (context, child) =>
+                  NoticeMessenger(key: appMessengerKey, child: withTextSize(context, look.textSize, child!)),
               home: const Shell(),
             ),
           );

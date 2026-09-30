@@ -97,8 +97,15 @@ class FakeVideo implements VideoTransport {
     position = to;
   }
 
+  final _volume = StreamController<double>.broadcast();
   @override
-  Future<void> setVolume(double v) async => volume = v;
+  Stream<double> get volumeStream => _volume.stream;
+
+  @override
+  Future<void> setVolume(double v) async {
+    volume = v;
+    _volume.add(v);
+  }
 }
 
 const _episode = VideoItem(
@@ -179,6 +186,39 @@ void main() {
 
       w.detach(video);
       expect((w.inFront, w.video), (false, null));
+    });
+
+    test('the video player\'s own volume changes reach the bar', () async {
+      final w = NowWatching(FakeMusic());
+      final video = FakeVideo();
+      w.attach(video);
+      var told = 0;
+      w.addListener(() => told++);
+      await video.setVolume(40); // as the player page's volume bar does
+      await settle();
+      expect((w.volume, told > 0), (40.0, true));
+    });
+
+    test('a second video page closing hands the bar back to the one still open', () async {
+      final w = NowWatching(FakeMusic());
+      final first = FakeVideo()..playing = true, second = FakeVideo();
+      const other = VideoItem(id: 'video:/v/Other.mkv', path: '/v/Other.mkv', title: 'Other', collection: 'Other');
+      w.attach(first);
+      w.showing(_episode, transport: first);
+      w.attach(second);
+      w.showing(other, transport: second);
+      expect(w.video?.title, 'Other');
+      // The page underneath moving on only changes its own record.
+      w.showing(_episode, transport: first, skipBack: 5);
+      expect(w.video?.title, 'Other');
+      w.detach(second);
+      expect((w.video?.title, w.transport == first, w.inFront, w.skipBackSeconds), ('Holston\'s Pick', true, true, 5));
+      // Still listening to it.
+      await first.pause();
+      await settle();
+      expect(w.playing, isFalse);
+      w.detach(first);
+      expect(w.video, isNull);
     });
   });
 
