@@ -34,6 +34,9 @@ class NowPlayingScreen extends StatefulWidget {
   /// Whether lyrics were showing when Now Playing was last closed.
   static bool lyricsWereOpen = false;
 
+  /// Whether the music video was enlarged when Now Playing was last closed (this session only).
+  static bool videoWasEnlarged = false;
+
   @override
   State<NowPlayingScreen> createState() => _NowPlayingScreenState();
 }
@@ -51,6 +54,13 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
   // The playing song's music video file, looked up once per song (it checks the disk).
   String? _videoKey;
   String? _videoFile;
+
+  /// The music video fills the middle of the page (and the lyrics panel steps aside).
+  bool _bigVideo = NowPlayingScreen.videoWasEnlarged;
+  void _toggleBigVideo() {
+    setState(() => _bigVideo = !_bigVideo);
+    NowPlayingScreen.videoWasEnlarged = _bigVideo;
+  }
   String? _videoOf(Track t) {
     final key = '${t.id}\u0000${t.video}';
     if (key != _videoKey) {
@@ -82,6 +92,9 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     final videoFile = book == null ? _videoOf(t) : null;
     final showVideo = context.select<LibraryModel, bool>((l) => l.showMusicVideos);
     final cover = Artwork(track: t, size: artSize, radius: 8);
+    final videoShown = videoFile != null && showVideo;
+    // Enlarged: as big as the middle of the page allows (the lyrics panel steps aside).
+    final big = videoShown && _bigVideo;
 
     return Scaffold(
       // Background: a soft wash of the accent colour fading into the normal background.
@@ -134,12 +147,20 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                           color: Colors.transparent,
                           alignment: Alignment.center,
                           child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: videoFile != null && showVideo
-                                // Wider than the cover, as videos are, but not across a whole big window.
+                            padding: EdgeInsets.all(big ? 8 : 24),
+                            child: videoShown
+                                // Wider than the cover, as videos are, but not across a whole big
+                                // window unless it's been enlarged.
                                 ? ConstrainedBox(
-                                    constraints: BoxConstraints(maxWidth: (artSize * 16 / 9).clamp(artSize, 960.0)),
-                                    child: MusicVideoView(file: videoFile, fallback: cover),
+                                    constraints: big
+                                        ? const BoxConstraints()
+                                        : BoxConstraints(maxWidth: (artSize * 16 / 9).clamp(artSize, 960.0)),
+                                    child: MusicVideoView(
+                                      file: videoFile,
+                                      fallback: cover,
+                                      enlarged: big,
+                                      onToggleEnlarge: _toggleBigVideo,
+                                    ),
                                   )
                                 : cover,
                           ),
@@ -271,7 +292,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
               ),
             ])),
             // Right-hand lyrics panel on wide windows.
-            if (lyrics && wide)
+            if (lyrics && wide && !big)
               Container(
                 width: (size.width * 0.42).clamp(360.0, 620.0),
                 margin: const EdgeInsets.fromLTRB(0, 16, 16, 16),

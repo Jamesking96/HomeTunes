@@ -153,6 +153,10 @@ class LibraryModel extends ChangeNotifier {
   /// Folders where everything is an audiobook (scanned as well as [folders]).
   List<String> audiobookFolders = [];
 
+  /// Folders for the Videos tab (0.1.32). Scanned by VideoLibraryModel, not by the music scan.
+  /// An .mp4 inside one is a video, not a song (unless it's the music video beside a song).
+  List<String> videoFolders = [];
+
   /// Genres that mark a file as an audiobook.
   List<String> bookGenres = List.of(defaultBookGenres);
 
@@ -342,6 +346,7 @@ class LibraryModel extends ChangeNotifier {
     swipeToSkip = true;
     showMusicVideos = true;
     audiobookFolders = [];
+    videoFolders = [];
     bookGenres = List.of(defaultBookGenres);
     bookCoversTall = false;
     skipBackSeconds = 15;
@@ -393,6 +398,7 @@ class LibraryModel extends ChangeNotifier {
       swipeToSkip = s.get('swipeToSkip', true);
       showMusicVideos = s.get('showMusicVideos', true);
       audiobookFolders = s.strings('audiobookFolders') ?? [];
+      videoFolders = s.strings('videoFolders') ?? [];
       bookGenres = s.strings('bookGenres') ?? List.of(defaultBookGenres);
       bookCoversTall = s.get('bookCoversTall', false);
       skipBackSeconds = s.integer('skipBackSeconds', 15);
@@ -538,6 +544,7 @@ class LibraryModel extends ChangeNotifier {
         'swipeToSkip': swipeToSkip,
         'showMusicVideos': showMusicVideos,
         'audiobookFolders': audiobookFolders,
+        'videoFolders': videoFolders,
         'bookGenres': bookGenres,
         'bookCoversTall': bookCoversTall,
         'skipBackSeconds': skipBackSeconds,
@@ -676,7 +683,8 @@ class LibraryModel extends ChangeNotifier {
     //    File types switched off in a folder's options are left out (0.1.27); they stay in
     //    _local so the folder still knows which types it has.
     final raw = [
-      if (hiddenFormats.isEmpty) ..._local else for (final t in _local) if (!_formatHidden(t)) t,
+      // (0.1.32) An .mp4 in a video folder is a video for the Videos tab, not a song.
+      for (final t in _local) if (!_formatHidden(t) && !_isVideoFolderFile(t)) t,
       if (serverEnabled) ..._remote,
     ];
     _rawById = {for (final t in raw) t.id: t};
@@ -810,6 +818,30 @@ class LibraryModel extends ChangeNotifier {
     }
     await _saveSettings();
     _rebuild();
+  }
+
+  // ---- video folders (0.1.32) ----
+
+  /// Adds a folder for the Videos tab. VideoLibraryModel notices and scans it.
+  Future<void> addVideoFolder(String path) async {
+    if (videoFolders.contains(path)) return;
+    videoFolders = [...videoFolders, path];
+    await _saveSettings();
+    _rebuild();
+  }
+
+  /// Stops listing a video folder's videos.
+  Future<void> removeVideoFolder(String path) async {
+    videoFolders = videoFolders.where((f) => f != path).toList();
+    await _saveSettings();
+    _rebuild();
+  }
+
+  /// A song file that's really a video in a video folder (an .mp4 on its own there).
+  bool _isVideoFolderFile(Track t) {
+    final path = t.path;
+    if (videoFolders.isEmpty || !t.isLocal || path == null) return false;
+    return videoExtensions.contains(p.extension(path).toLowerCase()) && videoFolders.any((f) => isInside(path, f));
   }
 
   // ---- folders ----

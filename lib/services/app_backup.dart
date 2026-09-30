@@ -36,6 +36,7 @@ class AppBackup {
     'bookmarks.json',
     'lyrics.json',
     'equalizer.json',
+    'videos.json',  // 0.1.32: the Videos tab (edits and watched places)
   ];
 
   /// Marks a path inside the app's folder in a backup.
@@ -176,12 +177,14 @@ class AppBackup {
     final cs = await currentFile('settings.json');
     final backupFolders = (bs['folders'] as List? ?? const []).cast<String>();
     final backupBookFolders = (bs['audiobookFolders'] as List? ?? const []).cast<String>();
+    final backupVideoFolders = (bs['videoFolders'] as List? ?? const []).cast<String>();
     // Folders from another device usually don't exist here; they're dropped and reported.
     final missingFolders = [
-      for (final f in [...backupFolders, ...backupBookFolders]) if (!Directory(f).existsSync()) f
+      for (final f in [...backupFolders, ...backupBookFolders, ...backupVideoFolders]) if (!Directory(f).existsSync()) f
     ];
     final usableFolders = [for (final f in backupFolders) if (Directory(f).existsSync()) f];
     final usableBookFolders = [for (final f in backupBookFolders) if (Directory(f).existsSync()) f];
+    final usableVideoFolders = [for (final f in backupVideoFolders) if (Directory(f).existsSync()) f];
     final Map<String, dynamic> settings;
     if (merge) {
       settings = {...bs, ...cs};  // this device's settings win
@@ -192,6 +195,11 @@ class AppBackup {
         ...currentBooks,
         for (final f in usableBookFolders) if (!currentBooks.contains(f)) f,
       ];
+      final currentVideos = (cs['videoFolders'] as List? ?? const []).cast<String>();
+      settings['videoFolders'] = [
+        ...currentVideos,
+        for (final f in usableVideoFolders) if (!currentVideos.contains(f)) f,
+      ];
       final overrides = {...?(bs['bookOverrides'] as Map?), ...?(cs['bookOverrides'] as Map?)};
       if (overrides.isNotEmpty) settings['bookOverrides'] = overrides;
       // Only take the backup's server if this device has none set up.
@@ -201,7 +209,12 @@ class AppBackup {
         settings['serverEnabled'] = bs['serverEnabled'];
       }
     } else {
-      settings = {...bs, 'folders': usableFolders, 'audiobookFolders': usableBookFolders};
+      settings = {
+        ...bs,
+        'folders': usableFolders,
+        'audiobookFolders': usableBookFolders,
+        'videoFolders': usableVideoFolders,
+      };
     }
     // No password in the backup: keep this device's one if it's the same server.
     final server = settings['server'];
@@ -325,6 +338,29 @@ class AppBackup {
       await put('equalizer.json', beq);
     }
 
+    // ---- videos (0.1.32): merging keeps this device's scan, adds the backup's edits (they win)
+    //      and keeps the latest place for each video ----
+    final bv = backupFile('videos.json');
+    if (merge) {
+      final cv = await currentFile('videos.json');
+      Map<String, dynamic> part(Map<String, dynamic> m, String key) =>
+          m[key] is Map ? Map<String, dynamic>.from(m[key] as Map) : <String, dynamic>{};
+      final places = part(cv, 'places');
+      for (final e in part(bv, 'places').entries) {
+        int updated(Object? v) => v is Map ? ((v['updatedMs'] as int?) ?? 0) : -1;
+        if (updated(e.value) > updated(places[e.key])) places[e.key] = e.value;
+      }
+      if (cv.isNotEmpty || bv.isNotEmpty) {
+        await put('videos.json', {
+          'videos': cv['videos'] ?? bv['videos'] ?? const [],
+          'edits': {...part(cv, 'edits'), ...part(bv, 'edits')},
+          'places': places,
+        });
+      }
+    } else if (bv.isNotEmpty) {
+      await put('videos.json', bv);
+    }
+
     return RestoreResult(missingFolders: missingFolders, needsPassword: needsPassword);
   }
 
@@ -391,6 +427,18 @@ class AppBackup {
         if (e is! Map) continue;
         final art = e['art'];
         if (art is String && !p.isWithin(artDir, p.normalize(art))) e.remove('art');
+      }
+    } else if (name == 'videos.json') {
+      // A video's thumbnail must be in the app's art folder (they're made there); anything else
+      // is dropped and made again.
+      final artDir = p.normalize(p.join(root, 'art'));
+      final list = json['videos'];
+      if (list is List) {
+        for (final v in list) {
+          if (v is! Map) continue;
+          final thumb = v['thumb'];
+          if (thumb is String && !p.isWithin(artDir, p.normalize(thumb))) v.remove('thumb');
+        }
       }
     } else if (name == 'library.json') {
       for (final key in const ['local', 'remote', 'missing']) {

@@ -73,6 +73,37 @@ class MusicPermission {
     }
   }
 
+  // ---- videos (0.1.32) ----
+  // Android 13+ keeps video files behind a separate permission, "Photos and videos"
+  // (READ_MEDIA_VIDEO): with only "Music and audio", video files aren't even listed in a folder.
+  // It's needed for the Videos tab and for a song's music video. Older Android: the same storage
+  // permission as music.
+
+  static Future<Permission> _videoPermission() async =>
+      (await _sdkInt()) >= 33 ? Permission.videos : Permission.storage;
+
+  /// Whether video files can be read (no prompt).
+  static Future<MusicAccess> checkVideos() async {
+    if (!Platform.isAndroid) return MusicAccess.allowed;
+    try {
+      return _from(await PermissionHandlerPlatform.instance.checkPermissionStatus(await _videoPermission()));
+    } catch (_) {
+      return MusicAccess.allowed;
+    }
+  }
+
+  /// Asks for video access if Android still allows the prompt.
+  static Future<MusicAccess> requestVideos() async {
+    if (!Platform.isAndroid) return MusicAccess.allowed;
+    try {
+      final p = await _videoPermission();
+      final result = await PermissionHandlerPlatform.instance.requestPermissions([p]);
+      return _from(result[p] ?? PermissionStatus.denied);
+    } catch (_) {
+      return MusicAccess.denied;
+    }
+  }
+
   /// Opens HomeTunes' page in the phone's Settings.
   static Future<bool> openSettings() => PermissionHandlerPlatform.instance.openAppSettings();
 }

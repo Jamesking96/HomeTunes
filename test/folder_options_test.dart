@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/services/storage.dart';
+import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/player_model.dart';
 import 'package:hometunes/ui/screens/settings/library_settings.dart';
@@ -125,8 +126,11 @@ void main() {
     tester.view.physicalSize = const Size(1000, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(ChangeNotifierProvider.value(
-      value: lib,
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: lib),
+        ChangeNotifierProvider(create: (_) => VideoLibraryModel(lib.storage, lib)),
+      ],
       child: const MaterialApp(home: Scaffold(body: LibrarySettings())),
     ));
     await tester.tap(find.byKey(ValueKey('folder-options:$a')));

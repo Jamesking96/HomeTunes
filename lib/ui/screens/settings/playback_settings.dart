@@ -2,9 +2,12 @@
 //
 // Both are saved in LibraryModel; PlayerModel reads them from there and passes them to mpv
 // (gapless-audio / prefetch-playlist / replaygain properties), only when they change.
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../services/music_permission.dart';
 import '../../../state/equalizer_model.dart';
 import '../../../state/library_model.dart';
 import '../equalizer_screen.dart';
@@ -68,6 +71,7 @@ class PlaybackSettings extends StatelessWidget {
           onChanged: (v) => lib.updatePlaybackSettings(showMusicVideos: v),
         ),
       ),
+      if (Platform.isAndroid && lib.showMusicVideos) const _VideoAccessNote(),
       SettingTarget(
         'replaygain',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -94,5 +98,48 @@ class PlaybackSettings extends StatelessWidget {
         ]),
       ),
     ]);
+  }
+}
+
+/// Android 13+: music videos need "Photos and videos" access (with only "Music and audio", the
+/// video files beside songs aren't even listed). Shows a button to allow it when it's missing.
+class _VideoAccessNote extends StatefulWidget {
+  const _VideoAccessNote();
+
+  @override
+  State<_VideoAccessNote> createState() => _VideoAccessNoteState();
+}
+
+class _VideoAccessNoteState extends State<_VideoAccessNote> {
+  MusicAccess? _access;
+
+  @override
+  void initState() {
+    super.initState();
+    MusicPermission.checkVideos().then((a) {
+      if (mounted) setState(() => _access = a);
+    });
+  }
+
+  Future<void> _allow() async {
+    final lib = context.read<LibraryModel>();
+    final a = await MusicPermission.requestVideos();
+    if (!mounted) return;
+    setState(() => _access = a);
+    if (a == MusicAccess.allowed) {
+      await lib.scanLocal(); // finds the videos beside songs now
+    } else if (a == MusicAccess.blocked) {
+      await MusicPermission.openSettings();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_access == null || _access == MusicAccess.allowed) return const SizedBox.shrink();
+    return ListTile(
+      leading: const Icon(Icons.info_outline),
+      title: const Text('Music videos need "Photos and videos" access on this phone'),
+      trailing: TextButton(onPressed: _allow, child: const Text('Allow')),
+    );
   }
 }

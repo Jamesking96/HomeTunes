@@ -2,14 +2,18 @@
 //  * the main player with vid=no plays an .mp4 as sound only (no picture size reported);
 //  * a muted video player with aid=no opens the video, reports its picture size, plays and
 //    seeks precisely enough for the display to stay in step (ui/widgets/music_video_view.dart);
-//  * song and video started together stay close over several seconds.
+//  * song and video started together stay close over several seconds;
+//  * the Videos tab's thumbnail maker takes a small picture and learns the length (0.1.32).
 // Run (the DLL is in build\windows\x64\runner\Release\ after a Windows build):
 //   flutter test tool/bench/video_engine_test.dart --dart-define=LIBMPV=<libmpv-2.dll>
 //     --dart-define=AUDIO=<song.m4a> --dart-define=VIDEO=<song.mp4>
 // Lives in tool/bench/ because it needs the real engine and real files. Everything plays muted.
 // It prints a short report, like engine_test.dart.
 // ignore_for_file: avoid_print
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hometunes/services/video_thumbnails.dart';
 import 'package:media_kit/media_kit.dart';
 
 Future<void> _wait(bool Function() ok, {int seconds = 10}) async {
@@ -20,6 +24,7 @@ Future<void> _wait(bool Function() ok, {int seconds = 10}) async {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized(); // the thumbnail step shrinks pictures with Flutter
   const lib = String.fromEnvironment('LIBMPV');
   const audio = String.fromEnvironment('AUDIO');
   const video = String.fromEnvironment('VIDEO');
@@ -79,5 +84,18 @@ void main() {
 
     await song.dispose();
     await pics.dispose();
+
+    // 4. Thumbnails for the Videos tab: a picture a tenth of the way in, shrunk to a small JPEG.
+    final dir = Directory.systemTemp.createTempSync('hometunes_thumbs');
+    final maker = VideoThumbnailer(dir.path);
+    final took = Stopwatch()..start();
+    final facts = await maker.make(video, modifiedMs: 1);
+    await maker.dispose();
+    print('thumbnail: ${facts.thumb == null ? 'none' : '${File(facts.thumb!).lengthSync()} bytes'} in '
+        '${took.elapsedMilliseconds} ms; length ${facts.duration}, ${facts.width}x${facts.height}');
+    expect(facts.thumb, isNotNull);
+    expect(File(facts.thumb!).lengthSync(), lessThan(200 << 10));
+    expect(facts.duration, greaterThan(Duration.zero));
+    dir.deleteSync(recursive: true);
   }, timeout: const Timeout(Duration(minutes: 2)));
 }

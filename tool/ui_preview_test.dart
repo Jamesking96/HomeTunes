@@ -20,6 +20,7 @@ import 'package:hometunes/state/player_model.dart';
 import 'package:hometunes/state/playlists_model.dart';
 import 'package:hometunes/state/selection_model.dart';
 import 'package:hometunes/state/update_model.dart';
+import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/artist_screen.dart';
 import 'package:hometunes/ui/screens/queue_screen.dart';
@@ -94,6 +95,7 @@ void main() {
           ChangeNotifierProvider<PlayerModel>.value(value: _Player()),
           ChangeNotifierProvider(create: (_) => SelectionModel()),
           ChangeNotifierProvider(create: (_) => EqualizerModel(Storage.at(dir))),
+          ChangeNotifierProvider(create: (_) => VideoLibraryModel(Storage.at(dir), lib)),
           ChangeNotifierProvider(create: (_) => UpdateModel(Storage.at(dir), readVersion: () async => '0.1.26')),
         ],
         child: RepaintBoundary(
@@ -152,6 +154,7 @@ void main() {
         ChangeNotifierProvider<PlayerModel>.value(value: _Player()),
         ChangeNotifierProvider(create: (_) => SelectionModel()),
         ChangeNotifierProvider(create: (_) => EqualizerModel(Storage.at(dir))),
+        ChangeNotifierProvider(create: (_) => VideoLibraryModel(Storage.at(dir), real)),
         ChangeNotifierProvider(create: (_) => UpdateModel(Storage.at(dir), readVersion: () async => '0.1.27')),
       ],
       child: RepaintBoundary(
