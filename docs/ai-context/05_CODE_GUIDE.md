@@ -337,6 +337,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `video_nfo_test.dart` | Reading .nfo files, and writing into one made by another program without losing its other tags |
 | `video_art_search_test.dart` | Search online against fake TVmaze / AniList / Wikipedia answers: order, episode still, infobox pictures, one service failing, downloads that aren't pictures |
 | `video_pictures_test.dart` | Change picture / poster: the choices (online switched off, back to automatic) and picking a search result saving it as the poster |
+| `video_collection_page_test.dart` | A collection's page: seasons fold up from their headings; the contents chips jump to (and open) a season; Fold all / Open all |
 | `video_settings_test.dart` | Settings › Videos: saving the settings, the videos' own equaliser preset, picture shapes and speeds (usual and own, kept on rename), the page, and Edit details' shape |
 | `video_tracks_test.dart` | Audio / subtitle labels and finding the remembered choice among a new video's tracks |
 
