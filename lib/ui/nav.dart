@@ -45,6 +45,14 @@ class AppNav extends ChangeNotifier {
     }
   }
 
+  /// Shows tab [i] as it is, without going back to its first page when it's already showing
+  /// (1 Oct: "Go to the video" used [selectTab], which closed the video page it was going to).
+  void showTab(int i) {
+    if (i == tab) return;
+    tab = i;
+    notifyListeners();
+  }
+
   // A "please open this settings page" note left by openSettings, waiting for the Settings
   // screen to pick it up (it may not be built yet when the request is made).
   ({String page, String? setting})? _settingsRequest;
