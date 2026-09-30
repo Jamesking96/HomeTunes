@@ -55,6 +55,19 @@ class PlaybackSettings extends StatelessWidget {
           onChanged: (v) => lib.updatePlaybackSettings(swipeToSkip: v),
         ),
       ),
+      // 0.1.32: a song with a video file of the same name beside it (Song.m4a + Song.mp4), or an
+      // .mp4 song with pictures, shows the video on Now Playing, muted and in step with the song.
+      SettingTarget(
+        'music-videos',
+        child: SwitchListTile(
+          title: const Text('Music videos'),
+          subtitle: const Text('When a song has a video beside it with the same name (like Song.m4a and Song.mp4), '
+              'play the video on Now Playing in place of the cover, in time with the song. '
+              'The video button on Now Playing switches this too.'),
+          value: lib.showMusicVideos,
+          onChanged: (v) => lib.updatePlaybackSettings(showMusicVideos: v),
+        ),
+      ),
       SettingTarget(
         'replaygain',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

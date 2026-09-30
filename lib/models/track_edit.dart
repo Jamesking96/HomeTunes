@@ -237,6 +237,7 @@ class TrackEdit {
         companions: t.companions,
         hasBookInfo: t.hasBookInfo,
         sidecarStamp: t.sidecarStamp,
+        video: t.video,
       );
 
   /// For edits.json. Only the changed fields are written.

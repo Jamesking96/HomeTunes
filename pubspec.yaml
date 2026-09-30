@@ -22,8 +22,12 @@ dependencies:
 
   # Playback on Windows, macOS, Linux, Android and iOS (local files + http streams)
   media_kit: ^1.2.6
-  # The native audio engine (libmpv) for each platform, audio-only build (no video parts).
-  media_kit_libs_audio: ^1.0.7
+  # The native engine (libmpv) for each platform. Since 0.1.32 this is the video build (it was
+  # media_kit_libs_audio), so a song's music video can play on Now Playing. The main player
+  # still decodes audio only (vid=no in PlayerModel); only the muted video display draws pictures.
+  media_kit_libs_video: ^1.0.7
+  # Draws the music video (the Video widget and its controller) - see ui/widgets/music_video_view.dart.
+  media_kit_video: ^2.0.1
 
   # Reading tags + embedded album art (pure Dart, all platforms).
   # Local patched copy: keeps lyrics, ReplayGain etc. when tags are written

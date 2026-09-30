@@ -92,6 +92,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   String? _appliedReplayGain;
   bool? _appliedGapless;
   bool? _appliedLoopOne;
+  bool _videoOff = false;
 
   /// The audiobook playing, or null when playing music.
   Book? get book => _book;
@@ -438,6 +439,13 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     final engine = _player.platform;
     if (engine is! NativePlayer) return;
     try {
+      // 0.1.32: the engine is now the video build (for music videos), but this player only ever
+      // plays sound. vid=no stops it decoding the pictures in an .mp4 song for nothing; the
+      // music video is drawn by a separate, muted player (ui/widgets/music_video_view.dart).
+      if (!_videoOff) {
+        _videoOff = true;
+        await engine.setProperty('vid', 'no');
+      }
       if (_appliedGapless != library.gaplessPlayback) {
         _appliedGapless = library.gaplessPlayback;
         // "yes": no gap even between files of different formats; the next
