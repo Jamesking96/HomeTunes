@@ -5,12 +5,14 @@
 // The MP4s here are built by hand (just the boxes mp4HasVideo reads), so no real video is needed.
 import 'dart:io';
 
+import 'package:flutter/widgets.dart' show AppLifecycleState;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/track.dart';
 import 'package:hometunes/models/track_edit.dart';
 import 'package:hometunes/services/local_scanner.dart';
 import 'package:hometunes/services/music_video.dart';
-import 'package:hometunes/ui/widgets/music_video_view.dart' show videoSeekTarget, videoSyncTolerance;
+import 'package:hometunes/ui/widgets/music_video_view.dart' show videoSeekTarget, videoSyncTolerance, videoVisible;
 import 'package:path/path.dart' as p;
 
 /// One MP4 box: 4-byte size, 4-letter type, then the body.
@@ -180,6 +182,17 @@ void main() {
           const Duration(seconds: 30));
       // Repeat-one starting again, or pressing back to the start.
       expect(videoSeekTarget(song: Duration.zero, video: const Duration(minutes: 3)), Duration.zero);
+    });
+
+    // The stutter when the window wasn't focused: Windows calls that 'inactive', and the video
+    // used to pause then (and be jumped along behind the song every 2 s).
+    test('an unfocused window keeps playing; only a hidden one pauses', () {
+      expect(videoVisible(AppLifecycleState.resumed), isTrue);
+      expect(videoVisible(AppLifecycleState.inactive), isTrue);
+      expect(videoVisible(null), isTrue);
+      expect(videoVisible(AppLifecycleState.hidden), isFalse);
+      expect(videoVisible(AppLifecycleState.paused), isFalse);
+      expect(videoVisible(AppLifecycleState.detached), isFalse);
     });
 
     test('a video shorter than the song stays on its last picture', () {
