@@ -19,6 +19,7 @@ enum SettingsPage {
   playback('Playback', 'Equaliser, gapless playback and even volume', Icons.graphic_eq),
   server('Servers', 'Stream music and audiobooks from your own server', Icons.dns_outlined),
   sleepTimer('Sleep timer', 'Timer lengths and fading out', Icons.bedtime_outlined),
+  videos('Videos', 'Skipping, speed, equaliser, video folders and picture shapes', Icons.movie_outlined),
   edits('Your edits', 'Save your changes into the music files', Icons.edit_note);
 
   /// Name shown in the list and as the page heading.
@@ -79,6 +80,15 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('online-lyrics', SettingsPage.onlineLookups, 'Find lyrics online', 'lrclib words'),
   SettingInfo('online-video-art', SettingsPage.onlineLookups, 'Find video pictures online',
       'poster thumbnail tvmaze anilist wikipedia videos collection'),
+  SettingInfo('video-skip-back', SettingsPage.videos, 'Skip back (videos)', 'rewind seconds video keys'),
+  SettingInfo('video-skip-forward', SettingsPage.videos, 'Skip forward (videos)', 'fast forward seconds video keys'),
+  SettingInfo('video-speed', SettingsPage.videos, 'Video speed', 'playback speed faster slower videos'),
+  SettingInfo('video-rewind', SettingsPage.videos, 'Rewind a little when carrying on', 'resume videos'),
+  SettingInfo('video-eq', SettingsPage.videos, 'Separate equaliser for videos', 'equalizer eq sound videos'),
+  SettingInfo('video-folders', SettingsPage.videos, 'Video folders', 'add folder videos films movies location'),
+  SettingInfo('video-nfo', SettingsPage.videos, 'Save edits into .nfo files', 'nfo kodi jellyfin plex details videos'),
+  SettingInfo('video-shape', SettingsPage.videos, 'Video picture shape', 'look tall square wide thumbnail videos'),
+  SettingInfo('collection-shape', SettingsPage.videos, 'Collection poster shape', 'look tall square wide poster collections'),
   SettingInfo('server', SettingsPage.server, 'Music server address and sign-in', 'subsonic navidrome stream password username connect sync'),
   SettingInfo('server-books', SettingsPage.server, 'Audiobooks from the music server', 'books stream server'),
   SettingInfo('book-server', SettingsPage.server, 'Audiobook server', 'audiobookshelf books stream'),

@@ -45,7 +45,8 @@ void main() {
       expect(ids('lyrics'), ['online-lyrics']);
       expect(ids('moon'), ['sleep-button']);
       expect(ids('SLEEP'), containsAll(['sleep-button', 'sleep-music', 'sleep-books', 'sleep-fade']));
-      expect(ids('skip back'), ['skip-back']);
+      expect(ids('skip back'), ['skip-back', 'video-skip-back']); // audiobooks, then videos (0.1.32)
+      expect(ids('poster shape'), ['collection-shape']);
       expect(ids('navidrome'), ['server']);
       expect(ids('  '), isEmpty);
       expect(ids('no such thing'), isEmpty);

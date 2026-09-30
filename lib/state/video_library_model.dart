@@ -244,6 +244,10 @@ class VideoLibraryModel extends ChangeNotifier {
       if (t != null) _trackChoices[newKey] = t;
       final poster = _posters.remove(oldKey);
       if (poster != null) _posters[newKey] = poster;
+      final shape = _collectionShapes.remove(oldKey);
+      if (shape != null) _collectionShapes[newKey] = shape;
+      final speed = _speeds.remove(oldKey);
+      if (speed != null) _speeds[newKey] = speed;
     }
     _rebuild();
     await _save();
@@ -336,6 +340,48 @@ class VideoLibraryModel extends ChangeNotifier {
     if (own != null) return own;
     final t = v.thumb;
     return t != null && isInsideAny(t, [storage.artDir]) ? t : null;
+  }
+
+  // ---- picture shapes and speeds (Settings › Videos sets the usual ones) ----
+
+  // A video's own picture shape (by id), a collection's own (by key), and each collection's
+  // playing speed (by key).
+  Map<String, PictureShape> _shapes = {};
+  Map<String, PictureShape> _collectionShapes = {};
+  Map<String, double> _speeds = {};
+
+  /// The shape of [v]'s picture: its own, else the usual one.
+  PictureShape shapeOf(VideoItem v) => _shapes[v.id] ?? library.videoPictureShape;
+
+  /// [v]'s own shape, or null when it uses the usual one.
+  PictureShape? ownShapeOf(VideoItem v) => _shapes[v.id];
+
+  PictureShape collectionShapeOf(VideoCollection c) => _collectionShapes[c.key] ?? library.collectionPictureShape;
+  PictureShape? ownCollectionShapeOf(VideoCollection c) => _collectionShapes[c.key];
+
+  /// Gives videos [ids] their own picture shape, or with null the usual one.
+  Future<void> setShapes(Iterable<String> ids, PictureShape? shape) async {
+    for (final id in ids) {
+      shape == null ? _shapes.remove(id) : _shapes[id] = shape;
+    }
+    notifyListeners();
+    await _save();
+  }
+
+  Future<void> setCollectionShape(VideoCollection c, PictureShape? shape) async {
+    shape == null ? _collectionShapes.remove(c.key) : _collectionShapes[c.key] = shape;
+    notifyListeners();
+    await _save();
+  }
+
+  /// The speed videos in [collection] play at: the last one chosen there, else the usual one.
+  double speedFor(String collection) => _speeds[VideoCollection.keyFor(collection)] ?? library.defaultVideoSpeed;
+
+  void rememberSpeed(String collection, double speed) {
+    final key = VideoCollection.keyFor(collection);
+    if (_speeds[key] == speed) return;
+    _speeds[key] = speed;
+    _saveSoon();
   }
 
   // ---- pictures the user chose (Change picture… / Change poster…) ----
@@ -468,6 +514,20 @@ class VideoLibraryModel extends ChangeNotifier {
         m is Map ? {for (final e in m.entries) if (e.key is String && e.value is String) e.key as String: e.value as String} : {};
     _pictures = strings(j['pictures']);
     _posters = strings(j['posters']);
+    Map<String, PictureShape> shapes(Object? m) => {
+          for (final e in strings(m).entries)
+            if (PictureShape.byName(e.value) != null) e.key: PictureShape.byName(e.value)!
+        };
+    _shapes = shapes(j['shapes']);
+    _collectionShapes = shapes(j['collectionShapes']);
+    final sp = j['speeds'];
+    _speeds = sp is Map
+        ? {
+            for (final e in sp.entries)
+              if (e.key is String && e.value is num && (e.value as num) > 0 && (e.value as num) <= 4)
+                e.key as String: (e.value as num).toDouble()
+          }
+        : {};
     _rebuild();
   }
 
@@ -483,6 +543,9 @@ class VideoLibraryModel extends ChangeNotifier {
       if (!saveNfo) 'saveNfo': false,
       if (_pictures.isNotEmpty) 'pictures': _pictures,
       if (_posters.isNotEmpty) 'posters': _posters,
+      if (_shapes.isNotEmpty) 'shapes': {for (final e in _shapes.entries) e.key: e.value.name},
+      if (_collectionShapes.isNotEmpty) 'collectionShapes': {for (final e in _collectionShapes.entries) e.key: e.value.name},
+      if (_speeds.isNotEmpty) 'speeds': _speeds,
       if (_favourites.isNotEmpty) 'favourites': _favourites.toList()..sort(),
       if (_descriptions.isNotEmpty) 'descriptions': _descriptions,
       if (_trackChoices.isNotEmpty)
@@ -554,6 +617,12 @@ class VideoLibraryModel extends ChangeNotifier {
   // ---- folders and scanning ----
 
   void _onLibraryChanged() {
+    // The usual picture shapes changed (Settings › Videos): the Videos tab redraws.
+    final shapes = (library.videoPictureShape, library.collectionPictureShape);
+    if (shapes != _knownShapes) {
+      _knownShapes = shapes;
+      notifyListeners();
+    }
     final now = library.videoFolders;
     if (listEquals(now, _knownFolders)) return;
     final added = now.any((f) => !_knownFolders.contains(f));
@@ -567,6 +636,7 @@ class VideoLibraryModel extends ChangeNotifier {
   }
 
   Future<void> _pendingSave = Future.value();
+  late (PictureShape, PictureShape) _knownShapes = (library.videoPictureShape, library.collectionPictureShape);
 
   /// Waits for any scan and save in progress (tests, and before a restore).
   Future<void> settle() async {

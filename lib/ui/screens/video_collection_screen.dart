@@ -11,6 +11,7 @@
 //    genre is saved on every video in it (as edits, the files aren't changed); the description
 //    belongs to the collection.
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -30,8 +31,10 @@ String collectionLength(Duration d) {
   return m == 0 ? '$h h' : '$h h $m min';
 }
 
-/// How tall a collection card is at [width]: a 16:9 picture plus two lines of text.
-double collectionCardHeight(double width) => (width - 16) * 9 / 16 + 16 + 70;
+/// How tall a collection card is at [width]: its picture (16:9 unless [shape] says otherwise)
+/// plus two lines of text.
+double collectionCardHeight(double width, [PictureShape shape = PictureShape.wide]) =>
+    (width - 16) / shape.aspect + 16 + 70;
 
 /// A picture from disk, or a placeholder.
 class _Picture extends StatelessWidget {
@@ -79,11 +82,11 @@ class CollectionCard extends StatelessWidget {
           onTap: () => context.read<AppNav>().openVideoCollection(c.name),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             AspectRatio(
-              aspectRatio: 16 / 9,
+              aspectRatio: model.collectionShapeOf(c).aspect,
               child: ClipRRect(
                 borderRadius: AppShape.circular(8),
                 child: Stack(fit: StackFit.expand, children: [
-                  // Posters are tall: shown whole, over a blurred copy.
+                  // A picture of another shape is shown whole, over a blurred copy.
                   PosterPicture(file: model.coverFile(c)),
                   if (model.isFavourite(c))
                     Positioned(
@@ -218,12 +221,15 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> {
 
     final header = LayoutBuilder(builder: (context, box) {
       final wide = box.maxWidth >= 700;
+      final shape = model.collectionShapeOf(c);
+      // Tall and square pictures are narrower, so they aren't huge.
+      final width = shape == PictureShape.wide ? 320.0 : 220.0;
       final picture = ClipRRect(
         borderRadius: AppShape.circular(8),
         child: SizedBox(
-          width: wide ? 320 : box.maxWidth,
+          width: wide ? width : (shape == PictureShape.wide ? box.maxWidth : math.min(box.maxWidth, 260.0)),
           child: AspectRatio(
-            aspectRatio: 16 / 9,
+            aspectRatio: shape.aspect,
             child: PosterPicture(file: model.coverFile(c)),
           ),
         ),
@@ -418,6 +424,8 @@ class _EditCollectionState extends State<_EditCollection> {
   late final _description = TextEditingController(text: c.description ?? '');
   String? _yearError;
   bool _saving = false;
+  // Look: the collection's own picture shape, or the usual one (null).
+  late PictureShape? _shape = context.read<VideoLibraryModel>().ownCollectionShapeOf(c);
 
   @override
   void dispose() {
@@ -439,6 +447,8 @@ class _EditCollectionState extends State<_EditCollection> {
     final name = _name.text.trim();
     final category = _category.text.trim();
     final genre = _genre.text.trim();
+    // Before a rename, which carries the shape across.
+    if (_shape != model.ownCollectionShapeOf(c)) await model.setCollectionShape(c, _shape);
     await model.editCollection(
       c,
       name: name.isNotEmpty && name != c.name ? name : null,
@@ -518,6 +528,13 @@ class _EditCollectionState extends State<_EditCollection> {
               minLines: 2,
               maxLines: 6,
               decoration: const InputDecoration(labelText: 'Description'),
+            ),
+            const SizedBox(height: 12),
+            PictureShapePicker(
+              title: 'Poster shape (Look)',
+              value: _shape,
+              usual: model.library.collectionPictureShape,
+              onChanged: (s) => setState(() => _shape = s),
             ),
             const SizedBox(height: 8),
             const SaveNfoCheckbox(),

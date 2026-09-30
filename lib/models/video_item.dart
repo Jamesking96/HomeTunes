@@ -9,6 +9,22 @@
 // (a series, a film, a folder of home videos), built from the videos by VideoLibraryModel.
 import 'package:path/path.dart' as p;
 
+/// The shape of a video's or a collection's picture on the Videos tab (Settings › Videos sets
+/// the usual one; Edit details / Edit collection can give each its own; 0.1.32).
+enum PictureShape {
+  wide('Wide', 16 / 9),
+  tall('Tall', 2 / 3),
+  square('Square', 1);
+
+  final String label;
+
+  /// Width / height.
+  final double aspect;
+  const PictureShape(this.label, this.aspect);
+
+  static PictureShape? byName(Object? name) => name is String ? values.asNameMap()[name] : null;
+}
+
 /// One video file.
 class VideoItem {
   /// `video:<absolute path>`.

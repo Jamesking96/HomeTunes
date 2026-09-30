@@ -572,6 +572,48 @@ class _ResultTile extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Picture shape (Edit details / Edit collection)
+// ---------------------------------------------------------------------------------------------
+
+/// Chooses a picture shape: "Usual" (null: whatever Settings › Videos says, [usual]), Wide,
+/// Tall or Square. With [mixed] (several videos that differ) nothing is picked until the user
+/// picks, and [onChanged] is only called then.
+class PictureShapePicker extends StatelessWidget {
+  final String title;
+  final PictureShape? value;
+  final PictureShape usual;
+  final bool mixed;
+  final ValueChanged<PictureShape?> onChanged;
+  const PictureShapePicker(
+      {super.key, required this.title, required this.value, required this.usual, required this.onChanged, this.mixed = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(title, style: TextStyle(color: AppColors.textDim, fontSize: 12)),
+      const SizedBox(height: 4),
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SegmentedButton<PictureShape?>(
+          key: const ValueKey('picture-shape'),
+          emptySelectionAllowed: mixed,
+          showSelectedIcon: false,
+          segments: [
+            ButtonSegment(value: null, label: Text('Usual (${usual.label.toLowerCase()})')),
+            // Words only, so all four fit across an editor.
+            for (final s in PictureShape.values) ButtonSegment(value: s, label: Text(s.label), tooltip: s.label),
+          ],
+          selected: mixed ? const {} : {value},
+          onSelectionChanged: (v) {
+            if (v.isNotEmpty) onChanged(v.first);
+          },
+        ),
+      ),
+    ]);
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // How collection posters are drawn
 // ---------------------------------------------------------------------------------------------
 

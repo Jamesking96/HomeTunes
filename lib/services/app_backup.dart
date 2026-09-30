@@ -362,6 +362,10 @@ class AppBackup {
           // Pictures the user chose for videos and collections: the backup's win.
           'pictures': {...part(cv, 'pictures'), ...part(bv, 'pictures')},
           'posters': {...part(cv, 'posters'), ...part(bv, 'posters')},
+          // Picture shapes and speeds per video / collection: the backup's win.
+          'shapes': {...part(cv, 'shapes'), ...part(bv, 'shapes')},
+          'collectionShapes': {...part(cv, 'collectionShapes'), ...part(bv, 'collectionShapes')},
+          'speeds': {...part(cv, 'speeds'), ...part(bv, 'speeds')},
           if (cv['saveNfo'] == false) 'saveNfo': false,
         });
       }
