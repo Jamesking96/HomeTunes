@@ -924,6 +924,7 @@ class LibraryModel extends ChangeNotifier {
   /// Stops listing a video folder's videos.
   Future<void> removeVideoFolder(String path) async {
     videoFolders = videoFolders.where((f) => f != path).toList();
+    hiddenFormats = {...hiddenFormats}..remove(path);
     await _saveSettings();
     _rebuild();
   }

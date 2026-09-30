@@ -47,6 +47,7 @@ class VideoLibraryModel extends ChangeNotifier {
 
   VideoLibraryModel(this.storage, this.library) {
     _knownFolders = List.of(library.videoFolders);
+    _knownHidden = _hiddenKey();
     library.addListener(_onLibraryChanged);
   }
 
@@ -666,9 +667,91 @@ class VideoLibraryModel extends ChangeNotifier {
     if (_saveTimer != null) await _save();
   }
 
+  // ---- one folder's options (Settings › Folders & scanning › Folder options) ----
+
+  /// The video folder whose options apply to [path]: the innermost one holding it.
+  String? ownerFolder(String path) {
+    String? best;
+    for (final f in library.videoFolders) {
+      if (isInside(path, f) && (best == null || f.length > best.length)) best = f;
+    }
+    return best;
+  }
+
+  /// Left out by its folder's File types (switched off types are kept in LibraryModel's
+  /// hiddenFormats, the same setting the music and audiobook folders use).
+  bool _formatHidden(VideoItem v) {
+    final owner = ownerFolder(v.path);
+    return owner != null && !library.formatShown(owner, LibraryModel.formatOf(v.path));
+  }
+
+  /// The file types found in [folder] at the last scan (switched off ones included), with how
+  /// many videos of each, A–Z.
+  Map<String, int> formatsIn(String folder) {
+    final counts = <String, int>{};
+    for (final v in _scanned) {
+      if (ownerFolder(v.path) == folder) {
+        final f = LibraryModel.formatOf(v.path);
+        counts[f] = (counts[f] ?? 0) + 1;
+      }
+    }
+    return {for (final k in counts.keys.toList()..sort()) k: counts[k]!};
+  }
+
+  /// The switched-off types of the video folders, to notice a change.
+  String _hiddenKey() => [for (final f in library.videoFolders) '$f=${library.hiddenFormats[f]?.join(',')}'].join('|');
+  String _knownHidden = '';
+
+  /// Rescans just [folder] (its options window). Videos elsewhere are left as they are.
+  Future<void> scanFolder(String folder) {
+    final next = _jobs.then((_) => _scanOne(folder));
+    _jobs = next.catchError((_) {});
+    return next;
+  }
+
+  Future<void> _scanOne(String folder) async {
+    if (await checkAccess() != MusicAccess.allowed) {
+      error = 'HomeTunes needs "Photos and videos" access to list your videos.';
+      notifyListeners();
+      return;
+    }
+    if (!await folderReachable(folder)) {
+      error = 'Can\'t reach $folder right now, so the videos found there before are kept.';
+      notifyListeners();
+      return;
+    }
+    busy = true;
+    error = null;
+    status = 'Looking for videos in ${p.basename(folder)}…';
+    notifyListeners();
+    try {
+      final previous = {for (final v in _scanned) v.id: v};
+      final found = await _scanner.scan([folder], previous: previous);
+      final foundIds = {for (final v in found) v.id};
+      // Everything outside the folder stays; everything inside comes from this scan.
+      _scanned = [
+        for (final v in _scanned)
+          if (!foundIds.contains(v.id) && !isInside(v.path, folder)) v,
+        ...found,
+      ];
+      offlineFolders = [for (final f in offlineFolders) if (f != folder) f];
+      final ids = {for (final v in _scanned) v.id};
+      _places.removeWhere((id, _) => !ids.contains(id));
+      _edits.removeWhere((id, _) => !ids.contains(id));
+      await _save();
+    } catch (e) {
+      error = 'Video scan failed: $e';
+    } finally {
+      busy = false;
+      status = null;
+      _rebuild();
+    }
+    unawaited(makeThumbnails());
+  }
+
   void _rebuild() {
     _rawById = {for (final v in _scanned) v.id: v};
-    final all = [for (final v in _scanned) _edits[v.id]?.applyTo(v) ?? v]
+    final all = [for (final v in _scanned) if (!_formatHidden(v)) _edits[v.id]?.applyTo(v) ?? v]
       ..sort((a, b) {
         final t = a.title.toLowerCase().compareTo(b.title.toLowerCase());
         return t != 0 ? t : a.path.compareTo(b.path);
@@ -709,6 +792,12 @@ class VideoLibraryModel extends ChangeNotifier {
     if (shapes != _knownShapes) {
       _knownShapes = shapes;
       notifyListeners();
+    }
+    // A video folder's File types changed: shown or left out at once, no scan needed.
+    final hidden = _hiddenKey();
+    if (hidden != _knownHidden) {
+      _knownHidden = hidden;
+      _rebuild();
     }
     final now = library.videoFolders;
     if (listEquals(now, _knownFolders)) return;

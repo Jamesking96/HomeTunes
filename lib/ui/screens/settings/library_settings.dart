@@ -40,32 +40,39 @@ Future<String?> pickFolderWithPermission(BuildContext context, String title) asy
 /// The small options button on each folder row (0.1.27): opens [showFolderOptions].
 class FolderOptionsButton extends StatelessWidget {
   final String folder;
-  const FolderOptionsButton({super.key, required this.folder});
+
+  /// A video folder (0.1.32): its videos are rescanned and counted by VideoLibraryModel.
+  final bool videos;
+  const FolderOptionsButton({super.key, required this.folder, this.videos = false});
 
   @override
   Widget build(BuildContext context) => IconButton(
         key: ValueKey('folder-options:$folder'),
         tooltip: 'Folder options',
         icon: const Icon(Icons.tune),
-        onPressed: () => showFolderOptions(context, folder),
+        onPressed: () => showFolderOptions(context, folder, videos: videos),
       );
 }
 
 /// A folder's options window: rescan just this folder, and choose which file types found in
-/// it are included (all are, until switched off).
-Future<void> showFolderOptions(BuildContext context, String folder) =>
-    showDialog<void>(context: context, builder: (_) => _FolderOptions(folder: folder));
+/// it are included (all are, until switched off). Music, audiobook and video folders alike.
+Future<void> showFolderOptions(BuildContext context, String folder, {bool videos = false}) =>
+    showDialog<void>(context: context, builder: (_) => _FolderOptions(folder: folder, videos: videos));
 
 class _FolderOptions extends StatelessWidget {
   final String folder;
-  const _FolderOptions({required this.folder});
+  final bool videos;
+  const _FolderOptions({required this.folder, this.videos = false});
 
   @override
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
-    final formats = lib.formatsIn(folder);
+    final video = videos ? context.watch<VideoLibraryModel>() : null;
+    final formats = video?.formatsIn(folder) ?? lib.formatsIn(folder);
     final hidden = [for (final f in formats.keys) if (!lib.formatShown(folder, f)) f];
     final isBooks = lib.audiobookFolders.contains(folder) && !lib.folders.contains(folder);
+    final what = videos ? 'videos' : (isBooks ? 'audiobook files' : 'songs');
+    final busy = video?.busy ?? lib.busy;
     String label(String f) => f.isEmpty ? '(no extension)' : f.toUpperCase();
     final summary = formats.isEmpty
         ? 'None found yet'
@@ -86,15 +93,18 @@ class _FolderOptions extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.refresh),
               title: const Text('Rescan this folder'),
-              subtitle: ValueListenableBuilder<String?>(
-                valueListenable: lib.statusText,
-                builder: (_, status, _) => Text(lib.busy
-                    ? (status ?? 'Working…')
-                    : 'Looks for new, changed and removed ${isBooks ? 'audiobook files' : 'songs'} in this folder only'),
-              ),
+              subtitle: video != null
+                  ? Text(video.busy
+                      ? (video.status ?? 'Working…')
+                      : 'Looks for new, changed and removed $what in this folder only')
+                  : ValueListenableBuilder<String?>(
+                      valueListenable: lib.statusText,
+                      builder: (_, status, _) => Text(
+                          lib.busy ? (status ?? 'Working…') : 'Looks for new, changed and removed $what in this folder only'),
+                    ),
               trailing: FilledButton(
                 key: const ValueKey('rescan-folder'),
-                onPressed: lib.busy ? null : () => lib.scanFolder(folder),
+                onPressed: busy ? null : () => video != null ? video.scanFolder(folder) : lib.scanFolder(folder),
                 child: const Text('Rescan'),
               ),
             ),
@@ -122,7 +132,9 @@ class _FolderOptions extends StatelessWidget {
                       contentPadding: EdgeInsets.zero,
                       controlAffinity: ListTileControlAffinity.leading,
                       title: Text(label(e.key)),
-                      subtitle: Text('${e.value} file${e.value == 1 ? '' : 's'}'),
+                      subtitle: Text(videos
+                          ? '${e.value} video${e.value == 1 ? '' : 's'}'
+                          : '${e.value} file${e.value == 1 ? '' : 's'}'),
                       value: lib.formatShown(folder, e.key),
                       onChanged: (on) => lib.setFormatShown(folder, e.key, on ?? true),
                     ),
@@ -130,8 +142,11 @@ class _FolderOptions extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
-                        'Unticked types are left out of your library straight away. Nothing is deleted, '
-                        'and ticking them again brings them back.',
+                        videos
+                            ? 'Unticked types are left out of the Videos tab straight away. Nothing is deleted, '
+                                'and ticking them again brings them back with their places and edits.'
+                            : 'Unticked types are left out of your library straight away. Nothing is deleted, '
+                                'and ticking them again brings them back.',
                         style: TextStyle(color: AppColors.textDim, fontSize: 12),
                       ),
                     ),
@@ -243,11 +258,14 @@ class VideoFoldersSection extends StatelessWidget {
           subtitle: videos.offlineFolders.contains(f)
               ? const Text('Not available right now: its videos are kept as they were')
               : null,
-          trailing: IconButton(
-            tooltip: 'Remove folder',
-            icon: const Icon(Icons.close),
-            onPressed: videos.busy ? null : () => lib.removeVideoFolder(f),
-          ),
+          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            FolderOptionsButton(folder: f, videos: true),
+            IconButton(
+              tooltip: 'Remove folder',
+              icon: const Icon(Icons.close),
+              onPressed: videos.busy ? null : () => lib.removeVideoFolder(f),
+            ),
+          ]),
         ),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
