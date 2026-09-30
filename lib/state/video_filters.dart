@@ -1,6 +1,7 @@
-// Videos (0.1.32): the Videos tab's search, "show" chips and sort orders, as plain functions
+// Videos (0.1.32): the Videos tab's search, "show" chips, filters and sort orders, as plain functions
 // (no Flutter), so they're unit tested directly (test/videos_test.dart).
 import '../models/video_item.dart';
+import 'music_filters.dart';
 
 /// The chips along the top of the Videos tab.
 enum VideoShow { all, continueWatching, unwatched, watched }
@@ -114,3 +115,52 @@ bool isNearEnd(Duration position, Duration length) {
   if (length <= Duration.zero) return false;
   return position >= length * 0.95 || length - position <= const Duration(seconds: 20);
 }
+
+// ---- the filter sheet ("Show only") ----
+// The same sheet and rules as the Library tabs (music_filters.dart: MusicFilters, FilterField):
+// pick one value per field, each list narrowed by the other picks, with counts.
+
+/// Length groups, shortest first. Videos whose length isn't known yet aren't in any.
+const videoLengthGroups = ['Under 10 minutes', '10–30 minutes', '30–60 minutes', '1–2 hours', 'Over 2 hours'];
+
+String? videoLengthGroup(Duration d) {
+  if (d <= Duration.zero) return null;
+  final m = d.inSeconds / 60;
+  if (m < 10) return videoLengthGroups[0];
+  if (m < 30) return videoLengthGroups[1];
+  if (m < 60) return videoLengthGroups[2];
+  if (m <= 120) return videoLengthGroups[3];
+  return videoLengthGroups[4];
+}
+
+/// Picture quality groups, best first. Unknown until the thumbnail has been made (or it's played).
+const videoQualityGroups = ['4K', '1440p', '1080p', '720p', 'SD'];
+
+String? videoQuality(VideoItem v) {
+  final w = v.width, h = v.height;
+  if (w == null || h == null || w <= 0 || h <= 0) return null;
+  // Go by the shorter side, so portrait phone videos count by their width.
+  final side = w < h ? w : h;
+  final long = w < h ? h : w;
+  if (side >= 2000 || long >= 3500) return '4K';
+  if (side >= 1400 || long >= 2400) return '1440p';
+  if (side >= 1000 || long >= 1800) return '1080p';
+  if (side >= 700 || long >= 1200) return '720p';
+  return 'SD';
+}
+
+int Function(String, String) _inOrder(List<String> order) => (a, b) => order.indexOf(a).compareTo(order.indexOf(b));
+
+/// What the Videos tab can be filtered by.
+final videoFilterFields = <FilterField<VideoItem>>[
+  FilterField('Collection', (v) => [if (v.collection.trim().isNotEmpty) v.collection.trim()]),
+  FilterField('Genre', (v) => [if (v.genre != null && v.genre!.trim().isNotEmpty) v.genre!.trim()]),
+  FilterField('Decade', (v) => [?decadeOf(v.year)]),
+  FilterField('Length', (v) => [?videoLengthGroup(v.duration)], order: _inOrder(videoLengthGroups)),
+  FilterField('Picture', (v) => [?videoQuality(v)], order: _inOrder(videoQualityGroups)),
+  FilterField('File type', (v) => [v.format]),
+];
+
+/// The videos that have every picked value.
+List<VideoItem> filterVideos(List<VideoItem> videos, MusicFilters filters) =>
+    filters.isEmpty ? videos : [for (final v in videos) if (filters.matches(v, videoFilterFields)) v];

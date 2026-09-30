@@ -1,7 +1,9 @@
 // The Videos tab (0.1.32): every video in the video folders as a grid of thumbnails.
 //
-// Along the top, like the Books tab: a search box (title, collection, genre, year), a sort menu,
-// and chips for All / Continue watching / Not watched / Watched. "Continue watching" also shows
+// Along the top, like the Books tab: a search box (title, collection, genre, year), a filter
+// sheet (show only one collection, genre, decade, length, picture quality and/or file type, each
+// list narrowed by the other picks; the same sheet as the Library tabs), a sort menu, and chips
+// for All / Continue watching / Not watched / Watched. Filters in use show as chips with an ×. "Continue watching" also shows
 // as a row across the top of All. Sorting by collection or year splits the grid into headed
 // groups (state/video_filters.dart). Tapping a video opens its player page
 // (video_player_screen.dart). Right-click / press and hold / ⋮ gives Play, Play from the start,
@@ -14,11 +16,13 @@ import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import '../../models/video_item.dart';
+import '../../state/music_filters.dart';
 import '../../state/video_filters.dart';
 import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/cards.dart' show EmptyState;
+import '../widgets/music_filter_sheet.dart' show showMusicFilterSheet;
 import 'edit_video.dart';
 
 class VideosScreen extends StatefulWidget {
@@ -31,6 +35,20 @@ class VideosScreen extends StatefulWidget {
 class _VideosScreenState extends State<VideosScreen> {
   VideoShow _show = VideoShow.all;
   VideoSort _sort = VideoSort.collection;
+
+  /// One collection / genre / decade / length / picture / file type to show (the filter sheet).
+  MusicFilters _only = MusicFilters.none;
+
+  Future<void> _chooseFilters(List<VideoItem> videos) async {
+    final picked = await showMusicFilterSheet<VideoItem>(
+      context,
+      items: videos,
+      fields: videoFilterFields,
+      current: _only,
+      showLabel: 'Show videos',
+    );
+    if (picked != null && mounted) setState(() => _only = picked);
+  }
   bool _searching = false;
   final _search = TextEditingController();
   String _query = '';
@@ -81,15 +99,17 @@ class _VideosScreenState extends State<VideosScreen> {
     }
 
     final places = model.places;
+    // Filters and search first; the chip counts are for what's left.
+    final narrowed = searchVideos(filterVideos(model.videos, _only), _query);
     final counts = {
-      for (final s in VideoShow.values) s: model.videos.where((v) => videoShown(s, places[v.id])).length,
+      for (final s in VideoShow.values) s: narrowed.where((v) => videoShown(s, places[v.id])).length,
     };
-    final searched = searchVideos(model.videos, _query);
-    final shown = [for (final v in searched) if (videoShown(_show, places[v.id])) v];
+    final shown = [for (final v in narrowed) if (videoShown(_show, places[v.id])) v];
     final groups = sortVideos(shown, _show == VideoShow.continueWatching ? VideoSort.recentlyWatched : _sort,
         places: places);
     final shownIds = [for (final (_, g) in groups) for (final v in g) v.id];
-    final continuing = _show == VideoShow.all && _query.trim().isEmpty ? model.continueWatching : const <VideoItem>[];
+    final continuing =
+        _show == VideoShow.all && _query.trim().isEmpty && _only.isEmpty ? model.continueWatching : const <VideoItem>[];
     final selecting = _selected.isNotEmpty;
 
     return Scaffold(
@@ -145,6 +165,11 @@ class _VideosScreenState extends State<VideosScreen> {
                   icon: Icon(_searching ? Icons.close : Icons.search),
                   onPressed: _searching ? _closeSearch : () => setState(() => _searching = true),
                 ),
+                IconButton(
+                  tooltip: 'Filter by collection, genre, decade, length, picture or file type',
+                  icon: Badge(isLabelVisible: !_only.isEmpty, smallSize: 8, child: const Icon(Icons.filter_list)),
+                  onPressed: () => _chooseFilters(model.videos),
+                ),
                 PopupMenuButton<VideoSort>(
                   tooltip: 'Sort',
                   icon: const Icon(Icons.sort),
@@ -194,6 +219,20 @@ class _VideosScreenState extends State<VideosScreen> {
                         onSelected: (_) => setState(() => _show = s),
                       ),
                     ),
+                  // Filters in use: tap to change them, × to remove one.
+                  for (final e in _only.picked.entries)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: InputChip(
+                        key: ValueKey('video-filter:${e.key}'),
+                        avatar: const Icon(Icons.filter_list, size: 16),
+                        label: Text('${e.key}: ${e.value}'),
+                        onPressed: () => _chooseFilters(model.videos),
+                        onDeleted: () => setState(() => _only = _only.withValue(e.key, null)),
+                      ),
+                    ),
+                  if (_only.picked.length > 1)
+                    TextButton(onPressed: () => setState(() => _only = MusicFilters.none), child: const Text('Clear filters')),
                 ],
               ),
             ),

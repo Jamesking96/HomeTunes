@@ -1,6 +1,6 @@
 // Draws the Videos tab (0.1.32) off-screen and saves pictures to C:\Temp\ht\preview (nothing is
 // shown on screen): the grid with Continue watching and collections, a video's menu, the Edit
-// details dialog for several videos, and Settings › Folders & scanning with the video folders.
+// details dialog for several videos, the filter sheet, and Settings › Folders & scanning with the video folders.
 // The "videos" are empty files with made-up names; their thumbnails are plain generated
 // pictures. Uses Windows' Segoe UI so the text is readable. The player page and the music video
 // buttons need the real video engine, so they aren't drawn here.
@@ -139,6 +139,19 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
 
+    // 5. The filter sheet, then the grid with a filter on.
+    await tester.tap(find.byTooltip('Clear selection'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Filter by collection, genre, decade, length, picture or file type'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('filter-Collection')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Harbour Days  (4)').last);
+    await tester.pumpAndSettle();
+    await shoot('videos-filter-sheet');
+    await tester.tap(find.text('Show videos'));
+    await tester.pumpAndSettle();
+    await shoot('videos-filtered');
     // 4. Settings › Folders & scanning.
     await show(const SettingsScreen());
     nav.openSettings('library', setting: 'library-video-folders');

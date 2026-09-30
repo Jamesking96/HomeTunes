@@ -1,6 +1,6 @@
 // Tests for the Videos tab (0.1.32): finding videos in the video folders (every format), titles
 // and years from file names, the user's edits (one video or several), watched places and
-// carrying on, the tab's search / chips / sorts, an .mp4 in a video folder being a video rather
+// carrying on, the tab's search / chips / filters / sorts, an .mp4 in a video folder being a video rather
 // than a song, backups, and the Videos tab and its editor on screen. The "videos" here are small
 // made-up files: nothing is played (there's no video engine in tests).
 import 'dart:convert';
@@ -13,6 +13,7 @@ import 'package:hometunes/services/app_backup.dart';
 import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/services/video_scanner.dart';
 import 'package:hometunes/state/library_model.dart';
+import 'package:hometunes/state/music_filters.dart';
 import 'package:hometunes/state/video_filters.dart';
 import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/nav.dart';
@@ -146,6 +147,57 @@ void main() {
       expect(isNearEnd(const Duration(minutes: 58), hour), isTrue); // last 5 %
       expect(isNearEnd(const Duration(minutes: 30), hour), isFalse);
       expect(isNearEnd(const Duration(seconds: 50), const Duration(minutes: 1)), isTrue); // last 20 s
+    });
+  });
+
+  group('filters', () {
+    VideoItem sized(String name, {int? w, int? h, Duration d = Duration.zero, String? genre, int? year}) => VideoItem(
+          id: VideoItem.idFor('/v/$name'),
+          path: '/v/$name',
+          title: name,
+          collection: name.startsWith('ep') ? 'Show' : 'Films',
+          width: w,
+          height: h,
+          duration: d,
+          genre: genre,
+          year: year,
+        );
+
+    test('length and picture groups', () {
+      expect(videoLengthGroup(Duration.zero), isNull);
+      expect(videoLengthGroup(const Duration(minutes: 4)), 'Under 10 minutes');
+      expect(videoLengthGroup(const Duration(minutes: 45)), '30–60 minutes');
+      expect(videoLengthGroup(const Duration(minutes: 95)), '1–2 hours');
+      expect(videoLengthGroup(const Duration(hours: 3)), 'Over 2 hours');
+      expect(videoQuality(sized('a', w: 3840, h: 2160)), '4K');
+      expect(videoQuality(sized('b', w: 3840, h: 1406)), '4K'); // a wide film
+      expect(videoQuality(sized('c', w: 1920, h: 1080)), '1080p');
+      expect(videoQuality(sized('d', w: 1080, h: 1920)), '1080p'); // a phone video held upright
+      expect(videoQuality(sized('e', w: 1280, h: 720)), '720p');
+      expect(videoQuality(sized('f', w: 640, h: 480)), 'SD');
+      expect(videoQuality(sized('g')), isNull);
+    });
+
+    test('choices come with counts, lengths shortest first, each narrowed by the other picks', () {
+      final list = [
+        sized('ep1.mkv', d: const Duration(minutes: 40), w: 1920, h: 1080, genre: 'Comedy', year: 1999),
+        sized('ep2.mkv', d: const Duration(minutes: 40), w: 1280, h: 720, genre: 'Comedy', year: 2001),
+        sized('film.mp4', d: const Duration(hours: 2, minutes: 10), w: 3840, h: 2160, genre: 'Drama', year: 2019),
+        sized('clip.webm', d: const Duration(minutes: 3)),
+      ];
+      FilterField<VideoItem> field(String label) => videoFilterFields.firstWhere((f) => f.label == label);
+      expect(MusicFilters.none.choices(list, videoFilterFields, field('Length')).keys,
+          ['Under 10 minutes', '30–60 minutes', 'Over 2 hours']);
+      expect(MusicFilters.none.choices(list, videoFilterFields, field('Picture')), {'4K': 1, '1080p': 1, '720p': 1});
+      expect(MusicFilters.none.choices(list, videoFilterFields, field('Decade')).keys, ['1990s', '2000s', '2010s']);
+      expect(MusicFilters.none.choices(list, videoFilterFields, field('File type')).keys.toSet(), {'MKV', 'MP4', 'WEBM'});
+
+      final comedy = const MusicFilters().withValue('Genre', 'Comedy');
+      expect(filterVideos(list, comedy).map((v) => v.title), ['ep1.mkv', 'ep2.mkv']);
+      expect(comedy.choices(list, videoFilterFields, field('Collection')), {'Show': 2});
+      final both = comedy.withValue('Picture', '720p');
+      expect(filterVideos(list, both).single.title, 'ep2.mkv');
+      expect(filterVideos(list, MusicFilters.none), hasLength(4));
     });
   });
 
@@ -348,6 +400,23 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(AlertDialog), findsNothing);
       expect(find.widgetWithText(VideoCard, 'The very first one'), findsOneWidget);
+
+      // Filter: only the "Show" collection; then remove the filter with its ×.
+      await tester.tap(find.byTooltip('Filter by collection, genre, decade, length, picture or file type'));
+      await tester.pumpAndSettle();
+      expect(find.text('Show only'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('filter-Collection')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Show  (1)').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Show videos'));
+      await tester.pumpAndSettle();
+      expect(find.byType(VideoCard), findsOneWidget);
+      expect(find.text('Collection: Show'), findsOneWidget);
+      expect(find.text('All (1)'), findsOneWidget);
+      tester.widget<InputChip>(find.byKey(const ValueKey('video-filter:Collection'))).onDeleted!();
+      await tester.pumpAndSettle();
+      expect(find.byType(VideoCard), findsNWidgets(2));
     });
   });
 }
