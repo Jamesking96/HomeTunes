@@ -22,6 +22,7 @@ abstract class VideoTransport {
   Duration get duration;
   Stream<Duration> get durationStream;
   double get volume; // 0–100
+  Stream<double> get volumeStream;
   double get rate;
   Future<void> play();
   Future<void> pause();
@@ -60,21 +61,36 @@ class NowWatching extends ChangeNotifier {
   Duration get duration => _transport?.duration ?? Duration.zero;
   Stream<Duration> get positionStream => _transport?.positionStream ?? const Stream.empty();
 
+  /// Video pages still open underneath the one in charge (1 Oct: when the top one closed, the bar
+  /// used to lose the video still open below it). The last one closed hands back to the one below.
+  final List<_Page> _below = [];
+
   /// The video page opened a player. It comes to the front as soon as it plays.
   void attach(VideoTransport t, {VoidCallback? onOpen}) {
-    _clearSubs();
-    _transport = t;
+    final current = _transport;
+    if (current != null && !identical(current, t)) _below.add(_snapshot());
+    _below.removeWhere((pg) => identical(pg.transport, t));
+    _listenTo(t);
     this.onOpen = onOpen;
     _front = t.playing;
+    notifyListeners();
+  }
+
+  void _listenTo(VideoTransport t) {
+    _clearSubs();
+    _transport = t;
     _subs.addAll([
       t.playingStream.listen((playing) {
         if (playing) _front = true;
         notifyListeners();
       }),
       t.durationStream.listen((_) => notifyListeners()),
+      // 1 Oct: the video player's own volume bar and the bottom bar's move together.
+      t.volumeStream.listen((_) => notifyListeners()),
     ]);
-    notifyListeners();
   }
+
+  _Page _snapshot() => _Page(_transport!, video, picture, onOpen, onNext, onPrevious, skipBackSeconds, skipForwardSeconds);
 
   /// Opens the next / previous video in the collection on the page; null when there isn't one.
   VoidCallback? onNext, onPrevious;
@@ -83,8 +99,23 @@ class NowWatching extends ChangeNotifier {
   bool get hasPrevious => onPrevious != null;
 
   /// Which video is on the page now (it moves on to the next episode by itself).
+  /// [transport] says which page this is; a page underneath only updates its own record.
   void showing(VideoItem v,
-      {String? picture, int? skipBack, int? skipForward, VoidCallback? onNext, VoidCallback? onPrevious}) {
+      {String? picture,
+      int? skipBack,
+      int? skipForward,
+      VoidCallback? onNext,
+      VoidCallback? onPrevious,
+      VideoTransport? transport}) {
+    if (transport != null && _transport != null && !identical(transport, _transport)) {
+      final i = _below.indexWhere((pg) => identical(pg.transport, transport));
+      if (i >= 0) {
+        final old = _below[i];
+        _below[i] = _Page(transport, v, picture, old.onOpen, onNext, onPrevious, skipBack ?? old.skipBack,
+            skipForward ?? old.skipForward);
+      }
+      return;
+    }
     video = v;
     this.picture = picture;
     this.onNext = onNext;
@@ -96,8 +127,26 @@ class NowWatching extends ChangeNotifier {
 
   /// The page closed: the bar and media keys go back to the music.
   void detach(VideoTransport t) {
-    if (!identical(t, _transport)) return;
+    if (!identical(t, _transport)) {
+      _below.removeWhere((pg) => identical(pg.transport, t));
+      return;
+    }
     _clearSubs();
+    if (_below.isNotEmpty) {
+      // The page underneath is in charge again.
+      final pg = _below.removeLast();
+      _listenTo(pg.transport);
+      video = pg.video;
+      picture = pg.picture;
+      onOpen = pg.onOpen;
+      onNext = pg.onNext;
+      onPrevious = pg.onPrevious;
+      skipBackSeconds = pg.skipBack;
+      skipForwardSeconds = pg.skipForward;
+      _front = pg.transport.playing;
+      notifyListeners();
+      return;
+    }
     _transport = null;
     video = null;
     picture = null;
@@ -169,4 +218,15 @@ class NowWatching extends ChangeNotifier {
     _clearSubs();
     super.dispose();
   }
+}
+
+/// A video page that's open underneath the one in charge, as it last described itself.
+class _Page {
+  const _Page(this.transport, this.video, this.picture, this.onOpen, this.onNext, this.onPrevious, this.skipBack,
+      this.skipForward);
+  final VideoTransport transport;
+  final VideoItem? video;
+  final String? picture;
+  final VoidCallback? onOpen, onNext, onPrevious;
+  final int skipBack, skipForward;
 }
