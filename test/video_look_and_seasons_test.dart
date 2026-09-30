@@ -16,6 +16,7 @@ import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/settings/video_player_look_settings.dart';
 import 'package:hometunes/ui/screens/video_collection_screen.dart';
+import 'package:hometunes/ui/screens/videos_screen.dart';
 import 'package:hometunes/ui/widgets/video_controls_look.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
@@ -259,6 +260,80 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('selection-edit')));
       await tester.pumpAndSettle();
       expect(find.text('Edit 2 videos'), findsOneWidget);
+    });
+
+    testWidgets('collection page: right-click (or hold) a season heading › Select all in it', (tester) async {
+      await tester.runAsync(scanSilo);
+      tester.view.physicalSize = const Size(1100, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(app(const VideoCollectionScreen(name: 'Silo')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('heading-Season 2')), buttons: kSecondaryButton);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('group-rename')), findsOneWidget);
+      expect(find.byKey(const ValueKey('group-fold')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('group-select-all')));
+      await tester.pumpAndSettle();
+      expect(find.text('3 selected'), findsOneWidget);
+      expect(tester.widget<Checkbox>(find.byKey(const ValueKey('season-tick:Season 2'))).value, isTrue);
+
+      // Press and hold works too, and adds the other season.
+      await tester.longPress(find.byKey(const ValueKey('heading-Season 1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('group-select-all')));
+      await tester.pumpAndSettle();
+      expect(find.text('6 selected'), findsOneWidget);
+
+      // A fully ticked season offers Unselect instead.
+      await tester.tap(find.byKey(const ValueKey('heading-Season 2')), buttons: kSecondaryButton);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('group-select-all')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('group-unselect')));
+      await tester.pumpAndSettle();
+      expect(find.text('3 selected'), findsOneWidget);
+
+      // Mark a season watched from its menu.
+      await tester.tap(find.byKey(const ValueKey('heading-Season 2')), buttons: kSecondaryButton);
+      await tester.pumpAndSettle();
+      await tester.runAsync(() async {
+        await tester.tap(find.byKey(const ValueKey('group-watched')));
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        await videos.settle();
+      });
+      await tester.pumpAndSettle();
+      final c = videos.collectionNamed('Silo')!;
+      expect(c.videos.where((v) => v.season == 2).every((v) => videos.placeOf(v.id)?.watched ?? false), isTrue);
+    });
+
+    testWidgets('All videos › Season: right-click a heading › Select all in the season', (tester) async {
+      await tester.runAsync(scanSilo);
+      tester.view.physicalSize = const Size(1200, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(app(const VideosScreen()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('All videos'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Sort'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Season').last, warnIfMissed: false); // the menu is still animating in
+      await tester.pumpAndSettle();
+
+      bool isSeason2Heading(Widget w) {
+        final k = w.key;
+        return k is ValueKey<String> && k.value.startsWith('group-heading:') && k.value.contains('Season 2');
+      }
+
+      final heading = find.byWidgetPredicate(isSeason2Heading);
+      expect(heading, findsOneWidget);
+      await tester.tap(heading, buttons: kSecondaryButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('group-select-all')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('video-selection-bar')), findsOneWidget);
+      expect(find.text('3 selected'), findsOneWidget);
     });
 
     testWidgets('Settings › Appearance › Video player: choices change the look and the preview', (tester) async {

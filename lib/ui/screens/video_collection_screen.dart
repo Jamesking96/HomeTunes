@@ -23,7 +23,7 @@ import '../theme.dart';
 import '../widgets/cards.dart' show HoverPlayCover;
 import '../widgets/save_nfo.dart';
 import 'video_pictures.dart';
-import 'videos_screen.dart' show VideoSelectionBar, showVideoMenu, videoLength;
+import 'videos_screen.dart' show VideoSelectionBar, showVideoGroupMenu, showVideoMenu, videoLength;
 
 /// "12 h 5 min", "45 min".
 String collectionLength(Duration d) {
@@ -287,6 +287,10 @@ class _CollectionContentsPanelState extends State<CollectionContentsPanel> with 
                 },
                 ticked: seasonTicked(list),
                 onTick: selectingVideos ? () => tickSeason(list) : null,
+                onMenu: (at) => headingMenu(at, c, heading, list,
+                    folded: folded.contains(heading),
+                    onFold: () =>
+                        setState(() => folded.contains(heading) ? folded.remove(heading) : folded.add(heading))),
               ),
             if (heading == null || !folded.contains(heading))
               for (final v in list)
@@ -630,6 +634,8 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> with _Epi
                 },
                 ticked: seasonTicked(list),
                 onTick: selectingVideos ? () => tickSeason(list) : null,
+                onMenu: (at) => headingMenu(at, c, heading, list,
+                    folded: _collapsed.contains(heading), onFold: () => _toggle(heading)),
               ),
             ),
           if (heading == null || !_collapsed.contains(heading))
@@ -690,6 +696,25 @@ mixin _EpisodeSelection<T extends StatefulWidget> on State<T> {
           selectedVideos.addAll([for (final v in list) v.id]);
         }
       });
+
+  /// A season heading's right-click menu: Select all in the season (starts select mode with the
+  /// season ticked), unselect it, watched / not watched, Season title… and fold / open.
+  void headingMenu(Offset at, VideoCollection c, String heading, List<VideoItem> list,
+      {required bool folded, required VoidCallback onFold}) {
+    final s = seasonOfGroup(heading, list);
+    showVideoGroupMenu(
+      context,
+      at: at,
+      heading: heading,
+      list: list,
+      selected: selectedVideos,
+      onSelectAll: () => setState(() => selectedVideos.addAll([for (final v in list) v.id])),
+      onUnselect: () => setState(() => selectedVideos.removeAll([for (final v in list) v.id])),
+      onRename: s == null ? null : () => showSeasonTitleDialog(context, c, s.season, s.sub),
+      folded: folded,
+      onFold: onFold,
+    );
+  }
 
   Widget episodeRow(VideoItem v, VideoItem? next) => EpisodeRow(
         video: v,
@@ -822,6 +847,9 @@ class _GroupHeading extends StatelessWidget {
   /// null = some). [onTick] null hides it.
   final bool? ticked;
   final VoidCallback? onTick;
+
+  /// Right-click (or press and hold): the season's menu, at the pointer.
+  final void Function(Offset at)? onMenu;
   const _GroupHeading(
       {required this.heading,
       required this.count,
@@ -832,54 +860,61 @@ class _GroupHeading extends StatelessWidget {
       this.label,
       this.onRename,
       this.ticked = false,
-      this.onTick});
+      this.onTick,
+      this.onMenu});
 
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
+    Offset? pressedAt;
     return SizedBox(
       height: _VideoCollectionScreenState.headingExtent,
-      child: InkWell(
-        key: ValueKey('heading-$heading'),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(children: [
-            AnimatedRotation(
-              turns: folded ? -0.25 : 0,
-              duration: const Duration(milliseconds: 150),
-              child: const Icon(Icons.expand_more),
-            ),
-            const SizedBox(width: 6),
-            if (onTick != null)
-              Checkbox(
-                key: ValueKey('season-tick:$heading'),
-                tristate: true,
-                value: ticked,
-                onChanged: (_) => onTick!(),
+      child: GestureDetector(
+        onSecondaryTapUp: onMenu == null ? null : (d) => onMenu!(d.globalPosition),
+        child: InkWell(
+          key: ValueKey('heading-$heading'),
+          onTap: onTap,
+          onTapDown: (d) => pressedAt = d.globalPosition,
+          onLongPress: onMenu == null ? null : () => onMenu!(pressedAt ?? Offset.zero),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(children: [
+              AnimatedRotation(
+                turns: folded ? -0.25 : 0,
+                duration: const Duration(milliseconds: 150),
+                child: const Icon(Icons.expand_more),
               ),
-            Flexible(
-              child: Text('${label ?? heading}  ($count)',
-                  maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            ),
-            if (hasNext) ...[
-              const SizedBox(width: 8),
-              Icon(Icons.play_arrow, size: 18, color: accent),
-            ],
-            if (onRename != null)
-              IconButton(
-                key: ValueKey('season-title:$heading'),
-                tooltip: 'Season title',
-                visualDensity: VisualDensity.compact,
-                icon: Icon(Icons.edit_outlined, size: 18, color: AppColors.textDim),
-                onPressed: onRename,
+              const SizedBox(width: 6),
+              if (onTick != null)
+                Checkbox(
+                  key: ValueKey('season-tick:$heading'),
+                  tristate: true,
+                  value: ticked,
+                  onChanged: (_) => onTick!(),
+                ),
+              Flexible(
+                child: Text('${label ?? heading}  ($count)',
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               ),
-            const Spacer(),
-            Text(
-              watched == 0 ? '' : (watched == count ? 'All watched' : '$watched of $count watched'),
-              style: TextStyle(color: AppColors.textDim, fontSize: 12),
-            ),
-          ]),
+              if (hasNext) ...[
+                const SizedBox(width: 8),
+                Icon(Icons.play_arrow, size: 18, color: accent),
+              ],
+              if (onRename != null)
+                IconButton(
+                  key: ValueKey('season-title:$heading'),
+                  tooltip: 'Season title',
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(Icons.edit_outlined, size: 18, color: AppColors.textDim),
+                  onPressed: onRename,
+                ),
+              const Spacer(),
+              Text(
+                watched == 0 ? '' : (watched == count ? 'All watched' : '$watched of $count watched'),
+                style: TextStyle(color: AppColors.textDim, fontSize: 12),
+              ),
+            ]),
+          ),
         ),
       ),
     );
