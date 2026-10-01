@@ -22,6 +22,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/cards.dart' show HoverPlayCover;
 import '../widgets/save_nfo.dart';
+import 'video_details_screen.dart' show openCollectionDetails;
 import 'video_pictures.dart';
 import 'videos_screen.dart' show VideoSelectionBar, showVideoGroupMenu, showVideoMenu, videoLength;
 import '../widgets/selectable_title.dart';
@@ -371,6 +372,8 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c,
         ),
       ),
       copyTitleMenuItem('copy'),
+      // Where it comes from (0.1.44).
+      const PopupMenuItem(value: 'details', child: ListTile(leading: Icon(Icons.info_outline), title: Text('Details…'))),
       if (onSelect != null)
         const PopupMenuItem(value: 'select', child: ListTile(leading: Icon(Icons.check_box_outlined), title: Text('Select'))),
     ],
@@ -379,6 +382,8 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c,
   switch (choice) {
     case 'copy':
       await copyTitle(context, c.name);
+    case 'details':
+      await openCollectionDetails(context, c);
     case 'select':
       onSelect?.call();
     case 'open':
@@ -511,6 +516,13 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> with _Epi
             tooltip: fav ? 'Remove from favourites' : 'Add to favourites',
             icon: Icon(fav ? Icons.favorite : Icons.favorite_border, color: fav ? accent : null),
             onPressed: () => model.setFavourite(c, !fav),
+          ),
+          // Like an album page's ⓘ (0.1.44).
+          IconButton(
+            key: const ValueKey('collection-details'),
+            tooltip: 'Details: where it comes from',
+            icon: const Icon(Icons.info_outline),
+            onPressed: () => openCollectionDetails(context, c),
           ),
           OutlinedButton.icon(
             icon: const Icon(Icons.edit_outlined),
