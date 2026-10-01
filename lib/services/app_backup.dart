@@ -36,7 +36,7 @@ class AppBackup {
     'bookmarks.json',
     'lyrics.json',
     'equalizer.json',
-    'videos.json',  // 0.1.32: the Videos tab (edits and watched places)
+    'videos.json',  // 0.1.40: the Videos tab (edits and watched places)
   ];
 
   /// Marks a path inside the app's folder in a backup.
@@ -338,7 +338,7 @@ class AppBackup {
       await put('equalizer.json', beq);
     }
 
-    // ---- videos (0.1.32): merging keeps this device's scan, adds the backup's edits (they win)
+    // ---- videos (0.1.40): merging keeps this device's scan, adds the backup's edits (they win)
     //      and keeps the latest place for each video ----
     final bv = backupFile('videos.json');
     if (merge) {

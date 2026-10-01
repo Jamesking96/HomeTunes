@@ -33,7 +33,7 @@ class FilterField<T> {
   final Iterable<String> Function(T item) values;
 
   /// The order the choices are listed in, when A–Z doesn't fit (e.g. lengths shortest first;
-  /// the Videos tab, 0.1.32). Null: A–Z.
+  /// the Videos tab, 0.1.40). Null: A–Z.
   final int Function(String a, String b)? order;
   const FilterField(this.label, this.values, {this.order});
 }

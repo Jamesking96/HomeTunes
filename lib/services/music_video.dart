@@ -1,9 +1,9 @@
-// Music videos (0.1.32): finding the video that goes with a song.
+// Music videos (0.1.40): finding the video that goes with a song.
 //
 // Downloaders such as the YouTube offline player save a song twice, side by side:
 //   "Miley Cyrus - Flowers (Official Video).m4a"   (the sound)
 //   "Miley Cyrus - Flowers (Official Video).mp4"   (the video, with the same sound in it)
-// Before 0.1.32 both were scanned as songs, so every such song showed up twice. Now:
+// Before 0.1.40 both were scanned as songs, so every such song showed up twice. Now:
 //  * an audio file with a video of the same name beside it is the song, and the video is its
 //    music video (Track.video). The video file is not listed as a song of its own;
 //  * an .mp4 on its own is still a song (it plays as audio, as before). If it really has
@@ -17,7 +17,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 /// Files that can hold a music video. Only .mp4 is also scanned as a song on its own (it was
-/// before 0.1.32); the others only count as the video beside a song.
+/// before 0.1.40); the others only count as the video beside a song.
 const videoExtensions = {'.mp4', '.m4v', '.webm', '.mkv', '.mov'};
 
 /// Sound-only song files (every scanned song type except .mp4).

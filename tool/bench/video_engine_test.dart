@@ -1,9 +1,9 @@
-// Checks music videos (0.1.32) against the real engine (libmpv, video build) on this machine:
+// Checks music videos (0.1.40) against the real engine (libmpv, video build) on this machine:
 //  * the main player with vid=no plays an .mp4 as sound only (no picture size reported);
 //  * a muted video player with aid=no opens the video, reports its picture size, plays and
 //    seeks precisely enough for the display to stay in step (ui/widgets/music_video_view.dart);
 //  * song and video started together stay close over several seconds;
-//  * the Videos tab's thumbnail maker takes a small picture and learns the length (0.1.32).
+//  * the Videos tab's thumbnail maker takes a small picture and learns the length (0.1.40).
 // Run (the DLL is in build\windows\x64\runner\Release\ after a Windows build):
 //   flutter test tool/bench/video_engine_test.dart --dart-define=LIBMPV=<libmpv-2.dll>
 //     --dart-define=AUDIO=<song.m4a> --dart-define=VIDEO=<song.mp4>

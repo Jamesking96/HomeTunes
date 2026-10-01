@@ -1,4 +1,4 @@
-// The music video display on Now Playing (0.1.32).
+// The music video display on Now Playing (0.1.40).
 //
 // The song itself keeps playing in PlayerModel's engine, exactly as before (gapless, equaliser,
 // ReplayGain, media keys all unchanged). This widget opens the song's video file in a second,

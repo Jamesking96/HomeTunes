@@ -1,4 +1,4 @@
-// How the video player's buttons look (Settings › Appearance › Video player, 0.1.32).
+// How the video player's buttons look (Settings › Appearance › Video player, 0.1.40).
 //
 // The buttons sit straight on top of the picture, so a dark scene can swallow dark
 // buttons and a bright one (snow, a white title card) can swallow white ones. The

@@ -1,6 +1,6 @@
 // Settings › Folders & scanning (called "Library" before 0.1.26; its code name is still
 // `library`): the music folders and the audiobook folders HomeTunes reads, the Rescan button
-// (which scans both), the video folders for the Videos tab (0.1.32, scanned separately with
+// (which scans both), the video folders for the Videos tab (0.1.40, scanned separately with
 // their own Rescan), and the list of "missing" songs (known songs whose files have gone).
 //
 // Also home to [pickFolderWithPermission] and [AudiobookFoldersSection], which the Audiobooks
@@ -41,7 +41,7 @@ Future<String?> pickFolderWithPermission(BuildContext context, String title) asy
 class FolderOptionsButton extends StatelessWidget {
   final String folder;
 
-  /// A video folder (0.1.32): its videos are rescanned and counted by VideoLibraryModel.
+  /// A video folder (0.1.40): its videos are rescanned and counted by VideoLibraryModel.
   final bool videos;
   const FolderOptionsButton({super.key, required this.folder, this.videos = false});
 
@@ -222,7 +222,7 @@ class AudiobookFoldersSection extends StatelessWidget {
   }
 }
 
-/// The video folders for the Videos tab (0.1.32), with Add, Rescan and a count. The folders are
+/// The video folders for the Videos tab (0.1.40), with Add, Rescan and a count. The folders are
 /// a setting in LibraryModel; VideoLibraryModel scans them.
 class VideoFoldersSection extends StatelessWidget {
   const VideoFoldersSection({super.key});

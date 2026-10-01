@@ -1,4 +1,4 @@
-// Settings › Music (0.1.32): music videos on or off, and whether they start by themselves.
+// Settings › Music (0.1.40): music videos on or off, and whether they start by themselves.
 import 'dart:io';
 
 import 'package:flutter/material.dart';

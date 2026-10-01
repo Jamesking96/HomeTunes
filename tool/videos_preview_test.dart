@@ -1,4 +1,4 @@
-// Draws the Videos tab (0.1.32) off-screen and saves pictures to C:\Temp\ht\preview (nothing is
+// Draws the Videos tab (0.1.40) off-screen and saves pictures to C:\Temp\ht\preview (nothing is
 // shown on screen): the grid with Continue watching and collections, a video's menu, the Edit
 // details dialog for several videos, the filter sheet, and Settings › Folders & scanning with the video folders.
 // The "videos" are empty files with made-up names; their thumbnails are plain generated
@@ -33,7 +33,7 @@ import 'package:provider/provider.dart';
 void main() {
   const out = String.fromEnvironment('OUT', defaultValue: r'C:\Temp\ht\preview');
 
-  testWidgets('0.1.32 Videos previews', (tester) async {
+  testWidgets('0.1.40 Videos previews', (tester) async {
     await tester.runAsync(() async {
       for (final f in [r'C:\Windows\Fonts\segoeui.ttf', r'C:\Windows\Fonts\segoeuib.ttf']) {
         final loader = FontLoader('Roboto')..addFont(Future.value(ByteData.sublistView(File(f).readAsBytesSync())));
@@ -42,7 +42,7 @@ void main() {
     });
     // ignore: invalid_use_of_visible_for_testing_member
     PackageInfo.setMockInitialValues(
-        appName: 'HomeTunes', packageName: 'x', version: '0.1.32', buildNumber: '32', buildSignature: '');
+        appName: 'HomeTunes', packageName: 'x', version: '0.1.40', buildNumber: '32', buildSignature: '');
     Directory(out).createSync(recursive: true);
     final dir = Directory.systemTemp.createTempSync('hometunes_videos_preview');
     final vids = Directory(p.join(dir.path, 'Videos'))..createSync();
@@ -114,7 +114,7 @@ void main() {
           ChangeNotifierProvider.value(value: videos),
           ChangeNotifierProvider.value(value: nav),
           ChangeNotifierProvider(create: (_) => EqualizerModel(storage)),
-          ChangeNotifierProvider(create: (_) => UpdateModel(storage, readVersion: () async => '0.1.32')),
+          ChangeNotifierProvider(create: (_) => UpdateModel(storage, readVersion: () async => '0.1.40')),
         ],
         child: RepaintBoundary(
           key: key,

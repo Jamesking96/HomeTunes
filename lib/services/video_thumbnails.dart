@@ -1,4 +1,4 @@
-// Videos (0.1.32): a small picture for each video on the Videos tab.
+// Videos (0.1.40): a small picture for each video on the Videos tab.
 //
 // One hidden, silent player opens each video in turn (pictures only, paused), jumps a tenth of
 // the way in, takes a screenshot, then the picture is shrunk to 480 px wide and saved as a JPEG

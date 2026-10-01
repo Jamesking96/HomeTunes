@@ -55,7 +55,7 @@ class PlaybackSettings extends StatelessWidget {
           onChanged: (v) => lib.updatePlaybackSettings(swipeToSkip: v),
         ),
       ),
-      // Music videos moved to Settings › Music (0.1.32).
+      // Music videos moved to Settings › Music (0.1.40).
       SettingTarget(
         'replaygain',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

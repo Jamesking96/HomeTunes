@@ -4,7 +4,7 @@
 // the transport buttons, the volume slider and a row of extras. Songs get Like, Lyrics and Queue buttons; books get
 // Bookmark, Speed, Chapters, Bookmarks and (if music is waiting) "Back to music".
 // Lyrics replace the cover on narrow screens and sit in a side panel on windows ≥900 px wide.
-// A song with a music video (0.1.32) shows the video, muted and in step with the song, in place
+// A song with a music video (0.1.40) shows the video, muted and in step with the song, in place
 // of the cover (MusicVideoView) — straight away, or when the video button beside Lyrics is
 // pressed if Settings › Music › "Play music videos automatically" is off. The button switches
 // between the video and the cover for the song playing.
@@ -94,7 +94,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     final wide = size.width >= 900;
     // Keyed by song id so the lyrics view starts fresh (and loads new lyrics) on each song change.
     final lyricsPanel = LyricsView(key: ValueKey(t.id), track: t);
-    // Music video (0.1.32): songs only, and only while the setting / video button is on.
+    // Music video (0.1.40): songs only, and only while the setting / video button is on.
     final videoFile = book == null ? _videoOf(t) : null;
     final videosOn = context.select<LibraryModel, bool>((l) => l.showMusicVideos);
     final autoPlay = context.select<LibraryModel, bool>((l) => l.autoPlayMusicVideos);
@@ -275,7 +275,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                           label: const Text('Back to music'),
                           onPressed: p.resumeMusic,
                         ),
-                      // Songs with a music video: switch between the video and the cover (0.1.32),
+                      // Songs with a music video: switch between the video and the cover (0.1.40),
                       // for this song. Settings › Music says whether videos start by themselves.
                       if (videoFile != null && videosOn)
                         IconButton(

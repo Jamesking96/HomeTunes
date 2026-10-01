@@ -100,7 +100,7 @@ Future<void> main() async {
       bookmarks.removeIds(ids);
     });
 
-  // The Videos tab (0.1.32). Made after the library has loaded, as it follows the library's
+  // The Videos tab (0.1.40). Made after the library has loaded, as it follows the library's
   // video folders from their saved state.
   final videos = VideoLibraryModel(storage, library)..thumbnailer = VideoThumbnailer(p.join(storage.artDir, 'video'));
   await safely('videos', videos.load);

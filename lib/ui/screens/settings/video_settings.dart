@@ -1,4 +1,4 @@
-// Settings › Videos (0.1.32): like Settings › Audiobooks, for the Videos tab.
+// Settings › Videos (0.1.40): like Settings › Audiobooks, for the Videos tab.
 //   Watching: skip back / forward amounts (the player's buttons, ← → and J / L, double-tap on a
 //             phone), the speed for collections that haven't had one chosen, rewinding a little
 //             when carrying on, and a separate equaliser preset for videos.

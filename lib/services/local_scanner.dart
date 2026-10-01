@@ -45,7 +45,7 @@ class LocalScanner {
     void Function(int done, int total)? onProgress,
   }) async {
     // 1. Find every audio file (sorted by path, so albums stay together).
-    // Videos beside songs are left out of the list and given to their songs instead (0.1.32).
+    // Videos beside songs are left out of the list and given to their songs instead (0.1.40).
     final found = await findFiles(folders);
     final files = found.songs;
     // 2. Cut the list into batches. A local copy of artDir is taken so the isolate job
@@ -190,7 +190,7 @@ List<Map<String, dynamic>> _scanBatch(
   return out;
 }
 
-/// Sets a scanned song's music video (0.1.32): the video beside it, or for an .mp4 on its own,
+/// Sets a scanned song's music video (0.1.40): the video beside it, or for an .mp4 on its own,
 /// the file itself when it has moving pictures. Worked out on every scan, so a video added or
 /// removed beside an unchanged song is noticed.
 Map<String, dynamic> _withVideo(Map<String, dynamic> json, String path, String? besideIt) {

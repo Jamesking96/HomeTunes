@@ -1,4 +1,4 @@
-// Videos (0.1.32): what a video's folders and file name say about it.
+// Videos (0.1.40): what a video's folders and file name say about it.
 //
 // Video libraries are usually laid out like this (checked against a real one on 30 Sep):
 //   <video folder>\TV\South Park - Complete\Season 01\South Park (1997) - S01E01 - Cartman Gets an Anal Probe [WEBDL-1080p][AC3 5.1].mkv

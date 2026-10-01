@@ -32,7 +32,7 @@ void _android() {
   const perms = [
     '<uses-permission android:name="android.permission.INTERNET"/>',
     '<uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>',
-  // READ_MEDIA_VIDEO (0.1.32): the Videos tab and music videos (Android 13+ hides video files
+  // READ_MEDIA_VIDEO (0.1.40): the Videos tab and music videos (Android 13+ hides video files
   // from an app that only has READ_MEDIA_AUDIO).
   '<uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>',
     '<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>',

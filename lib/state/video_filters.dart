@@ -1,4 +1,4 @@
-// Videos (0.1.32): the Videos tab's search, "show" chips, filters and sort orders, as plain functions
+// Videos (0.1.40): the Videos tab's search, "show" chips, filters and sort orders, as plain functions
 // (no Flutter), so they're unit tested directly (test/videos_test.dart).
 import '../models/video_item.dart';
 import 'library_index.dart' show sortKey;

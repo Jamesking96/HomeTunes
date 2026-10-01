@@ -1,4 +1,4 @@
-// Videos (0.1.32): .nfo files, the small XML files that Kodi, Jellyfin, Emby and Plex keep beside
+// Videos (0.1.40): .nfo files, the small XML files that Kodi, Jellyfin, Emby and Plex keep beside
 // videos to hold their details. This is how editing a video or a collection "also edits the
 // files": the video files themselves (mostly large MKVs) are never rewritten, but when "Also
 // save into .nfo files" is ticked, VideoLibraryModel.saveNfoFiles writes

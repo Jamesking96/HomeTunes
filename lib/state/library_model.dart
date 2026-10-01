@@ -120,7 +120,7 @@ class LibraryModel extends ChangeNotifier {
   bool onlineLyrics = true;
 
   /// Offer "Search online" for video pictures and collection posters (TVmaze, AniList,
-  /// Wikipedia; 0.1.32).
+  /// Wikipedia; 0.1.40).
   bool onlineVideoArt = true;
 
   /// Audiobooks on the music server show in the Books tab (Settings › Servers).
@@ -138,7 +138,7 @@ class LibraryModel extends ChangeNotifier {
   /// skip forward or back in an audiobook (0.1.17).
   bool swipeToSkip = true;
 
-  /// Now Playing can show a song's music video in place of its cover, when it has one (0.1.32).
+  /// Now Playing can show a song's music video in place of its cover, when it has one (0.1.40).
   /// Off: no videos and no video button (Settings › Music).
   bool showMusicVideos = true;
 
@@ -169,7 +169,7 @@ class LibraryModel extends ChangeNotifier {
   /// Folders where everything is an audiobook (scanned as well as [folders]).
   List<String> audiobookFolders = [];
 
-  /// Folders for the Videos tab (0.1.32). Scanned by VideoLibraryModel, not by the music scan.
+  /// Folders for the Videos tab (0.1.40). Scanned by VideoLibraryModel, not by the music scan.
   /// An .mp4 inside one is a video, not a song (unless it's the music video beside a song).
   List<String> videoFolders = [];
 
@@ -189,7 +189,7 @@ class LibraryModel extends ChangeNotifier {
   /// Speed for books that haven't had one chosen.
   double defaultBookSpeed = 1.0;
 
-  // ---- video settings (Settings › Videos, 0.1.32) ----
+  // ---- video settings (Settings › Videos, 0.1.40) ----
 
   /// Skip buttons (and ← → keys) while a video plays (seconds).
   int videoSkipBackSeconds = 10;
@@ -757,7 +757,7 @@ class LibraryModel extends ChangeNotifier {
     //    File types switched off in a folder's options are left out (0.1.27); they stay in
     //    _local so the folder still knows which types it has.
     final raw = [
-      // (0.1.32) An .mp4 in a video folder is a video for the Videos tab, not a song.
+      // (0.1.40) An .mp4 in a video folder is a video for the Videos tab, not a song.
       for (final t in _local) if (!_formatHidden(t) && !_isVideoFolderFile(t)) t,
       if (serverEnabled) ..._remote,
     ];
@@ -931,7 +931,7 @@ class LibraryModel extends ChangeNotifier {
     _rebuild();
   }
 
-  // ---- video folders (0.1.32) ----
+  // ---- video folders (0.1.40) ----
 
   /// Adds a folder for the Videos tab. VideoLibraryModel notices and scans it.
   Future<void> addVideoFolder(String path) async {
@@ -1711,7 +1711,7 @@ class LibraryModel extends ChangeNotifier {
     return c.streamUrl(t.remoteId!);
   }
 
-  /// The song's music video file, if it has one that can be shown now (0.1.32): a local song,
+  /// The song's music video file, if it has one that can be shown now (0.1.40): a local song,
   /// with the video still there and inside the library folders (a restored backup could name any
   /// path, as with [playableUri]).
   String? videoFileFor(Track t) {

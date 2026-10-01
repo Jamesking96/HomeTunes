@@ -1,4 +1,4 @@
-// 0.1.32: the video player's look (Settings › Appearance › Video player), season titles
+// 0.1.40: the video player's look (Settings › Appearance › Video player), season titles
 // ("Season 1 – Offline News"), sorting All videos by season, and ticking videos in a collection.
 import 'dart:io';
 
