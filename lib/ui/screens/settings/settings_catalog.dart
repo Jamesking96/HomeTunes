@@ -106,6 +106,8 @@ const settingsCatalog = <SettingInfo>[
       'every colour color light theme saved new edit text panels play button hex code share export import friend file'),
   SettingInfo('text-size', SettingsPage.appearance, 'Text size', 'font bigger smaller larger read'),
   SettingInfo('corners', SettingsPage.appearance, 'Corners', 'rounded round square shape'),
+  SettingInfo('scale-with-window', SettingsPage.appearance, 'Shrink to fit small windows',
+      'scale scaling zoom window size small smaller resize buttons widgets fit'),
   SettingInfo('video-player-preview', SettingsPage.appearance, 'Video player look', 'video player controls buttons appearance theme preview'),
   SettingInfo('video-button-colour', SettingsPage.appearance, 'Video player button colour', 'video controls buttons colour color icons'),
   SettingInfo('video-button-size', SettingsPage.appearance, 'Video player button size', 'video controls buttons size bigger smaller'),

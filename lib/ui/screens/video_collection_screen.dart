@@ -24,6 +24,7 @@ import '../widgets/cards.dart' show HoverPlayCover;
 import '../widgets/save_nfo.dart';
 import 'video_pictures.dart';
 import 'videos_screen.dart' show VideoSelectionBar, showVideoGroupMenu, showVideoMenu, videoLength;
+import '../widgets/selectable_title.dart';
 
 /// "12 h 5 min", "45 min".
 String collectionLength(Duration d) {
@@ -231,8 +232,7 @@ class _CollectionContentsPanelState extends State<CollectionContentsPanel> with 
             child: Row(children: [
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(c.name,
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  SelectableTitle(c.name, maxLines: 1, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                   Text(details, style: TextStyle(color: AppColors.textDim, fontSize: 13)),
                 ]),
               ),
@@ -370,12 +370,15 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c,
           title: Text(allWatched ? 'Mark all as not watched' : 'Mark all as watched'),
         ),
       ),
+      copyTitleMenuItem('copy'),
       if (onSelect != null)
         const PopupMenuItem(value: 'select', child: ListTile(leading: Icon(Icons.check_box_outlined), title: Text('Select'))),
     ],
   );
   if (!context.mounted) return;
   switch (choice) {
+    case 'copy':
+      await copyTitle(context, c.name);
     case 'select':
       onSelect?.call();
     case 'open':
@@ -491,7 +494,7 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> with _Epi
         ),
       );
       final info = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(c.name, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+        SelectableTitle(c.name, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
         if (facts.isNotEmpty) Text(facts, style: TextStyle(color: AppColors.textDim)),
         Text(counts, style: TextStyle(color: AppColors.textDim)),
         const SizedBox(height: 12),

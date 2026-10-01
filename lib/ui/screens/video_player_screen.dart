@@ -43,6 +43,7 @@ import 'edit_video.dart';
 import 'equalizer_screen.dart' show openEqualizer;
 import 'video_pictures.dart';
 import 'videos_screen.dart' show videoLength;
+import '../widgets/selectable_title.dart';
 
 /// Language codes the engine reports, as words.
 const _languages = {
@@ -779,7 +780,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(v.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+              SelectableTitle(v.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
               const SizedBox(height: 2),
               InkWell(
                 onTap: () => context.read<AppNav>().openVideoCollection(v.collection),

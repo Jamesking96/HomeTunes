@@ -19,6 +19,7 @@ import '../screens/edit_details.dart';
 import '../screens/lyrics_dialogs.dart';
 import '../theme.dart';
 import 'artwork.dart';
+import 'selectable_title.dart';
 
 /// One song row. Tapping plays [list] starting at [index].
 class TrackTile extends StatelessWidget {
@@ -211,6 +212,11 @@ class TrackMenuButton extends StatelessWidget {
         PopupMenuItem(
           value: () => findLyricsOnline(context, track),
           child: _row(Icons.travel_explore, 'Find lyrics on LRCLIB…'),
+        ),
+        PopupMenuItem(
+          key: const ValueKey('copy-title'),
+          value: () => copyTitle(context, track.title),
+          child: _row(Icons.content_copy, 'Copy title'),
         ),
         PopupMenuItem(
           value: () => openDetails(context, kind: 'Song', title: track.title, tracks: [track]),

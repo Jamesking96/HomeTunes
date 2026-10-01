@@ -152,6 +152,10 @@ class LibraryModel extends ChangeNotifier {
   bool sidebarFolded = false;
   static const sidebarMinWidth = 180.0, sidebarMaxWidth = 420.0;
 
+  /// Settings › Appearance › Shrink to fit small windows (0.1.41): on a computer, buttons and text
+  /// get a little smaller when the window is made small (ui/widgets/window_scale.dart).
+  bool scaleWithWindow = true;
+
   /// Settings › Appearance: the colour theme, and "Your own" colours ("#RRGGBB"). See setTheme.
   String themeId = 'default';
   String? customAccent;
@@ -384,6 +388,7 @@ class LibraryModel extends ChangeNotifier {
     autoPlayMusicVideos = true;
     sidebarWidth = 250;
     sidebarFolded = false;
+    scaleWithWindow = true;
     audiobookFolders = [];
     videoFolders = [];
     bookGenres = List.of(defaultBookGenres);
@@ -447,6 +452,7 @@ class LibraryModel extends ChangeNotifier {
       autoPlayMusicVideos = s.get('autoPlayMusicVideos', true);
       sidebarWidth = s.number('sidebarWidth', 250).clamp(sidebarMinWidth, sidebarMaxWidth).toDouble();
       sidebarFolded = s.get('sidebarFolded', false);
+      scaleWithWindow = s.get('scaleWithWindow', true);
       audiobookFolders = s.strings('audiobookFolders') ?? [];
       videoFolders = s.strings('videoFolders') ?? [];
       bookGenres = s.strings('bookGenres') ?? List.of(defaultBookGenres);
@@ -604,6 +610,7 @@ class LibraryModel extends ChangeNotifier {
         'autoPlayMusicVideos': autoPlayMusicVideos,
         'sidebarWidth': sidebarWidth,
         'sidebarFolded': sidebarFolded,
+        'scaleWithWindow': scaleWithWindow,
         'audiobookFolders': audiobookFolders,
         'videoFolders': videoFolders,
         'bookGenres': bookGenres,
@@ -847,6 +854,13 @@ class LibraryModel extends ChangeNotifier {
   Future<void> setSidebar({double? width, bool? folded}) async {
     if (width != null) sidebarWidth = width.clamp(sidebarMinWidth, sidebarMaxWidth).toDouble();
     if (folded != null) sidebarFolded = folded;
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Settings › Appearance › Shrink to fit small windows.
+  Future<void> setScaleWithWindow(bool on) async {
+    scaleWithWindow = on;
     notifyListeners();
     await _saveSettings();
   }

@@ -25,6 +25,7 @@ import '../widgets/lyrics_view.dart';
 import '../widgets/music_video_view.dart';
 import '../widgets/player_controls.dart';
 import '../widgets/track_tile.dart';
+import '../widgets/selectable_title.dart';
 
 /// Full-screen player. For songs, the lyrics can be shown in place of the
 /// cover (phones) or beside it (wide windows).
@@ -192,7 +193,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                           if (book != null)
                             const _ChapterTitle()
                           else
-                            Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                            SelectableTitle(t.title, maxLines: 1,
                                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                           InkWell(
                             onTap: () {
@@ -335,8 +336,7 @@ class _ChapterTitle extends StatelessWidget {
       stream: p.positionStream,
       builder: (context, _) {
         final title = p.currentChapter?.title ?? p.current?.title ?? '';
-        return Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800));
+        return SelectableTitle(title, maxLines: 1, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800));
       },
     );
   }
