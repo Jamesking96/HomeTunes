@@ -34,8 +34,35 @@ while commenting".
 | Colour codes and sharing themes (0.1.29) | Done, released in v0.1.30 (29 Sep) |
 | ✕ on notices (0.1.30) | Done, released as v0.1.30 (29 Sep) |
 | MIT licence + third-party notices (0.1.31) | **Merged (30 Sep), not released yet.** Rebuild before releasing. See `03_…` → Licence |
+| Selectable titles, search for videos, scaling with the window (0.1.41) | In progress (`feature/titles-search-scaling`, 1 Oct) |
+| L: Linux build, incl. Steam Deck (0.1.42) | After 0.1.41. See "Platforms plan" below |
+| A: Android Auto (0.1.43) | After L |
+| T: Android TV (0.1.44) | After A |
 | D: offline copies of server songs (was phase 4) | After the server review |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to D isn't decided |
+
+### Platforms plan: Linux, Android Auto, Android TV (agreed 1 Oct)
+(Versions moved up by one on 1 Oct, the user's choice: 0.1.41 went to selectable titles, video search and window scaling, so Linux is 0.1.42, Android Auto 0.1.43 and Android TV 0.1.44. The plan doc may still show the old numbers.)
+The plan is the doc "HomeTunes Platforms Plan" (https://claude.ai/code/artifact/831e2a97-57ac-4af8-b0fd-738442c570d9),
+with numbered steps per phase (L1–L7, A1–A7, T1–T7). Agreed order: **L Linux → A Android Auto → T Android TV**, each
+on its own branch (`feature/linux`, `feature/android-auto`, `feature/android-tv`) and released on its own.
+- **User's answers (1 Oct):**
+  - Linux: as accessible as possible and must run on the user's **Steam Deck** (Desktop and Game Mode). AppImage
+    first (bundles libmpv, so the LGPL source offer applies as on Windows), then Flatpak (Flathub / Discover), plus a
+    tarball. Built **locally on the PC under WSL2**; a GitHub Actions job is the acceptable backup.
+  - Car: **2018 Ford Focus (SYNC 3)**, Android Auto by USB cable. Wireless must work too; SYNC 3 is wired-only, so
+    that means a wireless Android Auto adapter (no separate app code). Sideloaded app needs Android Auto's
+    developer setting "Unknown sources".
+  - TV: **Sony "BRAVIA 4K GB ATV3"** (Android TV, not Google TV; probably Android 8/9, likely 32-bit ARM, so check
+    `armeabi-v7a` in the APK). Music from **both USB drives and the server**.
+- **Key findings:** about 10 Windows-only calls in `lib/` (`rundll32`/`explorer` in update_checker, book_screen,
+  details_screen, videos_screen, video_player_screen, about_settings; `main.dart` and `media_session.dart` skip
+  Linux) go behind one `services/desktop_open.dart`. Linux media controls via `audio_service_mpris` (0.2.1; no seek
+  signals, volume or shuffle). The manifest already declares audio_service's `MediaBrowserService`; Android Auto
+  needs `automotive_app_desc.xml`, a browse tree (`getChildren`/`playFromMediaId`/`playFromSearch`), a cold-start
+  check and maybe a `ContentProvider` for covers. The D-pad focus work (T3) is started in L6 for the Steam Deck's
+  controller.
+- Model/Android version of the TV still to confirm (Settings › Device Preferences › About), optional.
 
 ### E: Audiobook server (asked for 25 Sep)
 - **User's answer:** books should come from **both** the music server and, optionally, a separate
