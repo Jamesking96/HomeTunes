@@ -34,7 +34,7 @@ while commenting".
 | Colour codes and sharing themes (0.1.29) | Done, released in v0.1.30 (29 Sep) |
 | ✕ on notices (0.1.30) | Done, released as v0.1.30 (29 Sep) |
 | MIT licence + third-party notices (0.1.31) | **Merged (30 Sep), not released yet.** Rebuild before releasing. See `03_…` → Licence |
-| Selectable titles, search for videos, scaling with the window (0.1.41) | In progress (`feature/titles-search-scaling`, 1 Oct) |
+| Selectable titles, search for videos, scaling with the window (0.1.41) | Done, released as v0.1.41 (1 Oct) |
 | L: Linux build, incl. Steam Deck (0.1.42) | After 0.1.41. See "Platforms plan" below |
 | A: Android Auto (0.1.43) | After L |
 | T: Android TV (0.1.44) | After A |
@@ -150,8 +150,8 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
   - Chosen pictures / posters (same branch): the Pick a frame dialog's engine steps were checked with `tool/bench/frame_picker_engine_test.dart`, but the dialog itself (the moving picture in it) not yet in a real window. Search online was checked live (`tool/probe_video_art.dart`: Silo, Mickey 17, Claymore). Ideas: TMDB / fanart.tv as extra sources if the user adds their own free API key; writing a chosen poster as `poster.jpg` into the collection's folder (alongside the .nfo option) so other apps see it.
 
 ## Source control
-`main` is **0.1.40+40** (videos, merged 1 Oct) and the latest release is **v0.1.40**
-(published 1 Oct, covering 0.1.31 and 0.1.40). There are no other branches (`feature/music-videos` was deleted after merging). Each feature gets its own branch, merged into `main` with
+`main` is **0.1.41+41** and the latest release is **v0.1.41** (1 Oct; v0.1.40, the videos
+release, came out the same day). There are no other branches (merged feature branches are deleted). Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
 repo copy of these notes (`docs/ai-context/`) is kept the same as the project copy.
