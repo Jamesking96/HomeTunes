@@ -37,7 +37,7 @@ while commenting".
 | Selectable titles, search for videos, scaling with the window (0.1.41) | Done, released as v0.1.41 (1 Oct) |
 | Loading page while a video opens (0.1.42) | Done, released as v0.1.42 (1 Oct); the user confirmed it works |
 | Bottom bar / video volume linked again; single "What's new" heading (0.1.43) | Done, released as v0.1.43 (1 Oct); the user confirmed it works |
-| Details for videos and collections (0.1.44) | Built 1 Oct on `feature/video-details`, not merged yet |
+| Details for videos and collections (0.1.44) | Done, released as v0.1.44 (1 Oct); the user approved it |
 | L: Linux build, incl. Steam Deck (0.1.45) | Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (0.1.46) | After L |
 | T: Android TV (0.1.47) | After A |
@@ -153,8 +153,8 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
   - Chosen pictures / posters (same branch): the Pick a frame dialog's engine steps were checked with `tool/bench/frame_picker_engine_test.dart`, but the dialog itself (the moving picture in it) not yet in a real window. Search online was checked live (`tool/probe_video_art.dart`: Silo, Mickey 17, Claymore). Ideas: TMDB / fanart.tv as extra sources if the user adds their own free API key; writing a chosen poster as `poster.jpg` into the collection's folder (alongside the .nfo option) so other apps see it.
 
 ## Source control
-`main` is **0.1.43+43** and the latest release is **v0.1.43** (1 Oct; v0.1.40, the videos
-release, v0.1.41 and v0.1.42 came out the same day). `feature/video-details` (0.1.44+44) is waiting for the user's approval; there are no other branches (merged feature branches are deleted). Each feature gets its own branch, merged into `main` with
+`main` is **0.1.44+44** and the latest release is **v0.1.44** (1 Oct; v0.1.40, the videos
+release, and v0.1.41 to v0.1.43 came out the same day). There are no other branches (merged feature branches are deleted). Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
 repo copy of these notes (`docs/ai-context/`) is kept the same as the project copy.

@@ -185,7 +185,7 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
-## Details for videos and collections (1 Oct 2026, 0.1.44, branch `feature/video-details`)
+## Details for videos and collections (1 Oct 2026, 0.1.44, released as v0.1.44)
 - **What the user asked for:** "Music and audio books allow for viewing the file details, I'd like
   this for the videos too".
 - **Where:** **Details…** in a video's and a collection's right-click / hold menu, a **Details**
