@@ -19,16 +19,16 @@ Read the files in this order:
 ## Status (30 Sep 2026)
 
 - **Released:** the latest release is
-  [v0.1.30](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.30) (29 Sep).
-- **Merged, not released yet: 0.1.31+31** (merged into `main` and pushed on 30 Sep). HomeTunes is
-  now **MIT-licensed, "Copyright (c) 2026 Jamesking96"** (the user's choice after comparing
-  Harmonoid's PolyForm Strict and Nora's MIT). It adds `LICENSE`, `THIRD_PARTY_NOTICES.md`,
-  `licenses/` (LGPL/GPL texts for the libmpv/FFmpeg engine), Settings › About › Licences, licence
-  files in the Windows downloads, and `HomeTunes-audio-engine-source.zip` (the engine's LGPL
-  source, made by `tool/engine_source.ps1`), attached to every GitHub release, old and new. See
-  `03_…` → Licence, which includes the rule about GPL libraries. The 0.1.31 builds in
-  `build\dist` were made before the final Licences page wording: **rebuild before releasing.**
-- **Checks:** 379 tests passed on 0.1.31 (30 Sep), and `flutter analyze` is clean.
+  [v0.1.40](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.40) (1 Oct), which
+  covers 0.1.31 and 0.1.40 (0.1.32 was renumbered 0.1.40 before release: videos are a whole new
+  feature). It adds **videos** (the Videos tab, music videos on Now Playing, the video engine),
+  the resizable / foldable sidebar, notices that close after 15 s, and 0.1.31's **MIT licence**
+  ("Copyright (c) 2026 Jamesking96"). The engine is media_kit's video build; its licences
+  (`THIRD_PARTY_NOTICES.md`, `licenses/ENGINE-COMPONENTS.txt`, the source in
+  `HomeTunes-audio-engine-source.zip` from `tool/engine_source.ps1`) are explained in `04_…`
+  (Music videos, "Done 1 Oct"). See `03_…` → Licence, which includes the rule about GPL
+  libraries.
+- **Checks:** 495 tests passed on 0.1.40 (1 Oct), and `flutter analyze` is clean.
 - **Devices:** the phone was last known to have 0.1.23. Installed Windows copies update
   themselves from GitHub releases, so the PC's copy may be newer.
 - **Publishing:** every release goes out with `tool/publish_release.ps1 -NotesFile …` (see `02_…`
@@ -52,14 +52,16 @@ Read the files in this order:
     drawer, Settings in A–Z order with Folders & scanning, folder options, mute, the What's new
     pop-up
   - 0.1.29–0.1.30: colour codes, sharing themes, a ✕ on every notice
+  - 0.1.31: MIT licence and third-party notices
+  - 0.1.40: videos (Videos tab, collections, seasons, music videos), the resizable sidebar,
+    notices that close after 15 s
 - **Code comments:** every source file has a header comment saying what it does and why. Keep
   that up for new files.
 - **These notes** are also in the repo under `docs/ai-context/`, kept the same as the project
   copy. Update them when things change.
-- **Next:** release 0.1.31 when the user says so. After that, nothing is agreed yet. The open phases are D (offline server songs, after
-  the server review) and E (the Audiobookshelf connection, which needs a plan). Ask the user. See
-  `04_ROADMAP_AND_OPEN_ITEMS.md`, which also lists the two probable bugs still open from the code
-  guide's review.
+- **Next:** nothing is agreed yet. Videos still need trying on the phone and in a real window
+  (see `04_…` → Music videos). The open phases are D (offline server songs, after the server
+  review) and E (the Audiobookshelf connection, which needs a plan). Ask the user.
 
 ## Rules the user cares about (follow these)
 

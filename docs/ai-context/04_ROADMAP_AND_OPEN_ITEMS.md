@@ -123,8 +123,8 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
   - Chosen pictures / posters (same branch): the Pick a frame dialog's engine steps were checked with `tool/bench/frame_picker_engine_test.dart`, but the dialog itself (the moving picture in it) not yet in a real window. Search online was checked live (`tool/probe_video_art.dart`: Silo, Mickey 17, Claymore). Ideas: TMDB / fanart.tv as extra sources if the user adds their own free API key; writing a chosen poster as `poster.jpg` into the collection's folder (alongside the .nfo option) so other apps see it.
 
 ## Source control
-`main` is **0.1.40+40** (videos, merged 1 Oct; not published yet); the latest release is
-**v0.1.30**. Each feature gets its own branch, merged into `main` with
+`main` is **0.1.40+40** (videos, merged 1 Oct) and the latest release is **v0.1.40**
+(published 1 Oct, covering 0.1.31 and 0.1.40). `feature/music-videos` is merged but not deleted. Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
 repo copy of these notes (`docs/ai-context/`) is kept the same as the project copy.
