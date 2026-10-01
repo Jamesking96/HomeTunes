@@ -120,6 +120,19 @@ If something lands in the wrong place, a song's menu has **Move to Books**, and 
 button, **Chapters** and **Bookmarks** (and a button to bookmark the spot you're at). Skip
 lengths, speed for new books and book cover shape are in **Settings › Audiobooks**.
 
+### Videos
+Go to **Settings › Folders & scanning** (or **Settings › Videos**) and use **Add video folder**.
+HomeTunes plays MP4, MKV, WebM, AVI, MOV and most other video files, and shows them in the
+**Videos** tab. Folders named like `TV`, `Anime` or `Films` become categories, the folder under
+them becomes a collection (a series or a set of films), and `Season 1` folders and `S01E02`-style
+file names give seasons and episodes. **Rescan videos** looks again after you add files; each video
+folder has the same **Folder options** as a music folder. On a phone, HomeTunes asks for "Photos
+and videos" access when you add a video folder.
+
+A song with a video of the same name beside it (for example `Song.m4a` and `Song.mp4`) is a
+**music video**: Now Playing shows it in place of the cover. **Settings › Music** can turn music
+videos off, or keep the cover until you press the video button.
+
 ### Music from your own server (optional)
 If you run a music server such as Navidrome, go to **Settings › Servers › Music server**, enter its
 address (for example `http://192.168.1.20:4533`), your username and password, then **Connect**.
@@ -136,10 +149,12 @@ network (and Tailscale addresses) connect without asking.
 
 ## 5. Everyday use
 
-The main sections are **Home**, **Search**, **Library**, **Books** and **Settings**. On a phone
-they're tabs along the bottom. On a PC they're down the left-hand side, where Library is called
-**Your Library** and Books is called **Audiobooks**, with **Liked Songs** and your playlists
-underneath.
+The main sections are **Home**, **Search**, **Library**, **Books**, **Videos** and **Settings**. On
+a phone they're tabs along the bottom. On a PC they're down the left-hand side, where Library is
+called **Your Library** and Books is called **Audiobooks**, with **Liked Songs**, **Favourite
+audiobooks**, **Favourite videos** and your playlists underneath. Drag the sidebar's right-hand
+edge to make it wider or narrower; the **☰** button at its top (or a double-click on the edge)
+folds it down to icons and opens it again.
 
 - **Play something:** tap a song, album, playlist or book. The player bar at the bottom shows
   what's playing; tap it for the full **Now Playing** screen.
@@ -178,6 +193,24 @@ underneath.
   to the volume you had. The slider is in the player bar on a PC, under the play controls on Now Playing (with the
   cover or the lyrics showing), and the speaker button in the phone's mini player, which opens a
   small slider.
+- **Videos:** the **Videos** tab has **Collections**, **All videos** and **Favourites**. Tap a
+  collection to see its seasons underneath, or right-click it (press and hold on a phone) for
+  **Open collection page**, **Edit collection…**, **Change poster…** and more. A video carries on
+  where you stopped, and the next episode starts after a short countdown.
+  - **Watching:** the player has skip buttons, **previous / next video**, speed, and a subtitles
+    button for choosing audio and subtitle tracks (remembered for each collection). Below the
+    video are **Enlarge**, **Full screen** and more. On a PC, Space, the arrow keys, F and Esc work,
+    and the mouse wheel over any progress bar skips 5 seconds.
+  - **While a video plays** the bottom bar shows it; tap its title to go back to it. Your media
+    keys and the phone notification control it. Starting a video pauses your music, and starting
+    music pauses the video.
+  - **Tidying up:** **Edit details** works on one video or several (right-click › **Select**).
+    Right-click a season's heading to select all of it, mark it watched, or give it a title
+    (**Season 1 – Offline News**). Pictures can be changed with **Change picture…**: an image
+    file, a frame from the video, or a search online.
+  - **Settings › Videos** has the skip lengths, speed and the videos' equaliser.
+    **Settings › Appearance › Video player** changes the player's buttons (colour, size, and a
+    glow or circles behind them so they're easy to see on any scene).
 - **Updates:** HomeTunes looks for a new version once a day and shows a notice with an **Update…**
   button if there is one. Check any time in **Settings › About › Check for updates**, where
   there's also a switch to turn the daily check off.
@@ -205,17 +238,18 @@ underneath.
 - **Licences:** HomeTunes is free and open source under the MIT License. **Settings › About ›
   Licences** lists it and the licences of everything it's built with.
 - **Notices:** the messages that pop up at the bottom of the screen have a **✕** to close them
-  straight away (beside **Undo** when there is one).
+  straight away (beside **Undo** when there is one). Otherwise they close by themselves, after
+  15 seconds at most.
 - **Settings search:** type in the box at the top of Settings to find any option. The Settings
-  tabs are in A–Z order; **Folders & scanning** has both your music folders and your audiobook
-  folders.
+  tabs are in A–Z order; **Folders & scanning** has your music, audiobook and video folders.
 
 ---
 
 ## 6. Moving to a new device, and backups
 
 **Settings › Backup & restore** saves everything HomeTunes keeps (folders, playlists, likes,
-favourites, your edits, places in books, bookmarks, equaliser and settings) into one `.htbackup`
+favourites, your edits, places in books and videos, video pictures and season titles,
+bookmarks, equaliser and settings) into one `.htbackup`
 file. Restore it on another phone or PC to carry it all across, then point HomeTunes at the music
 folders on that device. Use **Export backup…** to make the file and **Import backup…** to restore
 it. When restoring you choose **Replace** (this device's HomeTunes data becomes the backup's) or
