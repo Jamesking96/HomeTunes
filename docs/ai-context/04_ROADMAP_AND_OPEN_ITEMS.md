@@ -35,14 +35,15 @@ while commenting".
 | ✕ on notices (0.1.30) | Done, released as v0.1.30 (29 Sep) |
 | MIT licence + third-party notices (0.1.31) | **Merged (30 Sep), not released yet.** Rebuild before releasing. See `03_…` → Licence |
 | Selectable titles, search for videos, scaling with the window (0.1.41) | Done, released as v0.1.41 (1 Oct) |
-| L: Linux build, incl. Steam Deck (0.1.42) | After 0.1.41. See "Platforms plan" below |
-| A: Android Auto (0.1.43) | After L |
-| T: Android TV (0.1.44) | After A |
+| Loading page while a video opens (0.1.42) | Built 1 Oct on `feature/video-loading`, not merged yet |
+| L: Linux build, incl. Steam Deck (0.1.43) | Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
+| A: Android Auto (0.1.44) | After L |
+| T: Android TV (0.1.45) | After A |
 | D: offline copies of server songs (was phase 4) | After the server review |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to D isn't decided |
 
 ### Platforms plan: Linux, Android Auto, Android TV (agreed 1 Oct)
-(Versions moved up by one on 1 Oct, the user's choice: 0.1.41 went to selectable titles, video search and window scaling, so Linux is 0.1.42, Android Auto 0.1.43 and Android TV 0.1.44. The plan doc was updated to match.)
+(Versions moved up by one on 1 Oct, the user's choice: 0.1.41 went to selectable titles, video search and window scaling, so Linux is 0.1.42, Android Auto 0.1.43 and Android TV 0.1.44. The plan doc was updated to match. Moved up by one again later on 1 Oct: Linux was paused and 0.1.42 went to the video loading page, so Linux is now **0.1.43**, Android Auto **0.1.44** and Android TV **0.1.45**. The plan doc may still show the older numbers.)
 The plan is the doc "HomeTunes Platforms Plan" (https://claude.ai/code/artifact/831e2a97-57ac-4af8-b0fd-738442c570d9),
 with numbered steps per phase (L1–L7, A1–A7, T1–T7). Agreed order: **L Linux → A Android Auto → T Android TV**, each
 on its own branch (`feature/linux`, `feature/android-auto`, `feature/android-tv`) and released on its own.
@@ -151,7 +152,7 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
 
 ## Source control
 `main` is **0.1.41+41** and the latest release is **v0.1.41** (1 Oct; v0.1.40, the videos
-release, came out the same day). There are no other branches (merged feature branches are deleted). Each feature gets its own branch, merged into `main` with
+release, came out the same day). `feature/video-loading` (0.1.42+42, the loading page) is waiting for the user's approval; there are no other branches (merged feature branches are deleted). Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
 repo copy of these notes (`docs/ai-context/`) is kept the same as the project copy.

@@ -185,6 +185,25 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Loading page while a video opens (1 Oct 2026, 0.1.42, branch `feature/video-loading`)
+- **What the user asked for:** "When loading a video, sometimes it can take a moment. Rather than
+  looking like the application has frozen, lets show a loading page before the true page shows up".
+- **How it works** (`video_player_screen.dart`). `VideoPlayerScreen` is now a small wrapper: it
+  shows `VideoLoadingView` straight away (the video's title in the top bar, its picture dimmed at
+  16:9 up to 480 px wide, a spinner, "Opening <title>…" and "collection · episode"; Back works).
+  The real page (`_VideoPage`, which makes the player) only starts once the page's slide-in has
+  finished (status listener on the route's animation, 400 ms at the latest), so the slide-in stays
+  smooth. The page's first frame is drawn off screen with an animation that already reads as
+  finished, so it waits to be *told* the slide-in finished rather than checking.
+- **When the loading page goes:** the first time any of these happens (`_shown`): the video's first
+  picture is drawn (`waitUntilFirstFrameRendered`, once per player), it's playing and the position
+  moves, it can't be played (missing file or engine error, so the message shows), or 12 s pass.
+  It then fades over 250 ms and is no longer built.
+- **Next / previous video** (and Up next): the page stays; a dimmed spinner sits over the picture
+  (`video-opening`) until that video is moving, or 12 s.
+- **Tests:** `test/video_loading_test.dart` (with `VideoPlayerScreen.debugPage` standing in for the
+  real page, which needs the video engine). Not yet seen in a real window.
+
 ## Copyable titles, video search, shrink to fit (1 Oct 2026, 0.1.41, branch `feature/titles-search-scaling`)
 - **What the user asked for:** "titles of all medias should be highlightable to copy and paste";
   "the Search button on the left and tab should also search in video & collections"; "when
