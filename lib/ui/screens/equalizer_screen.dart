@@ -10,28 +10,34 @@ import '../../state/equalizer_model.dart';
 import '../theme.dart';
 import '../widgets/track_tile.dart' show askForName;
 
-/// Opens the Equaliser, showing the audiobook preset if [forBooks] (e.g. from Now Playing during a book).
-Future<void> openEqualizer(BuildContext context, {bool? forBooks}) =>
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => EqualizerScreen(forBooks: forBooks)));
+/// Opens the Equaliser, showing the audiobook preset if [forBooks] (e.g. from Now Playing during a
+/// book), or the videos' one if [forVideos] (from a video's player page or Settings › Videos).
+Future<void> openEqualizer(BuildContext context, {bool? forBooks, bool forVideos = false}) => Navigator.of(context)
+    .push(MaterialPageRoute(builder: (_) => EqualizerScreen(forBooks: forBooks, forVideos: forVideos)));
 
 class EqualizerScreen extends StatefulWidget {
   final bool? forBooks;
-  const EqualizerScreen({super.key, this.forBooks});
+  final bool forVideos;
+  const EqualizerScreen({super.key, this.forBooks, this.forVideos = false});
 
   @override
   State<EqualizerScreen> createState() => _EqualizerScreenState();
 }
 
 class _EqualizerScreenState extends State<EqualizerScreen> {
-  late bool _books;
+  late EqTarget _target;
   bool _editing = false;
   late final EqualizerModel _eq;
 
   @override
   void initState() {
     super.initState();
-    final eq = _eq = context.read<EqualizerModel>();
-    _books = eq.separateBooks && (widget.forBooks ?? false);
+    _eq = context.read<EqualizerModel>();
+    _target = widget.forVideos
+        ? EqTarget.videos
+        : (widget.forBooks ?? false)
+            ? EqTarget.books
+            : EqTarget.music;
   }
 
   @override
@@ -44,7 +50,7 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
     final name = await askForName(context, title: 'Name your preset');
     if (name == null || name.trim().isEmpty) return;
     final id = await eq.addCustom(name, from: from);
-    await eq.choose(id, forBooks: _books);
+    await eq.chooseFor(_target, id);
     if (mounted) setState(() => _editing = true);
   }
 
@@ -75,8 +81,9 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
   Widget build(BuildContext context) {
     final eq = context.watch<EqualizerModel>();
     final unavailable = eq.unavailable;
-    if (!eq.separateBooks) _books = false;
-    final current = eq.presetFor(book: _books);
+    // Something without a preset of its own shows (and changes) the music one.
+    if (!eq.separate(_target)) _target = EqTarget.music;
+    final current = eq.presetForTarget(_target);
     final accent = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
@@ -112,16 +119,20 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
                 icon: Icons.info_outline,
                 text: 'The equaliser is off. Pick a preset, or switch it on at the top, to hear it.',
               ),
-            if (eq.separateBooks) ...[
+            if (eq.separateBooks || eq.separateVideos) ...[
               const SizedBox(height: 8),
-              SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(value: false, icon: Icon(Icons.music_note_outlined), label: Text('Music')),
-                  ButtonSegment(value: true, icon: Icon(Icons.menu_book_outlined), label: Text('Audiobooks')),
+              SegmentedButton<EqTarget>(
+                segments: [
+                  const ButtonSegment(value: EqTarget.music, icon: Icon(Icons.music_note_outlined), label: Text('Music')),
+                  if (eq.separateBooks)
+                    const ButtonSegment(
+                        value: EqTarget.books, icon: Icon(Icons.menu_book_outlined), label: Text('Audiobooks')),
+                  if (eq.separateVideos)
+                    const ButtonSegment(value: EqTarget.videos, icon: Icon(Icons.movie_outlined), label: Text('Videos')),
                 ],
-                selected: {_books},
+                selected: {_target},
                 onSelectionChanged: (v) => setState(() {
-                  _books = v.first;
+                  _target = v.first;
                   _editing = false;
                 }),
               ),
@@ -135,7 +146,7 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
                   label: Text(eq.isEdited(p.id) ? '${p.name} · edited' : p.name),
                   selected: p.id == current.id,
                   onSelected: (_) {
-                    eq.choose(p.id, forBooks: _books);
+                    eq.chooseFor(_target, p.id);
                     setState(() => _editing = false);
                   },
                 ),
@@ -205,6 +216,13 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
                   ? 'Audiobooks switch to their own preset when a book starts, and music switches back. '
                       'You can turn that off in Settings › Audiobooks.'
                   : 'Music and audiobooks use the same preset. Settings › Audiobooks can give books their own.',
+              style: TextStyle(color: AppColors.textDim, fontSize: 12),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              eq.separateVideos
+                  ? 'Videos have their own preset too. You can turn that off in Settings › Videos.'
+                  : 'Videos use the music preset. Settings › Videos can give them their own.',
               style: TextStyle(color: AppColors.textDim, fontSize: 12),
             ),
           ]),

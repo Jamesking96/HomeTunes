@@ -61,6 +61,12 @@ class Track {
   /// so rescans read them again.
   final int? sidecarStamp;
 
+  /// A music video for this song (local files only, 0.1.40): a video file with the same name
+  /// in the same folder ("Song.m4a" + "Song.mp4"), or the song's own file when it's an MP4
+  /// with pictures and no separate audio file. Shown on Now Playing, muted and kept in step with
+  /// the song (ui/widgets/music_video_view.dart). Worked out by the scanner on every scan.
+  final String? video;
+
   const Track({
     required this.id,
     required this.source,
@@ -85,6 +91,7 @@ class Track {
     this.companions = const [],
     this.hasBookInfo = false,
     this.sidecarStamp,
+    this.video,
   });
 
   /// True for files on this device.
@@ -125,6 +132,7 @@ class Track {
         companions: companions,
         hasBookInfo: hasBookInfo,
         sidecarStamp: sidecarStamp,
+        video: video,
       );
 
   /// For library.json. Empty/unset fields are left out to keep the file small.
@@ -152,6 +160,7 @@ class Track {
         if (companions.isNotEmpty) 'companions': companions,
         if (hasBookInfo) 'hasBookInfo': true,
         if (sidecarStamp != null) 'sidecarStamp': sidecarStamp,
+        if (video != null) 'video': video,
       };
 
   /// Reads a track back from library.json. Missing fields fall back to sensible defaults,
@@ -182,6 +191,7 @@ class Track {
         companions: (j['companions'] as List? ?? const []).cast<String>(),
         hasBookInfo: (j['hasBookInfo'] as bool?) ?? false,
         sidecarStamp: j['sidecarStamp'] as int?,
+        video: j['video'] as String?,
       );
 
   // Tracks are equal when their ids match, so lists and sets treat an edited copy as the

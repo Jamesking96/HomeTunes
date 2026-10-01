@@ -15,6 +15,7 @@ import 'package:path/path.dart' as p;
 
 import '../models/track.dart';
 import 'book_sidecar.dart';
+import 'music_video.dart';
 
 /// Extensions the scanner picks up.
 const audioExtensions = {'.mp3', '.flac', '.m4a', '.m4b', '.mp4', '.aac', '.ogg', '.opus', '.wav'};
@@ -29,9 +30,12 @@ class LocalScanner {
 
   LocalScanner(this.artDir);
 
-  /// Lists every audio file under [folders].
-  Future<List<String>> findAudioFiles(List<String> folders) =>
+  /// Lists every song file under [folders], and each song's music video (see music_video.dart).
+  Future<({List<String> songs, Map<String, String> videos})> findFiles(List<String> folders) =>
       Isolate.run(_ListJob(List.of(folders)).run);
+
+  /// Lists every song file under [folders]. A video beside a song with the same name isn't one.
+  Future<List<String>> findAudioFiles(List<String> folders) async => (await findFiles(folders)).songs;
 
   /// Scans [folders]. Tracks in [previous] whose file hasn't changed are reused
   /// without re-reading tags. [onProgress] gets (done, total).
@@ -41,7 +45,9 @@ class LocalScanner {
     void Function(int done, int total)? onProgress,
   }) async {
     // 1. Find every audio file (sorted by path, so albums stay together).
-    final files = await findAudioFiles(folders);
+    // Videos beside songs are left out of the list and given to their songs instead (0.1.40).
+    final found = await findFiles(folders);
+    final files = found.songs;
     // 2. Cut the list into batches. A local copy of artDir is taken so the isolate job
     //    doesn't need to capture `this`.
     final artDir = this.artDir;
@@ -65,7 +71,8 @@ class LocalScanner {
           for (final f in batch)
             if (previous['local:$f'] != null) f: previous['local:$f']!.toJson(),
         };
-        final jsonList = await Isolate.run(_BatchJob(batch, prevJson, artDir).run);  // sent as JSON
+        final videos = {for (final f in batch) if (found.videos[f] != null) f: found.videos[f]!};
+        final jsonList = await Isolate.run(_BatchJob(batch, prevJson, artDir, videos).run);  // sent as JSON
         results[i] = [for (final j in jsonList) Track.fromJson(j)];
         done += batch.length;
         onProgress?.call(done, files.length);
@@ -109,7 +116,7 @@ class _ListJob {
   final List<String> folders;
   _ListJob(this.folders);
 
-  List<String> run() {
+  ({List<String> songs, Map<String, String> videos}) run() {
     final out = <String>[];
     final seen = <String>{};
     final pending = [for (final f in folders) Directory(f)];
@@ -126,15 +133,19 @@ class _ListJob {
       for (final e in entries) {
         if (e is Directory) {
           pending.add(e);
-        } else if (e is File && audioExtensions.contains(p.extension(e.path).toLowerCase())) {
+        } else if (e is File && _wanted.contains(p.extension(e.path).toLowerCase())) {
           if (seen.add(e.path)) out.add(e.path); // overlapping folders: count once
         }
       }
     }
     // Sorted so the batches, and the library's first view, follow folder order.
     out.sort();
-    return out;
+    // Pair songs with their videos; a video beside a song isn't a song itself.
+    return pairMusicVideos(out, songExtensions: audioExtensions);
   }
+
+  /// Song files, plus video files that may belong to a song.
+  static final _wanted = {...audioExtensions, ...videoExtensions};
 }
 
 /// Self-contained job sent to a background isolate.
@@ -142,8 +153,10 @@ class _BatchJob {
   final List<String> files;
   final Map<String, Map<String, dynamic>> previous;
   final String artDir;
-  _BatchJob(this.files, this.previous, this.artDir);
-  List<Map<String, dynamic>> run() => _scanBatch(files, previous, artDir);
+  /// Each song's music video, by song file (only songs that have one).
+  final Map<String, String> videos;
+  _BatchJob(this.files, this.previous, this.artDir, [this.videos = const {}]);
+  List<Map<String, dynamic>> run() => _scanBatch(files, previous, artDir, videos);
 }
 
 /// Reads one batch of files inside a background isolate. Works with JSON maps rather than
@@ -151,8 +164,9 @@ class _BatchJob {
 List<Map<String, dynamic>> _scanBatch(
   List<String> files,
   Map<String, Map<String, dynamic>> previous,
-  String artDir,
-) {
+  String artDir, [
+  Map<String, String> videos = const {},
+]) {
   final out = <Map<String, dynamic>>[];
   // Remembers each folder's file list, so looking for side files doesn't list the same
   // folder again for every file in it.
@@ -165,13 +179,29 @@ List<Map<String, dynamic>> _scanBatch(
       final prev = previous[path];
       // Unchanged file, and no extra files added, removed or changed beside it.
       if (prev != null && prev['modifiedMs'] == modified && prev['sidecarStamp'] == stamp) {
-        out.add(prev);
+        out.add(_withVideo(prev, path, videos[path]));
         continue;
       }
-      out.add(readTrack(path, modified, artDir, sidecars: sidecars).toJson());
+      out.add(_withVideo(readTrack(path, modified, artDir, sidecars: sidecars).toJson(), path, videos[path]));
     } catch (_) {
       // File vanished mid-scan: ignore it.
     }
+  }
+  return out;
+}
+
+/// Sets a scanned song's music video (0.1.40): the video beside it, or for an .mp4 on its own,
+/// the file itself when it has moving pictures. Worked out on every scan, so a video added or
+/// removed beside an unchanged song is noticed.
+Map<String, dynamic> _withVideo(Map<String, dynamic> json, String path, String? besideIt) {
+  final own = besideIt == null && videoExtensions.contains(p.extension(path).toLowerCase()) && mp4HasVideo(path);
+  final video = besideIt ?? (own ? path : null);
+  if (json['video'] == video) return json;
+  final out = Map<String, dynamic>.of(json);
+  if (video == null) {
+    out.remove('video');
+  } else {
+    out['video'] = video;
   }
   return out;
 }

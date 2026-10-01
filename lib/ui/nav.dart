@@ -1,6 +1,6 @@
 // App navigation: which tab is showing, and how pages open inside it.
 //
-// Each of the five tabs (Home, Search, Library, Books, Settings) has its own Navigator, so
+// Each of the six tabs (Home, Search, Library, Books, Videos, Settings) has its own Navigator, so
 // opening an album on the Library tab and then switching to Books and back keeps your place.
 // Pages open inside the content area only, so the player bar / mini player never moves.
 // Created once in main.dart and provided to the whole app; Shell builds the Navigators using
@@ -10,18 +10,22 @@ import 'package:flutter/material.dart';
 import '../models/book.dart';
 import '../models/playlist.dart';
 import '../models/track.dart';
+import '../models/video_item.dart';
 import 'screens/album_screen.dart';
 import 'screens/artist_screen.dart';
 import 'screens/book_screen.dart';
 import 'screens/playlist_screen.dart';
+import 'screens/video_collection_screen.dart';
+import 'screens/video_player_screen.dart';
 
 /// Keeps one Navigator per tab so album/artist pages open inside the content
 /// area while the player bar stays put.
 class AppNav extends ChangeNotifier {
-  static const tabCount = 5; // Home, Search, Library, Books, Settings
+  static const tabCount = 6; // Home, Search, Library, Books, Videos, Settings
   static const libraryTab = 2;
   static const booksTab = 3;
-  static const settingsTab = 4;
+  static const videosTab = 4; // 0.1.40
+  static const settingsTab = 5;
   /// One key per tab, so we can reach each tab's Navigator from outside the widget tree.
   final List<GlobalKey<NavigatorState>> keys = List.generate(tabCount, (_) => GlobalKey<NavigatorState>());
   /// The tab currently showing (0 = Home).
@@ -39,6 +43,36 @@ class AppNav extends ChangeNotifier {
       tab = i;
       notifyListeners();
     }
+  }
+
+  /// Shows tab [i] as it is, without going back to its first page when it's already showing
+  /// (1 Oct: "Go to the video" used [selectTab], which closed the video page it was going to).
+  void showTab(int i) {
+    if (i == tab) return;
+    tab = i;
+    notifyListeners();
+  }
+
+  // A "please show this view" note for a tab's first page (1 Oct: the sidebar's Favourite
+  // audiobooks and Favourite videos). The page picks it up with [takeView].
+  String? _viewRequest;
+  String? get viewRequest => _viewRequest;
+
+  static const favouriteBooksView = 'favourite-books', favouriteVideosView = 'favourite-videos';
+
+  /// Goes to tab [i]'s first page and asks it to show [view].
+  void openView(int i, String view) {
+    tab = i;
+    keys[i].currentState?.popUntil((r) => r.isFirst);
+    _viewRequest = view;
+    notifyListeners();
+  }
+
+  /// True (once) when [view] was asked for.
+  bool takeView(String view) {
+    if (_viewRequest != view) return false;
+    _viewRequest = null;
+    return true;
   }
 
   // A "please open this settings page" note left by openSettings, waiting for the Settings
@@ -78,5 +112,23 @@ class AppNav extends ChangeNotifier {
     }
     // The Books tab's navigator may not exist until the tab is shown.
     WidgetsBinding.instance.addPostFrameCallback((_) => push(BookScreen(bookId: b.id)));
+  }
+
+  /// Opens a video collection's page on the Videos tab (0.1.40).
+  void openVideoCollection(String name) {
+    if (tab != videosTab) {
+      tab = videosTab;
+      notifyListeners();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => push(VideoCollectionScreen(name: name)));
+  }
+
+  /// Opens a video's player page on the Videos tab (0.1.40).
+  void openVideo(VideoItem v) {
+    if (tab != videosTab) {
+      tab = videosTab;
+      notifyListeners();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => push(VideoPlayerScreen(videoId: v.id)));
   }
 }

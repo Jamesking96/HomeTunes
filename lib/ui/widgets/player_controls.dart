@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../state/library_model.dart';
+import '../../state/now_watching.dart';
 import '../../state/play_queue.dart';
 import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
@@ -20,6 +21,8 @@ import '../screens/queue_screen.dart';
 import '../theme.dart';
 import 'artwork.dart';
 import 'listening_controls.dart';
+import 'video_now_playing.dart';
+import 'wheel_seek.dart';
 
 /// Seek bar with elapsed / total times. Rebuilds from the position stream only.
 class SeekBar extends StatefulWidget {
@@ -38,6 +41,17 @@ class _SeekBarState extends State<SeekBar> {
   Widget build(BuildContext context) {
     final player = context.watch<PlayerModel>();
     final total = player.duration; // the length of the file playing now
+    // The mouse wheel over the bar skips 5 s back / forward (30 Sep).
+    return WheelSeek(
+      enabled: total > Duration.zero,
+      position: () => context.read<PlayerModel>().position,
+      duration: () => context.read<PlayerModel>().duration,
+      onSeek: (to) => context.read<PlayerModel>().seek(to),
+      child: _bar(player, total),
+    );
+  }
+
+  Widget _bar(PlayerModel player, Duration total) {
     // The position arrives many times a second; only this StreamBuilder redraws for it.
     return StreamBuilder<Duration>(
       stream: player.positionStream,
@@ -228,6 +242,8 @@ class MiniPlayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A video is what's playing: the mini player shows it (30 Sep).
+    if (context.watch<NowWatching?>()?.inFront ?? false) return const VideoMiniPlayer();
     final p = context.watch<PlayerModel>();
     final t = p.current;
     // Nothing loaded: no mini player at all.
@@ -370,6 +386,8 @@ class DesktopPlayerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A video is what's playing: the bar shows it (30 Sep).
+    if (context.watch<NowWatching?>()?.inFront ?? false) return const VideoPlayerBar();
     final p = context.watch<PlayerModel>();
     final t = p.current;
     return Container(

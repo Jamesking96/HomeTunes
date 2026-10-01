@@ -31,11 +31,19 @@ Write-Host "HomeTunes $version" -ForegroundColor Cyan
 # 1. Build
 if (-not $SkipBuild) {
     Write-Host "Building Windows release..." -ForegroundColor Cyan
-    flutter build windows --release
+    # --no-tree-shake-icons (30 Sep): the icon tree shaker left out icons used in the video
+    # screens (skip, speed, subtitles buttons came out blank). Keeping the whole icon font costs
+    # ~1.6 MB; tool\check_icons.py checks every icon used is in the built font.
+    flutter build windows --release --no-tree-shake-icons
     if ($LASTEXITCODE -ne 0) { throw "flutter build windows failed" }
 }
 $release = Join-Path $root 'build\windows\x64\runner\Release'
 if (-not (Test-Path (Join-Path $release 'hometunes.exe'))) { throw "No build found in $release" }
+# Every icon the app uses must be in the built icon font (blank buttons otherwise).
+if (Get-Command python -ErrorAction SilentlyContinue) {
+    python (Join-Path $root 'tool\check_icons.py')
+    if ($LASTEXITCODE -ne 0) { throw "Some icons are missing from the build's icon font (see above)" }
+}
 
 # 2. Visual C++ runtime next to the exe, so it runs on PCs without the VC++ Redistributable
 foreach ($dll in 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') {
@@ -95,7 +103,7 @@ if ($Android) {
     New-Item -ItemType Directory -Force 'C:\Temp\ht' | Out-Null
     $env:JAVA_TOOL_OPTIONS = '-Djdk.net.unixdomain.tmpdir=C:\Temp\ht'
     $env:GRADLE_OPTS = $env:JAVA_TOOL_OPTIONS
-    flutter build apk --release
+    flutter build apk --release --no-tree-shake-icons  # see the Windows build above
     if ($LASTEXITCODE -ne 0) { throw "flutter build apk failed" }
     $apk = Join-Path $dist "HomeTunes-$version-android.apk"
     Copy-Item (Join-Path $root 'build\app\outputs\flutter-apk\app-release.apk') $apk -Force

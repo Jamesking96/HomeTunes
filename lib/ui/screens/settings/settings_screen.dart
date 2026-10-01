@@ -18,12 +18,14 @@ import 'audiobook_settings.dart';
 import 'backup_settings.dart';
 import 'edits_settings.dart';
 import 'library_settings.dart';
+import 'music_settings.dart';
 import 'online_settings.dart';
 import 'playback_settings.dart';
 import 'server_settings.dart';
 import 'settings_catalog.dart';
 import 'settings_widgets.dart';
 import 'sleep_settings.dart';
+import 'video_settings.dart';
 
 /// The contents of one settings page.
 Widget settingsPageBody(SettingsPage page) => switch (page) {
@@ -37,6 +39,8 @@ Widget settingsPageBody(SettingsPage page) => switch (page) {
       SettingsPage.backup => const BackupSettings(),
       SettingsPage.appearance => const AppearanceSettings(),
       SettingsPage.about => const AboutSettings(),
+      SettingsPage.videos => const VideoSettings(),
+      SettingsPage.music => const MusicSettings(),
     };
 
 /// Settings: a list of pages with a search box. Wide windows show the list and

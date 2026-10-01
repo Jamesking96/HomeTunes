@@ -6,7 +6,7 @@ publish_to: 'none'
 # Format is <version>+<build number>: "0.1.9" is the human version (major.minor.patch);
 # "+9" is the build number, which Android uses to tell newer installs from older ones, so it
 # must go up with every release. tool/build_release.ps1 reads this line.
-version: 0.1.31+31
+version: 0.1.40+40
 
 # Minimum Dart and Flutter versions needed to build HomeTunes.
 environment:
@@ -22,8 +22,12 @@ dependencies:
 
   # Playback on Windows, macOS, Linux, Android and iOS (local files + http streams)
   media_kit: ^1.2.6
-  # The native audio engine (libmpv) for each platform, audio-only build (no video parts).
-  media_kit_libs_audio: ^1.0.7
+  # The native engine (libmpv) for each platform. Since 0.1.32 this is the video build (it was
+  # media_kit_libs_audio), so a song's music video can play on Now Playing. The main player
+  # still decodes audio only (vid=no in PlayerModel); only the muted video display draws pictures.
+  media_kit_libs_video: ^1.0.7
+  # Draws the music video (the Video widget and its controller) - see ui/widgets/music_video_view.dart.
+  media_kit_video: ^2.0.1
 
   # Reading tags + embedded album art (pure Dart, all platforms).
   # Local patched copy: keeps lyrics, ReplayGain etc. when tags are written
@@ -64,6 +68,8 @@ dependencies:
   flutter_secure_storage: ^11.2.0
   # package_info_plus: reads the app's own version number for the About page.
   package_info_plus: ^10.2.1
+  # image: shrinks a video's thumbnail to a small JPEG (Videos tab, 0.1.32; pure Dart, MIT).
+  image: ^4.10.1
 
 # Only needed while developing: the test framework and the recommended lint rules.
 dev_dependencies:
@@ -79,3 +85,4 @@ flutter:
   assets:
     - licenses/LGPL-3.0.txt
     - licenses/GPL-3.0.txt
+    - licenses/ENGINE-COMPONENTS.txt

@@ -46,6 +46,16 @@ class OnlineLookupSettings extends StatelessWidget {
         value: lib.onlineLyrics,
         onChanged: lib.setOnlineLyrics,
       )),
+      SettingTarget('online-video-art', child: SwitchListTile(
+        title: const Text('Find video pictures online'),
+        subtitle: const Text(
+          'Offer "Search online" when changing a video\'s picture or a collection\'s poster: posters, '
+          'stills and banners from TVmaze, AniList and Wikipedia. Only the name you search for (and a '
+          'season and episode number) is sent, and only when you search.',
+        ),
+        value: lib.onlineVideoArt,
+        onChanged: lib.setOnlineVideoArt,
+      )),
       ],
     );
   }

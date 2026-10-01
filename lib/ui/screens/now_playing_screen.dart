@@ -4,18 +4,25 @@
 // the transport buttons, the volume slider and a row of extras. Songs get Like, Lyrics and Queue buttons; books get
 // Bookmark, Speed, Chapters, Bookmarks and (if music is waiting) "Back to music".
 // Lyrics replace the cover on narrow screens and sit in a side panel on windows ≥900 px wide.
+// A song with a music video (0.1.40) shows the video, muted and in step with the song, in place
+// of the cover (MusicVideoView) — straight away, or when the video button beside Lyrics is
+// pressed if Settings › Music › "Play music videos automatically" is off. The button switches
+// between the video and the cover for the song playing.
 // Everything comes from PlayerModel, which this page watches.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../nav.dart';
 import '../theme.dart';
+import '../../models/track.dart';
+import '../../state/library_model.dart';
 import '../../state/player_model.dart';
 import 'equalizer_screen.dart';
 import '../widgets/artwork.dart';
 import '../widgets/bookmark_widgets.dart';
 import '../widgets/listening_controls.dart';
 import '../widgets/lyrics_view.dart';
+import '../widgets/music_video_view.dart';
 import '../widgets/player_controls.dart';
 import '../widgets/track_tile.dart';
 
@@ -29,6 +36,9 @@ class NowPlayingScreen extends StatefulWidget {
   /// Whether lyrics were showing when Now Playing was last closed.
   static bool lyricsWereOpen = false;
 
+  /// Whether the music video was enlarged when Now Playing was last closed (this session only).
+  static bool videoWasEnlarged = false;
+
   @override
   State<NowPlayingScreen> createState() => _NowPlayingScreenState();
 }
@@ -41,6 +51,29 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
   void _toggleLyrics() {
     setState(() => _lyrics = !_lyrics);
     NowPlayingScreen.lyricsWereOpen = _lyrics;
+  }
+
+  // The playing song's music video file, looked up once per song (it checks the disk).
+  String? _videoKey;
+  String? _videoFile;
+
+  /// The video button's choice (video or cover), and the song it was made for.
+  String? _videoChoiceFor;
+  bool _videoChoice = false;
+
+  /// The music video fills the middle of the page (and the lyrics panel steps aside).
+  bool _bigVideo = NowPlayingScreen.videoWasEnlarged;
+  void _toggleBigVideo() {
+    setState(() => _bigVideo = !_bigVideo);
+    NowPlayingScreen.videoWasEnlarged = _bigVideo;
+  }
+  String? _videoOf(Track t) {
+    final key = '${t.id}\u0000${t.video}';
+    if (key != _videoKey) {
+      _videoKey = key;
+      _videoFile = context.read<LibraryModel>().videoFileFor(t);
+    }
+    return _videoFile;
   }
 
   @override
@@ -61,6 +94,17 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     final wide = size.width >= 900;
     // Keyed by song id so the lyrics view starts fresh (and loads new lyrics) on each song change.
     final lyricsPanel = LyricsView(key: ValueKey(t.id), track: t);
+    // Music video (0.1.40): songs only, and only while the setting / video button is on.
+    final videoFile = book == null ? _videoOf(t) : null;
+    final videosOn = context.select<LibraryModel, bool>((l) => l.showMusicVideos);
+    final autoPlay = context.select<LibraryModel, bool>((l) => l.autoPlayMusicVideos);
+    // Settings › Music: play it straight away, or only when the video button is pressed. The
+    // button's choice lasts for this song.
+    final showVideo = videosOn && (_videoChoiceFor == t.id ? _videoChoice : autoPlay);
+    final cover = Artwork(track: t, size: artSize, radius: 8);
+    final videoShown = videoFile != null && showVideo;
+    // Enlarged: as big as the middle of the page allows (the lyrics panel steps aside).
+    final big = videoShown && _bigVideo;
 
     return Scaffold(
       // Background: a soft wash of the accent colour fading into the normal background.
@@ -113,8 +157,22 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                           color: Colors.transparent,
                           alignment: Alignment.center,
                           child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Artwork(track: t, size: artSize, radius: 8),
+                            padding: EdgeInsets.all(big ? 8 : 24),
+                            child: videoShown
+                                // Wider than the cover, as videos are, but not across a whole big
+                                // window unless it's been enlarged.
+                                ? ConstrainedBox(
+                                    constraints: big
+                                        ? const BoxConstraints()
+                                        : BoxConstraints(maxWidth: (artSize * 16 / 9).clamp(artSize, 960.0)),
+                                    child: MusicVideoView(
+                                      file: videoFile,
+                                      fallback: cover,
+                                      enlarged: big,
+                                      onToggleEnlarge: _toggleBigVideo,
+                                    ),
+                                  )
+                                : cover,
                           ),
                         ),
                       ),
@@ -217,6 +275,18 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                           label: const Text('Back to music'),
                           onPressed: p.resumeMusic,
                         ),
+                      // Songs with a music video: switch between the video and the cover (0.1.40),
+                      // for this song. Settings › Music says whether videos start by themselves.
+                      if (videoFile != null && videosOn)
+                        IconButton(
+                          key: const ValueKey('music-video-button'),
+                          tooltip: showVideo ? 'Show the cover' : 'Play the music video',
+                          icon: Icon(showVideo ? Icons.music_video : Icons.music_video_outlined, color: showVideo ? accent : null),
+                          onPressed: () => setState(() {
+                            _videoChoiceFor = t.id;
+                            _videoChoice = !showVideo;
+                          }),
+                        ),
                       if (book == null)
                         IconButton(
                           tooltip: lyrics ? 'Hide lyrics' : 'Lyrics',
@@ -236,7 +306,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
               ),
             ])),
             // Right-hand lyrics panel on wide windows.
-            if (lyrics && wide)
+            if (lyrics && wide && !big)
               Container(
                 width: (size.width * 0.42).clamp(360.0, 620.0),
                 margin: const EdgeInsets.fromLTRB(0, 16, 16, 16),

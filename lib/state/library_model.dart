@@ -18,9 +18,12 @@ import 'package:path/path.dart' as p;
 import '../models/book.dart';
 import '../models/track.dart';
 import '../models/track_edit.dart';
+import '../models/video_item.dart' show PictureShape;
+import '../models/video_player_look.dart';
 import '../services/app_backup.dart';
 import '../services/local_scanner.dart';
 import '../services/music_permission.dart';
+import '../services/music_video.dart';
 import '../services/path_safety.dart';
 import '../services/secret_store.dart';
 import '../services/server_art_cache.dart';
@@ -116,6 +119,10 @@ class LibraryModel extends ChangeNotifier {
   /// Look up lyrics on LRCLIB when a song has none of its own.
   bool onlineLyrics = true;
 
+  /// Offer "Search online" for video pictures and collection posters (TVmaze, AniList,
+  /// Wikipedia; 0.1.40).
+  bool onlineVideoArt = true;
+
   /// Audiobooks on the music server show in the Books tab (Settings › Servers).
   bool serverBooks = true;
 
@@ -130,6 +137,20 @@ class LibraryModel extends ChangeNotifier {
   /// Swipe the player left or right (touch screens) to go to the next or previous song, or to
   /// skip forward or back in an audiobook (0.1.17).
   bool swipeToSkip = true;
+
+  /// Now Playing can show a song's music video in place of its cover, when it has one (0.1.40).
+  /// Off: no videos and no video button (Settings › Music).
+  bool showMusicVideos = true;
+
+  /// The music video starts by itself when a song with one plays. Off: the cover shows until
+  /// the video button on Now Playing is pressed (for that song).
+  bool autoPlayMusicVideos = true;
+
+  /// The computer's left-hand sidebar (1 Oct): how wide it's been dragged, and whether it's
+  /// folded down to its icons.
+  double sidebarWidth = 250;
+  bool sidebarFolded = false;
+  static const sidebarMinWidth = 180.0, sidebarMaxWidth = 420.0;
 
   /// Settings › Appearance: the colour theme, and "Your own" colours ("#RRGGBB"). See setTheme.
   String themeId = 'default';
@@ -148,6 +169,10 @@ class LibraryModel extends ChangeNotifier {
   /// Folders where everything is an audiobook (scanned as well as [folders]).
   List<String> audiobookFolders = [];
 
+  /// Folders for the Videos tab (0.1.40). Scanned by VideoLibraryModel, not by the music scan.
+  /// An .mp4 inside one is a video, not a song (unless it's the music video beside a song).
+  List<String> videoFolders = [];
+
   /// Genres that mark a file as an audiobook.
   List<String> bookGenres = List.of(defaultBookGenres);
 
@@ -163,6 +188,25 @@ class LibraryModel extends ChangeNotifier {
 
   /// Speed for books that haven't had one chosen.
   double defaultBookSpeed = 1.0;
+
+  // ---- video settings (Settings › Videos, 0.1.40) ----
+
+  /// Skip buttons (and ← → keys) while a video plays (seconds).
+  int videoSkipBackSeconds = 10;
+  int videoSkipForwardSeconds = 10;
+
+  /// Speed for collections that haven't had one chosen (each remembers its own).
+  double defaultVideoSpeed = 1.0;
+
+  /// Go back a few seconds when carrying on with a video.
+  bool videoRewindOnResume = true;
+
+  /// The usual picture shape for videos and for collections (each can have its own).
+  PictureShape videoPictureShape = PictureShape.wide;
+  PictureShape collectionPictureShape = PictureShape.wide;
+
+  /// How the video player's buttons look (Settings › Appearance › Video player).
+  VideoPlayerLook videoPlayerLook = VideoPlayerLook.standard;
 
   /// Show the sleep timer button beside play/pause.
   bool sleepButtonShown = true;
@@ -331,17 +375,30 @@ class LibraryModel extends ChangeNotifier {
     onlineCovers = true;
     onlineDetails = true;
     onlineLyrics = true;
+    onlineVideoArt = true;
     serverBooks = true;
     gaplessPlayback = true;
     replayGain = ReplayGainMode.off;
     swipeToSkip = true;
+    showMusicVideos = true;
+    autoPlayMusicVideos = true;
+    sidebarWidth = 250;
+    sidebarFolded = false;
     audiobookFolders = [];
+    videoFolders = [];
     bookGenres = List.of(defaultBookGenres);
     bookCoversTall = false;
     skipBackSeconds = 15;
     skipForwardSeconds = 30;
     rewindOnResume = true;
     defaultBookSpeed = 1.0;
+    videoSkipBackSeconds = 10;
+    videoSkipForwardSeconds = 10;
+    defaultVideoSpeed = 1.0;
+    videoRewindOnResume = true;
+    videoPictureShape = PictureShape.wide;
+    collectionPictureShape = PictureShape.wide;
+    videoPlayerLook = VideoPlayerLook.standard;
     sleepButtonShown = true;
     sleepBookMinutes = 30;
     sleepMusicMinutes = 30;
@@ -381,17 +438,30 @@ class LibraryModel extends ChangeNotifier {
       onlineCovers = s.get('onlineCovers', true);
       onlineDetails = s.get('onlineDetails', true);
       onlineLyrics = s.get('onlineLyrics', true);
+      onlineVideoArt = s.get('onlineVideoArt', true);
       serverBooks = s.get('serverBooks', true);
       gaplessPlayback = s.get('gaplessPlayback', true);
       replayGain = ReplayGainMode.values.asNameMap()[raw['replayGain']] ?? ReplayGainMode.off;
       swipeToSkip = s.get('swipeToSkip', true);
+      showMusicVideos = s.get('showMusicVideos', true);
+      autoPlayMusicVideos = s.get('autoPlayMusicVideos', true);
+      sidebarWidth = s.number('sidebarWidth', 250).clamp(sidebarMinWidth, sidebarMaxWidth).toDouble();
+      sidebarFolded = s.get('sidebarFolded', false);
       audiobookFolders = s.strings('audiobookFolders') ?? [];
+      videoFolders = s.strings('videoFolders') ?? [];
       bookGenres = s.strings('bookGenres') ?? List.of(defaultBookGenres);
       bookCoversTall = s.get('bookCoversTall', false);
       skipBackSeconds = s.integer('skipBackSeconds', 15);
       skipForwardSeconds = s.integer('skipForwardSeconds', 30);
       rewindOnResume = s.get('rewindOnResume', true);
       defaultBookSpeed = s.number('defaultBookSpeed', 1.0);
+      videoSkipBackSeconds = s.integer('videoSkipBackSeconds', 10);
+      videoSkipForwardSeconds = s.integer('videoSkipForwardSeconds', 10);
+      defaultVideoSpeed = s.number('defaultVideoSpeed', 1.0);
+      videoRewindOnResume = s.get('videoRewindOnResume', true);
+      videoPictureShape = PictureShape.byName(raw['videoPictureShape']) ?? PictureShape.wide;
+      collectionPictureShape = PictureShape.byName(raw['collectionPictureShape']) ?? PictureShape.wide;
+      videoPlayerLook = VideoPlayerLook.fromJson(raw['videoPlayerLook']);
       sleepButtonShown = s.get('sleepButtonShown', true);
       sleepBookMinutes = s.integer('sleepBookMinutes', 30);
       sleepMusicMinutes = s.integer('sleepMusicMinutes', 30);
@@ -525,17 +595,30 @@ class LibraryModel extends ChangeNotifier {
         'onlineCovers': onlineCovers,
         'onlineDetails': onlineDetails,
         'onlineLyrics': onlineLyrics,
+        'onlineVideoArt': onlineVideoArt,
         'serverBooks': serverBooks,
         'gaplessPlayback': gaplessPlayback,
         'replayGain': replayGain.name,
         'swipeToSkip': swipeToSkip,
+        'showMusicVideos': showMusicVideos,
+        'autoPlayMusicVideos': autoPlayMusicVideos,
+        'sidebarWidth': sidebarWidth,
+        'sidebarFolded': sidebarFolded,
         'audiobookFolders': audiobookFolders,
+        'videoFolders': videoFolders,
         'bookGenres': bookGenres,
         'bookCoversTall': bookCoversTall,
         'skipBackSeconds': skipBackSeconds,
         'skipForwardSeconds': skipForwardSeconds,
         'rewindOnResume': rewindOnResume,
         'defaultBookSpeed': defaultBookSpeed,
+        'videoSkipBackSeconds': videoSkipBackSeconds,
+        'videoSkipForwardSeconds': videoSkipForwardSeconds,
+        'defaultVideoSpeed': defaultVideoSpeed,
+        'videoRewindOnResume': videoRewindOnResume,
+        'videoPictureShape': videoPictureShape.name,
+        'collectionPictureShape': collectionPictureShape.name,
+        'videoPlayerLook': videoPlayerLook.toJson(),
         'sleepButtonShown': sleepButtonShown,
         'sleepBookMinutes': sleepBookMinutes,
         'sleepMusicMinutes': sleepMusicMinutes,
@@ -629,6 +712,12 @@ class LibraryModel extends ChangeNotifier {
     await _saveSettings();
   }
 
+  Future<void> setOnlineVideoArt(bool on) async {
+    onlineVideoArt = on;
+    notifyListeners();
+    await _saveSettings();
+  }
+
   /// Shows or leaves out the audiobooks found on the music server.
   Future<void> setServerBooks(bool on) async {
     serverBooks = on;
@@ -668,7 +757,8 @@ class LibraryModel extends ChangeNotifier {
     //    File types switched off in a folder's options are left out (0.1.27); they stay in
     //    _local so the folder still knows which types it has.
     final raw = [
-      if (hiddenFormats.isEmpty) ..._local else for (final t in _local) if (!_formatHidden(t)) t,
+      // (0.1.40) An .mp4 in a video folder is a video for the Videos tab, not a song.
+      for (final t in _local) if (!_formatHidden(t) && !_isVideoFolderFile(t)) t,
       if (serverEnabled) ..._remote,
     ];
     _rawById = {for (final t in raw) t.id: t};
@@ -753,11 +843,27 @@ class LibraryModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The sidebar's width (kept between [sidebarMinWidth] and [sidebarMaxWidth]) and folded state.
+  Future<void> setSidebar({double? width, bool? folded}) async {
+    if (width != null) sidebarWidth = width.clamp(sidebarMinWidth, sidebarMaxWidth).toDouble();
+    if (folded != null) sidebarFolded = folded;
+    notifyListeners();
+    await _saveSettings();
+  }
+
   /// Changes the playback settings (Settings > Playback).
-  Future<void> updatePlaybackSettings({bool? gaplessPlayback, ReplayGainMode? replayGain, bool? swipeToSkip}) async {
+  Future<void> updatePlaybackSettings({
+    bool? gaplessPlayback,
+    ReplayGainMode? replayGain,
+    bool? swipeToSkip,
+    bool? showMusicVideos,
+    bool? autoPlayMusicVideos,
+  }) async {
     this.gaplessPlayback = gaplessPlayback ?? this.gaplessPlayback;
     this.replayGain = replayGain ?? this.replayGain;
     this.swipeToSkip = swipeToSkip ?? this.swipeToSkip;
+    this.showMusicVideos = showMusicVideos ?? this.showMusicVideos;
+    this.autoPlayMusicVideos = autoPlayMusicVideos ?? this.autoPlayMusicVideos;
     notifyListeners();
     await _saveSettings();
   }
@@ -785,6 +891,33 @@ class LibraryModel extends ChangeNotifier {
     await _saveSettings();
   }
 
+  /// Changes any of the video settings (Settings › Videos).
+  Future<void> updateVideoSettings({
+    int? skipBackSeconds,
+    int? skipForwardSeconds,
+    double? defaultSpeed,
+    bool? rewindOnResume,
+    PictureShape? videoShape,
+    PictureShape? collectionShape,
+  }) async {
+    videoSkipBackSeconds = skipBackSeconds ?? videoSkipBackSeconds;
+    videoSkipForwardSeconds = skipForwardSeconds ?? videoSkipForwardSeconds;
+    defaultVideoSpeed = defaultSpeed ?? defaultVideoSpeed;
+    videoRewindOnResume = rewindOnResume ?? videoRewindOnResume;
+    videoPictureShape = videoShape ?? videoPictureShape;
+    collectionPictureShape = collectionShape ?? collectionPictureShape;
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Changes how the video player's buttons look (Settings › Appearance › Video player).
+  Future<void> setVideoPlayerLook(VideoPlayerLook look) async {
+    if (look == videoPlayerLook) return;
+    videoPlayerLook = look;
+    notifyListeners();
+    await _saveSettings();
+  }
+
   /// "Move to Books" (true), "Move to Music" (false), or back to automatic (null).
   Future<void> setIsBook(Iterable<String> trackIds, bool? isBook) async {
     for (final id in trackIds) {
@@ -796,6 +929,31 @@ class LibraryModel extends ChangeNotifier {
     }
     await _saveSettings();
     _rebuild();
+  }
+
+  // ---- video folders (0.1.40) ----
+
+  /// Adds a folder for the Videos tab. VideoLibraryModel notices and scans it.
+  Future<void> addVideoFolder(String path) async {
+    if (videoFolders.contains(path)) return;
+    videoFolders = [...videoFolders, path];
+    await _saveSettings();
+    _rebuild();
+  }
+
+  /// Stops listing a video folder's videos.
+  Future<void> removeVideoFolder(String path) async {
+    videoFolders = videoFolders.where((f) => f != path).toList();
+    hiddenFormats = {...hiddenFormats}..remove(path);
+    await _saveSettings();
+    _rebuild();
+  }
+
+  /// A song file that's really a video in a video folder (an .mp4 on its own there).
+  bool _isVideoFolderFile(Track t) {
+    final path = t.path;
+    if (videoFolders.isEmpty || !t.isLocal || path == null) return false;
+    return videoExtensions.contains(p.extension(path).toLowerCase()) && videoFolders.any((f) => isInside(path, f));
   }
 
   // ---- folders ----
@@ -1551,6 +1709,15 @@ class LibraryModel extends ChangeNotifier {
     final c = _client;
     if (c == null || t.remoteId == null) return null;
     return c.streamUrl(t.remoteId!);
+  }
+
+  /// The song's music video file, if it has one that can be shown now (0.1.40): a local song,
+  /// with the video still there and inside the library folders (a restored backup could name any
+  /// path, as with [playableUri]).
+  String? videoFileFor(Track t) {
+    final v = t.video;
+    if (!t.isLocal || v == null) return null;
+    return isUsableLocalFile(v, roots: _scanFolders, extensions: videoExtensions) ? v : null;
   }
 
   /// Cover art location for the system media controls (notification, lock screen).

@@ -1,6 +1,7 @@
 // Settings › Folders & scanning (called "Library" before 0.1.26; its code name is still
 // `library`): the music folders and the audiobook folders HomeTunes reads, the Rescan button
-// (which scans both), and the list of "missing" songs (known songs whose files have gone).
+// (which scans both), the video folders for the Videos tab (0.1.40, scanned separately with
+// their own Rescan), and the list of "missing" songs (known songs whose files have gone).
 //
 // Also home to [pickFolderWithPermission] and [AudiobookFoldersSection], which the Audiobooks
 // page shows too (the same setting in both places, as the user asked on 29 Sep). On Android the
@@ -12,6 +13,7 @@ import 'package:provider/provider.dart';
 
 import '../../../services/music_permission.dart';
 import '../../../state/library_model.dart';
+import '../../../state/video_library_model.dart';
 import '../../theme.dart';
 import 'settings_widgets.dart';
 
@@ -38,32 +40,39 @@ Future<String?> pickFolderWithPermission(BuildContext context, String title) asy
 /// The small options button on each folder row (0.1.27): opens [showFolderOptions].
 class FolderOptionsButton extends StatelessWidget {
   final String folder;
-  const FolderOptionsButton({super.key, required this.folder});
+
+  /// A video folder (0.1.40): its videos are rescanned and counted by VideoLibraryModel.
+  final bool videos;
+  const FolderOptionsButton({super.key, required this.folder, this.videos = false});
 
   @override
   Widget build(BuildContext context) => IconButton(
         key: ValueKey('folder-options:$folder'),
         tooltip: 'Folder options',
         icon: const Icon(Icons.tune),
-        onPressed: () => showFolderOptions(context, folder),
+        onPressed: () => showFolderOptions(context, folder, videos: videos),
       );
 }
 
 /// A folder's options window: rescan just this folder, and choose which file types found in
-/// it are included (all are, until switched off).
-Future<void> showFolderOptions(BuildContext context, String folder) =>
-    showDialog<void>(context: context, builder: (_) => _FolderOptions(folder: folder));
+/// it are included (all are, until switched off). Music, audiobook and video folders alike.
+Future<void> showFolderOptions(BuildContext context, String folder, {bool videos = false}) =>
+    showDialog<void>(context: context, builder: (_) => _FolderOptions(folder: folder, videos: videos));
 
 class _FolderOptions extends StatelessWidget {
   final String folder;
-  const _FolderOptions({required this.folder});
+  final bool videos;
+  const _FolderOptions({required this.folder, this.videos = false});
 
   @override
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
-    final formats = lib.formatsIn(folder);
+    final video = videos ? context.watch<VideoLibraryModel>() : null;
+    final formats = video?.formatsIn(folder) ?? lib.formatsIn(folder);
     final hidden = [for (final f in formats.keys) if (!lib.formatShown(folder, f)) f];
     final isBooks = lib.audiobookFolders.contains(folder) && !lib.folders.contains(folder);
+    final what = videos ? 'videos' : (isBooks ? 'audiobook files' : 'songs');
+    final busy = video?.busy ?? lib.busy;
     String label(String f) => f.isEmpty ? '(no extension)' : f.toUpperCase();
     final summary = formats.isEmpty
         ? 'None found yet'
@@ -84,15 +93,18 @@ class _FolderOptions extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.refresh),
               title: const Text('Rescan this folder'),
-              subtitle: ValueListenableBuilder<String?>(
-                valueListenable: lib.statusText,
-                builder: (_, status, _) => Text(lib.busy
-                    ? (status ?? 'Working…')
-                    : 'Looks for new, changed and removed ${isBooks ? 'audiobook files' : 'songs'} in this folder only'),
-              ),
+              subtitle: video != null
+                  ? Text(video.busy
+                      ? (video.status ?? 'Working…')
+                      : 'Looks for new, changed and removed $what in this folder only')
+                  : ValueListenableBuilder<String?>(
+                      valueListenable: lib.statusText,
+                      builder: (_, status, _) => Text(
+                          lib.busy ? (status ?? 'Working…') : 'Looks for new, changed and removed $what in this folder only'),
+                    ),
               trailing: FilledButton(
                 key: const ValueKey('rescan-folder'),
-                onPressed: lib.busy ? null : () => lib.scanFolder(folder),
+                onPressed: busy ? null : () => video != null ? video.scanFolder(folder) : lib.scanFolder(folder),
                 child: const Text('Rescan'),
               ),
             ),
@@ -120,7 +132,9 @@ class _FolderOptions extends StatelessWidget {
                       contentPadding: EdgeInsets.zero,
                       controlAffinity: ListTileControlAffinity.leading,
                       title: Text(label(e.key)),
-                      subtitle: Text('${e.value} file${e.value == 1 ? '' : 's'}'),
+                      subtitle: Text(videos
+                          ? '${e.value} video${e.value == 1 ? '' : 's'}'
+                          : '${e.value} file${e.value == 1 ? '' : 's'}'),
                       value: lib.formatShown(folder, e.key),
                       onChanged: (on) => lib.setFormatShown(folder, e.key, on ?? true),
                     ),
@@ -128,8 +142,11 @@ class _FolderOptions extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
-                        'Unticked types are left out of your library straight away. Nothing is deleted, '
-                        'and ticking them again brings them back.',
+                        videos
+                            ? 'Unticked types are left out of the Videos tab straight away. Nothing is deleted, '
+                                'and ticking them again brings them back with their places and edits.'
+                            : 'Unticked types are left out of your library straight away. Nothing is deleted, '
+                                'and ticking them again brings them back.',
                         style: TextStyle(color: AppColors.textDim, fontSize: 12),
                       ),
                     ),
@@ -201,6 +218,81 @@ class AudiobookFoldersSection extends StatelessWidget {
               style: TextStyle(color: AppColors.textDim)),
         ]),
       ),
+    ]);
+  }
+}
+
+/// The video folders for the Videos tab (0.1.40), with Add, Rescan and a count. The folders are
+/// a setting in LibraryModel; VideoLibraryModel scans them.
+class VideoFoldersSection extends StatelessWidget {
+  const VideoFoldersSection({super.key});
+
+  Future<void> _addFolder(BuildContext context) async {
+    final lib = context.read<LibraryModel>();
+    final messenger = ScaffoldMessenger.of(context);
+    // Android keeps video files behind "Photos and videos", separate from "Music and audio".
+    final access = await MusicPermission.requestVideos();
+    if (access != MusicAccess.allowed) {
+      messenger.showSnackBar(const SnackBar(
+        content: Text('HomeTunes needs "Photos and videos" access to list your videos.'),
+        action: SnackBarAction(label: 'Open settings', onPressed: MusicPermission.openSettings),
+        duration: Duration(seconds: 8),
+      ));
+      return;
+    }
+    final path = await FilePicker.getDirectoryPath(dialogTitle: 'Choose a video folder');
+    if (path == null) return;
+    await lib.addVideoFolder(path);
+    messenger.showSnackBar(const SnackBar(content: Text('Looking for videos… They appear in the Videos tab.')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lib = context.watch<LibraryModel>();
+    final videos = context.watch<VideoLibraryModel>();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      for (final f in lib.videoFolders)
+        ListTile(
+          leading: const Icon(Icons.video_library_outlined),
+          title: Text(f, maxLines: 2, overflow: TextOverflow.ellipsis),
+          subtitle: videos.offlineFolders.contains(f)
+              ? const Text('Not available right now: its videos are kept as they were')
+              : null,
+          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            FolderOptionsButton(folder: f, videos: true),
+            IconButton(
+              tooltip: 'Remove folder',
+              icon: const Icon(Icons.close),
+              onPressed: videos.busy ? null : () => lib.removeVideoFolder(f),
+            ),
+          ]),
+        ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Wrap(spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          OutlinedButton.icon(
+            icon: const Icon(Icons.create_new_folder_outlined),
+            label: const Text('Add video folder'),
+            onPressed: videos.busy ? null : () => _addFolder(context),
+          ),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.refresh),
+            label: const Text('Rescan videos'),
+            onPressed: videos.busy || lib.videoFolders.isEmpty ? null : videos.scan,
+          ),
+          Text(
+            videos.busy
+                ? (videos.status ?? 'Working…')
+                : '${videos.videos.length} video${videos.videos.length == 1 ? '' : 's'}',
+            style: TextStyle(color: AppColors.textDim),
+          ),
+        ]),
+      ),
+      if (videos.error != null && !videos.busy)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Text(videos.error!, style: const TextStyle(color: Colors.orangeAccent, fontSize: 12)),
+        ),
     ]);
   }
 }
@@ -280,6 +372,12 @@ class LibrarySettings extends StatelessWidget {
             'Settings › Audiobooks. Rescan above checks these too.',
       ),
       SettingTarget('library-book-folders', child: const AudiobookFoldersSection(heading: false)),
+      const SettingsGroupTitle(
+        'Video folders',
+        'Every video in these folders shows in the Videos tab: MP4, MKV, WebM, AVI, MOV and most other video '
+            'files. An MP4 in one of these is a video, not a song. They have their own Rescan below.',
+      ),
+      SettingTarget('library-video-folders', child: const VideoFoldersSection()),
       // Only shown when there are missing songs, so it isn't in the search catalog.
       if (lib.missingTracks.isNotEmpty) _MissingSongsTile(count: lib.missingTracks.length),
     ]);

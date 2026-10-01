@@ -19,6 +19,7 @@ import '../../../state/library_model.dart';
 import '../../theme.dart';
 import 'settings_widgets.dart';
 import 'theme_sharing.dart';
+import 'video_player_look_settings.dart';
 
 /// Everything Settings › Appearance changes.
 typedef AppLook = ({AppPalette palette, double corners, double textSize});
@@ -284,6 +285,8 @@ class AppearanceSettings extends StatelessWidget {
           onChanged: (v) => lib.setLook(cornerRoundness: v),
         ),
       ),
+      // The video player's buttons: colour, size, backing and progress bar (0.1.40).
+      const VideoPlayerLookSettings(),
       const SizedBox(height: 16),
     ]);
   }

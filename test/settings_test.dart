@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/track.dart';
 import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/equalizer_model.dart';
+import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/update_model.dart';
 import 'package:hometunes/ui/nav.dart';
@@ -44,7 +45,8 @@ void main() {
       expect(ids('lyrics'), ['online-lyrics']);
       expect(ids('moon'), ['sleep-button']);
       expect(ids('SLEEP'), containsAll(['sleep-button', 'sleep-music', 'sleep-books', 'sleep-fade']));
-      expect(ids('skip back'), ['skip-back']);
+      expect(ids('skip back'), ['skip-back', 'video-skip-back']); // audiobooks, then videos (0.1.40)
+      expect(ids('poster shape'), ['collection-shape']);
       expect(ids('navidrome'), ['server']);
       expect(ids('  '), isEmpty);
       expect(ids('no such thing'), isEmpty);
@@ -131,6 +133,8 @@ void main() {
           ChangeNotifierProvider.value(value: lib),
           ChangeNotifierProvider.value(value: nav),
           ChangeNotifierProvider(create: (_) => EqualizerModel(Storage.at(Directory.systemTemp))),
+          // Folders & scanning has the video folders (0.1.40).
+          ChangeNotifierProvider(create: (_) => VideoLibraryModel(Storage.at(Directory.systemTemp), lib)),
           // About has "Check for updates"; nothing here goes online unless it's pressed.
           ChangeNotifierProvider(
               create: (_) => UpdateModel(Storage.at(Directory.systemTemp), readVersion: () async => '9.9.9')),

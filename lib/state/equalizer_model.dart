@@ -9,6 +9,9 @@ import 'package:flutter/foundation.dart';
 import '../models/eq_preset.dart';
 import '../services/storage.dart';
 
+/// What a preset is for (0.1.40 added videos).
+enum EqTarget { music, books, videos }
+
 class EqualizerModel extends ChangeNotifier {
   static const fileName = 'equalizer.json';
 
@@ -23,6 +26,10 @@ class EqualizerModel extends ChangeNotifier {
 
   String musicPresetId = 'flat';
   String bookPresetId = 'spoken';
+
+  /// Videos use their own preset ([videoPresetId]); when off they use the music one (0.1.40).
+  bool separateVideos = true;
+  String videoPresetId = 'flat';
 
   /// The audio engine refused the equaliser on this device (set by the player; not saved).
   bool unavailable = false;
@@ -60,6 +67,27 @@ class EqualizerModel extends ChangeNotifier {
   /// What should be heard right now, or null when the equaliser is off.
   EqPreset? activeFor({required bool book}) => enabled ? presetFor(book: book) : null;
 
+  EqPreset get videoPreset => presetById(videoPresetId);
+
+  /// Whether [t] has a preset of its own (music always does).
+  bool separate(EqTarget t) => switch (t) {
+        EqTarget.music => true,
+        EqTarget.books => separateBooks,
+        EqTarget.videos => separateVideos,
+      };
+
+  /// The preset chosen for [t] (the music one when [t] doesn't have its own).
+  EqPreset presetForTarget(EqTarget t) => !separate(t)
+      ? musicPreset
+      : switch (t) {
+          EqTarget.music => musicPreset,
+          EqTarget.books => bookPreset,
+          EqTarget.videos => videoPreset,
+        };
+
+  /// What videos should sound like now, or null when the equaliser is off.
+  EqPreset? get activeForVideos => enabled ? presetForTarget(EqTarget.videos) : null;
+
   /// A built-in preset that's been changed from how it comes.
   bool isEdited(String id) => _edited.containsKey(id);
 
@@ -68,6 +96,8 @@ class EqualizerModel extends ChangeNotifier {
     separateBooks = true;
     musicPresetId = 'flat';
     bookPresetId = 'spoken';
+    separateVideos = true;
+    videoPresetId = 'flat';
     _edited = {};
     _custom = [];
     final j = await storage.read(fileName);
@@ -87,6 +117,8 @@ class EqualizerModel extends ChangeNotifier {
       separateBooks = value(j['separateBooks'], true);
       musicPresetId = value(j['music'], 'flat');
       bookPresetId = value(j['book'], 'spoken');
+      separateVideos = value(j['separateVideos'], true);
+      videoPresetId = value(j['video'], 'flat');
       for (final e in value<List>(j['edited'], const [])) {
         try {
           final original = builtInEqPreset(e['id'] as String);
@@ -113,6 +145,8 @@ class EqualizerModel extends ChangeNotifier {
         'separateBooks': separateBooks,
         'music': musicPresetId,
         'book': bookPresetId,
+        'separateVideos': separateVideos,
+        'video': videoPresetId,
         'edited': [for (final p in _edited.values) p.toJson()],
         'custom': [for (final p in _custom) p.toJson()],
       };
@@ -143,12 +177,26 @@ class EqualizerModel extends ChangeNotifier {
     await _save();
   }
 
+  Future<void> setSeparateVideos(bool on) async {
+    separateVideos = on;
+    notifyListeners();
+    await _save();
+  }
+
   /// Uses preset [id] for audiobooks ([forBooks]) or for music. Choosing one also switches the equaliser on.
-  Future<void> choose(String id, {required bool forBooks}) async {
-    if (forBooks) {
-      bookPresetId = id;
-    } else {
-      musicPresetId = id;
+  Future<void> choose(String id, {required bool forBooks}) =>
+      chooseFor(forBooks ? EqTarget.books : EqTarget.music, id);
+
+  /// Uses preset [id] for [t] (music's when [t] has no preset of its own). Also switches the
+  /// equaliser on.
+  Future<void> chooseFor(EqTarget t, String id) async {
+    switch (separate(t) ? t : EqTarget.music) {
+      case EqTarget.music:
+        musicPresetId = id;
+      case EqTarget.books:
+        bookPresetId = id;
+      case EqTarget.videos:
+        videoPresetId = id;
     }
     enabled = true;
     notifyListeners();
@@ -219,6 +267,7 @@ class EqualizerModel extends ChangeNotifier {
     _custom = [for (final c in _custom) if (c.id != id) c];
     if (musicPresetId == id) musicPresetId = 'flat';
     if (bookPresetId == id) bookPresetId = 'spoken';
+    if (videoPresetId == id) videoPresetId = 'flat';
     notifyListeners();
     await _save();
   }
