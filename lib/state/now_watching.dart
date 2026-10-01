@@ -9,6 +9,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../models/video_item.dart';
 import 'player_model.dart';
@@ -37,6 +38,32 @@ class NowWatching extends ChangeNotifier {
   }
 
   final PlayerModel music;
+
+  bool _notifyWaiting = false, _disposed = false;
+
+  /// Tells the bar (and the media controls) something changed, but never while the screen is
+  /// being built: the video page attaches and says what's showing while it is first built, and
+  /// telling the bar then left it stuck (1 Oct, after 0.1.42): it stopped hearing about the
+  /// video's play / pause, position and volume until something else redrew it, such as pressing
+  /// its volume slider. Then it waits until the end of that frame.
+  void _notify() {
+    SchedulerPhase? phase;
+    try {
+      phase = SchedulerBinding.instance.schedulerPhase;
+    } catch (_) {
+      phase = null; // plain unit tests: no screen
+    }
+    if (phase != SchedulerPhase.persistentCallbacks) {
+      notifyListeners();
+      return;
+    }
+    if (_notifyWaiting) return;
+    _notifyWaiting = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _notifyWaiting = false;
+      if (!_disposed) notifyListeners();
+    });
+  }
 
   VideoTransport? _transport;
   final List<StreamSubscription> _subs = [];
@@ -73,7 +100,7 @@ class NowWatching extends ChangeNotifier {
     _listenTo(t);
     this.onOpen = onOpen;
     _front = t.playing;
-    notifyListeners();
+    _notify();
   }
 
   void _listenTo(VideoTransport t) {
@@ -84,11 +111,11 @@ class NowWatching extends ChangeNotifier {
       t.playingStream.listen((playing) {
         _seenPlaying = playing;
         if (playing) _front = true;
-        notifyListeners();
+        _notify();
       }),
-      t.durationStream.listen((_) => notifyListeners()),
+      t.durationStream.listen((_) => _notify()),
       // 1 Oct: the video player's own volume bar and the bottom bar's move together.
-      t.volumeStream.listen((_) => notifyListeners()),
+      t.volumeStream.listen((_) => _notify()),
       // 1 Oct: a safety net for the bar not switching from music to video until something else
       // redrew it. While the video moves, check what's really going on rather than trusting one
       // "started" signal to have arrived in the right order.
@@ -113,10 +140,11 @@ class NowWatching extends ChangeNotifier {
       _front = true;
       changed = true;
     }
-    if (changed) notifyListeners();
+    if (changed) _notify();
   }
 
-  _Page _snapshot() => _Page(_transport!, video, picture, onOpen, onNext, onPrevious, skipBackSeconds, skipForwardSeconds);
+  _Page _snapshot() =>
+      _Page(_transport!, video, picture, onOpen, onNext, onPrevious, skipBackSeconds, skipForwardSeconds);
 
   /// Opens the next / previous video in the collection on the page; null when there isn't one.
   VoidCallback? onNext, onPrevious;
@@ -126,19 +154,29 @@ class NowWatching extends ChangeNotifier {
 
   /// Which video is on the page now (it moves on to the next episode by itself).
   /// [transport] says which page this is; a page underneath only updates its own record.
-  void showing(VideoItem v,
-      {String? picture,
-      int? skipBack,
-      int? skipForward,
-      VoidCallback? onNext,
-      VoidCallback? onPrevious,
-      VideoTransport? transport}) {
+  void showing(
+    VideoItem v, {
+    String? picture,
+    int? skipBack,
+    int? skipForward,
+    VoidCallback? onNext,
+    VoidCallback? onPrevious,
+    VideoTransport? transport,
+  }) {
     if (transport != null && _transport != null && !identical(transport, _transport)) {
       final i = _below.indexWhere((pg) => identical(pg.transport, transport));
       if (i >= 0) {
         final old = _below[i];
-        _below[i] = _Page(transport, v, picture, old.onOpen, onNext, onPrevious, skipBack ?? old.skipBack,
-            skipForward ?? old.skipForward);
+        _below[i] = _Page(
+          transport,
+          v,
+          picture,
+          old.onOpen,
+          onNext,
+          onPrevious,
+          skipBack ?? old.skipBack,
+          skipForward ?? old.skipForward,
+        );
       }
       return;
     }
@@ -148,7 +186,7 @@ class NowWatching extends ChangeNotifier {
     this.onPrevious = onPrevious;
     if (skipBack != null) skipBackSeconds = skipBack;
     if (skipForward != null) skipForwardSeconds = skipForward;
-    notifyListeners();
+    _notify();
   }
 
   /// The page closed: the bar and media keys go back to the music.
@@ -170,7 +208,7 @@ class NowWatching extends ChangeNotifier {
       skipBackSeconds = pg.skipBack;
       skipForwardSeconds = pg.skipForward;
       _front = pg.transport.playing;
-      notifyListeners();
+      _notify();
       return;
     }
     _transport = null;
@@ -180,7 +218,7 @@ class NowWatching extends ChangeNotifier {
     onNext = null;
     onPrevious = null;
     _front = false;
-    notifyListeners();
+    _notify();
   }
 
   void _clearSubs() {
@@ -197,7 +235,7 @@ class NowWatching extends ChangeNotifier {
     _musicWasPlaying = now;
     if (now && !was && _front) {
       _front = false;
-      notifyListeners();
+      _notify();
       return;
     }
     // The music stopped (the video paused it) while the video plays: make sure the bar shows it.
@@ -211,7 +249,7 @@ class NowWatching extends ChangeNotifier {
     if (t == null) return;
     if (music.playing) await music.pause(); // one thing at a time
     _front = true;
-    notifyListeners();
+    _notify();
     await t.play();
   }
 
@@ -226,7 +264,7 @@ class NowWatching extends ChangeNotifier {
     var at = to < Duration.zero ? Duration.zero : to;
     if (length > Duration.zero && at > length) at = length;
     await t.seek(at);
-    notifyListeners(); // the system controls show the new place
+    _notify(); // the system controls show the new place
   }
 
   /// Back or forward by the page's skip amounts (Settings › Videos).
@@ -240,11 +278,12 @@ class NowWatching extends ChangeNotifier {
   double get volume => _transport?.volume ?? 100;
   Future<void> setVolume(double v) async {
     await _transport?.setVolume(v.clamp(0.0, 100.0));
-    notifyListeners();
+    _notify();
   }
 
   @override
   void dispose() {
+    _disposed = true;
     music.removeListener(_onMusic);
     _clearSubs();
     super.dispose();
@@ -253,8 +292,16 @@ class NowWatching extends ChangeNotifier {
 
 /// A video page that's open underneath the one in charge, as it last described itself.
 class _Page {
-  const _Page(this.transport, this.video, this.picture, this.onOpen, this.onNext, this.onPrevious, this.skipBack,
-      this.skipForward);
+  const _Page(
+    this.transport,
+    this.video,
+    this.picture,
+    this.onOpen,
+    this.onNext,
+    this.onPrevious,
+    this.skipBack,
+    this.skipForward,
+  );
   final VideoTransport transport;
   final VideoItem? video;
   final String? picture;
