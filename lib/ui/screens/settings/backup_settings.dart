@@ -18,6 +18,7 @@ import '../../../state/listening_model.dart';
 import '../../../state/lyrics_model.dart';
 import '../../../state/play_history.dart';
 import '../../../state/playlists_model.dart';
+import '../../../state/servers_model.dart';
 import '../../theme.dart';
 import 'settings_widgets.dart';
 
@@ -77,6 +78,7 @@ class BackupSettingsState extends State<BackupSettings> {
     final lyrics = context.read<LyricsModel>();
     final equalizer = context.read<EqualizerModel>();
     final history = Provider.of<PlayHistory?>(context, listen: false);
+    final servers = Provider.of<ServersModel?>(context, listen: false);
     final messenger = ScaffoldMessenger.of(context);
 
     // 1. Pick and read the file. A file that isn't a backup (or is from a newer HomeTunes)
@@ -142,6 +144,7 @@ class BackupSettingsState extends State<BackupSettings> {
         await lyrics.load();
         await equalizer.load();
         await history?.load();
+        await servers?.load();
       });
       if (!mounted) return;
       await showDialog<void>(

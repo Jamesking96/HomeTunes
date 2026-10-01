@@ -39,7 +39,7 @@ while commenting".
 | Bottom bar / video volume linked again; single "What's new" heading (0.1.43) | Done, released as v0.1.43 (1 Oct); the user confirmed it works |
 | Details for videos and collections (0.1.44) | Done, released as v0.1.44 (1 Oct); the user approved it |
 | Home revamp: videos on Home, Jump back in, recently played music (0.1.45) | Built 1 Oct on `feature/home-revamp`, not merged yet. See `03_…` → Home revamp |
-| Servers page: several servers per kind, Music / Audiobooks / Videos (0.1.46) | Asked 1 Oct with the Home revamp; the user chose "framework now" (see below) |
+| Servers page: several servers per kind, Music / Audiobooks / Videos (0.1.46) | Built 1 Oct on `feature/servers` (on top of `feature/home-revamp`), not merged yet. The user chose "framework now": only the main Subsonic server streams. See `03_…` → Servers page |
 | L: Linux build, incl. Steam Deck (0.1.47) | Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (0.1.48) | After L |
 | T: Android TV (0.1.49) | After A |
@@ -80,7 +80,9 @@ on its own branch (`feature/linux`, `feature/android-auto`, `feature/android-tv`
 - **Plan needed:**
   - An Audiobookshelf client (API-token login, libraries, items, chapters, covers, streaming, and
     maybe syncing listening progress with ABS).
-  - Where it sits in Settings › Servers (the "Audiobook server" block is the placeholder).
+  - Where it sits in Settings › Servers: since 0.1.46 an Audiobookshelf server can already be
+    added, tested and ticked for audiobooks there (`ServerType.audiobookshelf`, `ServersModel`);
+    phase E makes it stream (see `03_…` → Servers page → "Next, when a server type is built").
   - How ABS books join `groupBooks`.
   - Jellyfin/Plex later.
 
@@ -156,7 +158,7 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
 
 ## Source control
 `main` is **0.1.44+44** and the latest release is **v0.1.44** (1 Oct; v0.1.40, the videos
-release, and v0.1.41 to v0.1.43 came out the same day). `feature/home-revamp` (0.1.45+45) is waiting for the user's approval; there are no other branches (merged feature branches are deleted). Each feature gets its own branch, merged into `main` with
+release, and v0.1.41 to v0.1.43 came out the same day). `feature/home-revamp` (0.1.45+45) and `feature/servers` (0.1.46+46, branched from it, so merge Home first) are waiting for the user's approval; there are no other branches (merged feature branches are deleted). Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
 repo copy of these notes (`docs/ai-context/`) is kept the same as the project copy.

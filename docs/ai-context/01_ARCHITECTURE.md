@@ -139,8 +139,9 @@ so a locked phone keeps playing; `StallDetector`).
 
 ## Data files (app support dir `…/hometunes/`)
 `settings.json`, `library.json`, `edits.json`, `playlists.json`, `listening.json`,
-`bookmarks.json`, `lyrics.json`, `equalizer.json`, `videos.json` (0.1.40) and `history.json`
-(0.1.45, recently played music) (these ten are `AppBackup.dataFiles`, the ones backups carry), plus `updates.json` and `playback-log.txt` (this device only, not backed up),
+`bookmarks.json`, `lyrics.json`, `equalizer.json`, `videos.json` (0.1.40), `history.json`
+(0.1.45, recently played music) and `servers.json` (0.1.46, the servers other than the main music
+server, without passwords) (these eleven are `AppBackup.dataFiles`, the ones backups carry), plus `updates.json` and `playback-log.txt` (this device only, not backed up),
 `art/` (+`art/custom/`, always backed up; `art/server/`, never), `backups/` (tag-write backups),
 `before-restore.htbackup`. The server password is not in any of these (see `secret_store.dart`).
 

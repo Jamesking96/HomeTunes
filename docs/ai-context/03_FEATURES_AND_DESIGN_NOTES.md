@@ -178,12 +178,67 @@ before changing that area.
     the catalog.
 - **Links from other screens:** Home "Add music" and Books "Add audiobooks" use
   `AppNav.openSettings(...)` to go straight to the right page.
-- **Servers:** the music server, then an Audiobooks group. That group has the "Audiobooks from the
-  music server" switch (`serverBooks`) and a placeholder for a separate audiobook server (phase E).
+- **Servers:** since 0.1.46, a list of servers in Music, Audiobooks and Videos sections (see
+  "Servers page" below); the main music server and "Audiobooks from the music server"
+  (`serverBooks`) are its first card's switches.
 - **About** shows the version (package_info_plus) and the data folder, with "Open folder" on Windows.
   It also has **Check for updates** and **Check for updates automatically** (0.1.23), **What's new
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
+
+## Servers page: several servers for music, audiobooks and videos (1 Oct 2026, 0.1.46, branch `feature/servers`)
+- **What the user asked for:** "We need to include a server connection system for videos, we also may
+  want to have multiple server connections per server setup … re design this page … to allow for
+  each section Music, Audiobooks and Videos to support connecting to multiple servers. (not all
+  servers are created yet, so lets just set this up as a framework … It's also possible that a
+  server may have content for all)". Asked first, the user chose **"Framework now"** (not "two
+  Subsonic servers streaming side by side", which would change how server songs are stored: their
+  ids are `server:<subsonic id>` with no server in them).
+- **Server types** (`state/servers_model.dart`, `ServerType`): Subsonic (music, audiobooks; the
+  only one that streams), Jellyfin, Plex, Emby (music, audiobooks, videos), Audiobookshelf
+  (audiobooks), HomeTunes server (all three; our own, not built yet). Each has a label, a line
+  about it, what it can hold (`can`) and an example address.
+- **The list** (`ServersModel`, `servers.json`, backed up without passwords): `ServerEntry` (id,
+  type, name, address, user name, what it's used for `uses` ⊆ `can`, the last test's result).
+  Passwords go to the protected storage (`SecretStore.serverPasswordKey(url, user)`), never to the
+  file; changing an address or user moves the password, removing a server deletes it, and nothing
+  here ever touches the main server's own key. **The main music server** is still LibraryModel's
+  (`server`, `serverEnabled`, `serverBooks`, connect / sync / forget / http consent all unchanged)
+  and is shown in the list as entry `main` (name kept as `mainName` in servers.json). Its switches
+  map to LibraryModel: Music → "Include server music", Audiobooks → "Audiobooks from the music
+  server". A second Subsonic server is saved; **Make this the main music server** connects and
+  syncs it (with the http consent if needed) and keeps the old one in the list with its password.
+- **Test connection** (`services/server_probe.dart`, `probeServer`): for the types that can't stream
+  yet it asks only the public "who are you" address, no sign-in sent (Jellyfin / Emby
+  `/System/Info/Public`, saying which of the two it really is; Plex `/identity`; Audiobookshelf
+  `/status` then `/ping`; HomeTunes `/api/info`, expecting `{"app": "hometunes", "version": …}`,
+  which our server should answer). Addresses without a scheme try https then http. Subsonic is
+  signed in to for real (`SubsonicClient.ping`) but never over plain http to the internet from a
+  test (security review #4 still holds; making it the main server asks).
+- **The page** (`ui/screens/settings/server_settings.dart`): "Add a server"; then **Music**,
+  **Audiobooks** and **Videos** sections, each listing the servers that can hold that kind (a
+  Jellyfin server shows in all three), a card per server (icon by type, name, "Type · address ·
+  user", "Main music server" / "Coming later" tags, a status line, the last test, a switch "use it
+  for this kind", ⋮ Edit… / Test connection / Sync now / Make this the main music server / Remove or
+  Forget), and "Add a … server" (starts the dialog on the first type that holds that kind); last,
+  **Kinds of server** (what works now, what's coming). The dialog: kind of server (coming-later
+  ones marked), name (optional, defaults to the host), address (the plain-http warning), user name,
+  password (eye; kept in protected storage), "Use it for" chips (kinds it can't hold greyed out; the
+  main server always gives music), Test connection, Save / Connect. Adding a Subsonic server when
+  there's no main one makes it the main one (connect + sync, as before).
+- **Settings search**: `add-server`, `server` (Music servers; "navidrome" still finds it),
+  `server-books` (Audiobook servers), `video-server` (Video servers); `book-server` (the old
+  greyed-out Audiobookshelf preview) is gone.
+- **Next, when a server type is built**: give it a client like `SubsonicClient`, ids that include
+  the server (e.g. `jf:<serverId>:<itemId>`), and let LibraryModel / VideoLibraryModel take tracks
+  and videos from every `ServerEntry` that `uses` that kind. For two Subsonic servers at once, server
+  song ids need the server in them too (a one-time re-sync).
+- **Tests:** `test/servers_test.dart` (saving without passwords, protected storage, sections, kinds
+  a server can't hold, moving and deleting passwords, the main server in the list and its switches,
+  test results kept, every probe with a fake http client including "no sign-in sent" and "never
+  plain http to the internet", and the page: sections, adding a Jellyfin server from the Videos
+  section). Also fixed a timing-dependent wait in `video_pictures_test.dart` (it waited a fixed
+  100 ms for the online search; now until it's done, up to 5 s).
 
 ## Home revamp (1 Oct 2026, 0.1.45, branch `feature/home-revamp`)
 - **What the user asked for:** "The home tab should include showing videos too. In fact, look over

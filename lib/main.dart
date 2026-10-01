@@ -30,6 +30,7 @@ import 'state/play_history.dart';
 import 'state/player_model.dart';
 import 'state/playlists_model.dart';
 import 'state/selection_model.dart';
+import 'state/servers_model.dart';
 import 'state/sleep_timer.dart';
 import 'state/update_model.dart';
 import 'state/video_library_model.dart';
@@ -134,6 +135,9 @@ Future<void> main() async {
   final history = PlayHistory(storage);
   await safely('history', history.load);
   history.attach(player);
+  // Your servers for music, audiobooks and videos (0.1.46); the main music server stays in LibraryModel.
+  final servers = ServersModel(storage, library);
+  await safely('servers', servers.load);
   final session = await MediaSession.start(player, library, watching: watching);
   debugPrint(session == null
       ? 'HomeTunes: system media controls are off'
@@ -152,6 +156,7 @@ Future<void> main() async {
     videos: videos,
     watching: watching,
     history: history,
+    servers: servers,
   ));
 
   // First start after an update: show what changed since the version that ran before
@@ -213,6 +218,7 @@ class HomeTunesApp extends StatelessWidget {
   final VideoLibraryModel videos;
   final NowWatching watching;
   final PlayHistory? history;
+  final ServersModel? servers;
   const HomeTunesApp({
     super.key,
     required this.library,
@@ -226,6 +232,7 @@ class HomeTunesApp extends StatelessWidget {
     required this.videos,
     required this.watching,
     this.history,
+    this.servers,
   });
 
   @override
@@ -244,6 +251,7 @@ class HomeTunesApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: videos),
         ChangeNotifierProvider.value(value: watching),
         if (history != null) ChangeNotifierProvider<PlayHistory>.value(value: history!),
+        if (servers != null) ChangeNotifierProvider<ServersModel>.value(value: servers!),
         // These only matter to the UI, so Provider creates (and owns) them itself.
         ChangeNotifierProvider(create: (_) => SleepTimer(player, library)),
         ChangeNotifierProvider(create: (_) => AppNav()),

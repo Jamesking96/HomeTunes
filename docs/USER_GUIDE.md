@@ -133,12 +133,21 @@ A song with a video of the same name beside it (for example `Song.m4a` and `Song
 **music video**: Now Playing shows it in place of the cover. **Settings › Music** can turn music
 videos off, or keep the cover until you press the video button.
 
-### Music from your own server (optional)
-If you run a music server such as Navidrome, go to **Settings › Servers › Music server**, enter its
-address (for example `http://192.168.1.20:4533`), your username and password, then **Connect**.
-Server songs show a small cloud icon and mix in with your own files. Audiobooks on the server
-show in the Books tab too (switch **Audiobooks from the music server** off on the same page to
-keep them out).
+### Your own servers (optional)
+If you run a music server such as Navidrome, go to **Settings › Servers**, choose **Add a server**,
+pick **Subsonic** as the kind, enter its address (for example `http://192.168.1.20:4533`), your
+username and password, then **Connect**. It becomes your **main music server**: its songs show a
+small cloud icon and mix in with your own files. Audiobooks on it show in the Books tab too (turn
+its switch off in the **Audiobooks** section to keep them out).
+
+The Servers page has a section each for **Music**, **Audiobooks** and **Videos**, and you can add
+as many servers as you like: Subsonic, Jellyfin, Plex, Emby, Audiobookshelf, or a HomeTunes
+server. A server that has all three kinds shows in all three sections, with a switch in each to
+use it for that kind. **Test connection** checks the server is there and what it is. For now
+HomeTunes plays from **one Subsonic server at a time**; any others are kept, ready for when
+playing from them is added (**Kinds of server** at the bottom of the page shows what works now).
+To switch to another Subsonic server you've added, use its **⋮** menu › **Make this the main music
+server**.
 
 If you type an address without `http://` or `https://`, HomeTunes tries a secure (https)
 connection first. If the server is on the internet and only answers over plain http, HomeTunes
