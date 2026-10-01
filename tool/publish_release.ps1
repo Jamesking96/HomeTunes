@@ -85,7 +85,13 @@ $guide = (Get-Content docs\USER_GUIDE.md -Raw -Encoding UTF8) -replace '<version
 # Pictures live in docs\images (committed to main); the release page needs their full address.
 $guide = $guide -replace '\]\(images/', "](https://github.com/$repo/raw/main/docs/images/"
 $notes = ''
-if ($NotesFile) { $notes = "## What's new in $Version`n`n" + (Get-Content $NotesFile -Raw -Encoding UTF8).Trim() + "`n`n---`n`n" }
+if ($NotesFile) {
+  # The notes file may start with its own "## What's new" heading; only add one when it doesn't
+  # (both were shown on v0.1.41 and v0.1.42's pages).
+  $text = (Get-Content $NotesFile -Raw -Encoding UTF8).Trim()
+  if (-not $text.StartsWith("## What's new")) { $text = "## What's new in $Version`n`n" + $text }
+  $notes = $text + "`n`n---`n`n"
+}
 $notes += $guide + $checksums
 $guideFile = Join-Path $env:TEMP 'HomeTunes-README.md'
 [IO.File]::WriteAllText($guideFile, $guide, (New-Object Text.UTF8Encoding $false))
