@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../models/track.dart';
 import '../../state/player_model.dart';
 import '../theme.dart';
+import 'selectable_title.dart';
 
 /// Big header used on album, artist and playlist pages, with Play / Shuffle.
 class CollectionHeader extends StatelessWidget {
@@ -48,10 +49,9 @@ class CollectionHeader extends StatelessWidget {
         Text(kind.toUpperCase(),
             style: TextStyle(fontSize: 12, letterSpacing: 1.2, color: AppColors.textDim)),
         const SizedBox(height: 6),
-        Text(title,
+        SelectableTitle(title,
             textAlign: wide ? TextAlign.start : TextAlign.center,
             maxLines: 2,
-            overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: wide ? 40 : 26, fontWeight: FontWeight.w800, height: 1.1)),
         const SizedBox(height: 8),
         Text(subtitle, style: TextStyle(color: AppColors.textDim)),

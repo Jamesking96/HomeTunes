@@ -25,6 +25,7 @@ import '../widgets/bookmark_widgets.dart';
 import '../widgets/cards.dart';
 import 'details_screen.dart';
 import 'edit_book.dart';
+import '../widgets/selectable_title.dart';
 
 /// One audiobook: details, Resume / Play, and its chapters.
 class BookScreen extends StatelessWidget {
@@ -96,10 +97,9 @@ class BookScreen extends StatelessWidget {
       children: [
         Text('AUDIOBOOK', style: TextStyle(fontSize: 12, letterSpacing: 1.2, color: AppColors.textDim)),
         const SizedBox(height: 6),
-        Text(book.title,
+        SelectableTitle(book.title,
             textAlign: wide ? TextAlign.start : TextAlign.center,
             maxLines: 3,
-            overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: wide ? 34 : 24, fontWeight: FontWeight.w800, height: 1.15)),
         const SizedBox(height: 6),
         Text(book.author, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
