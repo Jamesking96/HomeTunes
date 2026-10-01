@@ -27,6 +27,7 @@ import '../widgets/cards.dart' show EmptyState;
 import '../widgets/music_filter_sheet.dart' show MusicFilterBar, showMusicFilterSheet;
 import 'edit_video.dart';
 import 'video_collection_screen.dart';
+import 'video_details_screen.dart' show openVideoDetails;
 import 'video_pictures.dart';
 import '../widgets/selectable_title.dart';
 
@@ -841,6 +842,8 @@ Future<void> showVideoMenu(BuildContext context, VideoItem video, {required Offs
         ),
       ),
       copyTitleMenuItem('copy'),
+      // Where it comes from, and what's inside the file (0.1.44).
+      const PopupMenuItem(value: 'details', child: ListTile(leading: Icon(Icons.info_outline), title: Text('Details…'))),
       if (Platform.isWindows)
         const PopupMenuItem(value: 'folder', child: ListTile(leading: Icon(Icons.folder_open), title: Text('Show in folder'))),
       if (onSelect != null)
@@ -851,6 +854,8 @@ Future<void> showVideoMenu(BuildContext context, VideoItem video, {required Offs
   switch (choice) {
     case 'copy':
       await copyTitle(context, video.title);
+    case 'details':
+      await openVideoDetails(context, video);
     case 'play':
       nav.openVideo(video);
     case 'restart':

@@ -479,6 +479,9 @@ class VideoLibraryModel extends ChangeNotifier {
   bool hasOwnPicture(VideoItem v) => _pictures.containsKey(v.id);
   bool hasOwnPoster(VideoCollection c) => _posters.containsKey(c.key);
 
+  /// Whether the user wrote [c]'s description (Edit collection), rather than its tvshow.nfo.
+  bool hasOwnDescription(VideoCollection c) => _descriptions.containsKey(c.key);
+
   /// Gives [v] the picture [bytes] (a JPEG or PNG, already made a sensible size), or with null
   /// goes back to the automatic one.
   Future<void> setPicture(VideoItem v, List<int>? bytes) async {

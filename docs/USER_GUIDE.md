@@ -212,6 +212,10 @@ folds it down to icons and opens it again.
     Right-click a season's heading to select all of it, mark it watched, or give it a title
     (**Season 1 – Offline News**). Pictures can be changed with **Change picture…**: an image
     file, a frame from the video, or a search online.
+  - **Details…** (in a video's or a collection's right-click menu, under the video player and the
+    ⓘ on a collection's page) shows where the file is, where each detail came from (its file or
+    folder name, an .nfo file, or your edit), and what's inside the file: its picture size and
+    frame rate, each sound track and subtitle with its language, and its chapters.
   - **Settings › Videos** has the skip lengths, speed and the videos' equaliser.
     **Settings › Appearance › Video player** changes the player's buttons (colour, size, and a
     glow or circles behind them so they're easy to see on any scene).

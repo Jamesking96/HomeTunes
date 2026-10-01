@@ -27,6 +27,11 @@ enum DetailSource {
   measured('Measured when played'),
   edit('Your edit'),
   server('Music server'),
+  // Videos (0.1.44, video_details.dart).
+  nfoFile('Details file (.nfo)'),
+  showNfo('Series details file (tvshow.nfo)'),
+  fromVideo('Read from the video'),
+  frame('Taken from the video'),
   standIn('Stand-in (nothing found)'),
   notSet('Not set'),
   unknown('Couldn\'t tell');

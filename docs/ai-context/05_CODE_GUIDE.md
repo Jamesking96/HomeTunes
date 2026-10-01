@@ -121,6 +121,8 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `video_nfo.dart` | Kodi / Jellyfin style .nfo files: `parseNfo` / `readNfo`, and `updateNfo` / `writeNfoFiles`, which replace only HomeTunes' tags in an existing file (0.1.40). |
 | `video_art_search.dart` | "Search online" for video pictures and posters: TVmaze, AniList and Wikipedia (infobox pictures), each asked on its own; `download` checks it's a picture (0.1.40). |
 | `video_thumbnails.dart` | Takes a small picture from each video with one hidden, silent player and saves it as a ~30 KB JPEG in `art/video/`; also learns the length and picture size (0.1.40). |
+| `video_details.dart` | For the video Details page (0.1.44): `inspectVideo` re-reads a video's folders, file name, .nfo files and MP4 tags and works out where each detail came from (your edit, its .nfo, tvshow.nfo, tags, file name, folder name, the video itself); also the files beside it and what the .nfo and tags say. |
+| `video_probe.dart` | What's inside a video file (0.1.44): `probeVideo` opens it in a hidden, paused, soundless player and reads the engine's track list, format, length and chapter count; `parseVideoProbe` turns that into `VideoProbe` / `ProbeTrack` (tested without the engine). |
 | `secret_store.dart` | Keeps the music server's password in the system's protected storage (Windows Credential Manager, Android Keystore, the Linux keyring), one entry per server address and user name. |
 | `path_safety.dart` | `isUsableLocalFile` / `isInsideAny`: checks a path is inside the library folders (or the app's art folder) before it's opened, shown in Explorer, played, read as a cover or written to. Paths from a restored backup can't be trusted. |
 | `server_art_cache.dart` | Downloads server covers into `art/server/` so the system media controls get a `file://` path instead of a server address that carries the login token. |
@@ -155,7 +157,8 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `playlist_screen.dart` | One playlist or Liked Songs, with drag to reorder. |
 | `queue_screen.dart` | The queue drawer (slides in from the right, 0.1.26): now playing and up next; drag, swipe to remove, tap to jump. |
 | `now_playing_screen.dart` | The full-screen player. Songs get Like, Lyrics and Queue; books get Bookmark, Speed and Chapters. Both get the Equaliser button. |
-| `details_screen.dart` | Details: where a song, album or book comes from, its folder and files, why it's a book, each detail's source, and what the file's tags say. |
+| `details_screen.dart` | Details: where a song, album or book comes from, its folder and files, why it's a book, each detail's source, and what the file's tags say. Its cards and table (`DetailsCard`, `DetailsLine`, `DetailsFolderLine`, `DetailsPair`, `DetailsHeading`, `DetailsTable`) are shared with the video one (0.1.44). |
+| `video_details_screen.dart` | Details for a video or a collection (0.1.44): `openVideoDetails` / `openCollectionDetails`; where it is, each detail's source, what's inside the file in plain words (`trackLine`, `codecName`, `containerName`, `channelsName`, `overallBitRate`), its .nfo / tags, the files beside it; a collection's folders, `collectionRows` and every video. Tests swap the engine with `videoProbe`. |
 | `equalizer_screen.dart` | The Equaliser: preset chips, Music/Audiobooks switch, Edit (ten upright band sliders and the overall level), Restore default, and your own presets. |
 | `edit_details.dart` | The song, album, several-songs and several-albums editor. Details that differ show `--:--`. |
 | `edit_book.dart` | The Edit book dialog (saved as edits on every file of the book), also for several books at once. |

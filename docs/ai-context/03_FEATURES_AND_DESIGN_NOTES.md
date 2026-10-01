@@ -185,6 +185,48 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Details for videos and collections (1 Oct 2026, 0.1.44, branch `feature/video-details`)
+- **What the user asked for:** "Music and audio books allow for viewing the file details, I'd like
+  this for the videos too".
+- **Where:** **Details…** in a video's and a collection's right-click / hold menu, a **Details**
+  button in the video player page's second row, and an ⓘ next to the heart on a collection's page.
+  Opens on the root navigator, like the music one.
+- **A video** (`ui/screens/video_details_screen.dart`, `VideoDetailsScreen`):
+  - *Where it is:* folder (Show in folder, limited to the video folders), file name · format · size
+    · changed date, and which video folder it was found in.
+  - *Details and where they come from* (`services/video_details.dart`, `inspectVideo`, in the
+    background): Title, Collection, Category, Season, Episode, Season title, Year, Genre,
+    Description, Extra, Length, Picture size, Picture. Sources, checked in the scanner's order:
+    your edit (with what the file says), the video's own .nfo, the series' tvshow.nfo, the file's
+    tags (MP4 / M4V / MOV), the file name, the folder name (with which folder), "Read from the
+    video" (length / picture size learned when its picture was made), "Taken from the video" (its
+    automatic picture). A season title the user gave (`hasOwnSeasonTitle`) shows as an edit. New
+    `DetailSource` values: `nfoFile`, `showNfo`, `fromVideo`, `frame`.
+  - *What's inside the file* (`services/video_probe.dart`, `probeVideo`): the video engine opens
+    the file in a hidden, paused player with `ao=null` and `sid=no` and reads `track-list` (JSON),
+    `file-format`, `duration` and `chapter-list/count`, then closes it (about 0.5–0.7 s on the
+    PC). Sound has to stay on: with no picture, sound or subtitle track chosen the engine closes
+    the file at once and lists nothing (found with `tool/bench/video_probe_engine_test.dart`).
+    Shown in plain words: format ("Matroska (MKV)"), length, overall bit rate (size ÷ length),
+    chapters, and each picture / sound / subtitle track ("English · Dolby Digital (AC3) · 5.1 ·
+    48 kHz · plays first", "Styled text (ASS)", "Pictures (Blu-ray)", forced, hard of hearing).
+    Cover pictures stored in the file aren't listed as video. Only files inside the video folders
+    are opened.
+  - *What its .nfo file says*, *What the file's tags say*, *Files beside it that HomeTunes uses*
+    (.nfo, tvshow.nfo, the collection's poster, subtitle files with their labels).
+- **A collection** (`CollectionDetailsScreen`): its folders (first 8, then "and N more"), "N videos ·
+  formats · size · length in all", its details (`collectionRows`: Name / Category / Year / Genre
+  from the first video's sources when they match, else "Couldn't tell"; Description yours or the
+  tvshow.nfo; Poster chosen, a picture in its folder, or the first video's picture), and every
+  video as an opening row with its own details (and its tracks, asked for once opened).
+- `details_screen.dart`'s cards and table are now public (`DetailsCard`, `DetailsLine`,
+  `DetailsFolderLine` with `roots`, `DetailsPair`, `DetailsHeading`, `DetailsTable(rows:)`).
+  `DetailsCard` is a Material now, so rows that open inside it (the album / book file list too)
+  show their ripple.
+- **Tests:** `test/video_details_test.dart` (sources on real files with .nfo files, a poster and a
+  subtitle file; the engine's answer in plain words; both pages with a stand-in engine,
+  `videoProbe`). The engine part was checked on a real MKV and MP4 with the bench test.
+
 ## Bottom bar and video volume linked again (1 Oct 2026, 0.1.43, released as v0.1.43; the user confirmed it works)
 - **What the user reported (after v0.1.42):** the video player's volume bar was no longer linked to
   the bottom bar's, and the bottom bar only updated while a video played when its volume slider

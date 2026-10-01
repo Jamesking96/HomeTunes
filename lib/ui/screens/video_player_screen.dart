@@ -41,6 +41,7 @@ import '../widgets/listening_controls.dart' show SpeedButton;
 import '../widgets/video_controls_look.dart';
 import 'edit_video.dart';
 import 'equalizer_screen.dart' show openEqualizer;
+import 'video_details_screen.dart' show openVideoDetails;
 import 'video_pictures.dart';
 import 'videos_screen.dart' show videoLength;
 import '../widgets/selectable_title.dart';
@@ -1036,6 +1037,13 @@ class _VideoPageState extends State<_VideoPage> {
                   icon: const Icon(Icons.image_outlined),
                   label: const Text('Change picture…'),
                   onPressed: () => showVideoPictureOptions(context, v),
+                ),
+                // Where it comes from and what's inside the file (0.1.44).
+                OutlinedButton.icon(
+                  key: const ValueKey('video-details'),
+                  icon: const Icon(Icons.info_outline),
+                  label: const Text('Details'),
+                  onPressed: () => openVideoDetails(context, v),
                 ),
                 OutlinedButton.icon(
                   icon: Icon(watched ? Icons.remove_done : Icons.check_circle_outline),
