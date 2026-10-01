@@ -110,15 +110,167 @@ T? matchTrack<T>(List<T> tracks, TrackPick pick) {
   return null;
 }
 
+/// A video's page (0.1.42): a loading page shows straight away, with the video's picture and
+/// "Opening …", while the real page (and its player) starts behind it; it fades away once the
+/// video's first picture is on screen (or it is playing, or it can't be played; after 12 s at
+/// the latest). Before, the app could look frozen for a moment while a big file opened.
 class VideoPlayerScreen extends StatefulWidget {
   final String videoId;
   const VideoPlayerScreen({super.key, required this.videoId});
+
+  /// Tests: build this instead of the real page (which needs the video engine).
+  @visibleForTesting
+  static Widget Function(String videoId, VoidCallback onReady)? debugPage;
 
   @override
   State<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
+  /// The real page has been started (after the page's slide-in, so that stays smooth).
+  bool _started = false;
+
+  /// The video is showing: the loading page fades away.
+  bool _ready = false;
+
+  /// The loading page has faded away and is no longer built.
+  bool _gone = false;
+
+  Animation<double>? _routeAnimation;
+  Timer? _startTimer;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started || _routeAnimation != null) return;
+    final animation = ModalRoute.of(context)?.animation;
+    if (animation == null) {
+      // Not on its own page: start after this first frame, so the loading page shows.
+      _startTimer = Timer(const Duration(milliseconds: 16), _start);
+      return;
+    }
+    // Start once the slide-in has finished. (The page's very first frame is drawn off screen,
+    // where its animation already reads as finished, so wait to be told it has finished.)
+    _routeAnimation = animation..addStatusListener(_onRouteStatus);
+    // In case the slide-in never reports finishing (or there isn't one).
+    _startTimer = Timer(const Duration(milliseconds: 400), _start);
+  }
+
+  void _onRouteStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed) _start();
+  }
+
+  void _start() {
+    _startTimer?.cancel();
+    _routeAnimation?.removeStatusListener(_onRouteStatus);
+    if (!mounted || _started) return;
+    setState(() => _started = true);
+  }
+
+  void _onReady() {
+    if (!mounted || _ready) return;
+    setState(() => _ready = true);
+  }
+
+  @override
+  void dispose() {
+    _startTimer?.cancel();
+    _routeAnimation?.removeStatusListener(_onRouteStatus);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final page = !_started
+        ? null
+        : VideoPlayerScreen.debugPage?.call(widget.videoId, _onReady) ??
+            _VideoPage(videoId: widget.videoId, onReady: _onReady);
+    return Stack(children: [
+      if (page != null) Positioned.fill(child: page),
+      if (!_gone)
+        Positioned.fill(
+          child: IgnorePointer(
+            ignoring: _ready,
+            child: AnimatedOpacity(
+              opacity: _ready ? 0 : 1,
+              duration: const Duration(milliseconds: 250),
+              onEnd: () {
+                if (_ready && mounted) setState(() => _gone = true);
+              },
+              child: VideoLoadingView(videoId: widget.videoId),
+            ),
+          ),
+        ),
+    ]);
+  }
+}
+
+/// The loading page: the video's name and picture, with a spinner. Back works as usual.
+class VideoLoadingView extends StatelessWidget {
+  final String videoId;
+  const VideoLoadingView({super.key, required this.videoId});
+
+  @override
+  Widget build(BuildContext context) {
+    final videos = Provider.of<VideoLibraryModel?>(context);
+    final v = videos?.byId(videoId);
+    final picture = v == null ? null : videos!.thumbFile(v);
+    final label = v == null ? null : [v.collection, ?v.episodeLabel].join(' · ');
+    return Scaffold(
+      key: const ValueKey('video-loading'),
+      appBar: AppBar(title: Text(v?.title ?? 'Video', maxLines: 1, overflow: TextOverflow.ellipsis)),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: ClipRRect(
+                  borderRadius: AppShape.circular(8),
+                  child: Stack(fit: StackFit.expand, children: [
+                    Container(color: Colors.black),
+                    if (picture != null)
+                      Opacity(
+                        opacity: 0.6,
+                        child: Image.file(File(picture), fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => const SizedBox.shrink()),
+                      ),
+                    const Center(child: CircularProgressIndicator()),
+                  ]),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                v == null ? 'Opening the video…' : 'Opening ${v.title}…',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+              if (label != null) ...[
+                const SizedBox(height: 4),
+                Text(label, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)),
+              ],
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VideoPage extends StatefulWidget {
+  final String videoId;
+
+  /// Called once, when the first video is showing (or can't be played).
+  final VoidCallback? onReady;
+  const _VideoPage({required this.videoId, this.onReady});
+
+  @override
+  State<_VideoPage> createState() => _VideoPageState();
+}
+
+class _VideoPageState extends State<_VideoPage> {
   // Windows: the engine draws subtitles (libass), so styled and picture subtitles work.
   final Player _player =
       Player(configuration: PlayerConfiguration(title: 'HomeTunes video', libass: !Platform.isAndroid));
@@ -159,6 +311,25 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   int _countdown = 0;
   Timer? _upNextTimer;
 
+  // Opening (0.1.42): a video is being opened and isn't showing yet. The first time, the loading
+  // page covers the whole page; for the next / previous video a spinner shows on the picture.
+  bool _opening = false;
+  Timer? _openingTimer;
+  bool _toldReady = false;
+
+  /// The video is showing (or can't be played): stop the spinner and lift the loading page.
+  void _shown() {
+    _openingTimer?.cancel();
+    if (!mounted) return;
+    if (_opening) setState(() => _opening = false);
+    if (!_toldReady) {
+      _toldReady = true;
+      // Not straight away: this can happen while the page is first being built.
+      final onReady = widget.onReady;
+      if (onReady != null) Future.microtask(onReady);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -176,7 +347,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         if (done) _finished();
       }),
       _player.stream.error.listen((e) {
-        if (mounted && _player.state.duration == Duration.zero) setState(() => _problem = 'Can\'t play this video: $e');
+        if (mounted && _player.state.duration == Duration.zero) {
+          setState(() => _problem = 'Can\'t play this video: $e');
+          _shown();
+        }
+      }),
+      // Playing and moving on: it's showing (some files never report a first picture).
+      _player.stream.position.listen((at) {
+        if (_opening && at > Duration.zero && _player.state.playing) _shown();
       }),
       _player.stream.playing.listen((playing) {
         // One thing at a time: whenever the video starts (or carries on), the music or
@@ -190,6 +368,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _saveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (_player.state.playing) _savePlace();
     });
+    // The first video's first picture is on screen (this only happens once per player).
+    _controller.waitUntilFirstFrameRendered.then((_) => _shown());
     _open(_id);
   }
 
@@ -210,10 +390,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _upNext = null;
       _aid = 'auto';
       _sid = 'auto';
+      _opening = true;
     });
     _upNextTimer?.cancel();
+    // At the latest after 12 s: don't keep a spinner up for ever.
+    _openingTimer?.cancel();
+    _openingTimer = Timer(const Duration(seconds: 12), _shown);
     if (v == null || file == null) {
       setState(() => _problem = 'This video isn\'t there any more. Rescan your video folders to tidy the list.');
+      _shown();
       return;
     }
     final next = _videos.after(v), previous = _videos.before(v);
@@ -519,6 +704,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (length > Duration.zero && at > Duration.zero) Future.microtask(() => videos.savePlace(id, at, length));
     _saveTimer?.cancel();
     _upNextTimer?.cancel();
+    _openingTimer?.cancel();
     _music.removeListener(_onMusicChanged);
     _watching?.detach(_transport);
     _eq?.removeListener(_applyEqualizer);
@@ -690,6 +876,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               )
             : _videoWidget(),
       ),
+      // The next / previous video is opening: a spinner over the picture until it shows.
+      if (_opening && _problem == null && _toldReady)
+        const Positioned.fill(
+          child: IgnorePointer(
+            child: ColoredBox(
+              key: ValueKey('video-opening'),
+              color: Colors.black45,
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ),
+        ),
       if (_upNext != null)
         Positioned(
           right: 16,
