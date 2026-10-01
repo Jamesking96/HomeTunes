@@ -16,9 +16,13 @@ Read the files in this order:
 | `04_ROADMAP_AND_OPEN_ITEMS.md` | What's done and what's next (offline server songs, audiobook server), decisions, security, known issues |
 | `05_CODE_GUIDE.md` | A plain-English tour of the code for the user: every folder and file, how the main journeys flow, scripts, tests, where to make common changes, and probable bugs spotted |
 
-## Status (30 Sep 2026)
+## Status (1 Oct 2026)
 
 - **Released:** the latest release is
+  [v0.1.42](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.42) (1 Oct): a loading
+  page while a video opens. Before it, the same day,
+  [v0.1.41](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.41) (copyable titles,
+  videos in Search, shrink to fit small windows) and
   [v0.1.40](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.40) (1 Oct), which
   covers 0.1.31 and 0.1.40 (0.1.32 was renumbered 0.1.40 before release: videos are a whole new
   feature). It adds **videos** (the Videos tab, music videos on Now Playing, the video engine),
@@ -28,7 +32,7 @@ Read the files in this order:
   `HomeTunes-audio-engine-source.zip` from `tool/engine_source.ps1`) are explained in `04_…`
   (Music videos, "Done 1 Oct"). See `03_…` → Licence, which includes the rule about GPL
   libraries.
-- **Checks:** 495 tests passed on 0.1.40 (1 Oct), and `flutter analyze` is clean.
+- **Checks:** 503 tests passed on 0.1.42 (1 Oct), and `flutter analyze` is clean.
 - **Devices:** the phone was last known to have 0.1.23. Installed Windows copies update
   themselves from GitHub releases, so the PC's copy may be newer.
 - **Publishing:** every release goes out with `tool/publish_release.ps1 -NotesFile …` (see `02_…`
@@ -55,6 +59,8 @@ Read the files in this order:
   - 0.1.31: MIT licence and third-party notices
   - 0.1.40: videos (Videos tab, collections, seasons, music videos), the resizable sidebar,
     notices that close after 15 s
+  - 0.1.41: copyable titles, videos and collections in Search, shrink to fit small windows
+  - 0.1.42: a loading page while a video opens (the user confirmed it works)
 - **Code comments:** every source file has a header comment saying what it does and why. Keep
   that up for new files.
 - **These notes** are also in the repo under `docs/ai-context/`, kept the same as the project

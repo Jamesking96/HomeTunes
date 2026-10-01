@@ -185,7 +185,7 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
-## Loading page while a video opens (1 Oct 2026, 0.1.42, branch `feature/video-loading`)
+## Loading page while a video opens (1 Oct 2026, 0.1.42, released as v0.1.42)
 - **What the user asked for:** "When loading a video, sometimes it can take a moment. Rather than
   looking like the application has frozen, lets show a loading page before the true page shows up".
 - **How it works** (`video_player_screen.dart`). `VideoPlayerScreen` is now a small wrapper: it
@@ -202,7 +202,7 @@ before changing that area.
 - **Next / previous video** (and Up next): the page stays; a dimmed spinner sits over the picture
   (`video-opening`) until that video is moving, or 12 s.
 - **Tests:** `test/video_loading_test.dart` (with `VideoPlayerScreen.debugPage` standing in for the
-  real page, which needs the video engine). Not yet seen in a real window.
+  real page, which needs the video engine). The user tried it in the app and said it "works perfect".
 
 ## Copyable titles, video search, shrink to fit (1 Oct 2026, 0.1.41, branch `feature/titles-search-scaling`)
 - **What the user asked for:** "titles of all medias should be highlightable to copy and paste";
