@@ -124,7 +124,7 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
 
 ## Source control
 `main` is **0.1.40+40** (videos, merged 1 Oct) and the latest release is **v0.1.40**
-(published 1 Oct, covering 0.1.31 and 0.1.40). `feature/music-videos` is merged but not deleted. Each feature gets its own branch, merged into `main` with
+(published 1 Oct, covering 0.1.31 and 0.1.40). There are no other branches (`feature/music-videos` was deleted after merging). Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
 repo copy of these notes (`docs/ai-context/`) is kept the same as the project copy.
