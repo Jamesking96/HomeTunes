@@ -142,7 +142,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `home_screen.dart` | Home: greeting, Continue listening, quick tiles, recently added, artists. |
 | `library_screen.dart` | Library: Playlists, Artists, Albums and Songs tabs. Artists, Albums and Songs each have a filter-by-title box, All / Favourites (Liked for songs) chips, a filter sheet and a sort menu, sharing `_FilteredTabState`; each tab keeps its choices while you swipe between them. |
 | `books_screen.dart` | Books: cover grid, search, state chips (including Favourites), author/narrator/series filter, sorting. |
-| `search_screen.dart` | Search as you type across songs, artists, albums, books and chapters. |
+| `search_screen.dart` | Search as you type across songs, artists, albums, books and chapters, and (0.1.41) video collections and videos (`searchCollections` / `searchVideos` from `video_filters.dart`). |
 | `album_screen.dart` | One album, split by disc, with a favourite heart, the ⓘ Details button, and prompts to find a missing cover or details online. |
 | `artist_screen.dart` | One artist: picture, albums (click one to see its songs underneath, 0.1.26), all songs. |
 | `book_screen.dart` | One audiobook: details, progress, Play/Resume, favourite heart, description, PDF, bookmarks, chapters, Move to Music, Details. |
@@ -190,6 +190,8 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `music_video_view.dart` | The music video on Now Playing (0.1.40): a second, muted player showing the song's video, kept in step with the song (`videoSeekTarget`), with the cover until the first picture. |
 | `video_controls_look.dart` | Applies `VideoPlayerLook` to media_kit's controls (30 Sep): `ButtonBacking` (glow or disc behind each control), `backedBar`, `timeTextStyle`, `desktopControlsTheme` / `phoneControlsTheme` (normal and full screen), `VideoWheel` (the mouse wheel over the video: 5 s skips over its progress bar, volume elsewhere) and `VideoControlsPreview` for Settings. |
 | `video_now_playing.dart` | The bottom player bar and mini player while a video plays (`VideoPlayerBar`, `VideoMiniPlayer`, `VideoSeekBar`, `VideoTransportControls`), from `NowWatching` (30 Sep). |
+| `selectable_title.dart` | Copyable titles (0.1.41): `SelectableTitle` (a page's big title in a `SelectionArea`), `copyTitle` and `copyTitleMenuItem` (the "Copy title" menu entry for songs, albums, books, videos and collections). |
+| `window_scale.dart` | Shrink to fit small windows (0.1.41): `WindowScale` (in `MaterialApp.builder`) lays the app out bigger and draws it smaller on a computer below 1200 × 760, down to 80 % (`factorFor`); `scaleWithWindow` turns it off. |
 | `sidebar.dart` | The computer's sidebar (`Sidebar`, 1 Oct; was `_Sidebar` in shell.dart): drag its edge to resize (180–420), fold it to icons (button, double-click, or drag narrow), saved as `sidebarWidth` / `sidebarFolded`; Liked Songs, Favourite audiobooks and Favourite videos (`AppNav.openView`), then the playlists. |
 | `notices.dart` | `NoticeMessenger` (1 Oct): the app's ScaffoldMessenger; every notice lives 15 s from when it's raised, on screen or waiting (so they can't pile up), and repeats of the same words aren't queued. |
 | `wheel_seek.dart` | Scroll to skip: `WheelSeek` wraps a progress bar so a wheel notch (or a two-finger touchpad swipe) skips 5 s; `wheelSeekTarget` (30 Sep). |

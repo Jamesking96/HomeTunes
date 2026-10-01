@@ -1,17 +1,26 @@
-// The Search tab: one search box that looks through songs, artists, albums, audiobooks and
-// audiobook chapters all at once, showing results as you type.
+// The Search tab: one search box that looks through songs, artists, albums, audiobooks,
+// audiobook chapters, videos and video collections all at once, showing results as you type.
 //
 // The actual matching lives in LibraryModel (search / searchBooks / searchChapters, which use
-// library_index.dart and book_index.dart). This page just holds the typed text and lays out
-// the results as shelves (artists, albums, books) and lists (songs, chapters).
+// library_index.dart and book_index.dart) and video_filters.dart (searchVideos /
+// searchCollections, 0.1.41). This page just holds the typed text and lays out the results as
+// shelves (artists, albums, books, collections, videos) and lists (songs, chapters).
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/video_item.dart';
 import '../../state/library_index.dart';
 import '../../models/book.dart';
 import '../../state/library_model.dart';
 import '../../state/player_model.dart';
+import '../../state/video_filters.dart';
+import '../../state/video_library_model.dart';
+import '../nav.dart';
 import '../theme.dart';
+import 'video_collection_screen.dart' show CollectionCard, collectionCardHeight;
+import 'videos_screen.dart' show VideoCard, videoCardHeight;
 import '../widgets/book_card.dart';
 import '../widgets/cards.dart';
 import '../widgets/track_tile.dart';
@@ -25,6 +34,9 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
+  /// Width of the video and collection cards on their shelves.
+  static const _cardWidth = 220.0;
+
   final _ctrl = TextEditingController();
   /// What's been typed so far. Each keystroke rebuilds the page and re-runs the search.
   String _query = '';
@@ -44,6 +56,11 @@ class _SearchScreenState extends State<SearchScreen> {
     final books = lib.searchBooks(_query);
     final chapters = lib.searchChapters(_query);
     final ratio = bookCoverRatio(context);
+    // Videos and their collections (0.1.41). Null in tests without the Videos tab's model.
+    final videoModel = context.watch<VideoLibraryModel?>();
+    final blank = _query.trim().isEmpty;
+    final collections = videoModel == null || blank ? const <VideoCollection>[] : searchCollections(videoModel.collections, _query);
+    final videos = videoModel == null || blank ? const <VideoItem>[] : searchVideos(videoModel.videos, _query);
 
     return Scaffold(
       // The search box sits in the app bar, with a clear (x) button once something's typed.
@@ -55,7 +72,7 @@ class _SearchScreenState extends State<SearchScreen> {
           textInputAction: TextInputAction.search,
           onChanged: (v) => setState(() => _query = v),
           decoration: InputDecoration(
-            hintText: 'Songs, artists, albums, books or chapters',
+            hintText: 'Songs, artists, albums, books, chapters or videos',
             prefixIcon: const Icon(Icons.search),
             suffixIcon: _query.isEmpty
                 ? null
@@ -76,8 +93,10 @@ class _SearchScreenState extends State<SearchScreen> {
       // Body: a hint when nothing's typed, "no results" when nothing matched, else the results.
       body: _query.trim().isEmpty
           ? const EmptyState(
-              icon: Icons.search, title: 'Search your library', message: 'Find songs, artists, albums, audiobooks and their chapters.')
-          : results.isEmpty && books.isEmpty && chapters.isEmpty
+              icon: Icons.search,
+              title: 'Search your library',
+              message: 'Find songs, artists, albums, audiobooks and their chapters, videos and video collections.')
+          : results.isEmpty && books.isEmpty && chapters.isEmpty && collections.isEmpty && videos.isEmpty
               ? EmptyState(icon: Icons.search_off, title: 'No results for "$_query"')
               : CustomScrollView(slivers: [
                   // Horizontal shelves first (artists, albums, audiobooks), capped at 12 each.
@@ -108,6 +127,43 @@ class _SearchScreenState extends State<SearchScreen> {
                         children: [
                           for (final b in books.take(12))
                             BookCard(book: b, width: 150, scope: [for (final x in books.take(12)) x.id]),
+                        ],
+                      ),
+                    ),
+                  // Video collections and videos (0.1.41): tap a collection for its page, a video
+                  // to play it (both on the Videos tab).
+                  if (collections.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: Shelf(
+                        key: const ValueKey('search-collections'),
+                        title: 'Video collections',
+                        height: collections
+                            .take(12)
+                            .map((c) => collectionCardHeight(_cardWidth, videoModel!.collectionShapeOf(c)))
+                            .reduce(math.max),
+                        children: [
+                          for (final c in collections.take(12))
+                            SizedBox(
+                              width: _cardWidth,
+                              child: CollectionCard(
+                                collection: c,
+                                onTap: () => context.read<AppNav>().openVideoCollection(c.name),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  if (videos.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: Shelf(
+                        key: const ValueKey('search-videos'),
+                        title: 'Videos',
+                        height: videos
+                            .take(12)
+                            .map((v) => videoCardHeight(_cardWidth, videoModel!.shapeOf(v)))
+                            .reduce(math.max),
+                        children: [
+                          for (final v in videos.take(12)) SizedBox(width: _cardWidth, child: VideoCard(video: v)),
                         ],
                       ),
                     ),

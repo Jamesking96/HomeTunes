@@ -16,6 +16,7 @@ import '../screens/cover_search_dialog.dart';
 import '../screens/details_screen.dart';
 import '../screens/edit_book.dart';
 import '../screens/edit_details.dart';
+import 'selectable_title.dart';
 
 /// One item in a quick-actions menu.
 class QuickAction {
@@ -99,6 +100,7 @@ List<QuickAction> albumActions(BuildContext context, List<Album> albums) {
     QuickAction(allFavourite ? Icons.favorite : Icons.favorite_border,
         allFavourite ? 'Remove from favourites' : 'Add to favourites',
         () async => playlists.setFavouriteAlbums(albums, !allFavourite)),
+    if (n == 1) QuickAction(Icons.content_copy, 'Copy title', () => copyTitle(context, albums.first.title)),
     QuickAction(Icons.info_outline, 'Details…', () => openDetails(context,
         kind: n == 1 ? 'Album' : '$n albums',
         title: n == 1 ? albums.first.title : albums.map((a) => a.title).join(', '),
@@ -131,6 +133,7 @@ List<QuickAction> bookActions(BuildContext context, List<Book> books) {
     QuickAction(allFavourite ? Icons.favorite : Icons.favorite_border,
         allFavourite ? 'Remove from favourites' : 'Add to favourites',
         () async => playlists.setFavouriteBooks(books, !allFavourite)),
+    if (n == 1) QuickAction(Icons.content_copy, 'Copy title', () => copyTitle(context, books.first.title)),
     QuickAction(Icons.info_outline, 'Details…', () => openDetails(context,
         kind: n == 1 ? 'Audiobook' : '$n audiobooks',
         title: n == 1 ? books.first.title : books.map((b) => b.title).join(', '),

@@ -185,6 +185,35 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Copyable titles, video search, shrink to fit (1 Oct 2026, 0.1.41, branch `feature/titles-search-scaling`)
+- **What the user asked for:** "titles of all medias should be highlightable to copy and paste";
+  "the Search button on the left and tab should also search in video & collections"; "when
+  scaling the window down, the widgets/buttons should scale down a little bit", as an option that
+  can be turned off, in Appearance.
+- **Titles** (`widgets/selectable_title.dart`). Each page's big title is a `SelectableTitle` (a
+  `Text` in a `SelectionArea`, so "…" still works): album / artist / playlist header
+  (`CollectionHeader`), the book page, Now Playing (song or chapter), a collection's page and its
+  in-place contents, the video player page. The Details page already had one. Titles on cards and
+  list rows stay tap-to-open (selecting there would fight the tap), so their menus got
+  **Copy title** (`copyTitle`: clipboard + "Copied "…"" notice): songs (`track_tile.dart`),
+  albums and books (`quick_actions.dart`, one at a time), videos (`showVideoMenu`) and collections
+  (`showCollectionMenu`).
+- **Search** (`search_screen.dart`): two more shelves after Audiobooks, **Video collections**
+  (`searchCollections`: name, category, genre, year; tap opens the collection's page) and
+  **Videos** (`searchVideos`: title, collection, genre, year; tap plays), 12 each, 220 px cards.
+  Every word must match, as elsewhere. `VideoCard.onSelect` is now optional, so cards in Search
+  have no "Select". Watches `VideoLibraryModel?` (absent in old tests).
+- **Shrink to fit small windows** (`widgets/window_scale.dart`, `WindowScale` in
+  `MaterialApp.builder`). On a computer, below 1200 × 760 the whole app is laid out as if the
+  window were bigger and drawn smaller: 100 % at 1200 wide / 760 high, falling evenly to 80 % at
+  760 / 520 and below (the smaller of the two). The MediaQuery size is divided by the factor, so
+  the phone / desktop layout switch and every page see the bigger size. The bigger box
+  (`OverflowBox`) sits outside the `Transform.scale`, not inside: the other way round, clicks in
+  the right / bottom fifth of the window were thrown away as "outside" (caught by the test).
+  Phones are left alone. **Settings › Appearance › Shrink to fit small windows** (`scaleWithWindow`,
+  on by default, settings.json).
+- **Tests:** `test/titles_search_scaling_test.dart`.
+
 ## The computer's sidebar (1 Oct 2026, 0.1.40)
 - **What the user asked for:** "the left hand side bar can be scaled and hidden away by dragging
   or a click of a button", and two more entries like Liked Songs under Settings: one for
