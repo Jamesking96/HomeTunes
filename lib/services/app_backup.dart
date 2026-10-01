@@ -38,6 +38,7 @@ class AppBackup {
     'equalizer.json',
     'videos.json',  // 0.1.40: the Videos tab (edits and watched places)
     'history.json', // 0.1.45: recently played music (Home's "Jump back in")
+    'servers.json', // 0.1.46: the other servers (never their passwords)
   ];
 
   /// Marks a path inside the app's folder in a backup.
@@ -383,6 +384,26 @@ class AppBackup {
       if (ch.isNotEmpty || bh.isNotEmpty) await put('history.json', {'played': mergeHistory(ch['played'], bh['played'])});
     } else if (bh.isNotEmpty) {
       await put('history.json', bh);
+    }
+
+    // ---- your other servers (0.1.46): merging adds the backup's ones that aren't here (same
+    //      kind, address and user name counts as the same server). Passwords are never in a
+    //      backup: they're typed again on this device. ----
+    final bsv = backupFile('servers.json');
+    for (final s in (bsv['servers'] as List? ?? const [])) {
+      if (s is Map) s.remove('password'); // never written, but a hand-made backup could hold one
+    }
+    if (merge) {
+      final csv = await currentFile('servers.json');
+      String same(Object? s) => s is Map ? '${s['type']}|${s['url']}|${s['username'] ?? ''}' : '';
+      final here = [...(csv['servers'] as List? ?? const [])];
+      final seen = {for (final s in here) same(s)};
+      final added = [for (final s in (bsv['servers'] as List? ?? const [])) if (s is Map && seen.add(same(s))) s];
+      if (here.isNotEmpty || added.isNotEmpty) {
+        await put('servers.json', {...csv, 'servers': [...here, ...added]});
+      }
+    } else if (bsv.isNotEmpty) {
+      await put('servers.json', bsv);
     }
 
     return RestoreResult(missingFolders: missingFolders, needsPassword: needsPassword);
