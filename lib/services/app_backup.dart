@@ -37,6 +37,7 @@ class AppBackup {
     'lyrics.json',
     'equalizer.json',
     'videos.json',  // 0.1.40: the Videos tab (edits and watched places)
+    'history.json', // 0.1.45: recently played music (Home's "Jump back in")
   ];
 
   /// Marks a path inside the app's folder in a backup.
@@ -375,6 +376,15 @@ class AppBackup {
       await put('videos.json', bv);
     }
 
+    // ---- recently played music (0.1.45): merging keeps both, newest first, each place once ----
+    final bh = backupFile('history.json');
+    if (merge) {
+      final ch = await currentFile('history.json');
+      if (ch.isNotEmpty || bh.isNotEmpty) await put('history.json', {'played': mergeHistory(ch['played'], bh['played'])});
+    } else if (bh.isNotEmpty) {
+      await put('history.json', bh);
+    }
+
     return RestoreResult(missingFolders: missingFolders, needsPassword: needsPassword);
   }
 
@@ -412,6 +422,17 @@ class AppBackup {
       'favouriteAlbums': both('favouriteAlbums'),
       'favouriteBooks': both('favouriteBooks'),
     };
+  }
+
+  /// Combines two history.json "played" lists: newest first, each place (kind + key) once, at
+  /// most 50 (PlayHistory.max).
+  static List<Map<String, dynamic>> mergeHistory(Object? current, Object? incoming) {
+    final all = [
+      for (final x in [...(current as List? ?? const []), ...(incoming as List? ?? const [])])
+        if (x is Map && x['at'] is int) Map<String, dynamic>.from(x),
+    ]..sort((a, b) => (b['at'] as int).compareTo(a['at'] as int));
+    final seen = <String>{};
+    return [for (final x in all) if (seen.add('${x['kind']}|${x['key']}')) x].take(50).toList();
   }
 
   /// Combines two listening.json "books" maps, keeping the latest place per book.
