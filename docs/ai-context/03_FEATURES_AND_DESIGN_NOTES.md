@@ -185,6 +185,28 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Bottom bar and video volume linked again (1 Oct 2026, 0.1.43, branch `fix/video-bar-link`)
+- **What the user reported (after v0.1.42):** the video player's volume bar was no longer linked to
+  the bottom bar's, and the bottom bar only updated while a video played when its volume slider
+  was pressed.
+- **Cause:** the video page attaches its player to `NowWatching` (and says which video is showing)
+  in `initState`, i.e. while the screen is being built. `NowWatching` told its listeners straight
+  away, so the provider above the bar was marked for rebuilding in the middle of a build. In a
+  test that's the "setState() or markNeedsBuild() called during build" error; in the release app
+  the provider was left marked and never passed later changes on (play / pause, position, volume)
+  until something rebuilt the bar directly. 0.1.42's loading page made it happen every time (the
+  page now starts from a rebuild of its own).
+- **Fix:** `NowWatching._notify` replaces `notifyListeners`: while a frame is being built
+  (`SchedulerPhase.persistentCallbacks`) it waits for the end of that frame (one post-frame
+  callback, merged), otherwise it tells listeners at once. Also covers detaching while a page is
+  being disposed.
+- **Tests:** `test/video_bar_link_test.dart` opens a page through `VideoPlayerScreen` (with
+  `debugPage`) and checks the bar switches to the video and its volume follows the player's; it
+  fails without the fix. `tool/bench/video_bar_engine_test.dart` confirmed the real engine
+  reports playing, position and volume on its streams.
+- Also in 0.1.43: `publish_release.ps1` only adds the "## What's new in …" heading when the
+  notes file doesn't start with one (v0.1.41 and v0.1.42's pages showed it twice).
+
 ## Loading page while a video opens (1 Oct 2026, 0.1.42, released as v0.1.42)
 - **What the user asked for:** "When loading a video, sometimes it can take a moment. Rather than
   looking like the application has frozen, lets show a loading page before the true page shows up".
