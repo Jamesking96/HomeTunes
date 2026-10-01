@@ -175,13 +175,17 @@ folds it down to icons and opens it again.
   them). Right-click it (press and hold on a phone) and choose **Open album page** for the full
   page. On a PC, moving the mouse over any album cover shows a play button to play it straight
   away.
-- **Search:** finds songs, artists, albums, books and chapters. Every word you type must match.
+- **Search:** finds songs, artists, albums, books, chapters, videos and video collections. Every
+  word you type must match.
 - **Playlists and favourites:** make playlists in **Library**, like songs with the heart, and
   heart whole albums or books. Library tabs have filters and sorting, including **Favourites**.
 - **Menus:** right-click (PC) or press and hold (phone) on an album or book for quick actions:
   **Edit details…**, **Choose cover…**, **Add to favourites** and **Details…** (where it came
   from). A song's menu has **Go to album**, **Go to artist**, **Edit details…**, **Lyrics** and
   **Details…**, among others.
+- **Copying titles:** drag across the big title at the top of an album, artist, playlist, book,
+  collection or video page (or on Now Playing) and copy it with Ctrl+C or a right-click. Songs,
+  albums, books, videos and collections also have **Copy title** in their right-click menu.
 - **Fix wrong details:** use **Edit details**. Select several albums or books to edit them together.
   Your changes are kept by HomeTunes and don't touch the files, unless you choose to save
   them into the files in **Settings › Your edits**.
@@ -228,6 +232,8 @@ folds it down to icons and opens it again.
   and its **⋮** menu can also **Duplicate…** it.
   **Reset to default colours** puts "Your own" back to how it started (with Undo). **Advanced**
   also has **Text size** and **Corners** (from square to extra round).
+  On a PC, **Shrink to fit small windows** (on to start with) makes buttons, text and pictures a
+  little smaller when you make the window small, so more fits; turn it off to keep them full size.
   In any colour picker you can also type or paste a colour code such as `#FF7A59` into
   **Colour code** (the paste button beside it pastes straight in).
 - **Sharing themes with friends:** a saved theme's **⋮ › Share…** (or **Share these colours**

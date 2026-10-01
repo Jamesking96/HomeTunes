@@ -285,6 +285,18 @@ class AppearanceSettings extends StatelessWidget {
           onChanged: (v) => lib.setLook(cornerRoundness: v),
         ),
       ),
+      // Shrink to fit small windows (0.1.41; widgets/window_scale.dart).
+      SettingTarget(
+        'scale-with-window',
+        child: SwitchListTile(
+          key: const ValueKey('scale-with-window'),
+          title: const Text('Shrink to fit small windows'),
+          subtitle: const Text('On a computer, buttons, text and pictures get a little smaller when you make the '
+              'window small, so more fits. Turn off to keep them the same size.'),
+          value: lib.scaleWithWindow,
+          onChanged: lib.setScaleWithWindow,
+        ),
+      ),
       // The video player's buttons: colour, size, backing and progress bar (0.1.40).
       const VideoPlayerLookSettings(),
       const SizedBox(height: 16),

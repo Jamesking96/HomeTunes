@@ -39,6 +39,7 @@ import 'ui/screens/settings/whats_new_ui.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
 import 'ui/widgets/notices.dart';
+import 'ui/widgets/window_scale.dart';
 
 /// Starts HomeTunes: sets up storage and the models, then shows the app.
 Future<void> main() async {
@@ -258,8 +259,17 @@ class HomeTunesApp extends StatelessWidget {
               // Text size: on top of the system's own setting. Notices go through NoticeMessenger
               // (15 seconds each, even while waiting; 1 Oct), whose key lets the start-up update
               // notice (and its dialog) be shown from outside the tree.
-              builder: (context, child) =>
-                  NoticeMessenger(key: appMessengerKey, child: withTextSize(context, look.textSize, child!)),
+              // Shrink to fit small windows (0.1.41): on a computer, a small window draws
+              // everything a little smaller (switch in Settings › Appearance).
+              builder: (context, child) => NoticeMessenger(
+                key: appMessengerKey,
+                child: Builder(
+                  builder: (context) => WindowScale(
+                    enabled: context.select<LibraryModel, bool>((l) => l.scaleWithWindow),
+                    child: Builder(builder: (context) => withTextSize(context, look.textSize, child!)),
+                  ),
+                ),
+              ),
               home: const Shell(),
             ),
           );

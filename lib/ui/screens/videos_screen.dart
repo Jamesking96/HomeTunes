@@ -28,6 +28,7 @@ import '../widgets/music_filter_sheet.dart' show MusicFilterBar, showMusicFilter
 import 'edit_video.dart';
 import 'video_collection_screen.dart';
 import 'video_pictures.dart';
+import '../widgets/selectable_title.dart';
 
 class VideosScreen extends StatelessWidget {
   const VideosScreen({super.key});
@@ -699,8 +700,9 @@ class VideoCard extends StatelessWidget {
   final VideoItem video;
   final bool selected;
   final bool selecting;
-  final VoidCallback onSelect;
-  const VideoCard({super.key, required this.video, required this.selected, required this.selecting, required this.onSelect});
+  /// Ticks or unticks it; null where selecting isn't offered (Search).
+  final VoidCallback? onSelect;
+  const VideoCard({super.key, required this.video, this.selected = false, this.selecting = false, this.onSelect});
 
   @override
   Widget build(BuildContext context) {
@@ -838,6 +840,7 @@ Future<void> showVideoMenu(BuildContext context, VideoItem video, {required Offs
           title: Text(watched ? 'Mark as not watched' : 'Mark as watched'),
         ),
       ),
+      copyTitleMenuItem('copy'),
       if (Platform.isWindows)
         const PopupMenuItem(value: 'folder', child: ListTile(leading: Icon(Icons.folder_open), title: Text('Show in folder'))),
       if (onSelect != null)
@@ -846,6 +849,8 @@ Future<void> showVideoMenu(BuildContext context, VideoItem video, {required Offs
   );
   if (!context.mounted) return;
   switch (choice) {
+    case 'copy':
+      await copyTitle(context, video.title);
     case 'play':
       nav.openVideo(video);
     case 'restart':
