@@ -185,7 +185,7 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
-## Bottom bar and video volume linked again (1 Oct 2026, 0.1.43, branch `fix/video-bar-link`)
+## Bottom bar and video volume linked again (1 Oct 2026, 0.1.43, released as v0.1.43; the user confirmed it works)
 - **What the user reported (after v0.1.42):** the video player's volume bar was no longer linked to
   the bottom bar's, and the bottom bar only updated while a video played when its volume slider
   was pressed.

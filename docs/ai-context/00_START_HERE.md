@@ -19,8 +19,10 @@ Read the files in this order:
 ## Status (1 Oct 2026)
 
 - **Released:** the latest release is
-  [v0.1.42](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.42) (1 Oct): a loading
-  page while a video opens. Before it, the same day,
+  [v0.1.43](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.43) (1 Oct): the bottom
+  bar follows the video again (play / pause, position, volume). Before it, the same day,
+  [v0.1.42](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.42) (a loading page while
+  a video opens),
   [v0.1.41](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.41) (copyable titles,
   videos in Search, shrink to fit small windows) and
   [v0.1.40](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.40) (1 Oct), which
@@ -32,7 +34,7 @@ Read the files in this order:
   `HomeTunes-audio-engine-source.zip` from `tool/engine_source.ps1`) are explained in `04_…`
   (Music videos, "Done 1 Oct"). See `03_…` → Licence, which includes the rule about GPL
   libraries.
-- **Checks:** 503 tests passed on 0.1.42 (1 Oct), and `flutter analyze` is clean.
+- **Checks:** 504 tests passed on 0.1.43 (1 Oct), and `flutter analyze` is clean.
 - **Devices:** the phone was last known to have 0.1.23. Installed Windows copies update
   themselves from GitHub releases, so the PC's copy may be newer.
 - **Publishing:** every release goes out with `tool/publish_release.ps1 -NotesFile …` (see `02_…`
@@ -61,6 +63,8 @@ Read the files in this order:
     notices that close after 15 s
   - 0.1.41: copyable titles, videos and collections in Search, shrink to fit small windows
   - 0.1.42: a loading page while a video opens (the user confirmed it works)
+  - 0.1.43: the bottom bar follows the video again (confirmed by the user); single "What's new"
+    heading on release pages
 - **Code comments:** every source file has a header comment saying what it does and why. Keep
   that up for new files.
 - **These notes** are also in the repo under `docs/ai-context/`, kept the same as the project
