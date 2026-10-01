@@ -1,4 +1,4 @@
-// Videos (0.1.32): collections, which work like albums.
+// Videos (0.1.40): collections, which work like albums.
 //
 // A collection is a series, a film or a folder of home videos (VideoCollection, built by
 // VideoLibraryModel from each video's collection name). This file has:

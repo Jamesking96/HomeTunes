@@ -1,4 +1,4 @@
-// Videos (0.1.32): finds pictures for a video or a collection online, for "Search online…" in
+// Videos (0.1.40): finds pictures for a video or a collection online, for "Search online…" in
 // the Change picture / Change poster options. Three free services that need no account or key:
 //   - TVmaze (TV series): posters, backgrounds and banners for the show, and the still for one
 //     episode. Its data and pictures are CC BY-SA: the search dialog credits TVmaze.
@@ -54,7 +54,7 @@ class VideoArtResults {
 }
 
 class VideoArtSearch {
-  static const userAgent = 'HomeTunes/0.1.32 (https://github.com/Jamesking96/HomeTunes)';
+  static const userAgent = 'HomeTunes/0.1.40 (https://github.com/Jamesking96/HomeTunes)';
   static const services = ['TVmaze', 'AniList', 'Wikipedia'];
   final http.Client _http;
   final Duration timeout;

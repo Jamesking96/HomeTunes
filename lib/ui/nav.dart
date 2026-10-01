@@ -24,7 +24,7 @@ class AppNav extends ChangeNotifier {
   static const tabCount = 6; // Home, Search, Library, Books, Videos, Settings
   static const libraryTab = 2;
   static const booksTab = 3;
-  static const videosTab = 4; // 0.1.32
+  static const videosTab = 4; // 0.1.40
   static const settingsTab = 5;
   /// One key per tab, so we can reach each tab's Navigator from outside the widget tree.
   final List<GlobalKey<NavigatorState>> keys = List.generate(tabCount, (_) => GlobalKey<NavigatorState>());
@@ -114,7 +114,7 @@ class AppNav extends ChangeNotifier {
     WidgetsBinding.instance.addPostFrameCallback((_) => push(BookScreen(bookId: b.id)));
   }
 
-  /// Opens a video collection's page on the Videos tab (0.1.32).
+  /// Opens a video collection's page on the Videos tab (0.1.40).
   void openVideoCollection(String name) {
     if (tab != videosTab) {
       tab = videosTab;
@@ -123,7 +123,7 @@ class AppNav extends ChangeNotifier {
     WidgetsBinding.instance.addPostFrameCallback((_) => push(VideoCollectionScreen(name: name)));
   }
 
-  /// Opens a video's player page on the Videos tab (0.1.32).
+  /// Opens a video's player page on the Videos tab (0.1.40).
   void openVideo(VideoItem v) {
     if (tab != videosTab) {
       tab = videosTab;

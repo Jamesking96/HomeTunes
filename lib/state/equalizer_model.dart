@@ -9,7 +9,7 @@ import 'package:flutter/foundation.dart';
 import '../models/eq_preset.dart';
 import '../services/storage.dart';
 
-/// What a preset is for (0.1.32 added videos).
+/// What a preset is for (0.1.40 added videos).
 enum EqTarget { music, books, videos }
 
 class EqualizerModel extends ChangeNotifier {
@@ -27,7 +27,7 @@ class EqualizerModel extends ChangeNotifier {
   String musicPresetId = 'flat';
   String bookPresetId = 'spoken';
 
-  /// Videos use their own preset ([videoPresetId]); when off they use the music one (0.1.32).
+  /// Videos use their own preset ([videoPresetId]); when off they use the music one (0.1.40).
   bool separateVideos = true;
   String videoPresetId = 'flat';
 

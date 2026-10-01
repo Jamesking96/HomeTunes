@@ -1,4 +1,4 @@
-// Videos (0.1.32): the "Also save into .nfo files" tick box shared by Edit details and Edit
+// Videos (0.1.40): the "Also save into .nfo files" tick box shared by Edit details and Edit
 // collection, and the step after saving that writes the files (VideoLibraryModel.saveNfoFiles,
 // services/video_nfo.dart) and says how it went. Not offered on Android, where the app can't
 // write into the phone's video folders.

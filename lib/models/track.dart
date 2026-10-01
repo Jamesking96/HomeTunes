@@ -61,7 +61,7 @@ class Track {
   /// so rescans read them again.
   final int? sidecarStamp;
 
-  /// A music video for this song (local files only, 0.1.32): a video file with the same name
+  /// A music video for this song (local files only, 0.1.40): a video file with the same name
   /// in the same folder ("Song.m4a" + "Song.mp4"), or the song's own file when it's an MP4
   /// with pictures and no separate audio file. Shown on Now Playing, muted and kept in step with
   /// the song (ui/widgets/music_video_view.dart). Worked out by the scanner on every scan.

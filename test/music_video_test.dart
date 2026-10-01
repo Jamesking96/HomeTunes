@@ -1,4 +1,4 @@
-// Tests for music videos (0.1.32): pairing a song with the video of the same name beside it
+// Tests for music videos (0.1.40): pairing a song with the video of the same name beside it
 // (services/music_video.dart), telling an .mp4 with pictures from a sound-only one (mp4HasVideo),
 // the scanner giving songs their videos and hiding paired videos from the song list, the video
 // being saved with the song, and when the video display moves the video to keep in step.
@@ -166,7 +166,7 @@ void main() {
     expect(Track.fromJson(t.toJson()).video, '/m/Flowers.mp4');
     expect(t.copyWith(art: '/a.jpg').video, '/m/Flowers.mp4');
     expect(const TrackEdit(title: 'Flowers (Video)').applyTo(t).video, '/m/Flowers.mp4');
-    // Songs saved before 0.1.32 have no video.
+    // Songs saved before 0.1.40 have no video.
     final old = t.toJson()..remove('video');
     expect(Track.fromJson(old).video, isNull);
   });

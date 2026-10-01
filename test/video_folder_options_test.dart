@@ -1,4 +1,4 @@
-// 0.1.32: video folders get the same Folder options as music and audiobook folders: Rescan this
+// 0.1.40: video folders get the same Folder options as music and audiobook folders: Rescan this
 // folder, and File types (switch a type off to leave it out of the Videos tab).
 import 'dart:io';
 

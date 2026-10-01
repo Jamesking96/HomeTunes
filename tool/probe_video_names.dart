@@ -1,4 +1,4 @@
-// Probe (0.1.32): shows how the Videos tab will read a video folder: each collection (with its
+// Probe (0.1.40): shows how the Videos tab will read a video folder: each collection (with its
 // category, year and videos per season / part / extras), then a sample of videos with their
 // season, episode and title. Uses the real rules (services/video_names.dart). Changes nothing.
 //   dart run tool/probe_video_names.dart <video folder> [videos to list, default 40]

@@ -1,4 +1,4 @@
-// Videos (0.1.32): finds the video files in the video folders and turns them into VideoItems.
+// Videos (0.1.40): finds the video files in the video folders and turns them into VideoItems.
 //
 // Like the music scanner (local_scanner.dart), the folder walk and the reading happen in a
 // background isolate, and a file whose modified time hasn't changed is reused rather than read

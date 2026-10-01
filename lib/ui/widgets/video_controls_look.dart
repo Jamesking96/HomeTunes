@@ -1,4 +1,4 @@
-// Applies the video player look (Settings › Appearance › Video player, 0.1.32) to the
+// Applies the video player look (Settings › Appearance › Video player, 0.1.40) to the
 // media_kit controls, and draws the preview shown in Settings.
 //
 // media_kit's controls read their colour and size from the theme data, so both the

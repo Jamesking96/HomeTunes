@@ -1,4 +1,4 @@
-// Videos (0.1.32): the Edit details dialog, for one video or several at once.
+// Videos (0.1.40): the Edit details dialog, for one video or several at once.
 //
 // Like the song and book editors, the changes are saved as edits in videos.json and laid over
 // the file's own details; the video file itself is never changed, but with "Also save into .nfo

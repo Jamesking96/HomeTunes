@@ -1,4 +1,4 @@
-// Videos (0.1.32): choosing a video's picture ("Change picture…") or a collection's poster
+// Videos (0.1.40): choosing a video's picture ("Change picture…") or a collection's poster
 // ("Change poster…"), instead of the frame taken automatically a tenth of the way in:
 //   - Choose an image file…     any picture on this computer / phone;
 //   - Pick a frame…             a small player to scrub through the video (frame by frame too);

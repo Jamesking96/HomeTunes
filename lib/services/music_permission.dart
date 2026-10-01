@@ -73,7 +73,7 @@ class MusicPermission {
     }
   }
 
-  // ---- videos (0.1.32) ----
+  // ---- videos (0.1.40) ----
   // Android 13+ keeps video files behind a separate permission, "Photos and videos"
   // (READ_MEDIA_VIDEO): with only "Music and audio", video files aren't even listed in a folder.
   // It's needed for the Videos tab and for a song's music video. Older Android: the same storage

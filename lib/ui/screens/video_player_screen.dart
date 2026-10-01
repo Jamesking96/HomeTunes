@@ -1,4 +1,4 @@
-// Videos (0.1.32): one video's player page, opened from the Videos tab or a collection's page.
+// Videos (0.1.40): one video's player page, opened from the Videos tab or a collection's page.
 //
 // The video plays in its own player (media_kit's Video widget with its standard controls: seek
 // bar, play/pause, volume, full screen; on a computer Space, the arrow keys, F and Esc work too).

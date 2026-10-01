@@ -32,12 +32,20 @@ void main() {
     expect(File('THIRD_PARTY_NOTICES.md').readAsStringSync(), contains('LGPL'));
   });
 
-  test('the licence page gets the audio engine\'s notice, the LGPL and the GPL', () async {
+  test('the licence page gets the engine\'s notice, the LGPL, the GPL and its other libraries', () async {
     final entries = await audioEngineLicences(_FileBundle()).toList();
-    expect(entries, hasLength(2));
-    for (final e in entries) {
-      expect(e.packages, containsAll(['libmpv (mpv)', 'FFmpeg']));
+    expect(entries, hasLength(3));
+    for (final e in entries.take(2)) {
+      expect(e.packages, containsAll(['libmpv (mpv)', 'FFmpeg', 'libsoxr', 'GNU libiconv', 'uchardet']));
     }
+    // 0.1.40: the video engine's other libraries, each with its licence text.
+    expect(entries[2].packages, [engineComponentsName]);
+    final components = entries[2].paragraphs.map((p) => p.text).join('\n');
+    for (final name in ['libass', 'HarfBuzz', 'FreeType', 'dav1d', 'Mbed TLS', 'ANGLE', 'SwiftShader']) {
+      expect(components, contains(name));
+    }
+    expect(components, contains('Permission is hereby granted')); // texts, not just names
+    expect(File('pubspec.yaml').readAsStringSync(), contains('- $engineComponentsAsset'));
     String textOf(LicenseEntry e) => e.paragraphs.map((p) => p.text).join('\n');
     final first = textOf(entries[0]);
     expect(first, contains('Lesser General Public License, version 3 or later'));

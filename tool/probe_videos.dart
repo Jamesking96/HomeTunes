@@ -1,4 +1,4 @@
-// Probe (0.1.32): shows how a folder's songs pair up with music videos, using the real scanner
+// Probe (0.1.40): shows how a folder's songs pair up with music videos, using the real scanner
 // code (services/music_video.dart and LocalScanner.findFiles). Changes nothing.
 //   dart run tool/probe_videos.dart <folder>
 import 'dart:io';

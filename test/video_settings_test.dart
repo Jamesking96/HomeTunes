@@ -1,4 +1,4 @@
-// Settings › Videos (0.1.32): skip amounts, speed, rewinding, a separate equaliser for videos,
+// Settings › Videos (0.1.40): skip amounts, speed, rewinding, a separate equaliser for videos,
 // and picture shapes (the usual ones, and each video's / collection's own).
 import 'dart:io';
 

@@ -1,4 +1,4 @@
-// Settings › Appearance › Video player (0.1.32): the colour and size of the video
+// Settings › Appearance › Video player (0.1.40): the colour and size of the video
 // player's buttons, the seek bar's colour, and what goes behind the buttons so they
 // can be seen over a black (or white) picture. A preview shows the bar over a dark,
 // bright or busy scene. Saved in settings.json as videoPlayerLook.

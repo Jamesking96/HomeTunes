@@ -285,7 +285,7 @@ class AppearanceSettings extends StatelessWidget {
           onChanged: (v) => lib.setLook(cornerRoundness: v),
         ),
       ),
-      // The video player's buttons: colour, size, backing and progress bar (0.1.32).
+      // The video player's buttons: colour, size, backing and progress bar (0.1.40).
       const VideoPlayerLookSettings(),
       const SizedBox(height: 16),
     ]);

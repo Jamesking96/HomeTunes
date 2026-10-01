@@ -1,4 +1,4 @@
-// Tests for the Videos tab (0.1.32): finding videos in the video folders (every format), titles
+// Tests for the Videos tab (0.1.40): finding videos in the video folders (every format), titles
 // and years from file names, the user's edits (one video or several), watched places and
 // carrying on, the tab's search / chips / filters / sorts, an .mp4 in a video folder being a video rather
 // than a song, backups, and the Videos tab and its editor on screen. The "videos" here are small

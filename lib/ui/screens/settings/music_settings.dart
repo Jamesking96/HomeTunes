@@ -1,4 +1,4 @@
-// Settings › Music (0.1.32): general settings for listening to music — for now its music videos:
+// Settings › Music (0.1.40): general settings for listening to music — for now its music videos:
 // whether Now Playing shows them at all, and whether they start by themselves or wait for the
 // video button. (How songs sound — equaliser, gapless, ReplayGain — stays under Playback.)
 import 'dart:io';
@@ -20,7 +20,7 @@ class MusicSettings extends StatelessWidget {
     final lib = context.watch<LibraryModel>();
     return SettingsPageList(children: [
       const SettingsGroupTitle('Music videos', 'A video beside a song with the same name (like Song.m4a and Song.mp4)'),
-      // 0.1.32: a song with a video file of the same name beside it, or an .mp4 song with
+      // 0.1.40: a song with a video file of the same name beside it, or an .mp4 song with
       // pictures, can show the video on Now Playing, muted and in step with the song.
       SettingTarget(
         'music-videos',

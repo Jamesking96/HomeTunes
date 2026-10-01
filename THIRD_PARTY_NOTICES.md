@@ -6,40 +6,70 @@ listed here. The complete list, with the full text of every licence (including e
 these depend on and the Flutter engine's own components), is in the app under
 **Settings › About › Licences**.
 
-## Audio engine: libmpv and FFmpeg (LGPL 3.0 or later)
+## Playback engine: libmpv and FFmpeg (LGPL 3.0 or later)
 
-Playback uses [mpv](https://mpv.io) (as the libmpv library) with
-[FFmpeg](https://ffmpeg.org), through the media_kit package. They are included as a separate
-shared library:
+Music and video play through [mpv](https://mpv.io) (as the libmpv library) with
+[FFmpeg](https://ffmpeg.org), via the media_kit package. Since 0.1.40 this is media_kit's
+**video** build of the engine. It is included as a separate shared library:
 
 | Download | File | Version | Built by |
 |---|---|---|---|
-| Windows (installer and zip) | `libmpv-2.dll` | mpv v0.36.0-403-g652a1dd907, FFmpeg n6.0 | [media-kit/libmpv-win32-audio-build](https://github.com/media-kit/libmpv-win32-audio-build), release 2023-09-24 |
-| Android (`.apk`) | `lib/<cpu>/libmpv.so` | mpv 0.35.1, FFmpeg n6.0 | [media-kit/libmpv-android-audio-build](https://github.com/media-kit/libmpv-android-audio-build), v1.1.8 |
+| Windows (installer and zip) | `libmpv-2.dll` | mpv v0.36.0-403-g652a1dd907, FFmpeg n6.0 | [media-kit/libmpv-win32-video-build](https://github.com/media-kit/libmpv-win32-video-build), release 2023-09-24 (its recipe at commit 87bb9596 matches the settings the file records) |
+| Android (`.apk`) | `lib/<cpu>/libmpv.so` | mpv commit 78d43740, FFmpeg n6.0 | [media-kit/libmpv-android-video-build](https://github.com/media-kit/libmpv-android-video-build), v1.1.7 ("default" flavour) |
 
-These builds have their GPL parts switched off (mpv `-Dgpl=false`; FFmpeg `--disable-gpl
---enable-version3`), so they are licensed under the **GNU Lesser General Public License,
-version 3 or later**. The Windows file also includes [GNU FriBidi](https://github.com/fribidi/fribidi)
-1.0.13 (LGPL 2.1 or later, used here under the LGPL 3.0). The LGPL text is in
-[licenses/LGPL-3.0.txt](licenses/LGPL-3.0.txt), and the GNU General Public License it builds on
-is in [licenses/GPL-3.0.txt](licenses/GPL-3.0.txt). Both are also in the app's Licences page,
-and next to `hometunes.exe` in the Windows downloads.
+Both files record how they were built: mpv with `-Dgpl=false`, FFmpeg with `--disable-gpl
+--disable-nonfree --enable-version3` (each FFmpeg part reports "LGPL version 3 or later"). So the
+engine is licensed under the **GNU Lesser General Public License, version 3 or later**. Its
+LGPL parts are:
+
+| Part | Licence | In |
+|---|---|---|
+| mpv | LGPL 2.1 or later (built without its GPL parts) | Windows and Android |
+| FFmpeg 6.0 | LGPL 3.0 or later | Windows and Android |
+| [GNU FriBidi](https://github.com/fribidi/fribidi) 1.0.13 (Windows), 1.0.12 (Android) | LGPL 2.1 or later | Windows and Android |
+| [libsoxr](https://sourceforge.net/projects/soxr/) | LGPL 2.1 or later | Windows |
+| [GNU libiconv](https://www.gnu.org/software/libiconv/) 1.17 | LGPL 2.1 or later | Windows |
+| [uchardet](https://www.freedesktop.org/wiki/Software/uchardet/) | MPL 1.1 / GPL 2.0 or later / LGPL 2.1 or later, used under the LGPL | Windows |
+
+The LGPL text is in [licenses/LGPL-3.0.txt](licenses/LGPL-3.0.txt), and the GNU General Public
+License it builds on is in [licenses/GPL-3.0.txt](licenses/GPL-3.0.txt). Both are also in the
+app's Licences page, and next to `hometunes.exe` in the Windows downloads.
 
 - **Source code:** every HomeTunes release on GitHub has **`HomeTunes-audio-engine-source.zip`**
-  next to its downloads: the source of mpv (commit 652a1dd9 for Windows, 0.35.1 for Android),
-  FFmpeg 6.0 and FriBidi 1.0.13, exactly as built into the files above, plus both build-script
-  repositories with their patches. It's made by `tool/engine_source.ps1`, which lists where
-  each part comes from. The upstream projects are at <https://github.com/mpv-player/mpv>,
-  <https://ffmpeg.org/download.html> and <https://github.com/fribidi/fribidi>. HomeTunes does
-  not change them.
-- **Other libraries built in** (mbedtls, libxml2, libass, HarfBuzz, FreeType, zlib, libpng,
-  Little CMS, zimg, libjxl and similar) are under permissive licences (Apache 2.0, MIT, ISC,
-  BSD, zlib, FreeType); their versions are set in the build scripts.
+  next to its downloads (the name is from when the engine played audio only). It has the source
+  of all the LGPL parts above, exactly as built into the files where the build records it, plus
+  both build recipes with their patches. The Windows build took libsoxr and uchardet from their
+  git repositories without recording which commit, so the zip has the source the recipe points
+  to and the nearest release. It's made by `tool/engine_source.ps1`, which lists where each part
+  comes from. HomeTunes does not change any of them.
+- **Other libraries built in:** libass, HarfBuzz, FreeType, dav1d, Mbed TLS and libxml2 (both
+  platforms), and on Windows also libjxl, Highway, libvpl, libbs2b, libwebp, zimg, Speex,
+  libmysofa, shaderc, glslang, SPIRV-Tools, SPIRV-Cross, Little CMS, libarchive, bzip2,
+  libjpeg-turbo, libpng, zlib, fontconfig, libunibreak, MuJS, xxHash and the AMD AMF and NVIDIA
+  codec headers. They are under permissive licences (ISC, MIT, BSD, Apache 2.0, zlib, FreeType
+  and similar). Every one, with its licence text, is in
+  [licenses/ENGINE-COMPONENTS.txt](licenses/ENGINE-COMPONENTS.txt), which is also in the app's
+  Licences page ("Playback engine: other libraries") and next to `hometunes.exe`.
 - **Replacing it:** HomeTunes loads the library at run time, so you can swap `libmpv-2.dll` (or
   `libmpv.so`) for your own build of a compatible version.
 - **Copyright:** mpv is copyright its contributors (see
   [mpv's Copyright file](https://github.com/mpv-player/mpv/blob/master/Copyright)); FFmpeg is
-  copyright the FFmpeg developers; GNU FriBidi is copyright its authors.
+  copyright the FFmpeg developers; the other parts are copyright their authors, as listed in
+  their licence texts.
+
+## Video drawing on Windows
+
+To draw video, media_kit puts these files next to `hometunes.exe` in the Windows downloads
+(from [flutter-windows-ANGLE-OpenGL-ES](https://github.com/alexmercerind/flutter-windows-ANGLE-OpenGL-ES)
+v1.0.1). Their licence texts are in [licenses/ENGINE-COMPONENTS.txt](licenses/ENGINE-COMPONENTS.txt).
+
+| File | What it is | Licence |
+|---|---|---|
+| `libEGL.dll`, `libGLESv2.dll` | [ANGLE](https://chromium.googlesource.com/angle/angle) | BSD 3-Clause |
+| `vk_swiftshader.dll` | [SwiftShader](https://github.com/google/swiftshader) | Apache 2.0 |
+| `vulkan-1.dll` | [Vulkan Loader](https://github.com/KhronosGroup/Vulkan-Loader) | Apache 2.0 |
+| `zlib.dll` | [zlib](https://zlib.net) | zlib |
+| `d3dcompiler_47.dll` | Microsoft's Direct3D shader compiler | Microsoft; passed on under the Windows SDK's redistribution terms |
 
 ## Code kept in this repository
 
@@ -56,7 +86,8 @@ and `HOMETUNES_CHANGES.md` in each folder describes what HomeTunes changed.
 | Package | Version | Licence | Copyright |
 |---|---|---|---|
 | [Flutter](https://flutter.dev) and the Dart SDK | 3.47.5 | BSD 3-Clause | The Flutter Authors, the Dart project authors |
-| [media_kit](https://pub.dev/packages/media_kit), media_kit_libs_audio, media_kit_libs_windows_audio, media_kit_libs_android_audio | 1.2.6, 1.0.7, 1.0.9, 1.3.8 | MIT | Hitesh Kumar Saini |
+| [media_kit](https://pub.dev/packages/media_kit), media_kit_video, media_kit_libs_video, media_kit_libs_windows_video, media_kit_libs_android_video | 1.2.6, 2.0.1, 1.0.7, 1.0.11, 1.3.8 | MIT | Hitesh Kumar Saini |
+| [image](https://pub.dev/packages/image) (video thumbnails) | 4.10.1 | MIT | Brendan Duncan |
 | [audio_service](https://pub.dev/packages/audio_service) | 0.18.19 | MIT | Ryan Heise and the project contributors |
 | [file_picker](https://pub.dev/packages/file_picker) | 13.1.0 | MIT | Miguel Ruivo |
 | [permission_handler_android](https://pub.dev/packages/permission_handler_android) | 14.1.0 | MIT | Baseflow |

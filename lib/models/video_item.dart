@@ -1,4 +1,4 @@
-// Videos (0.1.32): the Videos tab's data shapes.
+// Videos (0.1.40): the Videos tab's data shapes.
 //
 // VideoItem is one video file found in the video folders (Settings › Folders & scanning), made
 // by services/video_scanner.dart and saved in videos.json. Its collection, category, season,
@@ -10,7 +10,7 @@
 import 'package:path/path.dart' as p;
 
 /// The shape of a video's or a collection's picture on the Videos tab (Settings › Videos sets
-/// the usual one; Edit details / Edit collection can give each its own; 0.1.32).
+/// the usual one; Edit details / Edit collection can give each its own; 0.1.40).
 enum PictureShape {
   wide('Wide', 16 / 9),
   tall('Tall', 2 / 3),
