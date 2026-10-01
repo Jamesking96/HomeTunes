@@ -26,6 +26,7 @@ import 'state/library_model.dart';
 import 'state/listening_model.dart';
 import 'state/lyrics_model.dart';
 import 'state/now_watching.dart';
+import 'state/play_history.dart';
 import 'state/player_model.dart';
 import 'state/playlists_model.dart';
 import 'state/selection_model.dart';
@@ -129,6 +130,10 @@ Future<void> main() async {
   // the system controls.
   // The video playing on its page (30 Sep): the player bar and media keys follow it while it's in front.
   final watching = NowWatching(player);
+  // Recently played music (0.1.45), for Home's "Jump back in".
+  final history = PlayHistory(storage);
+  await safely('history', history.load);
+  history.attach(player);
   final session = await MediaSession.start(player, library, watching: watching);
   debugPrint(session == null
       ? 'HomeTunes: system media controls are off'
@@ -146,6 +151,7 @@ Future<void> main() async {
     updates: updates,
     videos: videos,
     watching: watching,
+    history: history,
   ));
 
   // First start after an update: show what changed since the version that ran before
@@ -206,6 +212,7 @@ class HomeTunesApp extends StatelessWidget {
   final UpdateModel updates;
   final VideoLibraryModel videos;
   final NowWatching watching;
+  final PlayHistory? history;
   const HomeTunesApp({
     super.key,
     required this.library,
@@ -218,6 +225,7 @@ class HomeTunesApp extends StatelessWidget {
     required this.updates,
     required this.videos,
     required this.watching,
+    this.history,
   });
 
   @override
@@ -235,6 +243,7 @@ class HomeTunesApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: updates),
         ChangeNotifierProvider.value(value: videos),
         ChangeNotifierProvider.value(value: watching),
+        if (history != null) ChangeNotifierProvider<PlayHistory>.value(value: history!),
         // These only matter to the UI, so Provider creates (and owns) them itself.
         ChangeNotifierProvider(create: (_) => SleepTimer(player, library)),
         ChangeNotifierProvider(create: (_) => AppNav()),

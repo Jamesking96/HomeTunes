@@ -156,6 +156,13 @@ audiobooks**, **Favourite videos** and your playlists underneath. Drag the sideb
 edge to make it wider or narrower; the **☰** button at its top (or a double-click on the edge)
 folds it down to icons and opens it again.
 
+- **Home:** **Jump back in** at the top shows what you were last doing, newest first: videos and
+  audiobooks you're part-way through, and the albums, playlists and artists you last played. The
+  round play button on each carries on (or plays it again); tap the card itself to open it. Below
+  are quick tiles (Shuffle all, Liked Songs, favourites, your playlists) and a section each for
+  **Music**, **Audiobooks** and **Videos** (recently added, your favourites, and **Up next**: the
+  next episode of a series you're watching). **See all** opens that tab. To clear the music
+  you've played from Jump back in, use **Settings › Playback › Forget recently played music**.
 - **Play something:** tap a song, album, playlist or book. The player bar at the bottom shows
   what's playing; tap it for the full **Now Playing** screen.
 

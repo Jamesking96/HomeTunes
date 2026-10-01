@@ -185,6 +185,42 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Home revamp (1 Oct 2026, 0.1.45, branch `feature/home-revamp`)
+- **What the user asked for:** "The home tab should include showing videos too. In fact, look over
+  the content we have and revamp the home page." Asked first (1 Oct), the user chose: a mixed
+  **Jump back in** row, then sections per kind; and **yes** to remembering recently played music.
+  Asked in the same message for the Servers page (that's 0.1.46, see below / `04_…`).
+- **Layout** (`ui/screens/home_screen.dart`), top to bottom: greeting; **Jump back in**; quick
+  tiles (Shuffle all, Liked Songs, Favourite audiobooks, Favourite videos — the last three only
+  when there are some — and up to six playlists); **Music** (Recently added, Your favourite albums,
+  From your Liked Songs, Artists); **Audiobooks** (Recently added by newest file, Your favourite
+  audiobooks); **Videos** (Up next, Recently added collections, Your favourite collections). Each
+  section has a big heading with an icon, a thin accent line and **See all** (opens the tab), and
+  is left out when there's nothing of that kind. Empty everywhere: "Nothing here yet" with **Add
+  music** and **Add videos**.
+- **Jump back in** (`ui/widgets/jump_back_in.dart`): videos part-watched (`continueWatching`, by
+  the place's time), audiobooks part-listened (`ListeningModel.inProgress`, by the place's time)
+  and recently played music (below), sorted newest first, 16 at most. Wide cards (320 wide; 88 high
+  at the usual text size, taller with bigger text): picture (16:9 for a video, square otherwise),
+  "Continue watching" / "Continue listening" / "Album" / "Playlist" / "Artist", the title, a line
+  of detail (collection · episode, author · % done, artist, number of songs) and a progress bar
+  for videos and books. The round play button carries on (video: opens its page, which resumes;
+  book: `playBook`, which resumes) or plays the album / playlist / Liked Songs / artist again;
+  tapping the card opens it the usual way (a video plays, the rest open their pages).
+- **Recently played music** (`state/play_history.dart`, `history.json`, new): `PlayHistory`
+  listens to the player; each time a new song starts playing (not an audiobook) it records where
+  it was played from, from the queue's label: "Playlist · X" → the playlist (by name), "Artist ·
+  X", "Liked Songs", anything else (an album, All songs, a search) → the song's album. Newest first,
+  each place once, at most 50. Backed up (`AppBackup.dataFiles`; merging keeps both lists, newest
+  first, `mergeHistory`) and re-read after a restore. **Settings › Playback › Forget recently
+  played music** clears it (target `recently-played`).
+- **Up next** (`upNextVideos`): for each collection you've watched something in (most recent
+  first), its next episode (`nextUp`) when you've finished at least one and none is part-watched
+  (that one is in Jump back in already).
+- **Tests:** `test/home_test.dart` (labels → places, the history's order / limit / saving, backup
+  merging, Jump back in's order on a real little library with a song, a book, a series and a film,
+  Up next, the page's sections and See all, and the empty page). Not yet seen in a real window.
+
 ## Details for videos and collections (1 Oct 2026, 0.1.44, released as v0.1.44)
 - **What the user asked for:** "Music and audio books allow for viewing the file details, I'd like
   this for the videos too".
