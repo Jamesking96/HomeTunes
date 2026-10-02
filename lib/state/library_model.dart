@@ -142,6 +142,9 @@ class LibraryModel extends ChangeNotifier {
   /// Off: no videos and no video button (Settings › Music).
   bool showMusicVideos = true;
 
+  /// Your Library › Artists shows round pictures in a grid instead of a list (0.1.52).
+  bool artistsGrid = false;
+
   /// The music video starts by itself when a song with one plays. Off: the cover shows until
   /// the video button on Now Playing is pressed (for that song).
   bool autoPlayMusicVideos = true;
@@ -386,6 +389,7 @@ class LibraryModel extends ChangeNotifier {
     swipeToSkip = true;
     showMusicVideos = true;
     autoPlayMusicVideos = true;
+    artistsGrid = false;
     sidebarWidth = 250;
     sidebarFolded = false;
     scaleWithWindow = true;
@@ -450,6 +454,7 @@ class LibraryModel extends ChangeNotifier {
       swipeToSkip = s.get('swipeToSkip', true);
       showMusicVideos = s.get('showMusicVideos', true);
       autoPlayMusicVideos = s.get('autoPlayMusicVideos', true);
+      artistsGrid = s.get('artistsGrid', false);
       sidebarWidth = s.number('sidebarWidth', 250).clamp(sidebarMinWidth, sidebarMaxWidth).toDouble();
       sidebarFolded = s.get('sidebarFolded', false);
       scaleWithWindow = s.get('scaleWithWindow', true);
@@ -608,6 +613,7 @@ class LibraryModel extends ChangeNotifier {
         'swipeToSkip': swipeToSkip,
         'showMusicVideos': showMusicVideos,
         'autoPlayMusicVideos': autoPlayMusicVideos,
+        'artistsGrid': artistsGrid,
         'sidebarWidth': sidebarWidth,
         'sidebarFolded': sidebarFolded,
         'scaleWithWindow': scaleWithWindow,
@@ -854,6 +860,13 @@ class LibraryModel extends ChangeNotifier {
   Future<void> setSidebar({double? width, bool? folded}) async {
     if (width != null) sidebarWidth = width.clamp(sidebarMinWidth, sidebarMaxWidth).toDouble();
     if (folded != null) sidebarFolded = folded;
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Your Library › Artists: grid (true) or list (false) (0.1.52).
+  Future<void> setArtistsGrid(bool on) async {
+    artistsGrid = on;
     notifyListeners();
     await _saveSettings();
   }

@@ -12,6 +12,7 @@ import 'package:hometunes/state/playlists_model.dart';
 import 'package:hometunes/state/selection_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/library_screen.dart';
+import 'package:hometunes/ui/widgets/cards.dart' show ArtistCard;
 import 'package:provider/provider.dart';
 
 Track t(String title, String artist, String album,
@@ -163,6 +164,36 @@ void main() {
       await tester.tap(find.text('Clear filters'));
       await tester.pumpAndSettle();
       expect(find.text('New Order'), findsOneWidget);
+    });
+
+    testWidgets('Artists: list and grid views, remembered (0.1.52)', (tester) async {
+      await pump(tester);
+      final lib = Provider.of<LibraryModel>(tester.element(find.byType(LibraryScreen)), listen: false);
+      await tester.tap(find.text('Artists'));
+      await tester.pumpAndSettle();
+      // A list to start with.
+      expect(find.byKey(const ValueKey('artists-list')), findsOneWidget);
+      expect(find.byKey(const ValueKey('artists-grid')), findsNothing);
+      expect(find.byTooltip('Show as a grid'), findsOneWidget);
+      expect(find.text('1 album · 2 songs'), findsNWidgets(2)); // Miles Davis and The Beatles
+
+      // Grid: round cards with the same counts; filters and the title box still apply.
+      await tester.tap(find.byKey(const ValueKey('artists-view')));
+      await tester.pumpAndSettle();
+      expect(lib.artistsGrid, isTrue);
+      expect(find.byKey(const ValueKey('artists-grid')), findsOneWidget);
+      expect(find.byType(ArtistCard), findsNWidgets(4));
+      expect(find.text('1 album · 2 songs'), findsNWidgets(2));
+      await tester.enterText(find.byKey(const ValueKey('library-title-filter')), 'order');
+      await tester.pumpAndSettle();
+      expect(find.byType(ArtistCard), findsOneWidget);
+      expect(find.text('New Order'), findsOneWidget);
+
+      // And back to the list.
+      await tester.tap(find.byTooltip('Show as a list'));
+      await tester.pumpAndSettle();
+      expect(lib.artistsGrid, isFalse);
+      expect(find.byKey(const ValueKey('artists-list')), findsOneWidget);
     });
 
     testWidgets('Albums: title box, genre filter chip and the year sort', (tester) async {

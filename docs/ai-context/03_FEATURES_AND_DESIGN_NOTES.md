@@ -186,6 +186,19 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Artists tab: list or grid (2 Oct 2026, 0.1.52, branch `feature/artists-grid`)
+- **What the user asked for:** "The Artists tab in Your Library should have a list and a grid view
+  mode".
+- **How it works:** a button in the Artists tab's filter bar, before Filter and Sort (grid icon
+  "Show as a grid" / list icon "Show as a list"). The list is as before (round picture, name,
+  "3 albums · 41 songs"). The grid uses the round `ArtistCard` (as on Home and Search) with the
+  same counts under the name, as many columns as fit (`gridColumns`, like the Albums tab). The
+  title box, chips, filters and sort apply to both. The choice is kept in settings.json
+  (`artistsGrid`, default list), so it's in backups and survives restarts.
+- **Code:** `library_screen.dart` (`_ArtistsTabState`, keys `artists-view`, `artists-list`,
+  `artists-grid`), `LibraryModel.artistsGrid` / `setArtistsGrid`, `MusicFilterBar.actions`,
+  `ArtistCard.subtitle`. Test: "Artists: list and grid views" in `test/library_filters_test.dart`.
+
 ## Update check at start-up (2 Oct 2026, 0.1.51, branch `feature/update-at-start`)
 - **What the user asked for:** "Update the check for updates to be on startup not once per day".
 - **How it works:** while Settings › About › "Check for updates automatically" is on, HomeTunes

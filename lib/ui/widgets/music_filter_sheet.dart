@@ -19,8 +19,12 @@ class MusicFilterBar<S> extends StatelessWidget {
   final String Function(S) sortLabel;
   final ValueChanged<S> onSort;
 
+  /// Extra buttons before Filter (the Artists tab's list / grid button, 0.1.52).
+  final List<Widget> actions;
+
   const MusicFilterBar({
     super.key,
+    this.actions = const [],
     required this.controller,
     required this.hint,
     required this.onChanged,
@@ -66,6 +70,7 @@ class MusicFilterBar<S> extends StatelessWidget {
             ),
           ),
         ),
+        ...actions,
         IconButton(
           tooltip: 'Filter',
           icon: Badge(isLabelVisible: filtersActive, smallSize: 8, child: const Icon(Icons.filter_list)),
