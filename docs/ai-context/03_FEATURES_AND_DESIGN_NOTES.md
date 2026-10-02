@@ -186,6 +186,19 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Esc cancels a selection (2 Oct 2026, 0.1.48, branch `feature/escape-select`)
+- **What the user asked for:** "Make it so pressing escape on the PC cancels selection".
+- **How it works:** while any selection bar is showing (songs, albums, audiobooks in the shell;
+  collections, All videos, a collection's page and its in-place contents on Videos), Esc does the
+  same as the bar's ✕. If two bars are up at once (Collections tab plus an open collection's
+  contents), Esc clears both.
+- **Code:** `lib/ui/widgets/escape_cancels.dart` (`EscapeCancels`) wraps each bar. It listens on
+  `HardwareKeyboard` (so it works without focus) and only acts when its page is in front in its
+  own navigator and every navigator above it (a dialog, menu or pushed page over it means Esc is
+  left for that). It never marks Esc as handled, so the video player's Esc (leave full screen)
+  still works even if a song selection is up in the shell behind it.
+- **Tests:** `test/escape_select_test.dart`.
+
 ## Shift + click selects a range (2 Oct 2026, 0.1.47, branch `feature/shift-select`)
 - **What the user asked for:** "When using the select feature, I want to add holding shift to
   select everything between to points".

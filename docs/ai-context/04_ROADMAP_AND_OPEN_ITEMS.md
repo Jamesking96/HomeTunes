@@ -41,14 +41,15 @@ while commenting".
 | Home revamp: videos on Home, Jump back in, recently played music (0.1.45) | Built 1 Oct on `feature/home-revamp`, not merged yet. See `03_…` → Home revamp |
 | Servers page: several servers per kind, Music / Audiobooks / Videos (0.1.46) | Built 1 Oct on `feature/servers` (on top of `feature/home-revamp`), not merged yet. The user chose "framework now": only the main Subsonic server streams. See `03_…` → Servers page |
 | Shift + click selects everything between two items (0.1.47) | Built 2 Oct on `feature/shift-select` (on top of `feature/servers`), not merged yet. See `03_…` → Shift + click |
-| L: Linux build, incl. Steam Deck (0.1.48) | Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
-| A: Android Auto (0.1.49) | After L |
-| T: Android TV (0.1.50) | After A |
+| Esc cancels a selection (0.1.48) | Built 2 Oct on `feature/escape-select` (on top of `feature/shift-select`), not merged yet. See `03_…` → Esc cancels a selection |
+| L: Linux build, incl. Steam Deck (0.1.49) | Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
+| A: Android Auto (0.1.50) | After L |
+| T: Android TV (0.1.51) | After A |
 | D: offline copies of server songs (was phase 4) | After the server review |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to D isn't decided |
 
 ### Platforms plan: Linux, Android Auto, Android TV (agreed 1 Oct)
-(Versions moved up by one on 1 Oct, the user's choice: 0.1.41 went to selectable titles, video search and window scaling, so Linux is 0.1.42, Android Auto 0.1.43 and Android TV 0.1.44. The plan doc was updated to match. Moved up by one again later on 1 Oct: Linux was paused and 0.1.42 went to the video loading page, so Linux was 0.1.43, Android Auto 0.1.44 and Android TV 0.1.45. And once more the same day: 0.1.43 went to the bottom bar fix, so Linux was 0.1.44. Then 0.1.44 went to video Details, and 0.1.45 / 0.1.46 to the Home revamp and the Servers page (the user chose two updates), so Linux was 0.1.47. Then 0.1.47 went to Shift + click selection (2 Oct), so Linux is now **0.1.48**, Android Auto **0.1.49** and Android TV **0.1.50**. Each new piece of work while Linux is paused takes the next number and moves these up. The plan doc may still show older numbers.)
+(Versions moved up by one on 1 Oct, the user's choice: 0.1.41 went to selectable titles, video search and window scaling, so Linux is 0.1.42, Android Auto 0.1.43 and Android TV 0.1.44. The plan doc was updated to match. Moved up by one again later on 1 Oct: Linux was paused and 0.1.42 went to the video loading page, so Linux was 0.1.43, Android Auto 0.1.44 and Android TV 0.1.45. And once more the same day: 0.1.43 went to the bottom bar fix, so Linux was 0.1.44. Then 0.1.44 went to video Details, and 0.1.45 / 0.1.46 to the Home revamp and the Servers page (the user chose two updates), so Linux was 0.1.47. Then 0.1.47 went to Shift + click selection (2 Oct), so Linux was 0.1.48. Then 0.1.48 went to Esc cancelling a selection (2 Oct), so Linux is now **0.1.49**, Android Auto **0.1.50** and Android TV **0.1.51**. Each new piece of work while Linux is paused takes the next number and moves these up. The plan doc may still show older numbers.)
 The plan is the doc "HomeTunes Platforms Plan" (https://claude.ai/code/artifact/831e2a97-57ac-4af8-b0fd-738442c570d9),
 with numbered steps per phase (L1–L7, A1–A7, T1–T7). Agreed order: **L Linux → A Android Auto → T Android TV**, each
 on its own branch (`feature/linux`, `feature/android-auto`, `feature/android-tv`) and released on its own.

@@ -25,6 +25,7 @@ import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/cards.dart' show EmptyState;
+import '../widgets/escape_cancels.dart';
 import '../widgets/music_filter_sheet.dart' show MusicFilterBar, showMusicFilterSheet;
 import 'edit_video.dart';
 import 'video_collection_screen.dart';
@@ -176,7 +177,8 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
     final accent = Theme.of(context).colorScheme.primary;
     return Column(children: [
       if (selecting)
-        Material(
+        // Esc cancels the selection, like the ✕ (0.1.48).
+        EscapeCancels(onCancel: () => setState(_selected.clear), child: Material(
           color: accent.withValues(alpha: 0.18),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -227,7 +229,7 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
               ),
             ]),
           ),
-        )
+        ))
       else
       MusicFilterBar<CollectionSort>(
         controller: _search,
@@ -566,7 +568,8 @@ class VideoSelectionBar extends StatelessWidget {
     final model = context.read<VideoLibraryModel>();
     final accent = Theme.of(context).colorScheme.primary;
     List<VideoItem> picked() => [for (final id in selected) model.byId(id)].whereType<VideoItem>().toList();
-    return Material(
+    // Esc cancels the selection, like the ✕ (0.1.48).
+    return EscapeCancels(onCancel: onClear, child: Material(
       key: const ValueKey('video-selection-bar'),
       color: accent.withValues(alpha: 0.18),
       child: Padding(
@@ -602,7 +605,7 @@ class VideoSelectionBar extends StatelessWidget {
           ),
         ]),
       ),
-    );
+    ));
   }
 }
 
