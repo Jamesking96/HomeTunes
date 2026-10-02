@@ -473,7 +473,8 @@ class AppBackup {
   /// edited to point HomeTunes at anything on the computer:
   ///  * edits.json: a custom cover must be inside the app's art folder (every cover the user
   ///    chooses is copied there first), so any other path is dropped;
-  ///  * library.json: a book's extra files ("companions") must be PDFs or EPUBs.
+  ///  * library.json: a book's extra files ("companions") must be PDFs or EPUBs;
+  ///  * settings.json: an artist's own picture (0.1.53) must be inside the art folder too.
   /// Everything else stays; song paths are needed to match songs up, and they're checked again
   /// before a file is played, opened or written (see path_safety.dart).
   static Map<String, dynamic> sanitize(String name, Map<String, dynamic> json, String root) {
@@ -483,6 +484,13 @@ class AppBackup {
         if (e is! Map) continue;
         final art = e['art'];
         if (art is String && !p.isWithin(artDir, p.normalize(art))) e.remove('art');
+      }
+    } else if (name == 'settings.json') {
+      // Artists' own pictures (0.1.53) must be in the art folder too (or name one of their albums).
+      final artDir = p.normalize(p.join(root, 'art'));
+      final m = json['artistPictures'];
+      if (m is Map) {
+        m.removeWhere((_, v) => v is! String || (!v.startsWith('album:') && !p.isWithin(artDir, p.normalize(v))));
       }
     } else if (name == 'videos.json') {
       // A video's thumbnail must be in the app's art folder (they're made there); anything else

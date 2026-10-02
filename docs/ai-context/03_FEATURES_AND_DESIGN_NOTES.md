@@ -186,6 +186,31 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Artist pictures (2 Oct 2026, 0.1.53, branch `feature/artist-pictures`)
+- **What the user asked for:** "Allow the artists page to be customised too, I want to be able to
+  change the image that's used."
+- **How it works:** artists still show their first album's cover by default. **Change picture…**
+  is on the artist page (click the round picture, or the picture button beside Play / Shuffle)
+  and in the right-click / press-and-hold menu of any artist card (Home, Search, the Artists
+  tab's grid) and the Artists tab's list rows. Choices: **Choose an image file…** (copied into
+  `art/custom/` with `importCover`, like album covers), **Use one of their album covers…** (a grid
+  of their albums; the one in use has a ring), and **Use the automatic picture** (only when
+  something was chosen; also in the right-click menu). Every artist picture follows straight
+  away (`Artwork(artist: …)` watches `artistPictures[name]`).
+- **Stored:** `LibraryModel.artistPictures` (settings.json `artistPictures`, by artist name): a
+  file path, or `album:<album key>`. A file must be inside the art folder to be used
+  (`artistPictureFile`); `_removeUnusedCustomArt` keeps files an artist uses; backups carry the
+  file (art/custom always goes in) and `AppBackup.sanitize` drops a restored path outside the
+  art folder. Keyed by name, so renaming an artist (by editing album artist) starts them on the
+  automatic picture again; a chosen album that's gone falls back to the first album.
+- **Not done (could be next):** searching online for artist photos (MusicBrainz has none; would
+  need Wikipedia / Wikimedia or similar), and other artist customisation (renaming happens
+  through album artist edits).
+- **Code:** `ui/widgets/artist_picture.dart`, `LibraryModel` (`artistAlbumArt`,
+  `artistPictureFile`, `artistImage`, `hasArtistPicture`, `setArtistPicture`), `Artwork.artist`,
+  `ArtistCard` (menu), `artist_screen.dart`, `library_screen.dart`. Tests:
+  `test/artist_pictures_test.dart`.
+
 ## Artists tab: list or grid (2 Oct 2026, 0.1.52, branch `feature/artists-grid`)
 - **What the user asked for:** "The Artists tab in Your Library should have a list and a grid view
   mode".

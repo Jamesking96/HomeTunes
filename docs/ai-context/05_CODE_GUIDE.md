@@ -151,7 +151,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `books_screen.dart` | Books: cover grid, search, state chips (including Favourites), author/narrator/series filter, sorting. |
 | `search_screen.dart` | Search as you type across songs, artists, albums, books and chapters, and (0.1.41) video collections and videos (`searchCollections` / `searchVideos` from `video_filters.dart`). |
 | `album_screen.dart` | One album, split by disc, with a favourite heart, the ⓘ Details button, and prompts to find a missing cover or details online. |
-| `artist_screen.dart` | One artist: picture, albums (click one to see its songs underneath, 0.1.26), all songs. |
+| `artist_screen.dart` | One artist: picture, albums (click one to see its songs underneath, 0.1.26), all songs. Since 0.1.53 the picture (or the Change picture button beside Play / Shuffle) opens `showArtistPictureOptions`. |
 | `book_screen.dart` | One audiobook: details, progress, Play/Resume, favourite heart, description, PDF, bookmarks, chapters, Move to Music, Details. |
 | `videos_screen.dart` | The Videos tab (0.1.40): sub-tabs Collections / All videos / Favourites; the All videos grid with Continue watching, chips, filters, search, sorts, the video menu and select mode (`VideoCard`, `showVideoMenu`, and `VideoSelectionBar`, which a collection's episode list uses too; `showVideoGroupMenu`, the right-click menu on a season / group heading here and in a collection: Select all in it, Unselect, watched / not watched, Season title…, Fold). |
 | `video_collection_screen.dart` | Collections (0.1.40): `CollectionCard` (tap, select mode, hover play button) and its menu, `CollectionContentsPanel` (contents under the card's row on the Collections tab), a collection's page (foldable seasons, pinned contents chips, Continue, favourite), and the Edit collection dialogs (one, or several with `showEditCollections`). Episodes: `EpisodeRow` with select mode (`_EpisodeSelection` mixin: right-click › Select, a box per season, `VideoSelectionBar`; `headingMenu` opens `showVideoGroupMenu` from a heading's right-click / hold via `_GroupHeading.onMenu`), and `showSeasonTitleDialog` (the ✎ on a season heading). |
@@ -197,7 +197,8 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `collection_header.dart` | The big header on album, artist and playlist pages with Play and Shuffle. |
 | `quick_actions.dart` | The quick actions for albums and books (edit, cover, favourites, details) used by tile menus and the selection bar. |
 | `music_filter_sheet.dart` | The title box / filter / sort bar (`MusicFilterBar`) and the "Show only" sheet (`showMusicFilterSheet`) used by the Library tabs. |
-| `artwork.dart` | Cover images, loaded at a sensible size to save memory. |
+| `artwork.dart` | Cover images, loaded at a sensible size to save memory. `Artwork(artist: …)` (0.1.53) draws an artist's picture (`LibraryModel.artistImage`) and redraws when it's changed. |
+| `artist_picture.dart` | Change an artist's picture (0.1.53): `showArtistPictureOptions` (Choose an image file…, Use one of their album covers… with a grid of their albums, Use the automatic picture) and `showArtistMenu` (the right-click / press-and-hold menu on artist cards and the Artists tab's rows). |
 | `save_nfo.dart` | The "Also save into .nfo files" tick box in the video editors, and `saveNfoAfterEdit` (0.1.40). |
 | `music_video_view.dart` | The music video on Now Playing (0.1.40): a second, muted player showing the song's video, kept in step with the song (`videoSeekTarget`), with the cover until the first picture. |
 | `video_controls_look.dart` | Applies `VideoPlayerLook` to media_kit's controls (30 Sep): `ButtonBacking` (glow or disc behind each control), `backedBar`, `timeTextStyle`, `desktopControlsTheme` / `phoneControlsTheme` (normal and full screen), `VideoWheel` (the mouse wheel over the video: 5 s skips over its progress bar, volume elsewhere) and `VideoControlsPreview` for Settings. |
@@ -263,7 +264,7 @@ Everything lives in the app's data folder, `…/hometunes/` inside the system's 
 
 | File or folder | Holds | Owned by |
 | --- | --- | --- |
-| `settings.json` | Music folders, server details (normally not the password, which is in the system's protected storage), your colour themes, text size and corners, every switch and setting | `LibraryModel` |
+| `settings.json` | Music folders, server details (normally not the password, which is in the system's protected storage), your colour themes, text size and corners, every switch and setting, and the pictures chosen for artists (`artistPictures`, 0.1.53: a file in `art/custom/` or `album:<key>`) | `LibraryModel` |
 | `library.json` | Every scanned song (local, server and missing) | `LibraryModel` |
 | `edits.json` | Your edits to songs and books | `LibraryModel` |
 | `playlists.json` | Playlists, Liked Songs and favourite albums and books (stored as song ids, so they survive regrouping and moved files) | `PlaylistsModel` |
@@ -348,6 +349,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `shift_select_test.dart` | Shift + click ranges (0.1.47): `idsBetween`, `RangePicker`, `SelectionModel.pick`, and episodes on a collection's page across seasons |
 | `escape_select_test.dart` | Esc cancels a selection (0.1.48), but not under a dialog or a page pushed over it |
 | `filter_search_test.dart` | The search box in the filter drop-downs (0.1.49): narrowing, Enter, All, "Nothing matches" and Esc |
+| `artist_pictures_test.dart` | Artists' pictures (0.1.53): automatic, an album cover, a copied file (kept by the clean-up of unused covers), back to automatic, saved in settings.json, the backup check, and the artist page and card menu |
 | `offline_warning_test.dart` | The no-internet warning (0.1.50): at start-up with Carry on, and before an online feature (checked again each time; OK, Try anyway, straight through when back online) |
 | `update_test.dart` | Check for updates: version comparison, reading the release and checksum file, the "What's new" text, which links may be downloaded, the start-up check (every start since 0.1.51) and its switch, a wrong checksum being refused (fake GitHub) |
 | `whats_new_test.dart` | "What's new" after an update: which releases are listed, noticing the first start after an update (and not on a fresh install), and the pop-up (fake GitHub) |

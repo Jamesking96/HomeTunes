@@ -145,6 +145,12 @@ class LibraryModel extends ChangeNotifier {
   /// Your Library › Artists shows round pictures in a grid instead of a list (0.1.52).
   bool artistsGrid = false;
 
+  /// Pictures chosen for artists (0.1.53), by artist name: a copied image in art/custom, or
+  /// "album:" plus an album key for one of their album covers. Artists not here use their first
+  /// album's cover. Kept in settings.json (so in backups).
+  Map<String, String> artistPictures = {};
+  static const artistAlbumPrefix = 'album:';
+
   /// The music video starts by itself when a song with one plays. Off: the cover shows until
   /// the video button on Now Playing is pressed (for that song).
   bool autoPlayMusicVideos = true;
@@ -390,6 +396,7 @@ class LibraryModel extends ChangeNotifier {
     showMusicVideos = true;
     autoPlayMusicVideos = true;
     artistsGrid = false;
+    artistPictures = {};
     sidebarWidth = 250;
     sidebarFolded = false;
     scaleWithWindow = true;
@@ -455,6 +462,13 @@ class LibraryModel extends ChangeNotifier {
       showMusicVideos = s.get('showMusicVideos', true);
       autoPlayMusicVideos = s.get('autoPlayMusicVideos', true);
       artistsGrid = s.get('artistsGrid', false);
+      final pics = raw['artistPictures'];
+      if (pics is Map) {
+        artistPictures = {
+          for (final e in pics.entries)
+            if (e.key is String && e.value is String) e.key as String: e.value as String
+        };
+      }
       sidebarWidth = s.number('sidebarWidth', 250).clamp(sidebarMinWidth, sidebarMaxWidth).toDouble();
       sidebarFolded = s.get('sidebarFolded', false);
       scaleWithWindow = s.get('scaleWithWindow', true);
@@ -614,6 +628,7 @@ class LibraryModel extends ChangeNotifier {
         'showMusicVideos': showMusicVideos,
         'autoPlayMusicVideos': autoPlayMusicVideos,
         'artistsGrid': artistsGrid,
+        if (artistPictures.isNotEmpty) 'artistPictures': artistPictures,
         'sidebarWidth': sidebarWidth,
         'sidebarFolded': sidebarFolded,
         'scaleWithWindow': scaleWithWindow,
@@ -869,6 +884,52 @@ class LibraryModel extends ChangeNotifier {
     artistsGrid = on;
     notifyListeners();
     await _saveSettings();
+  }
+
+  /// The track whose cover an artist shows: the album chosen with "Use an album cover", else
+  /// their first album's (0.1.53).
+  Track? artistAlbumArt(Artist a) {
+    final pick = artistPictures[a.name];
+    if (pick != null && pick.startsWith(artistAlbumPrefix)) {
+      final key = pick.substring(artistAlbumPrefix.length);
+      final album = a.albums.where((x) => x.key == key).firstOrNull;
+      if (album != null) return album.artTrack;
+    }
+    return a.albums.isEmpty ? null : a.albums.first.artTrack;
+  }
+
+  /// The artist's own picture file (Choose an image file…), if one was chosen and it's still
+  /// in HomeTunes' art folder; else null (0.1.53).
+  String? artistPictureFile(Artist a) {
+    final pick = artistPictures[a.name];
+    if (pick == null || pick.startsWith(artistAlbumPrefix)) return null;
+    return isInsideAny(pick, [storage.artDir]) ? pick : null;
+  }
+
+  /// The picture to draw for an artist: their own file, the chosen album cover, or the first
+  /// album's cover.
+  ImageProvider? artistImage(Artist a, {int size = 512}) {
+    final file = artistPictureFile(a);
+    if (file != null) return FileImage(File(file));
+    return artFor(artistAlbumArt(a), size: size);
+  }
+
+  bool hasArtistPicture(Artist a) => artistPictures.containsKey(a.name);
+
+  /// Sets an artist's picture (0.1.53): [file] (already copied in with [importCover] /
+  /// [importCoverBytes]), or [album] (one of their albums), or neither to go back to automatic.
+  Future<void> setArtistPicture(Artist a, {String? file, Album? album}) async {
+    if (file != null) {
+      artistPictures[a.name] = file;
+    } else if (album != null) {
+      artistPictures[a.name] = '$artistAlbumPrefix${album.key}';
+    } else {
+      artistPictures.remove(a.name);
+    }
+    PaintingBinding.instance.imageCache.clear();
+    notifyListeners();
+    await _saveSettings();
+    await _removeUnusedCustomArt();
   }
 
   /// Settings › Appearance › Shrink to fit small windows.
@@ -1598,7 +1659,11 @@ class LibraryModel extends ChangeNotifier {
     final dir = Directory(_customArtDir);
     if (!await dir.exists()) return;
     final now = DateTime.now();
-    final inEdits = {for (final e in _edits.values) if (e.art != null) p.normalize(e.art!)};
+    final inEdits = {
+      for (final e in _edits.values) if (e.art != null) p.normalize(e.art!),
+      // Artists' own pictures live here too (0.1.53).
+      for (final v in artistPictures.values) if (!v.startsWith(artistAlbumPrefix)) p.normalize(v),
+    };
     // Protection ends once an edit uses the cover (from then on the normal rule applies), or
     // after [_importGrace] if it's never used.
     _justImported.removeWhere((path, at) => inEdits.contains(path) || now.difference(at) > _importGrace);

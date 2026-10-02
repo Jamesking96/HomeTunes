@@ -19,6 +19,7 @@ import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../widgets/artist_picture.dart';
 import '../widgets/artwork.dart';
 import '../widgets/cards.dart';
 import '../widgets/music_filter_sheet.dart';
@@ -267,16 +268,22 @@ class _ArtistsTabState extends _FilteredTabState<_ArtistsTab> {
         itemCount: shown.length,
         itemBuilder: (_, i) {
           final a = shown[i];
-          return ListTile(
-            leading: Artwork(
-              track: a.albums.first.artTrack,
-              size: 52,
-              radius: 26,
-              placeholder: Icons.person,
+          // Right-click / press and hold: Change picture… (0.1.53).
+          return Builder(
+            builder: (row) => GestureDetector(
+              onSecondaryTapUp: (d) => showArtistMenu(row, a, d.globalPosition),
+              child: ListTile(
+                key: ValueKey('artist-row:${a.name}'),
+                leading: Artwork(artist: a, size: 52, radius: 26, placeholder: Icons.person),
+                title: Text(a.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(counts(a)),
+                onTap: () => nav.openArtist(a.name),
+                onLongPress: () {
+                  final box = row.findRenderObject() as RenderBox;
+                  showArtistMenu(row, a, box.localToGlobal(box.size.center(Offset.zero)));
+                },
+              ),
             ),
-            title: Text(a.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text(counts(a)),
-            onTap: () => nav.openArtist(a.name),
           );
         },
       );
