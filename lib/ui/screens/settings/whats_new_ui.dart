@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import '../../../services/update_checker.dart';
 import '../../../state/update_model.dart';
 import '../../theme.dart';
+import '../../widgets/offline_warning.dart';
 import 'settings_widgets.dart';
 import 'update_ui.dart';
 
@@ -157,6 +158,11 @@ class _WhatsNewRowState extends State<WhatsNewRow> {
   Future<void> _open() async {
     final u = context.read<UpdateModel>();
     setState(() => _loading = true);
+    // No internet: say so (0.1.50) instead of a list that can't load.
+    if (!await ensureOnline(context)) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     List<ReleaseInfo> releases = const [];
     String? problem;
     try {

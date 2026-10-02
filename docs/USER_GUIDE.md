@@ -184,6 +184,9 @@ folds it down to icons and opens it again.
   next to it, your music server, or online). Timed lyrics scroll along with the song.
 - **Going online:** HomeTunes can look up missing covers, song details and lyrics online. Each
   can be switched off in **Settings › Online lookups**; only names (artist, album, song) are sent.
+  If HomeTunes can't reach the internet when it opens, it tells you which features won't work
+  and you can carry on. When you use one of those features later, it checks again; if you're
+  still offline you get the same message (with **Try anyway** in case it's wrong).
 - **On a phone:** swipe the player left or right to skip. The music keeps playing with the screen
   locked, and you can control it from the lock screen, the notification or headphone buttons.
 - **On a PC:** your keyboard's media keys work.

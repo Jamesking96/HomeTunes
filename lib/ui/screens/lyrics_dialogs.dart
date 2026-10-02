@@ -15,6 +15,7 @@ import '../../services/lrclib_client.dart';
 import '../../state/lyrics_model.dart';
 import '../theme.dart';
 import '../widgets/lyrics_view.dart';
+import '../widgets/offline_warning.dart';
 
 /// Formats a length as "m:ss" for the result list.
 String _mmss(Duration d) => '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
@@ -54,6 +55,8 @@ Future<void> showLyricsDialog(BuildContext context, Track track) {
 /// Searches LRCLIB for a song's lyrics and lets the user pick a result
 /// (after seeing it). The pick becomes the song's lyrics.
 Future<void> findLyricsOnline(BuildContext context, Track track) async {
+  // No internet: say so (0.1.50) instead of a search that can only fail.
+  if (!await ensureOnline(context) || !context.mounted) return;
   final model = context.read<LyricsModel>();
   final messenger = ScaffoldMessenger.maybeOf(context);
   final text = await showDialog<String>(
