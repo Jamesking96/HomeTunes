@@ -245,9 +245,9 @@ folds it down to icons and opens it again.
   - **Settings › Videos** has the skip lengths, speed and the videos' equaliser.
     **Settings › Appearance › Video player** changes the player's buttons (colour, size, and a
     glow or circles behind them so they're easy to see on any scene).
-- **Updates:** HomeTunes looks for a new version once a day and shows a notice with an **Update…**
+- **Updates:** HomeTunes looks for a new version each time it opens and shows a notice with an **Update…**
   button if there is one. Check any time in **Settings › About › Check for updates**, where
-  there's also a switch to turn the daily check off.
+  there's also a switch to turn the automatic check off.
 - **What's new:** the first time HomeTunes opens after an update, it shows what changed, taken
   from the release pages: everything since the version you had, newest first (it needs the
   internet; if it can't connect, **Open release page** shows the same list in your browser). To

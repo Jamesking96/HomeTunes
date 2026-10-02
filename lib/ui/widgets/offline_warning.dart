@@ -7,8 +7,8 @@
 //   [ensureOnline] checks again. If it's still not reachable, the same warning shows, with OK
 //   (don't go ahead) and Try anyway (in case the check is wrong). If it is reachable now, the
 //   feature just carries on with no pop-up.
-// Background lookups (covers, details and lyrics found automatically, the daily update check)
-// never show it; they just try again later.
+// Background lookups (covers, details and lyrics found automatically) never show it; they just
+// try again later. The automatic update check at start-up is skipped when offline (0.1.51).
 import 'package:flutter/material.dart';
 
 import '../../services/internet_check.dart';

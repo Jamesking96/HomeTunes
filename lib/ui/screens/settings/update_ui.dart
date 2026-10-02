@@ -1,5 +1,5 @@
 // The update screens (0.1.23): the "Check for updates" rows on Settings › About, the
-// "Update to HomeTunes x?" question, and the notice shown when the daily check finds one.
+// "Update to HomeTunes x?" question, and the notice shown when the start-up check finds one (every start since 0.1.51).
 //
 // UpdateModel (state/update_model.dart) does the work. On an installed Windows copy, saying
 // Update downloads the installer, checks it, closes HomeTunes (after pausing and saving the
@@ -97,7 +97,7 @@ class UpdateSettings extends StatelessWidget {
         child: SwitchListTile(
           secondary: const Icon(Icons.update),
           title: const Text('Check for updates automatically'),
-          subtitle: const Text('Once a day, HomeTunes looks for a newer version and lets you know. '
+          subtitle: const Text('Each time HomeTunes opens, it looks for a newer version and lets you know. '
               'Nothing is downloaded unless you say so.'),
           value: u.autoCheck,
           onChanged: u.setAutoCheck,

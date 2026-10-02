@@ -5,6 +5,7 @@
 // Screens further down the tree reach these models with context.watch / select / read.
 // Order matters here: the models must be loaded before the UI appears, and the player must exist
 // before the media controls (notification, lock screen, Windows media keys) can be connected.
+import 'dart:async';
 import 'dart:io';
 
 import 'package:audio_service_win/audio_service_win.dart';
@@ -16,6 +17,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import 'services/app_licences.dart';
+import 'services/internet_check.dart';
 import 'services/media_session.dart';
 import 'services/playback_log.dart';
 import 'services/storage.dart';
@@ -161,18 +163,19 @@ Future<void> main() async {
   ));
 
   // Once the first screen has settled: is the internet reachable? If not, say which features
-  // need it, with Carry on (0.1.50, offline_warning.dart). Then, on the first start after an
-  // update, show what changed since the version that ran before (0.1.28, whats_new_ui.dart).
+  // need it, with Carry on (0.1.50, offline_warning.dart). If online, look for a newer
+  // HomeTunes in the background, every time it opens (0.1.51; it was once a day) unless
+  // switched off; if there is one, a notice with an Update… button appears (0.1.23). And on
+  // the first start after an update, show what changed since the version that ran before
+  // (0.1.28, whats_new_ui.dart).
   Future<void>.delayed(const Duration(milliseconds: 1200), () async {
     await checkInternetAtStart(appNavigatorKey);
+    if (InternetCheck.last ?? false) {
+      unawaited(updates.checkAtStart().then((found) {
+        if (found != null) showUpdateNotice(found);
+      }));
+    }
     if (updates.justUpdated) await showWhatsNewAfterUpdate(updates);
-  });
-
-  // Look for a newer HomeTunes once a day, a little after start-up so it doesn't compete with
-  // the scan; if there is one, a notice with an Update… button appears (0.1.23).
-  Future<void>.delayed(const Duration(seconds: 8), () async {
-    final found = await updates.checkIfDue();
-    if (found != null) showUpdateNotice(found);
   });
 
   // Android: can we read the music files? (Shows a banner with a fix if not.)

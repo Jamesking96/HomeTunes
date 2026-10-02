@@ -99,8 +99,8 @@ docs/                    USER_GUIDE.md (user-facing), ai-context/ (these notes),
   built-ins and your own presets. `PlayerModel` listens and applies it (see `03_…` → Equaliser).
 - **`LyricsModel`** (`lyrics.json` = lyrics found online, plus "nothing found" timestamps) decides
   where lyrics come from (see `03_…`).
-- **`UpdateModel`** (`updates.json`, not in backups): Check for updates, the daily check
-  (`checkIfDue`), and "What's new" after an update (`justUpdated`, `lastRunVersion`). The work is in
+- **`UpdateModel`** (`updates.json`, not in backups): Check for updates, the check each time
+  the app opens (`checkAtStart`, every start since 0.1.51; it was daily), and "What's new" after an update (`justUpdated`, `lastRunVersion`). The work is in
   `services/update_checker.dart`.
 - **`SleepTimer`**, **`AppNav`** (per-tab navigators, `openBook/openAlbum/openArtist`, `openSettings(page, setting:)`) and
   **`SelectionModel`** (select mode: one `SelectKind` at a time, songs, albums or books, plus the

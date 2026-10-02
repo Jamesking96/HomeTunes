@@ -117,7 +117,7 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('video-seek-colour', SettingsPage.appearance, 'Video progress bar colour', 'video seek bar progress colour color timeline'),
   SettingInfo('version', SettingsPage.about, 'Version', 'app number'),
   SettingInfo('updates', SettingsPage.about, 'Check for updates', 'update upgrade new version download install latest release'),
-  SettingInfo('update-auto', SettingsPage.about, 'Check for updates automatically', 'update daily notify new version'),
+  SettingInfo('update-auto', SettingsPage.about, 'Check for updates automatically', 'update start open startup notify new version'),
   SettingInfo('whats-new', SettingsPage.about, 'What\'s new in this version', 'changes release notes changelog latest new features'),
   SettingInfo('playback-log', SettingsPage.about, 'Playback log', 'diagnostics problem stops stopped debug report'),
   SettingInfo('licences', SettingsPage.about, 'Licences',

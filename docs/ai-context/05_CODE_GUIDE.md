@@ -274,7 +274,7 @@ Everything lives in the app's data folder, `…/hometunes/` inside the system's 
 | `videos.json` | The Videos tab: the videos found, the user's edits to them and how far into each one they got (0.1.40) | `VideoLibraryModel` |
 | `art/` | Covers taken from files (`art/custom/` holds the ones you chose; `art/server/` holds server covers for the media controls, left out of backups) | `local_scanner.dart`, `LibraryModel`, `server_art_cache.dart` |
 | `playback-log.txt` | The playback log (last 400 lines). Not in backups | `playback_log.dart` |
-| `updates.json` | The daily update check switch, when it last ran, and the version that last ran (for "What's new"). Not in backups (it belongs to the device) | `UpdateModel` |
+| `updates.json` | The "check for updates automatically" switch (every start since 0.1.51), when it last ran, and the version that last ran (for "What's new"). Not in backups (it belongs to the device) | `UpdateModel` |
 | `backups/` | Copies of music files made before writing edits into them, one dated folder per run | `LibraryModel`, `tag_writer.dart` |
 | `before-restore.htbackup` | Your data from just before the last restore | `LibraryModel`, `app_backup.dart` |
 | `<name>.corrupt-<date>.json` | A damaged data file, kept before it's replaced (the newest 3 of each) | `Storage` |
@@ -349,7 +349,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `escape_select_test.dart` | Esc cancels a selection (0.1.48), but not under a dialog or a page pushed over it |
 | `filter_search_test.dart` | The search box in the filter drop-downs (0.1.49): narrowing, Enter, All, "Nothing matches" and Esc |
 | `offline_warning_test.dart` | The no-internet warning (0.1.50): at start-up with Carry on, and before an online feature (checked again each time; OK, Try anyway, straight through when back online) |
-| `update_test.dart` | Check for updates: version comparison, reading the release and checksum file, the "What's new" text, which links may be downloaded, the daily check and its switch, a wrong checksum being refused (fake GitHub) |
+| `update_test.dart` | Check for updates: version comparison, reading the release and checksum file, the "What's new" text, which links may be downloaded, the start-up check (every start since 0.1.51) and its switch, a wrong checksum being refused (fake GitHub) |
 | `whats_new_test.dart` | "What's new" after an update: which releases are listed, noticing the first start after an update (and not on a fresh install), and the pop-up (fake GitHub) |
 | `equalizer_test.dart` | Preset filter text (including bands left out for low sample rates), editing and restoring presets, your own presets, music vs audiobook presets, saving, and the Equaliser screen |
 | `playback_guard_test.dart` | The locked-phone fix: the 5-second wait before telling the phone "paused", the stall detector, and the playback log |

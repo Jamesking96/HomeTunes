@@ -186,6 +186,18 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Update check at start-up (2 Oct 2026, 0.1.51, branch `feature/update-at-start`)
+- **What the user asked for:** "Update the check for updates to be on startup not once per day".
+- **How it works:** while Settings › About › "Check for updates automatically" is on, HomeTunes
+  looks for a newer version every time it opens (it used to wait 24 h between checks). It runs
+  in main.dart straight after the internet check (about 1.2 s after start), in the background,
+  only if the internet was reachable, so it never adds a second message when offline. A newer
+  version still shows the notice with **Update…**. The switch's text now says "Each time
+  HomeTunes opens…".
+- **Code:** `UpdateModel.isDue` is just `autoCheck`; `checkIfDue` became `checkAtStart`;
+  `checkEvery` is gone. `lastCheck` is still saved (shown as "Last checked…"). Tests in
+  `test/update_test.dart`.
+
 ## No internet warning (2 Oct 2026, 0.1.50, branch `feature/offline-warning`)
 - **What the user asked for:** "Add a check on opening to see if the internet is reachable. If it
   is not, pop up with a warning about some features not working and allow them to carry on using
@@ -209,8 +221,8 @@ before changing that area.
   into `showInfoLookup`, `showCoverSearch`, `showBookCoverSearch`, `showBookLookup`,
   `findLyricsOnline`, `showPictureSearch`, Settings › About's Check now / Try again, the Update
   button, and What's new in this version.
-- **Not gated:** background lookups (automatic covers, details, lyrics, video art) and the daily
-  update check; they already fail quietly and try again later. The music server isn't checked
+- **Not gated:** background lookups (automatic covers, details, lyrics, video art); they already
+  fail quietly and try again later. The automatic update check is skipped when offline (0.1.51). The music server isn't checked
   (it's usually on the home network).
 - **Tests:** `test/offline_warning_test.dart`.
 
@@ -656,12 +668,13 @@ before changing that area.
 
 ## Updates (0.1.23)
 - **The user's choices (29 Sep):** a "Check for updates" button in Settings › About **plus** a quiet
-  check at most once a day with a switch to turn it off; on the phone, just **open the download
+  check at most once a day with a switch to turn it off (**changed 2 Oct, 0.1.51:** the quiet
+  check now runs every time HomeTunes opens, if online; see "Update check at start-up"); on the phone, just **open the download
   page** (not download-and-install); on Windows it updates itself.
 - **Where things are:** `services/update_checker.dart` (GitHub, versions, checksums, installer),
   `state/update_model.dart` (`UpdateModel`, `updates.json`: `autoCheck` + `lastCheck`; not in
   backups, it's per device), `ui/screens/settings/update_ui.dart` (About rows, the question
-  dialog, the start-up notice). `main.dart` runs `checkIfDue()` 8 s after start; a find shows a
+  dialog, the start-up notice). `main.dart` runs `checkAtStart()` after the internet check at every start (was `checkIfDue()` 8 s after start, at most daily, until 0.1.51); a find shows a
   SnackBar with **Update…** through `appMessengerKey` / `appNavigatorKey` on MaterialApp.
 - **The check:** `GET api.github.com/repos/Jamesking96/HomeTunes/releases/latest` (unauthenticated;
   the repo's releases are public; 60 requests an hour per IP is plenty). Drafts and pre-releases are

@@ -113,13 +113,13 @@ void main() {
       final found = await u.check();
       expect(found?.version, '0.1.23');
       expect(u.stage, UpdateStage.available);
-      expect(u.isDue, isFalse); // just checked
 
+      // 0.1.51: checked every time HomeTunes opens, not once a day.
       final again = model('0.1.23');
       await again.load();
       expect(again.lastCheck, isNotNull);
-      again.now = () => DateTime.now().add(const Duration(hours: 25));
-      expect(again.isDue, isTrue); // a day later
+      expect(again.isDue, isTrue); // straight after the last check, at the next start
+      expect((await again.checkAtStart())?.version, '0.1.23');
     });
 
     test('says up to date when there\'s nothing newer', () async {
@@ -139,12 +139,12 @@ void main() {
       expect(u.error, contains('500'));
     });
 
-    test('turning the daily check off is remembered', () async {
+    test('turning the start-up check off is remembered', () async {
       final u = model('0.1.23');
       await u.load();
       await u.setAutoCheck(false);
       expect(u.isDue, isFalse);
-      expect(await u.checkIfDue(), isNull);
+      expect(await u.checkAtStart(), isNull);
       final again = model('0.1.23');
       await again.load();
       expect(again.autoCheck, isFalse);
