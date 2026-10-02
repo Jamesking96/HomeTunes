@@ -205,7 +205,8 @@ folds it down to icons and opens it again.
 - **Selecting several:** right-click (or press and hold) and choose **Select**, then tap others to
   tick them. On a PC, hold **Shift** and click to tick everything between the last one you
   clicked and this one; this works for songs, albums, books, videos, episodes and collections,
-  and a Shift + click also starts selecting on its own.
+  and a Shift + click also starts selecting on its own. Press **Esc** (or the ✕ on the bar) to
+  stop selecting.
 - **Fix wrong details:** use **Edit details**. Select several albums or books to edit them together.
   Your changes are kept by HomeTunes and don't touch the files, unless you choose to save
   them into the files in **Settings › Your edits**.
