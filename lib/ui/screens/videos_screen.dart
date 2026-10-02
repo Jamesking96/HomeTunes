@@ -19,6 +19,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/video_item.dart';
 import '../../state/music_filters.dart';
+import '../../state/range_select.dart';
 import '../../state/video_filters.dart';
 import '../../state/video_library_model.dart';
 import '../nav.dart';
@@ -139,8 +140,10 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
   final Set<String> _selected = {};
 
   void _toggleOpen(VideoCollection c) => setState(() => _open = _open == c.key ? null : c.key);
-  void _toggleSelected(VideoCollection c) =>
-      setState(() => _selected.contains(c.key) ? _selected.remove(c.key) : _selected.add(c.key));
+  // Ticks or unticks a collection; Shift + click ticks everything from the last one clicked, in
+  // the order shown ([order], 0.1.47).
+  final _range = RangePicker();
+  void _toggleSelected(VideoCollection c, List<String> order) => setState(() => _range.pick(_selected, c.key, order));
 
   @override
   bool get wantKeepAlive => true;
@@ -166,6 +169,8 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
     final shown = searchCollections(
         [for (final c in all) if (_only.matches(c, collectionFilterFields)) c], _query);
     final groups = sortCollections(shown, _sort, lastWatched: model.lastWatchedMs);
+    // The order they're shown in, for Shift + click.
+    final order = [for (final (_, list) in groups) for (final c in list) c.key];
     final picked = [for (final c in all) if (_selected.contains(c.key)) c];
     final selecting = picked.isNotEmpty;
     final accent = Theme.of(context).colorScheme.primary;
@@ -275,7 +280,7 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
                     highlighted: x.key == _open,
                     selecting: selecting,
                     selected: _selected.contains(x.key),
-                    onSelect: () => _toggleSelected(x),
+                    onSelect: () => _toggleSelected(x, order),
                   ),
                   after: (row) {
                     final open = row.where((x) => x.key == _open).firstOrNull;
@@ -371,7 +376,10 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
     if (picked != null && mounted) setState(() => _only = picked);
   }
 
-  void _toggle(String id) => setState(() => _selected.contains(id) ? _selected.remove(id) : _selected.add(id));
+  // Ticks or unticks a video; Shift + click ticks everything from the last one clicked, in the
+  // order shown ([order], 0.1.47).
+  final _range = RangePicker();
+  void _toggle(String id, List<String> order) => setState(() => _range.pick(_selected, id, order));
 
   @override
   Widget build(BuildContext context) {
@@ -475,7 +483,7 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
                             video: v,
                             selected: _selected.contains(v.id),
                             selecting: selecting,
-                            onSelect: () => _toggle(v.id),
+                            onSelect: () => _toggle(v.id, [for (final x in continuing) x.id]),
                           ),
                         ),
                     ],
@@ -526,7 +534,7 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
                     video: v,
                     selected: _selected.contains(v.id),
                     selecting: selecting,
-                    onSelect: () => _toggle(v.id),
+                    onSelect: () => _toggle(v.id, shownIds),
                   ),
                 ),
               ),
@@ -721,7 +729,15 @@ class VideoCard extends StatelessWidget {
         onLongPress: onSelect,
         child: InkWell(
           borderRadius: AppShape.circular(8),
-          onTap: selecting ? onSelect : () => context.read<AppNav>().openVideo(video),
+          // Selecting: a tap ticks / unticks (Shift + click: a range, 0.1.47); Shift + click when
+          // nothing is ticked starts selecting.
+          onTap: () {
+            if (onSelect != null && (selecting || shiftHeld)) {
+              onSelect!();
+            } else {
+              context.read<AppNav>().openVideo(video);
+            }
+          },
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             AspectRatio(
               aspectRatio: model.shapeOf(video).aspect,
