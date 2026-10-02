@@ -195,6 +195,8 @@ folds it down to icons and opens it again.
   word you type must match.
 - **Playlists and favourites:** make playlists in **Library**, like songs with the heart, and
   heart whole albums or books. Library tabs have filters and sorting, including **Favourites**.
+  Each list in the filter (artist, album, genre, author, collection and so on) has a search box
+  at the top: type part of a name to find it, and press Enter to pick the first match.
 - **Menus:** right-click (PC) or press and hold (phone) on an album or book for quick actions:
   **Edit details…**, **Choose cover…**, **Add to favourites** and **Details…** (where it came
   from). A song's menu has **Go to album**, **Go to artist**, **Edit details…**, **Lyrics** and
