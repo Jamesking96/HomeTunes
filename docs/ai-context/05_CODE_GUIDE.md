@@ -189,6 +189,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `jump_back_in.dart` | Home's "Jump back in" (0.1.45): `jumpsFrom` mixes part-watched videos, part-listened books and recently played music (`VideoJump` / `BookJump` / `MusicJump`), newest first, dropping music that's gone; `JumpCard` is the wide card (picture, kind, title, detail, progress, a play button that carries on). Its height follows the text size (`jumpCardHeightFor`). |
 | `cards.dart` | Album and artist tiles (album covers show a play button on mouse hover, `HoverPlayCover`), the horizontal scrolling shelves on Home, and `SelectableCard` (right-click / press and hold → Select for album and book tiles, plus "Open album page" on an artist page). |
 | `escape_cancels.dart` | Esc cancels a selection (0.1.48): `EscapeCancels` wraps every selection bar and calls its "clear" on Esc, only while its page is in front (not under a dialog, menu or pushed page), without swallowing the key. |
+| `search_choice_field.dart` | The "Show only" drop-downs (0.1.49): `SearchChoiceField` opens a list with a search box at the top, then All and each choice with its count; `choiceMatches` (every word, any order). Used by `music_filter_sheet.dart` and the Books filter sheet. |
 | `book_card.dart` | Book covers and tiles with a progress bar, the favourite heart (top right) and the finished tick (bottom right). |
 | `bookmark_widgets.dart` | Adding, listing and jumping to bookmarks. |
 | `collection_header.dart` | The big header on album, artist and playlist pages with Play and Shuffle. |
@@ -344,6 +345,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `multi_edit_test.dart` | Selecting albums and books, the tiles' Select menu, and editing several albums, books or songs with `--:--` |
 | `shift_select_test.dart` | Shift + click ranges (0.1.47): `idsBetween`, `RangePicker`, `SelectionModel.pick`, and episodes on a collection's page across seasons |
 | `escape_select_test.dart` | Esc cancels a selection (0.1.48), but not under a dialog or a page pushed over it |
+| `filter_search_test.dart` | The search box in the filter drop-downs (0.1.49): narrowing, Enter, All, "Nothing matches" and Esc |
 | `update_test.dart` | Check for updates: version comparison, reading the release and checksum file, the "What's new" text, which links may be downloaded, the daily check and its switch, a wrong checksum being refused (fake GitHub) |
 | `whats_new_test.dart` | "What's new" after an update: which releases are listed, noticing the first start after an update (and not on a fresh install), and the pop-up (fake GitHub) |
 | `equalizer_test.dart` | Preset filter text (including bands left out for low sample rates), editing and restoring presets, your own presets, music vs audiobook presets, saving, and the Equaliser screen |

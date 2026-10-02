@@ -18,6 +18,7 @@ import '../theme.dart';
 import '../widgets/book_card.dart';
 import '../widgets/cards.dart';
 import '../widgets/music_access_banner.dart';
+import '../widgets/search_choice_field.dart';
 
 /// The quick "state" chips along the top of the Books tab.
 enum BookFilter { all, favourites, inProgress, notStarted, finished }
@@ -327,17 +328,14 @@ class _FilterSheetState extends State<_FilterSheet> {
     // otherwise the dropdown would complain about a value that isn't in its items.
     final items = {...options};
     if (value != null && !items.containsKey(value)) items[value] = 0;
+    // A search box at the top of the list (0.1.49, `SearchChoiceField`).
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: DropdownButtonFormField<String?>(
-        initialValue: value,
-        isExpanded: true,
-        decoration: InputDecoration(labelText: label),
-        items: [
-          const DropdownMenuItem<String?>(value: null, child: Text('All')),
-          for (final e in items.entries)
-            DropdownMenuItem<String?>(value: e.key, child: Text('${e.key}  (${e.value})', overflow: TextOverflow.ellipsis)),
-        ],
+      child: SearchChoiceField(
+        key: ValueKey('filter-$label'),
+        label: label,
+        value: value,
+        options: items,
         onChanged: onChanged,
       ),
     );

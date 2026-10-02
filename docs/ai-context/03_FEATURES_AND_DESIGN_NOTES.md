@@ -186,6 +186,25 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Search in filter drop-downs (2 Oct 2026, 0.1.49, branch `feature/filter-search`)
+- **What the user asked for:** "When filtering by something, the selection drop downs can get
+  rather large, add a dedicated search bar at the top of each one."
+- **How it works:** every "Show only" sheet (Your Library's Artists / Albums / Songs, Books,
+  Videos' Collections and All videos) uses `SearchChoiceField` instead of a plain dropdown. It
+  looks the same (label, current choice and its count, arrow). A tap opens a list under the field
+  (above it when there's no room) with a **Search …** box first, then All and each choice with its
+  count. Typing narrows the list: every word must appear, any order, ignoring case
+  (`choiceMatches`); All only shows while the box is empty; "Nothing matches" when nothing does.
+  Enter picks the first match; Esc or a tap outside closes it unchanged. On a PC the cursor is
+  in the search box straight away; on a phone it waits for a tap so the keyboard doesn't cover
+  the list.
+- **Code:** `lib/ui/widgets/search_choice_field.dart`: `SearchChoiceField` (keeps the old
+  `filter-<label>` keys), a `PopupRoute` on the root navigator laid out against the field's
+  window position (`_Below`, max 400 px tall), and `_ChoiceList` (`choice-search-<label>` and
+  `choice:<value>` / `choice:(all)` keys for tests). The choice rows keep the old
+  "`Name  (count)`" text so existing tests still find them.
+- **Tests:** `test/filter_search_test.dart`.
+
 ## Esc cancels a selection (2 Oct 2026, 0.1.48, branch `feature/escape-select`)
 - **What the user asked for:** "Make it so pressing escape on the PC cancels selection".
 - **How it works:** while any selection bar is showing (songs, albums, audiobooks in the shell;
