@@ -11,10 +11,13 @@ import 'package:provider/provider.dart';
 import '../../services/book_info.dart';
 import '../../state/library_model.dart';
 import '../theme.dart';
+import '../widgets/offline_warning.dart';
 
 /// Searches Open Library for a book cover and lets the user pick one.
 /// Returns the saved image's path, or null.
 Future<String?> showBookCoverSearch(BuildContext context, {String? title, String? author}) async {
+  // No internet: say so (0.1.50) instead of a search that can only fail.
+  if (!await ensureOnline(context) || !context.mounted) return null;
   // The dialog can end with a path (cover picked), a BookMatch (book picked) or nothing.
   final r = await showDialog<Object>(
     context: context,
@@ -27,6 +30,7 @@ Future<String?> showBookCoverSearch(BuildContext context, {String? title, String
 /// Searches Open Library for a book and returns the one the user picked, so
 /// its title, author or year can be used.
 Future<BookMatch?> showBookLookup(BuildContext context, {String? title, String? author}) async {
+  if (!await ensureOnline(context) || !context.mounted) return null; // 0.1.50
   final r = await showDialog<Object>(
     context: context,
     useRootNavigator: true,

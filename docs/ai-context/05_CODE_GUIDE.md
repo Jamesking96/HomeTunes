@@ -108,6 +108,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `tag_writer.dart` | Writes your edits into MP3, FLAC, M4A and WAV files in the background, with an optional backup and a re-read to check. |
 | `app_backup.dart` | Makes and restores `.htbackup` files (compressed JSON), by replacing or merging, with paths made portable between devices. |
 | `subsonic_client.dart` | Talks to a Subsonic server: login, full song list, stream and cover links, server lyrics. |
+| `internet_check.dart` | Is the internet reachable? (0.1.50): `InternetCheck.reachable` opens a plain connection to GitHub, MusicBrainz, LRCLIB and Open Library (nothing sent); any one answering = online. `override` for tests (default "online" under `flutter test`). The warning is `ui/widgets/offline_warning.dart`. |
 | `server_probe.dart` | Test connection on Settings › Servers (0.1.46): `probeServer` asks a Jellyfin / Emby / Plex / Audiobookshelf / HomeTunes server's public "who are you" address (no sign-in sent) or signs in to a Subsonic one (never over plain http to the internet); `candidateUrls` (https then http). |
 | `lrclib_client.dart` | Looks up lyrics on LRCLIB and ranks the matches (length within 3 s, timed first, title, artist). |
 | `local_lyrics.dart` | Reads lyrics from a song's tags or a `.lrc` file beside it. |
@@ -190,6 +191,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `cards.dart` | Album and artist tiles (album covers show a play button on mouse hover, `HoverPlayCover`), the horizontal scrolling shelves on Home, and `SelectableCard` (right-click / press and hold → Select for album and book tiles, plus "Open album page" on an artist page). |
 | `escape_cancels.dart` | Esc cancels a selection (0.1.48): `EscapeCancels` wraps every selection bar and calls its "clear" on Esc, only while its page is in front (not under a dialog, menu or pushed page), without swallowing the key. |
 | `search_choice_field.dart` | The "Show only" drop-downs (0.1.49): `SearchChoiceField` opens a list with a search box at the top, then All and each choice with its count; `choiceMatches` (every word, any order). Used by `music_filter_sheet.dart` and the Books filter sheet. |
+| `offline_warning.dart` | "No internet connection" (0.1.50): `checkInternetAtStart` (start-up, Carry on), `ensureOnline` (before each online feature: checks again; OK / Try anyway), `showOfflineWarning` and the `onlineFeatures` list. |
 | `book_card.dart` | Book covers and tiles with a progress bar, the favourite heart (top right) and the finished tick (bottom right). |
 | `bookmark_widgets.dart` | Adding, listing and jumping to bookmarks. |
 | `collection_header.dart` | The big header on album, artist and playlist pages with Play and Shuffle. |
@@ -346,6 +348,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `shift_select_test.dart` | Shift + click ranges (0.1.47): `idsBetween`, `RangePicker`, `SelectionModel.pick`, and episodes on a collection's page across seasons |
 | `escape_select_test.dart` | Esc cancels a selection (0.1.48), but not under a dialog or a page pushed over it |
 | `filter_search_test.dart` | The search box in the filter drop-downs (0.1.49): narrowing, Enter, All, "Nothing matches" and Esc |
+| `offline_warning_test.dart` | The no-internet warning (0.1.50): at start-up with Carry on, and before an online feature (checked again each time; OK, Try anyway, straight through when back online) |
 | `update_test.dart` | Check for updates: version comparison, reading the release and checksum file, the "What's new" text, which links may be downloaded, the daily check and its switch, a wrong checksum being refused (fake GitHub) |
 | `whats_new_test.dart` | "What's new" after an update: which releases are listed, noticing the first start after an update (and not on a fresh install), and the pop-up (fake GitHub) |
 | `equalizer_test.dart` | Preset filter text (including bands left out for low sample rates), editing and restoring presets, your own presets, music vs audiobook presets, saving, and the Equaliser screen |

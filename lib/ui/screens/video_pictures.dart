@@ -23,6 +23,7 @@ import '../../services/video_thumbnails.dart' show shrinkToJpeg;
 import '../../state/library_model.dart';
 import '../../state/video_library_model.dart';
 import '../theme.dart';
+import '../widgets/offline_warning.dart';
 
 /// Chosen pictures are kept at most this wide.
 const pictureWidth = 1280;
@@ -382,12 +383,15 @@ Future<List<int>?> showPictureSearch(
   bool anime = false,
   bool forPoster = false,
   VideoArtSearch? search,
-}) =>
-    showDialog<List<int>>(
-      context: context,
-      builder: (_) => _PictureSearch(
-          query: query, season: season, episode: episode, hint: hint, anime: anime, forPoster: forPoster, search: search),
-    );
+}) async {
+  // No internet: say so (0.1.50) instead of a search that can only fail.
+  if (!await ensureOnline(context) || !context.mounted) return null;
+  return showDialog<List<int>>(
+    context: context,
+    builder: (_) => _PictureSearch(
+        query: query, season: season, episode: episode, hint: hint, anime: anime, forPoster: forPoster, search: search),
+  );
+}
 
 class _PictureSearch extends StatefulWidget {
   final String query;

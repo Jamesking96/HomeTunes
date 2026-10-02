@@ -41,6 +41,7 @@ import 'ui/screens/settings/whats_new_ui.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
 import 'ui/widgets/notices.dart';
+import 'ui/widgets/offline_warning.dart';
 import 'ui/widgets/window_scale.dart';
 
 /// Starts HomeTunes: sets up storage and the models, then shows the app.
@@ -159,11 +160,13 @@ Future<void> main() async {
     servers: servers,
   ));
 
-  // First start after an update: show what changed since the version that ran before
-  // (0.1.28, whats_new_ui.dart), once the first screen has settled.
-  if (updates.justUpdated) {
-    Future<void>.delayed(const Duration(milliseconds: 1500), () => showWhatsNewAfterUpdate(updates));
-  }
+  // Once the first screen has settled: is the internet reachable? If not, say which features
+  // need it, with Carry on (0.1.50, offline_warning.dart). Then, on the first start after an
+  // update, show what changed since the version that ran before (0.1.28, whats_new_ui.dart).
+  Future<void>.delayed(const Duration(milliseconds: 1200), () async {
+    await checkInternetAtStart(appNavigatorKey);
+    if (updates.justUpdated) await showWhatsNewAfterUpdate(updates);
+  });
 
   // Look for a newer HomeTunes once a day, a little after start-up so it doesn't compete with
   // the scan; if there is one, a notice with an Update… button appears (0.1.23).

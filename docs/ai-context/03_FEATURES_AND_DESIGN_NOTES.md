@@ -186,6 +186,34 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## No internet warning (2 Oct 2026, 0.1.50, branch `feature/offline-warning`)
+- **What the user asked for:** "Add a check on opening to see if the internet is reachable. If it
+  is not, pop up with a warning about some features not working and allow them to carry on using
+  the application. If they try to use an online feature, check again for the internet and give
+  the same warning again if nothing has changed."
+- **The check** (`services/internet_check.dart`, `InternetCheck.reachable`): opens a plain
+  connection (port 443, nothing sent) to the sites HomeTunes already uses: api.github.com,
+  musicbrainz.org, lrclib.net, openlibrary.org. Any one answering within 4 s = online. No new
+  site is contacted. About 80 ms on the user's PC when online. `InternetCheck.override` replaces
+  it in tests; under `flutter test` the default is "online", so other tests never touch the
+  network. `InternetCheck.last` keeps the latest answer.
+- **At start-up** (main.dart, 1.2 s after the first screen): if offline, "No internet connection"
+  lists what needs the internet (`onlineFeatures`: finding covers / song / book details online,
+  finding lyrics online, searching online for video pictures and posters, checking for updates
+  and What's new) and says music, audiobooks and videos still play, including from the home
+  server. One button: **Carry on**. The "What's new" pop-up after an update waits until it's
+  closed.
+- **Before an online feature** (`ensureOnline(context)` in `ui/widgets/offline_warning.dart`):
+  checks again every time. Online: carries straight on, no pop-up. Still offline: the same
+  warning with **OK** (doesn't go ahead) and **Try anyway** (in case the check is wrong). Hooked
+  into `showInfoLookup`, `showCoverSearch`, `showBookCoverSearch`, `showBookLookup`,
+  `findLyricsOnline`, `showPictureSearch`, Settings › About's Check now / Try again, the Update
+  button, and What's new in this version.
+- **Not gated:** background lookups (automatic covers, details, lyrics, video art) and the daily
+  update check; they already fail quietly and try again later. The music server isn't checked
+  (it's usually on the home network).
+- **Tests:** `test/offline_warning_test.dart`.
+
 ## Search in filter drop-downs (2 Oct 2026, 0.1.49, branch `feature/filter-search`)
 - **What the user asked for:** "When filtering by something, the selection drop downs can get
   rather large, add a dedicated search bar at the top of each one."
