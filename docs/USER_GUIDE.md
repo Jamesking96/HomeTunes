@@ -198,6 +198,8 @@ folds it down to icons and opens it again.
   word you type must match.
 - **Playlists and favourites:** make playlists in **Library**, like songs with the heart, and
   heart whole albums or books. Library tabs have filters and sorting, including **Favourites**.
+  On the **Artists** tab, the button beside the filter switches between a list and a grid of
+  round pictures; HomeTunes remembers which you chose.
   Each list in the filter (artist, album, genre, author, collection and so on) has a search box
   at the top: type part of a name to find it, and press Enter to pick the first match.
 - **Menus:** right-click (PC) or press and hold (phone) on an album or book for quick actions:

@@ -306,7 +306,10 @@ class _HoverPlayCoverState extends State<HoverPlayCover> {
 class ArtistCard extends StatelessWidget {
   final Artist artist;
   final double? width;
-  const ArtistCard({super.key, required this.artist, this.width});
+
+  /// The line under the name ("Artist" unless given; the Artists tab's grid shows the counts).
+  final String? subtitle;
+  const ArtistCard({super.key, required this.artist, this.width, this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -327,7 +330,8 @@ class ArtistCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(artist.name, maxLines: 1, overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontWeight: FontWeight.w600)),
-          Text('Artist', style: TextStyle(color: AppColors.textDim, fontSize: 13)),
+          Text(subtitle ?? 'Artist',
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.textDim, fontSize: 13)),
         ]),
       ),
     );
