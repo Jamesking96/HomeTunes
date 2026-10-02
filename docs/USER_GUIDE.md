@@ -202,6 +202,10 @@ folds it down to icons and opens it again.
 - **Copying titles:** drag across the big title at the top of an album, artist, playlist, book,
   collection or video page (or on Now Playing) and copy it with Ctrl+C or a right-click. Songs,
   albums, books, videos and collections also have **Copy title** in their right-click menu.
+- **Selecting several:** right-click (or press and hold) and choose **Select**, then tap others to
+  tick them. On a PC, hold **Shift** and click to tick everything between the last one you
+  clicked and this one; this works for songs, albums, books, videos, episodes and collections,
+  and a Shift + click also starts selecting on its own.
 - **Fix wrong details:** use **Edit details**. Select several albums or books to edit them together.
   Your changes are kept by HomeTunes and don't touch the files, unless you choose to save
   them into the files in **Settings › Your edits**.

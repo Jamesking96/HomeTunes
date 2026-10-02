@@ -186,6 +186,26 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Shift + click selects a range (2 Oct 2026, 0.1.47, branch `feature/shift-select`)
+- **What the user asked for:** "When using the select feature, I want to add holding shift to
+  select everything between to points".
+- **How it works:** while selecting, a click ticks or unticks one item as before and remembers it
+  (the "anchor"). Holding Shift and clicking another item ticks everything between the anchor and
+  that item, in the order shown on screen, either direction; the clicked item becomes the new
+  anchor. A Shift + click also starts select mode straight away (it ticks that one item rather
+  than opening or playing it), so Shift + click, Shift + click picks a range from scratch.
+  Shift ranges only ever add ticks; a plain click still unticks one.
+- **Where:** songs (`TrackTile`, the list it's in), albums and audiobooks (`SelectableCard`, its
+  `scope`), and on Videos: collections (Collections tab, across category headings), the All
+  videos grid and its Continue watching row, and episodes on a collection's page or its in-place
+  contents (across seasons, in the flattened group order).
+- **Code:** `lib/state/range_select.dart` holds `shiftHeld`, `idsBetween` and `RangePicker`
+  (anchor + pick). `SelectionModel.pick(id, order, kind:)` uses it for songs/albums/books; the
+  Videos screens keep their own `RangePicker` next to their `Set<String>` selections. Shift is
+  read at tap time inside the `onTap` closure, never at build time. A range is only used when
+  something is already ticked, so a stale anchor from an earlier selection can't fill a range.
+- **Tests:** `test/shift_select_test.dart`.
+
 ## Servers page: several servers for music, audiobooks and videos (1 Oct 2026, 0.1.46, branch `feature/servers`)
 - **What the user asked for:** "We need to include a server connection system for videos, we also may
   want to have multiple server connections per server setup … re design this page … to allow for

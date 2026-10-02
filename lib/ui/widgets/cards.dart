@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../models/track.dart';
 import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
+import '../../state/range_select.dart';
 import '../../state/selection_model.dart';
 import '../nav.dart';
 import '../theme.dart';
@@ -190,7 +191,15 @@ class _SelectableCardState extends State<SelectableCard> {
         child: InkWell(
           borderRadius: AppShape.circular(8),
           onTapDown: (d) => _at = d.globalPosition,
-          onTap: selecting ? () => context.read<SelectionModel>().toggle(widget.id, kind: widget.kind) : widget.onOpen,
+          // Selecting: a tap ticks / unticks; Shift + click ticks everything from the last one
+          // clicked (0.1.47), and with nothing ticked yet starts selecting.
+          onTap: () {
+            if (selecting || shiftHeld) {
+              context.read<SelectionModel>().pick(widget.id, widget.scope, kind: widget.kind);
+            } else {
+              widget.onOpen();
+            }
+          },
           onLongPress: _menu,
           onSecondaryTapDown: (d) {
             _at = d.globalPosition;

@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/video_item.dart';
+import '../../state/range_select.dart';
 import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
@@ -104,7 +105,15 @@ class CollectionCard extends StatelessWidget {
             },
         child: InkWell(
           borderRadius: AppShape.circular(8),
-          onTap: selecting ? onSelect : (onTap ?? () => context.read<AppNav>().openVideoCollection(c.name)),
+          // Selecting: a tap ticks / unticks (Shift + click: a range, 0.1.47); Shift + click when
+          // nothing is ticked starts selecting.
+          onTap: () {
+            if (onSelect != null && (selecting || shiftHeld)) {
+              onSelect!();
+            } else {
+              (onTap ?? () => context.read<AppNav>().openVideoCollection(c.name))();
+            }
+          },
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             AspectRatio(
               aspectRatio: model.collectionShapeOf(c).aspect,
@@ -297,7 +306,7 @@ class _CollectionContentsPanelState extends State<CollectionContentsPanel> with 
               for (final v in list)
                 SizedBox(
                   height: _VideoCollectionScreenState.rowExtent,
-                  child: episodeRow(v, next),
+                  child: episodeRow(v, next, () => [for (final (_, l) in groups) for (final x in l) x.id]),
                 ),
           ],
           const SizedBox(height: 8),
@@ -657,7 +666,8 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> with _Epi
             SliverFixedExtentList.builder(
               itemExtent: rowExtent,
               itemCount: list.length,
-              itemBuilder: (_, i) => episodeRow(list[i], next),
+              itemBuilder: (_, i) =>
+                  episodeRow(list[i], next, () => [for (final (_, l) in groups) for (final x in l) x.id]),
             ),
         ],
         const SliverToBoxAdapter(child: SizedBox(height: 24)),
@@ -695,8 +705,12 @@ mixin _EpisodeSelection<T extends StatefulWidget> on State<T> {
 
   bool get selectingVideos => selectedVideos.isNotEmpty;
 
-  void toggleVideo(String id) =>
-      setState(() => selectedVideos.contains(id) ? selectedVideos.remove(id) : selectedVideos.add(id));
+  final _range = RangePicker();
+
+  /// Ticks or unticks one video; with Shift held, ticks everything between the last one clicked
+  /// and this one, in the list's order ([order] is only worked out at tap time).
+  void toggleVideo(String id, List<String> Function() order) =>
+      setState(() => _range.pick(selectedVideos, id, order()));
 
   /// true when all of [list] is ticked, false when none, null when some.
   bool? seasonTicked(List<VideoItem> list) {
@@ -731,12 +745,12 @@ mixin _EpisodeSelection<T extends StatefulWidget> on State<T> {
     );
   }
 
-  Widget episodeRow(VideoItem v, VideoItem? next) => EpisodeRow(
+  Widget episodeRow(VideoItem v, VideoItem? next, List<String> Function() order) => EpisodeRow(
         video: v,
         isNext: v.id == next?.id,
         selecting: selectingVideos,
         selected: selectedVideos.contains(v.id),
-        onSelect: () => toggleVideo(v.id),
+        onSelect: () => toggleVideo(v.id, order),
       );
 
   Widget selectionBar(VideoCollection c) => VideoSelectionBar(
@@ -969,7 +983,14 @@ class EpisodeRow extends StatelessWidget {
       onSecondaryTapUp: (d) => menu(d.globalPosition),
       child: InkWell(
         key: ValueKey('episode-row:${video.id}'),
-        onTap: ticking ? onSelect : () => context.read<AppNav>().openVideo(video),
+        onTap: () {
+          // Checked at tap time: Shift + click ticks a range even before select mode is on.
+          if (onSelect != null && (selecting || shiftHeld)) {
+            onSelect!();
+          } else {
+            context.read<AppNav>().openVideo(video);
+          }
+        },
         onLongPress: ticking
             ? onSelect
             : () {

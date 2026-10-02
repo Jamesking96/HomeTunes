@@ -12,6 +12,7 @@ import '../../models/track.dart';
 import '../../state/library_model.dart';
 import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
+import '../../state/range_select.dart';
 import '../../state/selection_model.dart';
 import '../nav.dart';
 import '../screens/details_screen.dart';
@@ -56,6 +57,8 @@ class TrackTile extends StatelessWidget {
     final accent = Theme.of(context).colorScheme.primary;
     final selecting = context.select<SelectionModel, bool>((s) => s.selecting(SelectKind.songs));
     final selected = context.select<SelectionModel, bool>((s) => s.contains(track.id));
+    // Ticks or unticks this song; Shift + click ticks the songs from the last one clicked (0.1.47).
+    void pick() => context.read<SelectionModel>().pick(track.id, [for (final t in list) t.id]);
 
     // Left side: a tick box in select mode, else the track number (album pages; a sound-wave
     // icon for the song playing), else the cover.
@@ -63,7 +66,7 @@ class TrackTile extends StatelessWidget {
     if (selecting) {
       leading = SizedBox(
         width: showNumber ? 28 : 44,
-        child: Checkbox(value: selected, onChanged: (_) => context.read<SelectionModel>().toggle(track.id)),
+        child: Checkbox(value: selected, onChanged: (_) => pick()),
       );
     } else if (showNumber) {
       leading = SizedBox(
@@ -114,10 +117,15 @@ class TrackTile extends StatelessWidget {
           ),
         if (!selecting) TrackMenuButton(track: track, extraAction: extraAction),
       ]),
-      // In select mode a tap ticks/unticks; otherwise it plays. Long-press starts selecting.
-      onTap: selecting
-          ? () => context.read<SelectionModel>().toggle(track.id)
-          : () => context.read<PlayerModel>().playTracks(list, start: index, label: contextLabel),
+      // In select mode a tap ticks/unticks (Shift + click: everything from the last one clicked;
+      // 0.1.47); otherwise it plays, or with Shift held starts selecting. Long-press starts selecting.
+      onTap: () {
+        if (selecting || shiftHeld) {
+          pick();
+        } else {
+          context.read<PlayerModel>().playTracks(list, start: index, label: contextLabel);
+        }
+      },
       onLongPress: () => context.read<SelectionModel>().toggle(track.id),
     );
     if (selecting) return tile;
