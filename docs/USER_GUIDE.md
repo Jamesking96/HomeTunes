@@ -194,6 +194,10 @@ folds it down to icons and opens it again.
   them). Right-click it (press and hold on a phone) and choose **Open album page** for the full
   page. On a PC, moving the mouse over any album cover shows a play button to play it straight
   away.
+- **Artist pictures:** an artist shows their first album's cover until you choose something
+  else. Click the round picture on their page (or the picture button beside Play and Shuffle),
+  or right-click an artist anywhere (press and hold on a phone) and choose **Change picture…**:
+  pick an image file, one of their album covers, or go back to the automatic picture.
 - **Search:** finds songs, artists, albums, books, chapters, videos and video collections. Every
   word you type must match.
 - **Playlists and favourites:** make playlists in **Library**, like songs with the heart, and

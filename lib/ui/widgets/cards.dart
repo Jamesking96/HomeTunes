@@ -14,6 +14,7 @@ import '../../state/selection_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../../state/library_model.dart';
+import 'artist_picture.dart';
 import 'artwork.dart';
 import 'quick_actions.dart';
 
@@ -313,18 +314,25 @@ class ArtistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Artists have no picture of their own, so borrow the first album's cover (cut to a circle).
-    final art = artist.albums.isEmpty ? null : artist.albums.first.artTrack;
+    // The picture chosen for the artist, or their first album's cover (cut to a circle, 0.1.53).
+    void menu(Offset at) => showArtistMenu(context, artist, at);
     final card = InkWell(
       borderRadius: AppShape.circular(8),
       onTap: () => context.read<AppNav>().openArtist(artist.name),
+      // Right-click / press and hold: Change picture… (0.1.53).
+      onSecondaryTapUp: (d) => menu(d.globalPosition),
+      onLongPress: () {
+        final box = context.findRenderObject() as RenderBox;
+        menu(box.localToGlobal(box.size.center(Offset.zero)));
+      },
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: Column(children: [
           AspectRatio(
             aspectRatio: 1,
             child: LayoutBuilder(
-              builder: (_, c) => Artwork(track: art, size: c.maxWidth, radius: c.maxWidth / 2, placeholder: Icons.person),
+              builder: (_, c) =>
+                  Artwork(artist: artist, size: c.maxWidth, radius: c.maxWidth / 2, placeholder: Icons.person),
             ),
           ),
           const SizedBox(height: 8),
