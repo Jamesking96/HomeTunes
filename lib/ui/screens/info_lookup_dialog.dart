@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/music_info.dart';
 import '../theme.dart';
+import '../widgets/offline_warning.dart';
 
 /// Song/album details that can be looked up online.
 enum InfoField { title, artist, album, albumArtist, year, genre, trackNumber, discNumber }
@@ -52,7 +53,9 @@ Future<InfoChoice?> showInfoLookup(
   String? title,
   String? artist,
   String? album,
-}) {
+}) async {
+  // No internet: say so (0.1.50) instead of a search that can only fail.
+  if (!await ensureOnline(context) || !context.mounted) return null;
   return showDialog<InfoChoice>(
     context: context,
     useRootNavigator: true,

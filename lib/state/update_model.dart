@@ -1,8 +1,8 @@
 // Checking for a newer HomeTunes, and updating to it (0.1.23).
 //
-// Settings › About shows [stage] and has "Check for updates"; main.dart calls [checkIfDue] a
-// little after start-up so a new version is noticed at most once a day (unless the user turns
-// [autoCheck] off). The work itself is in services/update_checker.dart. Its own small file,
+// Settings › About shows [stage] and has "Check for updates"; main.dart calls [checkAtStart]
+// each time HomeTunes opens (0.1.51; it was once a day before), unless the user turns
+// [autoCheck] off or the internet can't be reached. The work itself is in services/update_checker.dart. Its own small file,
 // updates.json, holds the switch and when the last check ran; it isn't part of backups, since
 // it belongs to this device.
 //
@@ -36,10 +36,7 @@ class UpdateModel extends ChangeNotifier {
 
   static const file = 'updates.json';
 
-  /// How often the quiet check at start-up runs.
-  static const checkEvery = Duration(hours: 24);
-
-  /// Look for updates by itself (at most once a day).
+  /// Look for updates by itself, each time HomeTunes opens (0.1.51).
   bool autoCheck = true;
 
   /// When the last check finished without an error.
@@ -153,14 +150,9 @@ class UpdateModel extends ChangeNotifier {
     await _save();
   }
 
-  /// True when the quiet start-up check should run now.
-  bool get isDue {
-    if (!autoCheck) return false;
-    final last = lastCheck;
-    if (last == null) return true;
-    final since = now().difference(last);
-    return since.isNegative || since >= checkEvery; // a clock moved backwards counts as due
-  }
+  /// True when the quiet start-up check should run: every start while [autoCheck] is on
+  /// (0.1.51; before that it waited a day between checks).
+  bool get isDue => autoCheck;
 
   /// Looks for a newer version. [quiet] (the start-up check) doesn't show "Checking…" or an
   /// error on the About page if it fails. Returns the new release, or null.
@@ -191,8 +183,9 @@ class UpdateModel extends ChangeNotifier {
     }
   }
 
-  /// The start-up check: runs only when [isDue]. Returns a newer release if there is one.
-  Future<ReleaseInfo?> checkIfDue() => isDue ? check(quiet: true) : Future.value(null);
+  /// The start-up check: runs when [isDue] (the switch is on). Returns a newer release if
+  /// there is one.
+  Future<ReleaseInfo?> checkAtStart() => isDue ? check(quiet: true) : Future.value(null);
 
   /// Windows (installed copy): downloads and checks the installer, then starts it. Returns
   /// true when the installer is running and HomeTunes should close now.

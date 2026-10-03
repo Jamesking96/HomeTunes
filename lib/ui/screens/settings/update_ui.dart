@@ -1,5 +1,5 @@
 // The update screens (0.1.23): the "Check for updates" rows on Settings › About, the
-// "Update to HomeTunes x?" question, and the notice shown when the daily check finds one.
+// "Update to HomeTunes x?" question, and the notice shown when the start-up check finds one (every start since 0.1.51).
 //
 // UpdateModel (state/update_model.dart) does the work. On an installed Windows copy, saying
 // Update downloads the installer, checks it, closes HomeTunes (after pausing and saving the
@@ -15,6 +15,7 @@ import '../../../state/library_model.dart';
 import '../../../state/player_model.dart';
 import '../../../state/update_model.dart';
 import '../../theme.dart';
+import '../../widgets/offline_warning.dart';
 import 'settings_widgets.dart';
 import 'whats_new_ui.dart';
 
@@ -39,6 +40,8 @@ class UpdateSettings extends StatelessWidget {
   const UpdateSettings({super.key});
 
   Future<void> _check(BuildContext context) async {
+    // No internet: say so (0.1.50) instead of a check that can only fail.
+    if (!await ensureOnline(context) || !context.mounted) return;
     final found = await context.read<UpdateModel>().check();
     if (found != null && context.mounted) await showUpdateDialog(context);
   }
@@ -94,7 +97,7 @@ class UpdateSettings extends StatelessWidget {
         child: SwitchListTile(
           secondary: const Icon(Icons.update),
           title: const Text('Check for updates automatically'),
-          subtitle: const Text('Once a day, HomeTunes looks for a newer version and lets you know. '
+          subtitle: const Text('Each time HomeTunes opens, it looks for a newer version and lets you know. '
               'Nothing is downloaded unless you say so.'),
           value: u.autoCheck,
           onChanged: u.setAutoCheck,
@@ -142,6 +145,8 @@ class _UpdateDialog extends StatelessWidget {
 
   Future<void> _update(BuildContext context) async {
     final u = context.read<UpdateModel>();
+    // No internet: say so (0.1.50) instead of a download that can only fail.
+    if (!await ensureOnline(context) || !context.mounted) return;
     if (u.canInstallHere) {
       final started = await u.downloadAndInstall();
       if (started && context.mounted) await _closeForUpdate(context);

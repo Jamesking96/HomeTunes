@@ -47,7 +47,7 @@ class AboutSettings extends StatelessWidget {
           },
         ),
       ),
-      // Check for updates + the daily-check switch (0.1.23, update_ui.dart).
+      // Check for updates + the check-at-start switch (0.1.23, every start since 0.1.51, update_ui.dart).
       const UpdateSettings(),
       // The release notes for this version (0.1.28, whats_new_ui.dart).
       const WhatsNewRow(),

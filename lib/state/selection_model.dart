@@ -3,9 +3,12 @@
 // Songs: long-press a song, or ⋮ → Select. Albums and books: right-click a tile
 // (or press and hold on a phone) → Select / Select all. The bar at the bottom of
 // the screen (shell.dart) then offers what can be done with them together, such
-// as Edit details, Edit albums or Edit books.
+// as Edit details, Edit albums or Edit books. Shift + click ticks everything between the last
+// one clicked and this one (0.1.47, [pick]).
 
 import 'package:flutter/foundation.dart';
+
+import 'range_select.dart';
 
 /// What kind of thing is being selected.
 enum SelectKind { songs, albums, books }
@@ -37,12 +40,27 @@ class SelectionModel extends ChangeNotifier {
     if (kind == k) return;
     _ids.clear();
     _scope = const [];
+    _range.clear();
     kind = k;
   }
+
+  // The last one clicked, for Shift + click (0.1.47, range_select.dart).
+  final _range = RangePicker();
 
   void toggle(String id, {SelectKind kind = SelectKind.songs}) {
     _use(kind);
     if (!_ids.remove(id)) _ids.add(id);
+    _range.anchor = id;
+    notifyListeners();
+  }
+
+  /// A click on [id] while selecting, with [order] the list it's shown in: with Shift held, ticks
+  /// everything from the last one clicked to it; otherwise ticks or unticks it ([toggle]). With
+  /// nothing selected yet, Shift + click starts selecting with it.
+  void pick(String id, List<String> order, {SelectKind kind = SelectKind.songs}) {
+    _use(kind);
+    if (_ids.isEmpty && _scope.isEmpty) _scope = List.of(order);
+    _range.pick(_ids, id, order);
     notifyListeners();
   }
 
@@ -58,6 +76,7 @@ class SelectionModel extends ChangeNotifier {
     _use(kind);
     _scope = List.of(scope);
     _ids.add(id);
+    _range.anchor = id;
     if (all) _ids.addAll(scope);
     notifyListeners();
   }
@@ -72,6 +91,7 @@ class SelectionModel extends ChangeNotifier {
     if (_ids.isEmpty) return;
     _ids.clear();
     _scope = const [];
+    _range.clear();
     notifyListeners();
   }
 }

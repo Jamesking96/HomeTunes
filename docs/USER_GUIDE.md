@@ -133,12 +133,21 @@ A song with a video of the same name beside it (for example `Song.m4a` and `Song
 **music video**: Now Playing shows it in place of the cover. **Settings › Music** can turn music
 videos off, or keep the cover until you press the video button.
 
-### Music from your own server (optional)
-If you run a music server such as Navidrome, go to **Settings › Servers › Music server**, enter its
-address (for example `http://192.168.1.20:4533`), your username and password, then **Connect**.
-Server songs show a small cloud icon and mix in with your own files. Audiobooks on the server
-show in the Books tab too (switch **Audiobooks from the music server** off on the same page to
-keep them out).
+### Your own servers (optional)
+If you run a music server such as Navidrome, go to **Settings › Servers**, choose **Add a server**,
+pick **Subsonic** as the kind, enter its address (for example `http://192.168.1.20:4533`), your
+username and password, then **Connect**. It becomes your **main music server**: its songs show a
+small cloud icon and mix in with your own files. Audiobooks on it show in the Books tab too (turn
+its switch off in the **Audiobooks** section to keep them out).
+
+The Servers page has a section each for **Music**, **Audiobooks** and **Videos**, and you can add
+as many servers as you like: Subsonic, Jellyfin, Plex, Emby, Audiobookshelf, or a HomeTunes
+server. A server that has all three kinds shows in all three sections, with a switch in each to
+use it for that kind. **Test connection** checks the server is there and what it is. For now
+HomeTunes plays from **one Subsonic server at a time**; any others are kept, ready for when
+playing from them is added (**Kinds of server** at the bottom of the page shows what works now).
+To switch to another Subsonic server you've added, use its **⋮** menu › **Make this the main music
+server**.
 
 If you type an address without `http://` or `https://`, HomeTunes tries a secure (https)
 connection first. If the server is on the internet and only answers over plain http, HomeTunes
@@ -156,6 +165,13 @@ audiobooks**, **Favourite videos** and your playlists underneath. Drag the sideb
 edge to make it wider or narrower; the **☰** button at its top (or a double-click on the edge)
 folds it down to icons and opens it again.
 
+- **Home:** **Jump back in** at the top shows what you were last doing, newest first: videos and
+  audiobooks you're part-way through, and the albums, playlists and artists you last played. The
+  round play button on each carries on (or plays it again); tap the card itself to open it. Below
+  are quick tiles (Shuffle all, Liked Songs, favourites, your playlists) and a section each for
+  **Music**, **Audiobooks** and **Videos** (recently added, your favourites, and **Up next**: the
+  next episode of a series you're watching). **See all** opens that tab. To clear the music
+  you've played from Jump back in, use **Settings › Playback › Forget recently played music**.
 - **Play something:** tap a song, album, playlist or book. The player bar at the bottom shows
   what's playing; tap it for the full **Now Playing** screen.
 
@@ -168,6 +184,9 @@ folds it down to icons and opens it again.
   next to it, your music server, or online). Timed lyrics scroll along with the song.
 - **Going online:** HomeTunes can look up missing covers, song details and lyrics online. Each
   can be switched off in **Settings › Online lookups**; only names (artist, album, song) are sent.
+  If HomeTunes can't reach the internet when it opens, it tells you which features won't work
+  and you can carry on. When you use one of those features later, it checks again; if you're
+  still offline you get the same message (with **Try anyway** in case it's wrong).
 - **On a phone:** swipe the player left or right to skip. The music keeps playing with the screen
   locked, and you can control it from the lock screen, the notification or headphone buttons.
 - **On a PC:** your keyboard's media keys work.
@@ -175,10 +194,18 @@ folds it down to icons and opens it again.
   them). Right-click it (press and hold on a phone) and choose **Open album page** for the full
   page. On a PC, moving the mouse over any album cover shows a play button to play it straight
   away.
+- **Artist pictures:** an artist shows their first album's cover until you choose something
+  else. Click the round picture on their page (or the picture button beside Play and Shuffle),
+  or right-click an artist anywhere (press and hold on a phone) and choose **Change picture…**:
+  pick an image file, one of their album covers, or go back to the automatic picture.
 - **Search:** finds songs, artists, albums, books, chapters, videos and video collections. Every
   word you type must match.
 - **Playlists and favourites:** make playlists in **Library**, like songs with the heart, and
   heart whole albums or books. Library tabs have filters and sorting, including **Favourites**.
+  On the **Artists** tab, the button beside the filter switches between a list and a grid of
+  round pictures; HomeTunes remembers which you chose.
+  Each list in the filter (artist, album, genre, author, collection and so on) has a search box
+  at the top: type part of a name to find it, and press Enter to pick the first match.
 - **Menus:** right-click (PC) or press and hold (phone) on an album or book for quick actions:
   **Edit details…**, **Choose cover…**, **Add to favourites** and **Details…** (where it came
   from). A song's menu has **Go to album**, **Go to artist**, **Edit details…**, **Lyrics** and
@@ -186,6 +213,11 @@ folds it down to icons and opens it again.
 - **Copying titles:** drag across the big title at the top of an album, artist, playlist, book,
   collection or video page (or on Now Playing) and copy it with Ctrl+C or a right-click. Songs,
   albums, books, videos and collections also have **Copy title** in their right-click menu.
+- **Selecting several:** right-click (or press and hold) and choose **Select**, then tap others to
+  tick them. On a PC, hold **Shift** and click to tick everything between the last one you
+  clicked and this one; this works for songs, albums, books, videos, episodes and collections,
+  and a Shift + click also starts selecting on its own. Press **Esc** (or the ✕ on the bar) to
+  stop selecting.
 - **Fix wrong details:** use **Edit details**. Select several albums or books to edit them together.
   Your changes are kept by HomeTunes and don't touch the files, unless you choose to save
   them into the files in **Settings › Your edits**.
@@ -219,9 +251,9 @@ folds it down to icons and opens it again.
   - **Settings › Videos** has the skip lengths, speed and the videos' equaliser.
     **Settings › Appearance › Video player** changes the player's buttons (colour, size, and a
     glow or circles behind them so they're easy to see on any scene).
-- **Updates:** HomeTunes looks for a new version once a day and shows a notice with an **Update…**
+- **Updates:** HomeTunes looks for a new version each time it opens and shows a notice with an **Update…**
   button if there is one. Check any time in **Settings › About › Check for updates**, where
-  there's also a switch to turn the daily check off.
+  there's also a switch to turn the automatic check off.
 - **What's new:** the first time HomeTunes opens after an update, it shows what changed, taken
   from the release pages: everything since the version you had, newest first (it needs the
   internet; if it can't connect, **Open release page** shows the same list in your browser). To

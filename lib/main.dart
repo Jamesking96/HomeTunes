@@ -5,6 +5,7 @@
 // Screens further down the tree reach these models with context.watch / select / read.
 // Order matters here: the models must be loaded before the UI appears, and the player must exist
 // before the media controls (notification, lock screen, Windows media keys) can be connected.
+import 'dart:async';
 import 'dart:io';
 
 import 'package:audio_service_win/audio_service_win.dart';
@@ -16,6 +17,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import 'services/app_licences.dart';
+import 'services/internet_check.dart';
 import 'services/media_session.dart';
 import 'services/playback_log.dart';
 import 'services/storage.dart';
@@ -26,9 +28,11 @@ import 'state/library_model.dart';
 import 'state/listening_model.dart';
 import 'state/lyrics_model.dart';
 import 'state/now_watching.dart';
+import 'state/play_history.dart';
 import 'state/player_model.dart';
 import 'state/playlists_model.dart';
 import 'state/selection_model.dart';
+import 'state/servers_model.dart';
 import 'state/sleep_timer.dart';
 import 'state/update_model.dart';
 import 'state/video_library_model.dart';
@@ -39,6 +43,7 @@ import 'ui/screens/settings/whats_new_ui.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
 import 'ui/widgets/notices.dart';
+import 'ui/widgets/offline_warning.dart';
 import 'ui/widgets/window_scale.dart';
 
 /// Starts HomeTunes: sets up storage and the models, then shows the app.
@@ -129,6 +134,13 @@ Future<void> main() async {
   // the system controls.
   // The video playing on its page (30 Sep): the player bar and media keys follow it while it's in front.
   final watching = NowWatching(player);
+  // Recently played music (0.1.45), for Home's "Jump back in".
+  final history = PlayHistory(storage);
+  await safely('history', history.load);
+  history.attach(player);
+  // Your servers for music, audiobooks and videos (0.1.46); the main music server stays in LibraryModel.
+  final servers = ServersModel(storage, library);
+  await safely('servers', servers.load);
   final session = await MediaSession.start(player, library, watching: watching);
   debugPrint(session == null
       ? 'HomeTunes: system media controls are off'
@@ -146,19 +158,24 @@ Future<void> main() async {
     updates: updates,
     videos: videos,
     watching: watching,
+    history: history,
+    servers: servers,
   ));
 
-  // First start after an update: show what changed since the version that ran before
-  // (0.1.28, whats_new_ui.dart), once the first screen has settled.
-  if (updates.justUpdated) {
-    Future<void>.delayed(const Duration(milliseconds: 1500), () => showWhatsNewAfterUpdate(updates));
-  }
-
-  // Look for a newer HomeTunes once a day, a little after start-up so it doesn't compete with
-  // the scan; if there is one, a notice with an Update… button appears (0.1.23).
-  Future<void>.delayed(const Duration(seconds: 8), () async {
-    final found = await updates.checkIfDue();
-    if (found != null) showUpdateNotice(found);
+  // Once the first screen has settled: is the internet reachable? If not, say which features
+  // need it, with Carry on (0.1.50, offline_warning.dart). If online, look for a newer
+  // HomeTunes in the background, every time it opens (0.1.51; it was once a day) unless
+  // switched off; if there is one, a notice with an Update… button appears (0.1.23). And on
+  // the first start after an update, show what changed since the version that ran before
+  // (0.1.28, whats_new_ui.dart).
+  Future<void>.delayed(const Duration(milliseconds: 1200), () async {
+    await checkInternetAtStart(appNavigatorKey);
+    if (InternetCheck.last ?? false) {
+      unawaited(updates.checkAtStart().then((found) {
+        if (found != null) showUpdateNotice(found);
+      }));
+    }
+    if (updates.justUpdated) await showWhatsNewAfterUpdate(updates);
   });
 
   // Android: can we read the music files? (Shows a banner with a fix if not.)
@@ -206,6 +223,8 @@ class HomeTunesApp extends StatelessWidget {
   final UpdateModel updates;
   final VideoLibraryModel videos;
   final NowWatching watching;
+  final PlayHistory? history;
+  final ServersModel? servers;
   const HomeTunesApp({
     super.key,
     required this.library,
@@ -218,6 +237,8 @@ class HomeTunesApp extends StatelessWidget {
     required this.updates,
     required this.videos,
     required this.watching,
+    this.history,
+    this.servers,
   });
 
   @override
@@ -235,6 +256,8 @@ class HomeTunesApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: updates),
         ChangeNotifierProvider.value(value: videos),
         ChangeNotifierProvider.value(value: watching),
+        if (history != null) ChangeNotifierProvider<PlayHistory>.value(value: history!),
+        if (servers != null) ChangeNotifierProvider<ServersModel>.value(value: servers!),
         // These only matter to the UI, so Provider creates (and owns) them itself.
         ChangeNotifierProvider(create: (_) => SleepTimer(player, library)),
         ChangeNotifierProvider(create: (_) => AppNav()),

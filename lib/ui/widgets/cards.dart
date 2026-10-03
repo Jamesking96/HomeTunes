@@ -9,10 +9,12 @@ import 'package:provider/provider.dart';
 import '../../models/track.dart';
 import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
+import '../../state/range_select.dart';
 import '../../state/selection_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../../state/library_model.dart';
+import 'artist_picture.dart';
 import 'artwork.dart';
 import 'quick_actions.dart';
 
@@ -190,7 +192,15 @@ class _SelectableCardState extends State<SelectableCard> {
         child: InkWell(
           borderRadius: AppShape.circular(8),
           onTapDown: (d) => _at = d.globalPosition,
-          onTap: selecting ? () => context.read<SelectionModel>().toggle(widget.id, kind: widget.kind) : widget.onOpen,
+          // Selecting: a tap ticks / unticks; Shift + click ticks everything from the last one
+          // clicked (0.1.47), and with nothing ticked yet starts selecting.
+          onTap: () {
+            if (selecting || shiftHeld) {
+              context.read<SelectionModel>().pick(widget.id, widget.scope, kind: widget.kind);
+            } else {
+              widget.onOpen();
+            }
+          },
           onLongPress: _menu,
           onSecondaryTapDown: (d) {
             _at = d.globalPosition;
@@ -297,28 +307,39 @@ class _HoverPlayCoverState extends State<HoverPlayCover> {
 class ArtistCard extends StatelessWidget {
   final Artist artist;
   final double? width;
-  const ArtistCard({super.key, required this.artist, this.width});
+
+  /// The line under the name ("Artist" unless given; the Artists tab's grid shows the counts).
+  final String? subtitle;
+  const ArtistCard({super.key, required this.artist, this.width, this.subtitle});
 
   @override
   Widget build(BuildContext context) {
-    // Artists have no picture of their own, so borrow the first album's cover (cut to a circle).
-    final art = artist.albums.isEmpty ? null : artist.albums.first.artTrack;
+    // The picture chosen for the artist, or their first album's cover (cut to a circle, 0.1.53).
+    void menu(Offset at) => showArtistMenu(context, artist, at);
     final card = InkWell(
       borderRadius: AppShape.circular(8),
       onTap: () => context.read<AppNav>().openArtist(artist.name),
+      // Right-click / press and hold: Change picture… (0.1.53).
+      onSecondaryTapUp: (d) => menu(d.globalPosition),
+      onLongPress: () {
+        final box = context.findRenderObject() as RenderBox;
+        menu(box.localToGlobal(box.size.center(Offset.zero)));
+      },
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: Column(children: [
           AspectRatio(
             aspectRatio: 1,
             child: LayoutBuilder(
-              builder: (_, c) => Artwork(track: art, size: c.maxWidth, radius: c.maxWidth / 2, placeholder: Icons.person),
+              builder: (_, c) =>
+                  Artwork(artist: artist, size: c.maxWidth, radius: c.maxWidth / 2, placeholder: Icons.person),
             ),
           ),
           const SizedBox(height: 8),
           Text(artist.name, maxLines: 1, overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontWeight: FontWeight.w600)),
-          Text('Artist', style: TextStyle(color: AppColors.textDim, fontSize: 13)),
+          Text(subtitle ?? 'Artist',
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.textDim, fontSize: 13)),
         ]),
       ),
     );
