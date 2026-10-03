@@ -99,8 +99,8 @@ docs/                    USER_GUIDE.md (user-facing), ai-context/ (these notes),
   built-ins and your own presets. `PlayerModel` listens and applies it (see `03_…` → Equaliser).
 - **`LyricsModel`** (`lyrics.json` = lyrics found online, plus "nothing found" timestamps) decides
   where lyrics come from (see `03_…`).
-- **`UpdateModel`** (`updates.json`, not in backups): Check for updates, the daily check
-  (`checkIfDue`), and "What's new" after an update (`justUpdated`, `lastRunVersion`). The work is in
+- **`UpdateModel`** (`updates.json`, not in backups): Check for updates, the check each time
+  the app opens (`checkAtStart`, every start since 0.1.51; it was daily), and "What's new" after an update (`justUpdated`, `lastRunVersion`). The work is in
   `services/update_checker.dart`.
 - **`SleepTimer`**, **`AppNav`** (per-tab navigators, `openBook/openAlbum/openArtist`, `openSettings(page, setting:)`) and
   **`SelectionModel`** (select mode: one `SelectKind` at a time, songs, albums or books, plus the
@@ -139,8 +139,9 @@ so a locked phone keeps playing; `StallDetector`).
 
 ## Data files (app support dir `…/hometunes/`)
 `settings.json`, `library.json`, `edits.json`, `playlists.json`, `listening.json`,
-`bookmarks.json`, `lyrics.json`, `equalizer.json` (these eight are `AppBackup.dataFiles`, the ones
-backups carry), plus `updates.json` and `playback-log.txt` (this device only, not backed up),
+`bookmarks.json`, `lyrics.json`, `equalizer.json`, `videos.json` (0.1.40), `history.json`
+(0.1.45, recently played music) and `servers.json` (0.1.46, the servers other than the main music
+server, without passwords) (these eleven are `AppBackup.dataFiles`, the ones backups carry), plus `updates.json` and `playback-log.txt` (this device only, not backed up),
 `art/` (+`art/custom/`, always backed up; `art/server/`, never), `backups/` (tag-write backups),
 `before-restore.htbackup`. The server password is not in any of these (see `secret_store.dart`).
 

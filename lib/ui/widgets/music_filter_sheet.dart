@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../state/music_filters.dart';
 import '../theme.dart';
+import 'search_choice_field.dart';
 
 /// Title box + filter button + sort menu, shown at the top of a library tab.
 class MusicFilterBar<S> extends StatelessWidget {
@@ -18,8 +19,12 @@ class MusicFilterBar<S> extends StatelessWidget {
   final String Function(S) sortLabel;
   final ValueChanged<S> onSort;
 
+  /// Extra buttons before Filter (the Artists tab's list / grid button, 0.1.52).
+  final List<Widget> actions;
+
   const MusicFilterBar({
     super.key,
+    this.actions = const [],
     required this.controller,
     required this.hint,
     required this.onChanged,
@@ -65,6 +70,7 @@ class MusicFilterBar<S> extends StatelessWidget {
             ),
           ),
         ),
+        ...actions,
         IconButton(
           tooltip: 'Filter',
           icon: Badge(isLabelVisible: filtersActive, smallSize: 8, child: const Icon(Icons.filter_list)),
@@ -136,7 +142,8 @@ class _MusicFilterSheetState<T> extends State<_MusicFilterSheet<T>> {
     );
   }
 
-  /// One dropdown: "All" plus each choice (narrowed by the other picks) and its count.
+  /// One drop-down: "All" plus each choice (narrowed by the other picks) and its count, with a
+  /// search box at the top of the list (0.1.49, `SearchChoiceField`).
   Widget _dropdown(FilterField<T> field) {
     final value = _f.picked[field.label];
     final options = {..._f.choices(widget.items, widget.fields, field)};
@@ -144,16 +151,11 @@ class _MusicFilterSheetState<T> extends State<_MusicFilterSheet<T>> {
     if (value != null && !options.containsKey(value)) options[value] = 0;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: DropdownButtonFormField<String?>(
+      child: SearchChoiceField(
         key: ValueKey('filter-${field.label}'),
-        initialValue: value,
-        isExpanded: true,
-        decoration: InputDecoration(labelText: field.label),
-        items: [
-          const DropdownMenuItem<String?>(value: null, child: Text('All')),
-          for (final e in options.entries)
-            DropdownMenuItem<String?>(value: e.key, child: Text('${e.key}  (${e.value})', overflow: TextOverflow.ellipsis)),
-        ],
+        label: field.label,
+        value: value,
+        options: options,
         onChanged: (v) => setState(() => _f = _f.withValue(field.label, v)),
       ),
     );

@@ -11,10 +11,13 @@ import 'package:provider/provider.dart';
 import '../../services/cover_search.dart';
 import '../../state/library_model.dart';
 import '../theme.dart';
+import '../widgets/offline_warning.dart';
 
 /// Searches online for a cover matching [artist] / [album] (or [title]) and
 /// lets the user pick one. Returns the saved image's path, or null.
-Future<String?> showCoverSearch(BuildContext context, {String? artist, String? album, String? title}) {
+Future<String?> showCoverSearch(BuildContext context, {String? artist, String? album, String? title}) async {
+  // No internet: say so (0.1.50) instead of a search that can only fail.
+  if (!await ensureOnline(context) || !context.mounted) return null;
   return showDialog<String>(
     context: context,
     useRootNavigator: true,

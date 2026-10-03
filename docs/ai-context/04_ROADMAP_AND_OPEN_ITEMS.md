@@ -38,14 +38,23 @@ while commenting".
 | Loading page while a video opens (0.1.42) | Done, released as v0.1.42 (1 Oct); the user confirmed it works |
 | Bottom bar / video volume linked again; single "What's new" heading (0.1.43) | Done, released as v0.1.43 (1 Oct); the user confirmed it works |
 | Details for videos and collections (0.1.44) | Done, released as v0.1.44 (1 Oct); the user approved it |
-| L: Linux build, incl. Steam Deck (0.1.45) | Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
-| A: Android Auto (0.1.46) | After L |
-| T: Android TV (0.1.47) | After A |
+| Home revamp: videos on Home, Jump back in, recently played music (0.1.45) | Built 1 Oct on `feature/home-revamp`, not merged yet. See `03_…` → Home revamp |
+| Servers page: several servers per kind, Music / Audiobooks / Videos (0.1.46) | Built 1 Oct on `feature/servers` (on top of `feature/home-revamp`), not merged yet. The user chose "framework now": only the main Subsonic server streams. See `03_…` → Servers page |
+| Shift + click selects everything between two items (0.1.47) | Built 2 Oct on `feature/shift-select` (on top of `feature/servers`), not merged yet. See `03_…` → Shift + click |
+| Esc cancels a selection (0.1.48) | Built 2 Oct on `feature/escape-select` (on top of `feature/shift-select`), not merged yet. See `03_…` → Esc cancels a selection |
+| Search box in the filter drop-downs (0.1.49) | Built 2 Oct on `feature/filter-search` (on top of `feature/escape-select`), not merged yet. See `03_…` → Search in filter drop-downs |
+| No-internet warning at start-up and before online features (0.1.50) | Built 2 Oct on `feature/offline-warning` (on top of `feature/filter-search`), not merged yet. See `03_…` → No internet warning |
+| Update check every time the app opens, not once a day (0.1.51) | Built 2 Oct on `feature/update-at-start` (on top of `feature/offline-warning`), not merged yet. See `03_…` → Update check at start-up |
+| Artists tab: list or grid (0.1.52) | Built 2 Oct on `feature/artists-grid` (on top of `feature/update-at-start`), not merged yet. See `03_…` → Artists tab: list or grid |
+| Artist pictures: change the picture an artist shows (0.1.53) | Built 2 Oct on `feature/artist-pictures` (on top of `feature/artists-grid`), not merged yet. See `03_…` → Artist pictures |
+| L: Linux build, incl. Steam Deck (0.1.54) | Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
+| A: Android Auto (0.1.55) | After L |
+| T: Android TV (0.1.56) | After A |
 | D: offline copies of server songs (was phase 4) | After the server review |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to D isn't decided |
 
 ### Platforms plan: Linux, Android Auto, Android TV (agreed 1 Oct)
-(Versions moved up by one on 1 Oct, the user's choice: 0.1.41 went to selectable titles, video search and window scaling, so Linux is 0.1.42, Android Auto 0.1.43 and Android TV 0.1.44. The plan doc was updated to match. Moved up by one again later on 1 Oct: Linux was paused and 0.1.42 went to the video loading page, so Linux was 0.1.43, Android Auto 0.1.44 and Android TV 0.1.45. And once more the same day: 0.1.43 went to the bottom bar fix, so Linux was 0.1.44. Then 0.1.44 went to video Details, so Linux is now **0.1.45**, Android Auto **0.1.46** and Android TV **0.1.47**. Each new piece of work while Linux is paused takes the next number and moves these up. The plan doc may still show older numbers.)
+(Versions moved up by one on 1 Oct, the user's choice: 0.1.41 went to selectable titles, video search and window scaling, so Linux is 0.1.42, Android Auto 0.1.43 and Android TV 0.1.44. The plan doc was updated to match. Moved up by one again later on 1 Oct: Linux was paused and 0.1.42 went to the video loading page, so Linux was 0.1.43, Android Auto 0.1.44 and Android TV 0.1.45. And once more the same day: 0.1.43 went to the bottom bar fix, so Linux was 0.1.44. Then 0.1.44 went to video Details, and 0.1.45 / 0.1.46 to the Home revamp and the Servers page (the user chose two updates), so Linux was 0.1.47. Then 0.1.47 went to Shift + click selection (2 Oct), so Linux was 0.1.48. Then 0.1.48 went to Esc cancelling a selection (2 Oct), so Linux was 0.1.49. Then 0.1.49 went to the search box in the filter drop-downs (2 Oct), so Linux was 0.1.50. Then 0.1.50 went to the no-internet warning (2 Oct), so Linux was 0.1.51. Then 0.1.51 went to the update check at every start (2 Oct), so Linux was 0.1.52. Then 0.1.52 went to the Artists tab's list / grid (2 Oct), so Linux was 0.1.53. Then 0.1.53 went to artist pictures (2 Oct), so Linux is now **0.1.54**, Android Auto **0.1.55** and Android TV **0.1.56**. Each new piece of work while Linux is paused takes the next number and moves these up. The plan doc may still show older numbers.)
 The plan is the doc "HomeTunes Platforms Plan" (https://claude.ai/code/artifact/831e2a97-57ac-4af8-b0fd-738442c570d9),
 with numbered steps per phase (L1–L7, A1–A7, T1–T7). Agreed order: **L Linux → A Android Auto → T Android TV**, each
 on its own branch (`feature/linux`, `feature/android-auto`, `feature/android-tv`) and released on its own.
@@ -78,7 +87,9 @@ on its own branch (`feature/linux`, `feature/android-auto`, `feature/android-tv`
 - **Plan needed:**
   - An Audiobookshelf client (API-token login, libraries, items, chapters, covers, streaming, and
     maybe syncing listening progress with ABS).
-  - Where it sits in Settings › Servers (the "Audiobook server" block is the placeholder).
+  - Where it sits in Settings › Servers: since 0.1.46 an Audiobookshelf server can already be
+    added, tested and ticked for audiobooks there (`ServerType.audiobookshelf`, `ServersModel`);
+    phase E makes it stream (see `03_…` → Servers page → "Next, when a server type is built").
   - How ABS books join `groupBooks`.
   - Jellyfin/Plex later.
 
@@ -154,7 +165,7 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
 
 ## Source control
 `main` is **0.1.44+44** and the latest release is **v0.1.44** (1 Oct; v0.1.40, the videos
-release, and v0.1.41 to v0.1.43 came out the same day). There are no other branches (merged feature branches are deleted). Each feature gets its own branch, merged into `main` with
+release, and v0.1.41 to v0.1.43 came out the same day). `feature/home-revamp` (0.1.45+45) and `feature/servers` (0.1.46+46, branched from it, so merge Home first) are waiting for the user's approval; there are no other branches (merged feature branches are deleted). Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
 repo copy of these notes (`docs/ai-context/`) is kept the same as the project copy.

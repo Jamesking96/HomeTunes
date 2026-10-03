@@ -17,6 +17,7 @@ import '../../state/library_model.dart';
 import '../../state/player_model.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../widgets/artist_picture.dart';
 import '../widgets/artwork.dart';
 import '../widgets/cards.dart';
 import '../widgets/collection_header.dart';
@@ -50,8 +51,6 @@ class _ArtistScreenState extends State<ArtistScreen> {
     }
     final tracks = artist.tracks;
     final label = 'Artist · ${artist.name}';
-    // There's no separate artist photo, so borrow the first album's cover (drawn as a circle).
-    final art = artist.albums.first.artTrack;
     final albums = artist.albums;
     final scope = [for (final a in albums) a.key];
 
@@ -63,15 +62,32 @@ class _ArtistScreenState extends State<ArtistScreen> {
           // 1. Header: round picture, name, counts and the play/shuffle buttons.
           SliverToBoxAdapter(
             child: CollectionHeader(
+              // The picture chosen for the artist, or their first album's cover, drawn as a
+              // circle; a click on it (or the button) changes it (0.1.53).
               art: LayoutBuilder(
-                builder: (_, c) =>
-                    Artwork(track: art, size: c.maxWidth, radius: c.maxWidth / 2, placeholder: Icons.person),
+                builder: (_, c) => Tooltip(
+                  message: 'Change picture',
+                  child: InkWell(
+                    key: const ValueKey('artist-header-picture'),
+                    customBorder: const CircleBorder(),
+                    onTap: () => showArtistPictureOptions(context, artist),
+                    child: Artwork(artist: artist, size: c.maxWidth, radius: c.maxWidth / 2, placeholder: Icons.person),
+                  ),
+                ),
               ),
               kind: 'Artist',
               title: artist.name,
               subtitle: '${albums.length} albums · ${tracks.length} songs',
               tracks: tracks,
               contextLabel: label,
+              extraActions: [
+                IconButton(
+                  key: const ValueKey('artist-change-picture'),
+                  tooltip: 'Change picture',
+                  icon: const Icon(Icons.image_outlined),
+                  onPressed: () => showArtistPictureOptions(context, artist),
+                ),
+              ],
             ),
           ),
           // 2. "Albums" heading, then the covers row by row; the open album's songs go under its row.

@@ -37,6 +37,8 @@ class AppBackup {
     'lyrics.json',
     'equalizer.json',
     'videos.json',  // 0.1.40: the Videos tab (edits and watched places)
+    'history.json', // 0.1.45: recently played music (Home's "Jump back in")
+    'servers.json', // 0.1.46: the other servers (never their passwords)
   ];
 
   /// Marks a path inside the app's folder in a backup.
@@ -375,6 +377,35 @@ class AppBackup {
       await put('videos.json', bv);
     }
 
+    // ---- recently played music (0.1.45): merging keeps both, newest first, each place once ----
+    final bh = backupFile('history.json');
+    if (merge) {
+      final ch = await currentFile('history.json');
+      if (ch.isNotEmpty || bh.isNotEmpty) await put('history.json', {'played': mergeHistory(ch['played'], bh['played'])});
+    } else if (bh.isNotEmpty) {
+      await put('history.json', bh);
+    }
+
+    // ---- your other servers (0.1.46): merging adds the backup's ones that aren't here (same
+    //      kind, address and user name counts as the same server). Passwords are never in a
+    //      backup: they're typed again on this device. ----
+    final bsv = backupFile('servers.json');
+    for (final s in (bsv['servers'] as List? ?? const [])) {
+      if (s is Map) s.remove('password'); // never written, but a hand-made backup could hold one
+    }
+    if (merge) {
+      final csv = await currentFile('servers.json');
+      String same(Object? s) => s is Map ? '${s['type']}|${s['url']}|${s['username'] ?? ''}' : '';
+      final here = [...(csv['servers'] as List? ?? const [])];
+      final seen = {for (final s in here) same(s)};
+      final added = [for (final s in (bsv['servers'] as List? ?? const [])) if (s is Map && seen.add(same(s))) s];
+      if (here.isNotEmpty || added.isNotEmpty) {
+        await put('servers.json', {...csv, 'servers': [...here, ...added]});
+      }
+    } else if (bsv.isNotEmpty) {
+      await put('servers.json', bsv);
+    }
+
     return RestoreResult(missingFolders: missingFolders, needsPassword: needsPassword);
   }
 
@@ -414,6 +445,17 @@ class AppBackup {
     };
   }
 
+  /// Combines two history.json "played" lists: newest first, each place (kind + key) once, at
+  /// most 50 (PlayHistory.max).
+  static List<Map<String, dynamic>> mergeHistory(Object? current, Object? incoming) {
+    final all = [
+      for (final x in [...(current as List? ?? const []), ...(incoming as List? ?? const [])])
+        if (x is Map && x['at'] is int) Map<String, dynamic>.from(x),
+    ]..sort((a, b) => (b['at'] as int).compareTo(a['at'] as int));
+    final seen = <String>{};
+    return [for (final x in all) if (seen.add('${x['kind']}|${x['key']}')) x].take(50).toList();
+  }
+
   /// Combines two listening.json "books" maps, keeping the latest place per book.
   static Map<String, dynamic> mergeListening(Object? current, Object? incoming) {
     final out = <String, dynamic>{...?(current as Map?)?.cast<String, dynamic>()};
@@ -431,7 +473,8 @@ class AppBackup {
   /// edited to point HomeTunes at anything on the computer:
   ///  * edits.json: a custom cover must be inside the app's art folder (every cover the user
   ///    chooses is copied there first), so any other path is dropped;
-  ///  * library.json: a book's extra files ("companions") must be PDFs or EPUBs.
+  ///  * library.json: a book's extra files ("companions") must be PDFs or EPUBs;
+  ///  * settings.json: an artist's own picture (0.1.53) must be inside the art folder too.
   /// Everything else stays; song paths are needed to match songs up, and they're checked again
   /// before a file is played, opened or written (see path_safety.dart).
   static Map<String, dynamic> sanitize(String name, Map<String, dynamic> json, String root) {
@@ -441,6 +484,13 @@ class AppBackup {
         if (e is! Map) continue;
         final art = e['art'];
         if (art is String && !p.isWithin(artDir, p.normalize(art))) e.remove('art');
+      }
+    } else if (name == 'settings.json') {
+      // Artists' own pictures (0.1.53) must be in the art folder too (or name one of their albums).
+      final artDir = p.normalize(p.join(root, 'art'));
+      final m = json['artistPictures'];
+      if (m is Map) {
+        m.removeWhere((_, v) => v is! String || (!v.startsWith('album:') && !p.isWithin(artDir, p.normalize(v))));
       }
     } else if (name == 'videos.json') {
       // A video's thumbnail must be in the app's art folder (they're made there); anything else

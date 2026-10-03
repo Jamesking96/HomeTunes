@@ -178,12 +178,233 @@ before changing that area.
     the catalog.
 - **Links from other screens:** Home "Add music" and Books "Add audiobooks" use
   `AppNav.openSettings(...)` to go straight to the right page.
-- **Servers:** the music server, then an Audiobooks group. That group has the "Audiobooks from the
-  music server" switch (`serverBooks`) and a placeholder for a separate audiobook server (phase E).
+- **Servers:** since 0.1.46, a list of servers in Music, Audiobooks and Videos sections (see
+  "Servers page" below); the main music server and "Audiobooks from the music server"
+  (`serverBooks`) are its first card's switches.
 - **About** shows the version (package_info_plus) and the data folder, with "Open folder" on Windows.
   It also has **Check for updates** and **Check for updates automatically** (0.1.23), **What's new
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
+
+## Artist pictures (2 Oct 2026, 0.1.53, branch `feature/artist-pictures`)
+- **What the user asked for:** "Allow the artists page to be customised too, I want to be able to
+  change the image that's used."
+- **How it works:** artists still show their first album's cover by default. **Change picture…**
+  is on the artist page (click the round picture, or the picture button beside Play / Shuffle)
+  and in the right-click / press-and-hold menu of any artist card (Home, Search, the Artists
+  tab's grid) and the Artists tab's list rows. Choices: **Choose an image file…** (copied into
+  `art/custom/` with `importCover`, like album covers), **Use one of their album covers…** (a grid
+  of their albums; the one in use has a ring), and **Use the automatic picture** (only when
+  something was chosen; also in the right-click menu). Every artist picture follows straight
+  away (`Artwork(artist: …)` watches `artistPictures[name]`).
+- **Stored:** `LibraryModel.artistPictures` (settings.json `artistPictures`, by artist name): a
+  file path, or `album:<album key>`. A file must be inside the art folder to be used
+  (`artistPictureFile`); `_removeUnusedCustomArt` keeps files an artist uses; backups carry the
+  file (art/custom always goes in) and `AppBackup.sanitize` drops a restored path outside the
+  art folder. Keyed by name, so renaming an artist (by editing album artist) starts them on the
+  automatic picture again; a chosen album that's gone falls back to the first album.
+- **Not done (could be next):** searching online for artist photos (MusicBrainz has none; would
+  need Wikipedia / Wikimedia or similar), and other artist customisation (renaming happens
+  through album artist edits).
+- **Code:** `ui/widgets/artist_picture.dart`, `LibraryModel` (`artistAlbumArt`,
+  `artistPictureFile`, `artistImage`, `hasArtistPicture`, `setArtistPicture`), `Artwork.artist`,
+  `ArtistCard` (menu), `artist_screen.dart`, `library_screen.dart`. Tests:
+  `test/artist_pictures_test.dart`.
+
+## Artists tab: list or grid (2 Oct 2026, 0.1.52, branch `feature/artists-grid`)
+- **What the user asked for:** "The Artists tab in Your Library should have a list and a grid view
+  mode".
+- **How it works:** a button in the Artists tab's filter bar, before Filter and Sort (grid icon
+  "Show as a grid" / list icon "Show as a list"). The list is as before (round picture, name,
+  "3 albums · 41 songs"). The grid uses the round `ArtistCard` (as on Home and Search) with the
+  same counts under the name, as many columns as fit (`gridColumns`, like the Albums tab). The
+  title box, chips, filters and sort apply to both. The choice is kept in settings.json
+  (`artistsGrid`, default list), so it's in backups and survives restarts.
+- **Code:** `library_screen.dart` (`_ArtistsTabState`, keys `artists-view`, `artists-list`,
+  `artists-grid`), `LibraryModel.artistsGrid` / `setArtistsGrid`, `MusicFilterBar.actions`,
+  `ArtistCard.subtitle`. Test: "Artists: list and grid views" in `test/library_filters_test.dart`.
+
+## Update check at start-up (2 Oct 2026, 0.1.51, branch `feature/update-at-start`)
+- **What the user asked for:** "Update the check for updates to be on startup not once per day".
+- **How it works:** while Settings › About › "Check for updates automatically" is on, HomeTunes
+  looks for a newer version every time it opens (it used to wait 24 h between checks). It runs
+  in main.dart straight after the internet check (about 1.2 s after start), in the background,
+  only if the internet was reachable, so it never adds a second message when offline. A newer
+  version still shows the notice with **Update…**. The switch's text now says "Each time
+  HomeTunes opens…".
+- **Code:** `UpdateModel.isDue` is just `autoCheck`; `checkIfDue` became `checkAtStart`;
+  `checkEvery` is gone. `lastCheck` is still saved (shown as "Last checked…"). Tests in
+  `test/update_test.dart`.
+
+## No internet warning (2 Oct 2026, 0.1.50, branch `feature/offline-warning`)
+- **What the user asked for:** "Add a check on opening to see if the internet is reachable. If it
+  is not, pop up with a warning about some features not working and allow them to carry on using
+  the application. If they try to use an online feature, check again for the internet and give
+  the same warning again if nothing has changed."
+- **The check** (`services/internet_check.dart`, `InternetCheck.reachable`): opens a plain
+  connection (port 443, nothing sent) to the sites HomeTunes already uses: api.github.com,
+  musicbrainz.org, lrclib.net, openlibrary.org. Any one answering within 4 s = online. No new
+  site is contacted. About 80 ms on the user's PC when online. `InternetCheck.override` replaces
+  it in tests; under `flutter test` the default is "online", so other tests never touch the
+  network. `InternetCheck.last` keeps the latest answer.
+- **At start-up** (main.dart, 1.2 s after the first screen): if offline, "No internet connection"
+  lists what needs the internet (`onlineFeatures`: finding covers / song / book details online,
+  finding lyrics online, searching online for video pictures and posters, checking for updates
+  and What's new) and says music, audiobooks and videos still play, including from the home
+  server. One button: **Carry on**. The "What's new" pop-up after an update waits until it's
+  closed.
+- **Before an online feature** (`ensureOnline(context)` in `ui/widgets/offline_warning.dart`):
+  checks again every time. Online: carries straight on, no pop-up. Still offline: the same
+  warning with **OK** (doesn't go ahead) and **Try anyway** (in case the check is wrong). Hooked
+  into `showInfoLookup`, `showCoverSearch`, `showBookCoverSearch`, `showBookLookup`,
+  `findLyricsOnline`, `showPictureSearch`, Settings › About's Check now / Try again, the Update
+  button, and What's new in this version.
+- **Not gated:** background lookups (automatic covers, details, lyrics, video art); they already
+  fail quietly and try again later. The automatic update check is skipped when offline (0.1.51). The music server isn't checked
+  (it's usually on the home network).
+- **Tests:** `test/offline_warning_test.dart`.
+
+## Search in filter drop-downs (2 Oct 2026, 0.1.49, branch `feature/filter-search`)
+- **What the user asked for:** "When filtering by something, the selection drop downs can get
+  rather large, add a dedicated search bar at the top of each one."
+- **How it works:** every "Show only" sheet (Your Library's Artists / Albums / Songs, Books,
+  Videos' Collections and All videos) uses `SearchChoiceField` instead of a plain dropdown. It
+  looks the same (label, current choice and its count, arrow). A tap opens a list under the field
+  (above it when there's no room) with a **Search …** box first, then All and each choice with its
+  count. Typing narrows the list: every word must appear, any order, ignoring case
+  (`choiceMatches`); All only shows while the box is empty; "Nothing matches" when nothing does.
+  Enter picks the first match; Esc or a tap outside closes it unchanged. On a PC the cursor is
+  in the search box straight away; on a phone it waits for a tap so the keyboard doesn't cover
+  the list.
+- **Code:** `lib/ui/widgets/search_choice_field.dart`: `SearchChoiceField` (keeps the old
+  `filter-<label>` keys), a `PopupRoute` on the root navigator laid out against the field's
+  window position (`_Below`, max 400 px tall), and `_ChoiceList` (`choice-search-<label>` and
+  `choice:<value>` / `choice:(all)` keys for tests). The choice rows keep the old
+  "`Name  (count)`" text so existing tests still find them.
+- **Tests:** `test/filter_search_test.dart`.
+
+## Esc cancels a selection (2 Oct 2026, 0.1.48, branch `feature/escape-select`)
+- **What the user asked for:** "Make it so pressing escape on the PC cancels selection".
+- **How it works:** while any selection bar is showing (songs, albums, audiobooks in the shell;
+  collections, All videos, a collection's page and its in-place contents on Videos), Esc does the
+  same as the bar's ✕. If two bars are up at once (Collections tab plus an open collection's
+  contents), Esc clears both.
+- **Code:** `lib/ui/widgets/escape_cancels.dart` (`EscapeCancels`) wraps each bar. It listens on
+  `HardwareKeyboard` (so it works without focus) and only acts when its page is in front in its
+  own navigator and every navigator above it (a dialog, menu or pushed page over it means Esc is
+  left for that). It never marks Esc as handled, so the video player's Esc (leave full screen)
+  still works even if a song selection is up in the shell behind it.
+- **Tests:** `test/escape_select_test.dart`.
+
+## Shift + click selects a range (2 Oct 2026, 0.1.47, branch `feature/shift-select`)
+- **What the user asked for:** "When using the select feature, I want to add holding shift to
+  select everything between to points".
+- **How it works:** while selecting, a click ticks or unticks one item as before and remembers it
+  (the "anchor"). Holding Shift and clicking another item ticks everything between the anchor and
+  that item, in the order shown on screen, either direction; the clicked item becomes the new
+  anchor. A Shift + click also starts select mode straight away (it ticks that one item rather
+  than opening or playing it), so Shift + click, Shift + click picks a range from scratch.
+  Shift ranges only ever add ticks; a plain click still unticks one.
+- **Where:** songs (`TrackTile`, the list it's in), albums and audiobooks (`SelectableCard`, its
+  `scope`), and on Videos: collections (Collections tab, across category headings), the All
+  videos grid and its Continue watching row, and episodes on a collection's page or its in-place
+  contents (across seasons, in the flattened group order).
+- **Code:** `lib/state/range_select.dart` holds `shiftHeld`, `idsBetween` and `RangePicker`
+  (anchor + pick). `SelectionModel.pick(id, order, kind:)` uses it for songs/albums/books; the
+  Videos screens keep their own `RangePicker` next to their `Set<String>` selections. Shift is
+  read at tap time inside the `onTap` closure, never at build time. A range is only used when
+  something is already ticked, so a stale anchor from an earlier selection can't fill a range.
+- **Tests:** `test/shift_select_test.dart`.
+
+## Servers page: several servers for music, audiobooks and videos (1 Oct 2026, 0.1.46, branch `feature/servers`)
+- **What the user asked for:** "We need to include a server connection system for videos, we also may
+  want to have multiple server connections per server setup … re design this page … to allow for
+  each section Music, Audiobooks and Videos to support connecting to multiple servers. (not all
+  servers are created yet, so lets just set this up as a framework … It's also possible that a
+  server may have content for all)". Asked first, the user chose **"Framework now"** (not "two
+  Subsonic servers streaming side by side", which would change how server songs are stored: their
+  ids are `server:<subsonic id>` with no server in them).
+- **Server types** (`state/servers_model.dart`, `ServerType`): Subsonic (music, audiobooks; the
+  only one that streams), Jellyfin, Plex, Emby (music, audiobooks, videos), Audiobookshelf
+  (audiobooks), HomeTunes server (all three; our own, not built yet). Each has a label, a line
+  about it, what it can hold (`can`) and an example address.
+- **The list** (`ServersModel`, `servers.json`, backed up without passwords): `ServerEntry` (id,
+  type, name, address, user name, what it's used for `uses` ⊆ `can`, the last test's result).
+  Passwords go to the protected storage (`SecretStore.serverPasswordKey(url, user)`), never to the
+  file; changing an address or user moves the password, removing a server deletes it, and nothing
+  here ever touches the main server's own key. **The main music server** is still LibraryModel's
+  (`server`, `serverEnabled`, `serverBooks`, connect / sync / forget / http consent all unchanged)
+  and is shown in the list as entry `main` (name kept as `mainName` in servers.json). Its switches
+  map to LibraryModel: Music → "Include server music", Audiobooks → "Audiobooks from the music
+  server". A second Subsonic server is saved; **Make this the main music server** connects and
+  syncs it (with the http consent if needed) and keeps the old one in the list with its password.
+- **Test connection** (`services/server_probe.dart`, `probeServer`): for the types that can't stream
+  yet it asks only the public "who are you" address, no sign-in sent (Jellyfin / Emby
+  `/System/Info/Public`, saying which of the two it really is; Plex `/identity`; Audiobookshelf
+  `/status` then `/ping`; HomeTunes `/api/info`, expecting `{"app": "hometunes", "version": …}`,
+  which our server should answer). Addresses without a scheme try https then http. Subsonic is
+  signed in to for real (`SubsonicClient.ping`) but never over plain http to the internet from a
+  test (security review #4 still holds; making it the main server asks).
+- **The page** (`ui/screens/settings/server_settings.dart`): "Add a server"; then **Music**,
+  **Audiobooks** and **Videos** sections, each listing the servers that can hold that kind (a
+  Jellyfin server shows in all three), a card per server (icon by type, name, "Type · address ·
+  user", "Main music server" / "Coming later" tags, a status line, the last test, a switch "use it
+  for this kind", ⋮ Edit… / Test connection / Sync now / Make this the main music server / Remove or
+  Forget), and "Add a … server" (starts the dialog on the first type that holds that kind); last,
+  **Kinds of server** (what works now, what's coming). The dialog: kind of server (coming-later
+  ones marked), name (optional, defaults to the host), address (the plain-http warning), user name,
+  password (eye; kept in protected storage), "Use it for" chips (kinds it can't hold greyed out; the
+  main server always gives music), Test connection, Save / Connect. Adding a Subsonic server when
+  there's no main one makes it the main one (connect + sync, as before).
+- **Settings search**: `add-server`, `server` (Music servers; "navidrome" still finds it),
+  `server-books` (Audiobook servers), `video-server` (Video servers); `book-server` (the old
+  greyed-out Audiobookshelf preview) is gone.
+- **Next, when a server type is built**: give it a client like `SubsonicClient`, ids that include
+  the server (e.g. `jf:<serverId>:<itemId>`), and let LibraryModel / VideoLibraryModel take tracks
+  and videos from every `ServerEntry` that `uses` that kind. For two Subsonic servers at once, server
+  song ids need the server in them too (a one-time re-sync).
+- **Tests:** `test/servers_test.dart` (saving without passwords, protected storage, sections, kinds
+  a server can't hold, moving and deleting passwords, the main server in the list and its switches,
+  test results kept, every probe with a fake http client including "no sign-in sent" and "never
+  plain http to the internet", and the page: sections, adding a Jellyfin server from the Videos
+  section). Also fixed a timing-dependent wait in `video_pictures_test.dart` (it waited a fixed
+  100 ms for the online search; now until it's done, up to 5 s).
+
+## Home revamp (1 Oct 2026, 0.1.45, branch `feature/home-revamp`)
+- **What the user asked for:** "The home tab should include showing videos too. In fact, look over
+  the content we have and revamp the home page." Asked first (1 Oct), the user chose: a mixed
+  **Jump back in** row, then sections per kind; and **yes** to remembering recently played music.
+  Asked in the same message for the Servers page (that's 0.1.46, see below / `04_…`).
+- **Layout** (`ui/screens/home_screen.dart`), top to bottom: greeting; **Jump back in**; quick
+  tiles (Shuffle all, Liked Songs, Favourite audiobooks, Favourite videos — the last three only
+  when there are some — and up to six playlists); **Music** (Recently added, Your favourite albums,
+  From your Liked Songs, Artists); **Audiobooks** (Recently added by newest file, Your favourite
+  audiobooks); **Videos** (Up next, Recently added collections, Your favourite collections). Each
+  section has a big heading with an icon, a thin accent line and **See all** (opens the tab), and
+  is left out when there's nothing of that kind. Empty everywhere: "Nothing here yet" with **Add
+  music** and **Add videos**.
+- **Jump back in** (`ui/widgets/jump_back_in.dart`): videos part-watched (`continueWatching`, by
+  the place's time), audiobooks part-listened (`ListeningModel.inProgress`, by the place's time)
+  and recently played music (below), sorted newest first, 16 at most. Wide cards (320 wide; 88 high
+  at the usual text size, taller with bigger text): picture (16:9 for a video, square otherwise),
+  "Continue watching" / "Continue listening" / "Album" / "Playlist" / "Artist", the title, a line
+  of detail (collection · episode, author · % done, artist, number of songs) and a progress bar
+  for videos and books. The round play button carries on (video: opens its page, which resumes;
+  book: `playBook`, which resumes) or plays the album / playlist / Liked Songs / artist again;
+  tapping the card opens it the usual way (a video plays, the rest open their pages).
+- **Recently played music** (`state/play_history.dart`, `history.json`, new): `PlayHistory`
+  listens to the player; each time a new song starts playing (not an audiobook) it records where
+  it was played from, from the queue's label: "Playlist · X" → the playlist (by name), "Artist ·
+  X", "Liked Songs", anything else (an album, All songs, a search) → the song's album. Newest first,
+  each place once, at most 50. Backed up (`AppBackup.dataFiles`; merging keeps both lists, newest
+  first, `mergeHistory`) and re-read after a restore. **Settings › Playback › Forget recently
+  played music** clears it (target `recently-played`).
+- **Up next** (`upNextVideos`): for each collection you've watched something in (most recent
+  first), its next episode (`nextUp`) when you've finished at least one and none is part-watched
+  (that one is in Jump back in already).
+- **Tests:** `test/home_test.dart` (labels → places, the history's order / limit / saving, backup
+  merging, Jump back in's order on a real little library with a song, a book, a series and a film,
+  Up next, the page's sections and See all, and the empty page). Not yet seen in a real window.
 
 ## Details for videos and collections (1 Oct 2026, 0.1.44, released as v0.1.44)
 - **What the user asked for:** "Music and audio books allow for viewing the file details, I'd like
@@ -485,12 +706,13 @@ before changing that area.
 
 ## Updates (0.1.23)
 - **The user's choices (29 Sep):** a "Check for updates" button in Settings › About **plus** a quiet
-  check at most once a day with a switch to turn it off; on the phone, just **open the download
+  check at most once a day with a switch to turn it off (**changed 2 Oct, 0.1.51:** the quiet
+  check now runs every time HomeTunes opens, if online; see "Update check at start-up"); on the phone, just **open the download
   page** (not download-and-install); on Windows it updates itself.
 - **Where things are:** `services/update_checker.dart` (GitHub, versions, checksums, installer),
   `state/update_model.dart` (`UpdateModel`, `updates.json`: `autoCheck` + `lastCheck`; not in
   backups, it's per device), `ui/screens/settings/update_ui.dart` (About rows, the question
-  dialog, the start-up notice). `main.dart` runs `checkIfDue()` 8 s after start; a find shows a
+  dialog, the start-up notice). `main.dart` runs `checkAtStart()` after the internet check at every start (was `checkIfDue()` 8 s after start, at most daily, until 0.1.51); a find shows a
   SnackBar with **Update…** through `appMessengerKey` / `appNavigatorKey` on MaterialApp.
 - **The check:** `GET api.github.com/repos/Jamesking96/HomeTunes/releases/latest` (unauthenticated;
   the repo's releases are public; 60 requests an hour per IP is plenty). Drafts and pre-releases are

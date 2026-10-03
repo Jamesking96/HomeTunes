@@ -27,6 +27,7 @@ import 'screens/search_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/videos_screen.dart';
 import 'theme.dart';
+import 'widgets/escape_cancels.dart';
 import 'widgets/player_controls.dart';
 import 'widgets/quick_actions.dart';
 import 'widgets/sidebar.dart';
@@ -214,6 +215,11 @@ class _SelectionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final sel = context.watch<SelectionModel>();
     if (!sel.active) return const SizedBox.shrink();
+    // Esc cancels the selection, like the ✕ (0.1.48).
+    return EscapeCancels(onCancel: sel.clear, child: _bar(context, sel));
+  }
+
+  Widget _bar(BuildContext context, SelectionModel sel) {
     if (sel.kind != SelectKind.songs) return _GroupSelectionBar(sel: sel);
     final lib = context.read<LibraryModel>();
     final accent = Theme.of(context).colorScheme.primary;

@@ -1,4 +1,5 @@
-// Cover pictures for songs and albums, used almost everywhere (lists, grids, player bar).
+// Cover pictures for songs and albums, used almost everywhere (lists, grids, player bar), and
+// artists' pictures (0.1.53: `artist:`, see LibraryModel.artistImage).
 //
 // LibraryModel.artFor works out where the picture comes from (a cached file on disk, the
 // user's own cover, or the server's cover URL); this widget just draws it at the right size, or
@@ -21,14 +22,21 @@ class Artwork extends StatelessWidget {
   /// Icon drawn in the grey box when there's no cover.
   final IconData placeholder;
 
-  const Artwork({super.key, this.track, required this.size, this.radius = 4, this.placeholder = Icons.music_note});
+  /// Draw this artist's picture instead of [track]'s cover (0.1.53): the picture chosen for them,
+  /// or else their first album's cover. Redraws when their picture is changed.
+  final Artist? artist;
+
+  const Artwork(
+      {super.key, this.track, required this.size, this.radius = 4, this.placeholder = Icons.music_note, this.artist});
 
   @override
   Widget build(BuildContext context) {
     final lib = context.read<LibraryModel>();
     // Ask the server for roughly the size we draw, times 2 for sharp screens.
     final px = (size * 2).clamp(64, 800).round();
-    final image = lib.artFor(track, size: px);
+    final a = artist;
+    if (a != null) context.select<LibraryModel, String?>((l) => l.artistPictures[a.name]);
+    final image = a != null ? lib.artistImage(a, size: px) : lib.artFor(track, size: px);
     final ph = Container(
       width: size,
       height: size,

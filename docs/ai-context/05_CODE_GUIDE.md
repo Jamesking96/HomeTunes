@@ -89,9 +89,12 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `playlists_model.dart` | Playlists, Liked Songs and favourite albums and books (`playlists.json`). |
 | `lyrics_model.dart` | Picks a song's lyrics from five sources in order: your edit, the file or `.lrc`, saved online finds, the server, LRCLIB. Caches finds and "nothing found" in `lyrics.json`. |
 | `sleep_timer.dart` | The sleep timer: minutes, or end of chapter or song. Fades the volume out, then pauses and saves the book's place. |
-| `selection_model.dart` | What's ticked in select mode: songs, albums or audiobooks (one kind at a time), plus what "Select all" covers. |
+| `selection_model.dart` | What's ticked in select mode: songs, albums or audiobooks (one kind at a time), plus what "Select all" covers. `pick(id, order)` (0.1.47) is the tap used by tiles and cards: a toggle, or with Shift held a range. |
+| `range_select.dart` | Shift + click ranges (0.1.47): `shiftHeld` (read at tap time), `idsBetween(order, from, to)` and `RangePicker` (remembers the last item clicked, then ticks or fills a range in a `Set<String>`). Used by `SelectionModel` and by the Videos screens' own selections. |
 | `update_model.dart` | Check for updates (0.1.23): where the check has got to, the newest release found, download progress, the once-a-day check and its switch (`updates.json`). Since 0.1.28 it also remembers the version that last ran, so it knows when to show "What's new" and fetches the release notes for it. |
 | `video_library_model.dart` | The Videos tab's live data (0.1.40): scans the video folders (a setting in `LibraryModel`), makes thumbnails in the background, and owns the edits and watched places (`videos.json`). Builds the collections; favourites, collection descriptions and per-collection track choices; `editCollection`, `nextUp` / `after`; `saveNfoFiles` writes .nfo files; season titles (`seasonTitleOf`, `folderSeasonTitle`, `setSeasonTitle` which can also write tvshow.nfo `<namedseason>`, `groupLabel` for "Season 1 – Offline News"). |
+| `servers_model.dart` | Your servers (0.1.46, `servers.json`, passwords in protected storage): `ServerType` (Subsonic streams; Jellyfin, Plex, Emby, Audiobookshelf and a HomeTunes server are saved and tested for later), `MediaKind` (music, audiobooks, videos), `ServerEntry`, and `ServersModel` (add / update / remove / `setUse` / `test` / `makeMain`). The main music server is LibraryModel's, shown as entry `main`. Settings › Servers (`settings/server_settings.dart`) shows it. |
+| `play_history.dart` | Recently played music (0.1.45, `history.json`, in backups): `PlayHistory` follows the player and, each time a new song starts, records where it was played from (`playedFrom`: the queue's label "Playlist · …", "Artist · …", "Liked Songs", else the song's album), newest first, each place once, at most 50. `clear` for Settings › Playback › Forget recently played music. |
 | `now_watching.dart` | The video playing on its page, for the bottom bar and the system media controls (30 Sep): `NowWatching` (attach / detach by the video page, `inFront` = the video was started after the music, play / pause / skip / seek / volume) and `VideoTransport` (what it needs from a player; `MediaKitTransport` in `video_player_screen.dart`, a fake in tests). 1 Oct: it listens to the player's `volumeStream`, so the player page's volume bar and the bottom bar's move together, and keeps the pages open underneath (`_below`): when the top video page closes, the one below is back in charge (pages pass `transport:` to `showing` so one underneath only updates its own record). `_check` (on each position event and when the music stops) puts the video in front whenever it's moving and the music isn't, as a safety net for a missed or out-of-order "playing" event. 0.1.43: every change goes through `_notify`, which waits until the end of the frame when the screen is being built (the page attaches during its first build; telling the bar then left it deaf to later changes). |
 | `video_filters.dart` | The Videos tab's search, chips, filters (`videoFilterFields`: collection, genre, decade, length, picture, file type) and sorts (including Season, with a `GroupLabel` for season titles), and where to carry on from (`resumeAt`, `isNearEnd`). No Flutter, so unit tested directly. |
 
@@ -105,6 +108,8 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `tag_writer.dart` | Writes your edits into MP3, FLAC, M4A and WAV files in the background, with an optional backup and a re-read to check. |
 | `app_backup.dart` | Makes and restores `.htbackup` files (compressed JSON), by replacing or merging, with paths made portable between devices. |
 | `subsonic_client.dart` | Talks to a Subsonic server: login, full song list, stream and cover links, server lyrics. |
+| `internet_check.dart` | Is the internet reachable? (0.1.50): `InternetCheck.reachable` opens a plain connection to GitHub, MusicBrainz, LRCLIB and Open Library (nothing sent); any one answering = online. `override` for tests (default "online" under `flutter test`). The warning is `ui/widgets/offline_warning.dart`. |
+| `server_probe.dart` | Test connection on Settings › Servers (0.1.46): `probeServer` asks a Jellyfin / Emby / Plex / Audiobookshelf / HomeTunes server's public "who are you" address (no sign-in sent) or signs in to a Subsonic one (never over plain http to the internet); `candidateUrls` (https then http). |
 | `lrclib_client.dart` | Looks up lyrics on LRCLIB and ranks the matches (length within 3 s, timed first, title, artist). |
 | `local_lyrics.dart` | Reads lyrics from a song's tags or a `.lrc` file beside it. |
 | `media_session.dart` | Connects the player to Android's notification, lock screen and headset buttons, and to Windows media keys. For books the buttons skip by seconds. |
@@ -141,12 +146,12 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 
 | File | What you see |
 | --- | --- |
-| `home_screen.dart` | Home: greeting, Continue listening, quick tiles, recently added, artists. |
-| `library_screen.dart` | Library: Playlists, Artists, Albums and Songs tabs. Artists, Albums and Songs each have a filter-by-title box, All / Favourites (Liked for songs) chips, a filter sheet and a sort menu, sharing `_FilteredTabState`; each tab keeps its choices while you swipe between them. |
+| `home_screen.dart` | Home (revamped 0.1.45): greeting, Jump back in (`widgets/jump_back_in.dart`), quick tiles (Shuffle all, Liked Songs, Favourite audiobooks / videos, playlists), then Music (recently added, favourite albums, from your Liked Songs, artists), Audiobooks (recently added, favourites) and Videos (`upNextVideos`, recently added collections, favourite collections) sections, each with "See all" (`_SectionHeading`). Empty everywhere: Add music / Add videos. The video model and play history are optional (tests). |
+| `library_screen.dart` | Library: Playlists, Artists, Albums and Songs tabs. Artists, Albums and Songs each have a filter-by-title box, All / Favourites (Liked for songs) chips, a filter sheet and a sort menu, sharing `_FilteredTabState`; each tab keeps its choices while you swipe between them. Artists also has a list / grid button (0.1.52, `LibraryModel.artistsGrid`, the grid uses `ArtistCard` with the counts as `subtitle`; `MusicFilterBar.actions` holds the button). |
 | `books_screen.dart` | Books: cover grid, search, state chips (including Favourites), author/narrator/series filter, sorting. |
 | `search_screen.dart` | Search as you type across songs, artists, albums, books and chapters, and (0.1.41) video collections and videos (`searchCollections` / `searchVideos` from `video_filters.dart`). |
 | `album_screen.dart` | One album, split by disc, with a favourite heart, the ⓘ Details button, and prompts to find a missing cover or details online. |
-| `artist_screen.dart` | One artist: picture, albums (click one to see its songs underneath, 0.1.26), all songs. |
+| `artist_screen.dart` | One artist: picture, albums (click one to see its songs underneath, 0.1.26), all songs. Since 0.1.53 the picture (or the Change picture button beside Play / Shuffle) opens `showArtistPictureOptions`. |
 | `book_screen.dart` | One audiobook: details, progress, Play/Resume, favourite heart, description, PDF, bookmarks, chapters, Move to Music, Details. |
 | `videos_screen.dart` | The Videos tab (0.1.40): sub-tabs Collections / All videos / Favourites; the All videos grid with Continue watching, chips, filters, search, sorts, the video menu and select mode (`VideoCard`, `showVideoMenu`, and `VideoSelectionBar`, which a collection's episode list uses too; `showVideoGroupMenu`, the right-click menu on a season / group heading here and in a collection: Select all in it, Unselect, watched / not watched, Season title…, Fold). |
 | `video_collection_screen.dart` | Collections (0.1.40): `CollectionCard` (tap, select mode, hover play button) and its menu, `CollectionContentsPanel` (contents under the card's row on the Collections tab), a collection's page (foldable seasons, pinned contents chips, Continue, favourite), and the Edit collection dialogs (one, or several with `showEditCollections`). Episodes: `EpisodeRow` with select mode (`_EpisodeSelection` mixin: right-click › Select, a box per season, `VideoSelectionBar`; `headingMenu` opens `showVideoGroupMenu` from a heading's right-click / hold via `_GroupHeading.onMenu`), and `showSeasonTitleDialog` (the ✎ on a season heading). |
@@ -182,13 +187,18 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `listening_controls.dart` | Sleep timer (moon) button, −15/+30 skips, speed button and chooser, chapter list. |
 | `lyrics_view.dart` | The lyrics panel. Timed lyrics highlight the current line and scroll along; tapping a line jumps there. |
 | `track_tile.dart` | A song row, its ⋮ menu (right-click opens it too, and it now has Details…), Add to playlist, and the name prompt. |
+| `jump_back_in.dart` | Home's "Jump back in" (0.1.45): `jumpsFrom` mixes part-watched videos, part-listened books and recently played music (`VideoJump` / `BookJump` / `MusicJump`), newest first, dropping music that's gone; `JumpCard` is the wide card (picture, kind, title, detail, progress, a play button that carries on). Its height follows the text size (`jumpCardHeightFor`). |
 | `cards.dart` | Album and artist tiles (album covers show a play button on mouse hover, `HoverPlayCover`), the horizontal scrolling shelves on Home, and `SelectableCard` (right-click / press and hold → Select for album and book tiles, plus "Open album page" on an artist page). |
+| `escape_cancels.dart` | Esc cancels a selection (0.1.48): `EscapeCancels` wraps every selection bar and calls its "clear" on Esc, only while its page is in front (not under a dialog, menu or pushed page), without swallowing the key. |
+| `search_choice_field.dart` | The "Show only" drop-downs (0.1.49): `SearchChoiceField` opens a list with a search box at the top, then All and each choice with its count; `choiceMatches` (every word, any order). Used by `music_filter_sheet.dart` and the Books filter sheet. |
+| `offline_warning.dart` | "No internet connection" (0.1.50): `checkInternetAtStart` (start-up, Carry on), `ensureOnline` (before each online feature: checks again; OK / Try anyway), `showOfflineWarning` and the `onlineFeatures` list. |
 | `book_card.dart` | Book covers and tiles with a progress bar, the favourite heart (top right) and the finished tick (bottom right). |
 | `bookmark_widgets.dart` | Adding, listing and jumping to bookmarks. |
 | `collection_header.dart` | The big header on album, artist and playlist pages with Play and Shuffle. |
 | `quick_actions.dart` | The quick actions for albums and books (edit, cover, favourites, details) used by tile menus and the selection bar. |
 | `music_filter_sheet.dart` | The title box / filter / sort bar (`MusicFilterBar`) and the "Show only" sheet (`showMusicFilterSheet`) used by the Library tabs. |
-| `artwork.dart` | Cover images, loaded at a sensible size to save memory. |
+| `artwork.dart` | Cover images, loaded at a sensible size to save memory. `Artwork(artist: …)` (0.1.53) draws an artist's picture (`LibraryModel.artistImage`) and redraws when it's changed. |
+| `artist_picture.dart` | Change an artist's picture (0.1.53): `showArtistPictureOptions` (Choose an image file…, Use one of their album covers… with a grid of their albums, Use the automatic picture) and `showArtistMenu` (the right-click / press-and-hold menu on artist cards and the Artists tab's rows). |
 | `save_nfo.dart` | The "Also save into .nfo files" tick box in the video editors, and `saveNfoAfterEdit` (0.1.40). |
 | `music_video_view.dart` | The music video on Now Playing (0.1.40): a second, muted player showing the song's video, kept in step with the song (`videoSeekTarget`), with the cover until the first picture. |
 | `video_controls_look.dart` | Applies `VideoPlayerLook` to media_kit's controls (30 Sep): `ButtonBacking` (glow or disc behind each control), `backedBar`, `timeTextStyle`, `desktopControlsTheme` / `phoneControlsTheme` (normal and full screen), `VideoWheel` (the mouse wheel over the video: 5 s skips over its progress bar, volume elsewhere) and `VideoControlsPreview` for Settings. |
@@ -254,7 +264,7 @@ Everything lives in the app's data folder, `…/hometunes/` inside the system's 
 
 | File or folder | Holds | Owned by |
 | --- | --- | --- |
-| `settings.json` | Music folders, server details (normally not the password, which is in the system's protected storage), your colour themes, text size and corners, every switch and setting | `LibraryModel` |
+| `settings.json` | Music folders, server details (normally not the password, which is in the system's protected storage), your colour themes, text size and corners, every switch and setting, and the pictures chosen for artists (`artistPictures`, 0.1.53: a file in `art/custom/` or `album:<key>`) | `LibraryModel` |
 | `library.json` | Every scanned song (local, server and missing) | `LibraryModel` |
 | `edits.json` | Your edits to songs and books | `LibraryModel` |
 | `playlists.json` | Playlists, Liked Songs and favourite albums and books (stored as song ids, so they survive regrouping and moved files) | `PlaylistsModel` |
@@ -265,7 +275,7 @@ Everything lives in the app's data folder, `…/hometunes/` inside the system's 
 | `videos.json` | The Videos tab: the videos found, the user's edits to them and how far into each one they got (0.1.40) | `VideoLibraryModel` |
 | `art/` | Covers taken from files (`art/custom/` holds the ones you chose; `art/server/` holds server covers for the media controls, left out of backups) | `local_scanner.dart`, `LibraryModel`, `server_art_cache.dart` |
 | `playback-log.txt` | The playback log (last 400 lines). Not in backups | `playback_log.dart` |
-| `updates.json` | The daily update check switch, when it last ran, and the version that last ran (for "What's new"). Not in backups (it belongs to the device) | `UpdateModel` |
+| `updates.json` | The "check for updates automatically" switch (every start since 0.1.51), when it last ran, and the version that last ran (for "What's new"). Not in backups (it belongs to the device) | `UpdateModel` |
 | `backups/` | Copies of music files made before writing edits into them, one dated folder per run | `LibraryModel`, `tag_writer.dart` |
 | `before-restore.htbackup` | Your data from just before the last restore | `LibraryModel`, `app_backup.dart` |
 | `<name>.corrupt-<date>.json` | A damaged data file, kept before it's replaced (the newest 3 of each) | `Storage` |
@@ -336,7 +346,12 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `details_test.dart` | Where details come from (tags, folder and file names, book details file, edits, server) and why something is a book |
 | `favourites_test.dart` | Favourite albums and books: saving, surviving moves and backups, the tile menu and heart |
 | `multi_edit_test.dart` | Selecting albums and books, the tiles' Select menu, and editing several albums, books or songs with `--:--` |
-| `update_test.dart` | Check for updates: version comparison, reading the release and checksum file, the "What's new" text, which links may be downloaded, the daily check and its switch, a wrong checksum being refused (fake GitHub) |
+| `shift_select_test.dart` | Shift + click ranges (0.1.47): `idsBetween`, `RangePicker`, `SelectionModel.pick`, and episodes on a collection's page across seasons |
+| `escape_select_test.dart` | Esc cancels a selection (0.1.48), but not under a dialog or a page pushed over it |
+| `filter_search_test.dart` | The search box in the filter drop-downs (0.1.49): narrowing, Enter, All, "Nothing matches" and Esc |
+| `artist_pictures_test.dart` | Artists' pictures (0.1.53): automatic, an album cover, a copied file (kept by the clean-up of unused covers), back to automatic, saved in settings.json, the backup check, and the artist page and card menu |
+| `offline_warning_test.dart` | The no-internet warning (0.1.50): at start-up with Carry on, and before an online feature (checked again each time; OK, Try anyway, straight through when back online) |
+| `update_test.dart` | Check for updates: version comparison, reading the release and checksum file, the "What's new" text, which links may be downloaded, the start-up check (every start since 0.1.51) and its switch, a wrong checksum being refused (fake GitHub) |
 | `whats_new_test.dart` | "What's new" after an update: which releases are listed, noticing the first start after an update (and not on a fresh install), and the pop-up (fake GitHub) |
 | `equalizer_test.dart` | Preset filter text (including bands left out for low sample rates), editing and restoring presets, your own presets, music vs audiobook presets, saving, and the Equaliser screen |
 | `playback_guard_test.dart` | The locked-phone fix: the 5-second wait before telling the phone "paused", the stall detector, and the playback log |

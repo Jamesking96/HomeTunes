@@ -121,6 +121,12 @@ void main() {
     // Tapped in real time, so the download, shrinking and saving after the pick run too.
     await tester.runAsync(() async {
       await tester.tap(find.text('go'));
+      // Until all three services have been asked (up to 5 s: a fixed 100 ms wasn't always enough
+      // when the whole suite runs at once, 1 Oct).
+      for (var i = 0; i < 100; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        if (['api.tvmaze.com', 'graphql.anilist.co', 'en.wikipedia.org'].every(asked.contains)) break;
+      }
       await Future<void>.delayed(const Duration(milliseconds: 100));
     });
     await tester.pumpAndSettle();

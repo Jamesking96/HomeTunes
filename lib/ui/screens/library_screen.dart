@@ -19,6 +19,7 @@ import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../widgets/artist_picture.dart';
 import '../widgets/artwork.dart';
 import '../widgets/cards.dart';
 import '../widgets/music_filter_sheet.dart';
@@ -235,6 +236,58 @@ class _ArtistsTabState extends _FilteredTabState<_ArtistsTab> {
     final favourites = passing.where(favourite).toList();
     final shown = sortArtists(favouritesOnly ? favourites : passing, _sort);
     void edit() => chooseFilters(lib.artists, artistFields, 'Show artists');
+    // "3 albums · 41 songs", under the name in both views.
+    String counts(Artist a) {
+      final albums = a.albums.length, songs = a.tracks.length;
+      return '$albums album${albums == 1 ? '' : 's'} · $songs song${songs == 1 ? '' : 's'}';
+    }
+
+    // List or grid (0.1.52), remembered in settings.json.
+    final grid = lib.artistsGrid;
+    final Widget body;
+    if (shown.isEmpty) {
+      body = SingleChildScrollView(child: noMatches('artists'));
+    } else if (grid) {
+      // Round pictures in a grid, as many columns as fit (like the Albums tab).
+      body = LayoutBuilder(
+        builder: (context, c) => GridView.builder(
+          key: const ValueKey('artists-grid'),
+          padding: const EdgeInsets.all(8),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: gridColumns(c.maxWidth),
+            childAspectRatio: 0.74,
+          ),
+          itemCount: shown.length,
+          itemBuilder: (_, i) => ArtistCard(artist: shown[i], subtitle: counts(shown[i])),
+        ),
+      );
+    } else {
+      // .builder only builds the rows on screen, which keeps big libraries smooth.
+      body = ListView.builder(
+        key: const ValueKey('artists-list'),
+        itemCount: shown.length,
+        itemBuilder: (_, i) {
+          final a = shown[i];
+          // Right-click / press and hold: Change picture… (0.1.53).
+          return Builder(
+            builder: (row) => GestureDetector(
+              onSecondaryTapUp: (d) => showArtistMenu(row, a, d.globalPosition),
+              child: ListTile(
+                key: ValueKey('artist-row:${a.name}'),
+                leading: Artwork(artist: a, size: 52, radius: 26, placeholder: Icons.person),
+                title: Text(a.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(counts(a)),
+                onTap: () => nav.openArtist(a.name),
+                onLongPress: () {
+                  final box = row.findRenderObject() as RenderBox;
+                  showArtistMenu(row, a, box.localToGlobal(box.size.center(Offset.zero)));
+                },
+              ),
+            ),
+          );
+        },
+      );
+    }
     return Column(children: [
       MusicFilterBar<ArtistSort>(
         controller: search,
@@ -246,32 +299,17 @@ class _ArtistsTabState extends _FilteredTabState<_ArtistsTab> {
         sorts: ArtistSort.values,
         sortLabel: _sortLabel,
         onSort: (s) => setState(() => _sort = s),
+        actions: [
+          IconButton(
+            key: const ValueKey('artists-view'),
+            tooltip: grid ? 'Show as a list' : 'Show as a grid',
+            icon: Icon(grid ? Icons.view_list : Icons.grid_view),
+            onPressed: () => lib.setArtistsGrid(!grid),
+          ),
+        ],
       ),
       chipRow(all: passing.length, favourites: favourites.length, favouritesLabel: 'Favourites', onEditFilters: edit),
-      Expanded(
-        child: shown.isEmpty
-            ? SingleChildScrollView(child: noMatches('artists'))
-            // .builder only builds the rows on screen, which keeps big libraries smooth.
-            : ListView.builder(
-                itemCount: shown.length,
-                itemBuilder: (_, i) {
-                  final a = shown[i];
-                  final songs = a.tracks.length;
-                  return ListTile(
-                    leading: Artwork(
-                      track: a.albums.first.artTrack,
-                      size: 52,
-                      radius: 26,
-                      placeholder: Icons.person,
-                    ),
-                    title: Text(a.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text('${a.albums.length} album${a.albums.length == 1 ? '' : 's'} · '
-                        '$songs song${songs == 1 ? '' : 's'}'),
-                    onTap: () => nav.openArtist(a.name),
-                  );
-                },
-              ),
-      ),
+      Expanded(child: body),
     ]);
   }
 }
