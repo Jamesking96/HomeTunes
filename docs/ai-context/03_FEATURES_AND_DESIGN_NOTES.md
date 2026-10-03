@@ -186,7 +186,7 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
-## Artist pictures (2 Oct 2026, 0.1.53, branch `feature/artist-pictures`)
+## Artist pictures (2 Oct 2026, 0.1.53, released in v0.1.53)
 - **What the user asked for:** "Allow the artists page to be customised too, I want to be able to
   change the image that's used."
 - **How it works:** artists still show their first album's cover by default. **Change picture…**
@@ -211,7 +211,7 @@ before changing that area.
   `ArtistCard` (menu), `artist_screen.dart`, `library_screen.dart`. Tests:
   `test/artist_pictures_test.dart`.
 
-## Artists tab: list or grid (2 Oct 2026, 0.1.52, branch `feature/artists-grid`)
+## Artists tab: list or grid (2 Oct 2026, 0.1.52, released in v0.1.53)
 - **What the user asked for:** "The Artists tab in Your Library should have a list and a grid view
   mode".
 - **How it works:** a button in the Artists tab's filter bar, before Filter and Sort (grid icon
@@ -224,7 +224,7 @@ before changing that area.
   `artists-grid`), `LibraryModel.artistsGrid` / `setArtistsGrid`, `MusicFilterBar.actions`,
   `ArtistCard.subtitle`. Test: "Artists: list and grid views" in `test/library_filters_test.dart`.
 
-## Update check at start-up (2 Oct 2026, 0.1.51, branch `feature/update-at-start`)
+## Update check at start-up (2 Oct 2026, 0.1.51, released in v0.1.53)
 - **What the user asked for:** "Update the check for updates to be on startup not once per day".
 - **How it works:** while Settings › About › "Check for updates automatically" is on, HomeTunes
   looks for a newer version every time it opens (it used to wait 24 h between checks). It runs
@@ -236,7 +236,7 @@ before changing that area.
   `checkEvery` is gone. `lastCheck` is still saved (shown as "Last checked…"). Tests in
   `test/update_test.dart`.
 
-## No internet warning (2 Oct 2026, 0.1.50, branch `feature/offline-warning`)
+## No internet warning (2 Oct 2026, 0.1.50, released in v0.1.53)
 - **What the user asked for:** "Add a check on opening to see if the internet is reachable. If it
   is not, pop up with a warning about some features not working and allow them to carry on using
   the application. If they try to use an online feature, check again for the internet and give
@@ -264,7 +264,7 @@ before changing that area.
   (it's usually on the home network).
 - **Tests:** `test/offline_warning_test.dart`.
 
-## Search in filter drop-downs (2 Oct 2026, 0.1.49, branch `feature/filter-search`)
+## Search in filter drop-downs (2 Oct 2026, 0.1.49, released in v0.1.53)
 - **What the user asked for:** "When filtering by something, the selection drop downs can get
   rather large, add a dedicated search bar at the top of each one."
 - **How it works:** every "Show only" sheet (Your Library's Artists / Albums / Songs, Books,
@@ -283,7 +283,7 @@ before changing that area.
   "`Name  (count)`" text so existing tests still find them.
 - **Tests:** `test/filter_search_test.dart`.
 
-## Esc cancels a selection (2 Oct 2026, 0.1.48, branch `feature/escape-select`)
+## Esc cancels a selection (2 Oct 2026, 0.1.48, released in v0.1.53)
 - **What the user asked for:** "Make it so pressing escape on the PC cancels selection".
 - **How it works:** while any selection bar is showing (songs, albums, audiobooks in the shell;
   collections, All videos, a collection's page and its in-place contents on Videos), Esc does the
@@ -296,7 +296,7 @@ before changing that area.
   still works even if a song selection is up in the shell behind it.
 - **Tests:** `test/escape_select_test.dart`.
 
-## Shift + click selects a range (2 Oct 2026, 0.1.47, branch `feature/shift-select`)
+## Shift + click selects a range (2 Oct 2026, 0.1.47, released in v0.1.53)
 - **What the user asked for:** "When using the select feature, I want to add holding shift to
   select everything between to points".
 - **How it works:** while selecting, a click ticks or unticks one item as before and remembers it
@@ -316,7 +316,7 @@ before changing that area.
   something is already ticked, so a stale anchor from an earlier selection can't fill a range.
 - **Tests:** `test/shift_select_test.dart`.
 
-## Servers page: several servers for music, audiobooks and videos (1 Oct 2026, 0.1.46, branch `feature/servers`)
+## Servers page: several servers for music, audiobooks and videos (1 Oct 2026, 0.1.46, released in v0.1.53)
 - **What the user asked for:** "We need to include a server connection system for videos, we also may
   want to have multiple server connections per server setup … re design this page … to allow for
   each section Music, Audiobooks and Videos to support connecting to multiple servers. (not all
@@ -370,7 +370,7 @@ before changing that area.
   section). Also fixed a timing-dependent wait in `video_pictures_test.dart` (it waited a fixed
   100 ms for the online search; now until it's done, up to 5 s).
 
-## Home revamp (1 Oct 2026, 0.1.45, branch `feature/home-revamp`)
+## Home revamp (1 Oct 2026, 0.1.45, released in v0.1.53)
 - **What the user asked for:** "The home tab should include showing videos too. In fact, look over
   the content we have and revamp the home page." Asked first (1 Oct), the user chose: a mixed
   **Jump back in** row, then sections per kind; and **yes** to remembering recently played music.

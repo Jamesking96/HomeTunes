@@ -38,15 +38,15 @@ while commenting".
 | Loading page while a video opens (0.1.42) | Done, released as v0.1.42 (1 Oct); the user confirmed it works |
 | Bottom bar / video volume linked again; single "What's new" heading (0.1.43) | Done, released as v0.1.43 (1 Oct); the user confirmed it works |
 | Details for videos and collections (0.1.44) | Done, released as v0.1.44 (1 Oct); the user approved it |
-| Home revamp: videos on Home, Jump back in, recently played music (0.1.45) | Built 1 Oct on `feature/home-revamp`, not merged yet. See `03_…` → Home revamp |
-| Servers page: several servers per kind, Music / Audiobooks / Videos (0.1.46) | Built 1 Oct on `feature/servers` (on top of `feature/home-revamp`), not merged yet. The user chose "framework now": only the main Subsonic server streams. See `03_…` → Servers page |
-| Shift + click selects everything between two items (0.1.47) | Built 2 Oct on `feature/shift-select` (on top of `feature/servers`), not merged yet. See `03_…` → Shift + click |
-| Esc cancels a selection (0.1.48) | Built 2 Oct on `feature/escape-select` (on top of `feature/shift-select`), not merged yet. See `03_…` → Esc cancels a selection |
-| Search box in the filter drop-downs (0.1.49) | Built 2 Oct on `feature/filter-search` (on top of `feature/escape-select`), not merged yet. See `03_…` → Search in filter drop-downs |
-| No-internet warning at start-up and before online features (0.1.50) | Built 2 Oct on `feature/offline-warning` (on top of `feature/filter-search`), not merged yet. See `03_…` → No internet warning |
-| Update check every time the app opens, not once a day (0.1.51) | Built 2 Oct on `feature/update-at-start` (on top of `feature/offline-warning`), not merged yet. See `03_…` → Update check at start-up |
-| Artists tab: list or grid (0.1.52) | Built 2 Oct on `feature/artists-grid` (on top of `feature/update-at-start`), not merged yet. See `03_…` → Artists tab: list or grid |
-| Artist pictures: change the picture an artist shows (0.1.53) | Built 2 Oct on `feature/artist-pictures` (on top of `feature/artists-grid`), not merged yet. See `03_…` → Artist pictures |
+| Home revamp: videos on Home, Jump back in, recently played music (0.1.45) | Done, released in v0.1.53 (3 Oct; built 1 Oct). See `03_…` → Home revamp |
+| Servers page: several servers per kind, Music / Audiobooks / Videos (0.1.46) | Done, released in v0.1.53 (3 Oct; built 1 Oct). The user chose "framework now": only the main Subsonic server streams. See `03_…` → Servers page |
+| Shift + click selects everything between two items (0.1.47) | Done, released in v0.1.53 (3 Oct; built 2 Oct). See `03_…` → Shift + click |
+| Esc cancels a selection (0.1.48) | Done, released in v0.1.53 (3 Oct; built 2 Oct). See `03_…` → Esc cancels a selection |
+| Search box in the filter drop-downs (0.1.49) | Done, released in v0.1.53 (3 Oct; built 2 Oct). See `03_…` → Search in filter drop-downs |
+| No-internet warning at start-up and before online features (0.1.50) | Done, released in v0.1.53 (3 Oct; built 2 Oct). See `03_…` → No internet warning |
+| Update check every time the app opens, not once a day (0.1.51) | Done, released in v0.1.53 (3 Oct; built 2 Oct). See `03_…` → Update check at start-up |
+| Artists tab: list or grid (0.1.52) | Done, released in v0.1.53 (3 Oct; built 2 Oct). See `03_…` → Artists tab: list or grid |
+| Artist pictures: change the picture an artist shows (0.1.53) | Done, released in v0.1.53 (3 Oct; built 2 Oct). See `03_…` → Artist pictures |
 | L: Linux build, incl. Steam Deck (0.1.54) | Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (0.1.55) | After L |
 | T: Android TV (0.1.56) | After A |
