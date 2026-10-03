@@ -186,6 +186,23 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## One song's album edit no longer renames the album (3 Oct 2026, 0.1.54, branch `fix/one-song-album`)
+- **What the user reported:** "when 1 song has it's album edited it renames the whole album rather
+  than just updates that song."
+- **Cause:** the single-song editor (`edit_details.dart`) offers "Also update the other N songs on
+  "…"" whenever an album-wide detail changes (album, album artist, year, genre, cover). The box
+  started **ticked** (`_updateAlbum = true`), so typing a new album name and pressing Save gave
+  every song on the album the new name: the whole album was renamed.
+- **Fix:** the box's starting state now depends on what changed (`_updateAlbum =>
+  _updateAlbumChoice ?? !_movesSong`). If the album name or album artist changed
+  (`_movesSong`), it starts **unticked** and only that song moves; the subtitle adds "Leave
+  unticked to move just this song." Year, genre or cover changes alone still start ticked, as
+  before. Once the user clicks the box, their choice sticks (`_updateAlbumChoice`). Ticking it
+  still renames the whole album.
+- **Tests:** three "one song: …" cases in `test/multi_edit_test.dart` (moves just that song;
+  ticking renames the album; genre change still ticked). The box is below the fold in the test
+  window: find it with `skipOffstage: false` and `ensureVisible` before tapping.
+
 ## Artist pictures (2 Oct 2026, 0.1.53, released in v0.1.53)
 - **What the user asked for:** "Allow the artists page to be customised too, I want to be able to
   change the image that's used."
