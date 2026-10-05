@@ -214,6 +214,10 @@ class LibraryModel extends ChangeNotifier {
   /// Go back a few seconds when carrying on with a video.
   bool videoRewindOnResume = true;
 
+  /// Phone: videos and music videos are drawn straight from the video chip (0.1.57,
+  /// services/video_drawing.dart). Off: the older way (the chip's pictures are copied first).
+  bool videoDirectDrawing = true;
+
   /// The usual picture shape for videos and for collections (each can have its own).
   PictureShape videoPictureShape = PictureShape.wide;
   PictureShape collectionPictureShape = PictureShape.wide;
@@ -412,6 +416,7 @@ class LibraryModel extends ChangeNotifier {
     videoSkipForwardSeconds = 10;
     defaultVideoSpeed = 1.0;
     videoRewindOnResume = true;
+    videoDirectDrawing = true;
     videoPictureShape = PictureShape.wide;
     collectionPictureShape = PictureShape.wide;
     videoPlayerLook = VideoPlayerLook.standard;
@@ -484,6 +489,7 @@ class LibraryModel extends ChangeNotifier {
       videoSkipForwardSeconds = s.integer('videoSkipForwardSeconds', 10);
       defaultVideoSpeed = s.number('defaultVideoSpeed', 1.0);
       videoRewindOnResume = s.get('videoRewindOnResume', true);
+      videoDirectDrawing = s.get('videoDirectDrawing', true);
       videoPictureShape = PictureShape.byName(raw['videoPictureShape']) ?? PictureShape.wide;
       collectionPictureShape = PictureShape.byName(raw['collectionPictureShape']) ?? PictureShape.wide;
       videoPlayerLook = VideoPlayerLook.fromJson(raw['videoPlayerLook']);
@@ -644,6 +650,7 @@ class LibraryModel extends ChangeNotifier {
         'videoSkipForwardSeconds': videoSkipForwardSeconds,
         'defaultVideoSpeed': defaultVideoSpeed,
         'videoRewindOnResume': videoRewindOnResume,
+        'videoDirectDrawing': videoDirectDrawing,
         'videoPictureShape': videoPictureShape.name,
         'collectionPictureShape': collectionPictureShape.name,
         'videoPlayerLook': videoPlayerLook.toJson(),
@@ -985,9 +992,11 @@ class LibraryModel extends ChangeNotifier {
     int? skipForwardSeconds,
     double? defaultSpeed,
     bool? rewindOnResume,
+    bool? directDrawing,
     PictureShape? videoShape,
     PictureShape? collectionShape,
   }) async {
+    videoDirectDrawing = directDrawing ?? videoDirectDrawing;
     videoSkipBackSeconds = skipBackSeconds ?? videoSkipBackSeconds;
     videoSkipForwardSeconds = skipForwardSeconds ?? videoSkipForwardSeconds;
     defaultVideoSpeed = defaultSpeed ?? defaultVideoSpeed;

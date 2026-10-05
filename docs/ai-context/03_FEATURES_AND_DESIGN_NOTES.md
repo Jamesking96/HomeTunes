@@ -186,6 +186,113 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Music videos back to the usual drawing (5 Oct 2026, 0.1.58, branch `feature/music-video-drawing-fix`)
+- **What the third log showed (5 Oct, 0.1.57, the user's phone):**
+  - *Normal video* (1080p HEVC, now `mediacodec` + `mediacodec_embed`): **no pictures dropped**
+    in a minute (10 in 30 s before). "Paused to load 5 times" in the first 30 s: the user said
+    they skipped by a few seconds, and each skip pauses to load. Read ahead 136 s.
+  - *Music video* (same drawing): much worse: jumps with the video **18.7 s behind**, then
+    13.3 s behind and 4.5–55.5 s ahead. This player has no sound (`aid=no`); with no sound to
+    keep time by, drawing straight from the chip let the video freeze and then race ahead.
+    Skipping the song a few seconds can't explain drifts that size. The learnt lead
+    (`learnSeekLead`) also learnt from those wild landings.
+- **Fix:** music videos always use media_kit's own drawing (`musicVideoDrawing` in
+  `video_drawing.dart`; in 0.1.56 it only dropped 1 picture a minute); the Settings switch now
+  only affects the Videos tab's player. `learnSeekLead` ignores landings more than
+  `videoSyncTolerance` (2 s) out, and the lead is at most 2 s (`maxSeekLead`, was 4 s).
+- **Log:** skips are noted ("you skipped or moved it n times", `VideoStats.moved`, from the
+  video page's position stream: a jump over 1.5 s between readings, not in the 2.5 s after
+  opening), so pauses to load after a skip aren't mistaken for stutter.
+- **Tests:** `test/music_video_test.dart` (far-off landings teach nothing, 2 s cap),
+  `test/video_stats_test.dart` (skips, `musicVideoDrawing`).
+
+## Smoother video drawing on phones (5 Oct 2026, 0.1.57, branch `feature/smoother-video-drawing`)
+- **What the second log showed (5 Oct, 0.1.56, the user's phone):**
+  - *Music video* (1080p H.264 24 fps, `mediacodec-copy`, `gpu`): 1 picture dropped, but still
+    **4 jumps back into step in 30 s** and the app slow to draw 16 times. The likely cause: a
+    jump (a precise seek) decodes from the last keyframe, which can be seconds back in a music
+    video; the song plays on meanwhile, so the video lands behind, past the 1.5 s limit again,
+    and jumps again.
+  - *Normal video* (1080p HEVC 23.98 fps, `mediacodec-copy`, `gpu`): 10 pictures dropped, **all
+    by the screen** (decoder 0), read ahead 130 s. Decoding and file reading are fine, so
+    buffering wouldn't help; the loss is in the copy-then-redraw path. That 30 s also included
+    the app going to the background and back, which by itself drops pictures and redraws
+    everything.
+- **Music video fixes** (`music_video_view.dart`): catch-up by speed is quicker (up to 20 %,
+  aiming at ~2 s; was 10 % / 3 s); jumps only past 2 s (`videoSyncTolerance`, was 1.5 s); each
+  jump aims ahead of the song by a learnt lead (`learnSeekLead`: after a jump, the first check
+  adds however far the video still is behind; overshooting shrinks it; 0–4 s, `maxSeekLead`;
+  kept for the next songs).
+- **Drawing straight from the video chip on the phone** (`services/video_drawing.dart`):
+  `VideoControllerConfiguration(vo: 'mediacodec_embed', hwdec: 'mediacodec')` on Android for
+  both the video page and music videos, instead of media_kit's `gpu` + `mediacodec-copy`. Lost:
+  the engine can't draw on top of the picture (the phone already draws text subtitles itself);
+  a format the chip can't decode may show black. **Settings › Videos › "Smoother video on
+  phones"** (`LibraryModel.videoDirectDrawing`, default on, `video-direct`) turns it off; it
+  applies the next time a video opens; greyed out off Android. Drawing at screen size isn't
+  possible on Android (media_kit's `setSize` throws there).
+- **Log additions** (`video_stats.dart`): the jumps' distances ("jumped back into step 4 times
+  (video behind by 1.8–2.6 s)", `jumpDetail`), the worst slow frame and whether building or
+  drawing made the slow frames slow ("app slow to draw 16 times (worst 85 ms, mostly drawing)",
+  `slowDetail`, Flutter's `buildDuration` / `rasterDuration`), and "the app was out of sight for
+  part of it" when it was hidden during those 30 s. The start line says "drawing: straight from
+  the video chip (mediacodec_embed)" (`describeDrawing`).
+- **Next:** the user's next log decides: if the app is still slow to draw while a video plays,
+  look at what redraws (media_kit's controls rebuild on each position tick even when hidden).
+- **Tests:** `test/music_video_test.dart` ("a jump aims ahead by what the last jumps lacked",
+  updated speeds), `test/video_stats_test.dart` (new line parts, "how videos are drawn"),
+  `test/settings_test.dart` (the new setting is on Settings › Videos).
+
+## Smoother music videos (5 Oct 2026, 0.1.56, branch `feature/smooth-music-video`)
+- **What the first log showed (5 Oct, the user's phone, Android, 9 cores):** a 1080p H.264
+  24 fps music video, decoded by the video chip with copying (`mediacodec-copy`, drawing `gpu`):
+  **no pictures dropped at all**, but "waited for the file" 3 times in 30 s and 6 times in
+  52 s. media_kit's buffering stream turns true whenever mpv's `core-idle` does, which includes
+  every seek; so those "waits" were HomeTunes' own jumps back into step (`videoSyncTolerance`
+  was 0.4 s, checked twice a second, 2 s pause after each jump). Each jump freezes the picture
+  for a moment: one every ~9 s on the phone, which was the stutter. Decoding was fine.
+- **Fix:** small drifts are caught up with speed: `videoSyncRate` plays the silent video up to
+  10 % faster (behind) or slower (ahead), aiming to close the gap in ~3 s, back to the song's
+  speed (`PlayerModel.speed`) once within 0.1 s (`videoInStep`); the rate is only changed when it
+  moves by 0.01 or more. Only drifts over 1.5 s (`videoSyncTolerance`, was 0.4 s) jump: after a
+  seek within the song, repeat-one, or coming back into sight. After a jump, checks wait until
+  the engine has finished settling (buffering, up to 3 s). A new file starts at the song's speed.
+- **Log changes:** "waited for the file" is now **"paused to load"** (it covers any pause to get
+  pictures ready); the pause after opening a file or after a jump isn't counted (2.5 s quiet);
+  the jumps are counted on their own, "jumped back into step n times" (`VideoStats.jumped`).
+- **Next, if the user's next log shows normal videos stuttering:** the plan's steps 2/3 (video
+  chip without copying, drawing at screen size), then buffering. No log of a normal video yet.
+- **Tests:** `test/music_video_test.dart` ("a small drift is caught up with speed, not a jump"),
+  `test/video_stats_test.dart`.
+
+## Video playback stats (5 Oct 2026, 0.1.55, branch `feature/video-stats`)
+- **Why:** the user said videos and music videos are sometimes laggy, more on the phone but on
+  the PC too, and asked about pre-buffering. Agreed plan (5 Oct): measure first, then, in order,
+  make the video chip work properly, draw at screen size, smooth the music video syncing,
+  pre-buffering / opening the next one early (mainly for network shares or servers), and fewer
+  redraws while a video plays. This version is step 1.
+- **What it logs** (`services/video_stats.dart`, in Settings › About › Playback log):
+  - `Device: android … , N processor cores` once per run;
+  - `Video started: <name> · 3840×2160 · HEVC 10-bit · 23.98 fps · decoding: … · drawing: gpu`
+    about 3 s after a file opens (from mpv `video-params/w|h`, `video-format`,
+    `video-params/pixelformat`, `container-fps`, `hwdec-current`, `current-vo`). Decoding in
+    plain words: "software (main processor)", "video chip (…)" or "video chip, copied before
+    drawing (…-copy)";
+  - every 30 s while playing, **only if something went wrong**: `Video stutter in the last 30 s:
+    N pictures dropped (decoder a, screen b) · waited for the file n times · app slow to draw n
+    times · read ahead x s` (`decoder-frame-drop-count`, `frame-drop-count`, the player's
+    buffering stream, Flutter frame timings over 34 ms, `demuxer-cache-duration`);
+  - `Video finished: <name> · played m:ss · smooth` (or what went wrong) when it closes or the
+    next file starts.
+  The same for music videos ("Music video …"). Sampling every 5 s, only while playing; nothing
+  under `flutter test`.
+- **Known from reading the engine's code (5 Oct):** on Android media_kit_video 2.0.1 defaults
+  to `vo=gpu` with `hwdec=auto-safe` (software in an emulator); on Windows `vo=libmpv`,
+  `hwdec=auto`. HomeTunes didn't change either. `VideoController.setSize` can draw at a smaller
+  size (step 3). Music videos are moved back into step whenever they drift more than 400 ms
+  (`videoSyncTolerance`), each move a seek (step 4).
+- **Tests:** `test/video_stats_test.dart`.
+
 ## One song's album edit no longer renames the album (3 Oct 2026, 0.1.54, released as v0.1.54)
 - **What the user reported:** "when 1 song has it's album edited it renames the whole album rather
   than just updates that song."
