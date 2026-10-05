@@ -221,6 +221,9 @@ folds it down to icons and opens it again.
 - **Fix wrong details:** use **Edit details**. Select several albums or books to edit them together.
   Your changes are kept by HomeTunes and don't touch the files, unless you choose to save
   them into the files in **Settings › Your edits**.
+  When you edit one song and change its album name or album artist, only that song moves; tick
+  **Also update the other songs on "…"** if you want to rename the whole album instead. A
+  changed year, genre or cover offers the same box, already ticked.
 - **Equaliser:** in **Settings › Playback** or the button on Now Playing. Pick a preset or make
   your own. Audiobooks can use their own preset automatically.
 - **Sleep timer:** the moon button next to the play controls stops playback after a set time or at the end of the chapter or song.
