@@ -19,6 +19,10 @@ Read the files in this order:
 ## Status (5 Oct 2026)
 
 - **Released:** the latest release is
+  [v0.1.62](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.62) (5 Oct), which
+  covers 0.1.59–0.1.62 in one release: Enlarge on the video picture and Leave full screen in
+  full screen, full-screen music videos with a normal video's controls, an "Always on top" pin
+  on the PC, and a volume boost (every volume slider can go up to 500 %). Before it,
   [v0.1.58](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.58) (5 Oct), which
   covers 0.1.55–0.1.58 in one release: video playback stats in the Playback log, smoother music
   video syncing, and videos on phones drawn straight from the video chip (music videos keep the
@@ -48,7 +52,7 @@ Read the files in this order:
   `HomeTunes-audio-engine-source.zip` from `tool/engine_source.ps1`) are explained in `04_…`
   (Music videos, "Done 1 Oct"). See `03_…` → Licence, which includes the rule about GPL
   libraries.
-- **Checks:** 550 tests passed on 0.1.58 (5 Oct), and `flutter analyze` is clean.
+- **Checks:** 561 tests passed on 0.1.62 (5 Oct), and `flutter analyze` is clean.
 - **Devices:** the phone had 0.1.58 on 5 Oct (the user tested the video builds on it). Installed Windows copies update
   themselves from GitHub releases, so the PC's copy may be newer.
 - **Publishing:** every release goes out with `tool/publish_release.ps1 -NotesFile …` (see `02_…`
@@ -91,11 +95,15 @@ Read the files in this order:
     music videos kept in step by speed instead of jumps, videos on phones drawn straight from
     the video chip (Settings › Videos › Smoother video on phones), music videos on the usual
     drawing. The user's logs showed no dropped pictures afterwards
+  - 0.1.59–0.1.62 (released together as v0.1.62): Enlarge on the video picture, Leave full
+    screen in full screen, full-screen music videos with a normal video's controls, the
+    "Always on top" pin (PC), and the volume boost (Settings › Playback sets how far every
+    volume slider goes, up to 500 %)
 - **Code comments:** every source file has a header comment saying what it does and why. Keep
   that up for new files.
 - **These notes** are also in the repo under `docs/ai-context/`, kept the same as the project
   copy. Update them when things change.
-- **On `main`, not released yet (5 Oct):** 0.1.59–0.1.62, merged and pushed after the user tried them: Enlarge on the video picture and Leave full screen in full screen, full-screen music videos with a normal video's controls, an "Always on top" pin on the PC, and a volume boost (Settings › Playback sets how far every volume slider goes, up to 500 %). The open phases are D (offline server songs, after the server
+- **Next:** nothing agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user.
 
 ## Rules the user cares about (follow these)

@@ -186,7 +186,7 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
-## Volume boost through the volume sliders (5 Oct 2026, 0.1.62, branch `feature/volume-boost`)
+## Volume boost through the volume sliders (5 Oct 2026, 0.1.62, released in v0.1.62)
 - **The user asked (5 Oct, after 0.1.61):** with the boost on, the Settings slider should only
   say how far the volume can go, and the normal volume sliders should run up to that.
 - **Now:** `LibraryModel.maxVolume` = 100, or the boost's percentage while it's on
@@ -207,7 +207,7 @@ before changing that area.
 - **Tests:** `test/volume_boost_test.dart` (the slider top, the volume maths both ways, steps,
   the Settings page, the wheel past 100).
 
-## Volume boost (5 Oct 2026, 0.1.61, branch `feature/volume-boost`, reworked in 0.1.62)
+## Volume boost (5 Oct 2026, 0.1.61, reworked in 0.1.62, released in v0.1.62)
 - **The user asked (5 Oct):** a volume boost like VLC's (up to 500 %) in Settings: a switch and
   a scale for how much, off and 100 % by default.
 - **Settings › Playback › Volume boost** (`volume-boost`): a switch and a slider, 100–500 % in
@@ -231,7 +231,7 @@ before changing that area.
   listen on the PC and the phone.
 - **Tests:** `test/volume_boost_test.dart`.
 
-## Always on top (5 Oct 2026, 0.1.60, branch `feature/always-on-top`)
+## Always on top (5 Oct 2026, 0.1.60, released in v0.1.62)
 - **The user asked (5 Oct):** an "Always on top" toggle that's always there and easy to click on
   and off, shown in whatever way suits each page.
 - **What it does:** keeps the PC window above other windows. Only a computer window can, so the
@@ -253,7 +253,7 @@ before changing that area.
     screen) and on music videos (`round: true`).
 - **Tests:** `test/always_on_top_test.dart` (on / off, remembered, round, none on a phone).
 
-## Video buttons on the picture (5 Oct 2026, 0.1.59, branch `feature/video-buttons`)
+## Video buttons on the picture (5 Oct 2026, 0.1.59, released in v0.1.62)
 - **The user asked (5 Oct):** Enlarge and Full screen on the video itself, like Shrink and the
   full-screen button when enlarged, without removing the buttons below the video; the same on
   the phone; and a full-screen music video should have the same controls as a normal video
