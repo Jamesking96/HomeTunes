@@ -186,6 +186,98 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Volume boost through the volume sliders (5 Oct 2026, 0.1.62, branch `feature/volume-boost`)
+- **The user asked (5 Oct, after 0.1.61):** with the boost on, the Settings slider should only
+  say how far the volume can go, and the normal volume sliders should run up to that.
+- **Now:** `LibraryModel.maxVolume` = 100, or the boost's percentage while it's on
+  (`maxVolumeFor`). Every volume slider runs 0 → `maxVolume`: the player bar / Now Playing /
+  phone pop-up (`VolumeControl`, `VolumeButton`; the wheel and touchpad too,
+  `afterWheel(max:)`), the video bottom bar (`_VideoVolume`, `NowWatching.maxVolume` via the
+  `VolumeTop` interface on `MediaKitTransport`), and the video player's own bar, where media_kit's
+  volume button (fixed at 100) is replaced by `_VideoBarVolume`; ↑ ↓ and the wheel over a video
+  step 5 on the same scale (`stepEngineVolume`).
+- **Sound:** up to 100 the engine gets the slider value as before (nothing changes for normal
+  listening). Above 100 it gets 100 × ∛(value / 100) (`engineVolume`; mpv's volume is cubic),
+  so 500 % is 5 × as loud; `volume-max` is raised to 200 on both players. The video player keeps
+  its volume in the engine, so its sliders read it back with `sliderVolume`. The 0.1.61 fixed
+  boost (cube-root multiplier for music, `replaygain-fallback` dB for videos) is gone.
+- **Turning the boost off or lowering its top** brings a louder volume down to it
+  (`PlayerModel._applyEngineSettings`, the video page's `_followVolumeTop`).
+- **Settings text:** "Every volume slider now goes up to N%. Past 100% is louder than normal."
+- **Tests:** `test/volume_boost_test.dart` (the slider top, the volume maths both ways, steps,
+  the Settings page, the wheel past 100).
+
+## Volume boost (5 Oct 2026, 0.1.61, branch `feature/volume-boost`, reworked in 0.1.62)
+- **The user asked (5 Oct):** a volume boost like VLC's (up to 500 %) in Settings: a switch and
+  a scale for how much, off and 100 % by default.
+- **Settings › Playback › Volume boost** (`volume-boost`): a switch and a slider, 100–500 % in
+  25 % steps (the slider only moves while it's on), with a note that very high boosts can
+  crackle. `LibraryModel.volumeBoost` / `volumeBoostPercent` (settings.json, clamped),
+  `setVolumeBoost`. Applies to music, audiobooks and videos, straight away.
+- **How** (`models/volume_boost.dart`): 500 % = 5 × the sound level (+14 dB). The engine is
+  mpv 0.36 (no `volume-gain`), and a volume filter in the lavfi graph stalled playback before,
+  so:
+  - music / books (`PlayerModel`): mpv's volume, which is cubic, is multiplied by the cube root
+    of the boost (`boostVolumeScale`; 500 % → ×1.71), and `volume-max` is raised to 200
+    (`engineVolumeMax`) the first time engine settings are applied (mpv stops at 130
+    otherwise). `_sendVolume` sends volume × equaliser level × boost; `_applyEngineSettings`
+    resends when the boost changes (`_appliedBoost`).
+  - videos (video page): media_kit's controls set that player's volume directly, so the boost
+    goes into `replaygain-fallback` in dB (`boostDb`) with the videos' equaliser level; the page
+    now listens to LibraryModel for changes. (mpv applies the fallback gain without its
+    clipping guard.)
+  - music videos are muted, so nothing changes there.
+- **Not heard yet:** tests check the maths, the setting and the Settings page; the user should
+  listen on the PC and the phone.
+- **Tests:** `test/volume_boost_test.dart`.
+
+## Always on top (5 Oct 2026, 0.1.60, branch `feature/always-on-top`)
+- **The user asked (5 Oct):** an "Always on top" toggle that's always there and easy to click on
+  and off, shown in whatever way suits each page.
+- **What it does:** keeps the PC window above other windows. Only a computer window can, so the
+  button only shows on Windows (`WindowPin.available`; tests set `WindowPin.debugAvailable`).
+  Remembered (`LibraryModel.alwaysOnTop`, settings.json, `setAlwaysOnTop`) and put back at
+  start-up (`load()` calls `WindowPin.set`).
+- **How:** `windows/runner/flutter_window.cpp` has a "hometunes/window" method channel;
+  `setAlwaysOnTop(bool)` calls `SetWindowPos(HWND_TOPMOST / HWND_NOTOPMOST, no move / size /
+  focus)` on the app's window (`services/window_pin.dart` calls it). media_kit's full screen
+  moves the window with `HWND_TOP`, which keeps a topmost window topmost, so they don't clash.
+- **Where the pin is** (`widgets/always_on_top_button.dart`, `always-on-top`; outline pin = off,
+  filled accent pin = on, tooltips "Keep HomeTunes on top of other windows" / "Always on top is
+  on (click to turn it off)"):
+  - the right end of the player bar along the bottom (`_PlayerBarWithPin` in `shell.dart`), for
+    music and videos, under every tab and page; in a narrow window, beside the tab bar
+    (`Shell._withPin`);
+  - Now Playing's top bar and the Details pages' app bars (they cover the player bar);
+  - full screen: a round pin top-right on videos (media_kit's top row, opposite Leave full
+    screen) and on music videos (`round: true`).
+- **Tests:** `test/always_on_top_test.dart` (on / off, remembered, round, none on a phone).
+
+## Video buttons on the picture (5 Oct 2026, 0.1.59, branch `feature/video-buttons`)
+- **The user asked (5 Oct):** Enlarge and Full screen on the video itself, like Shrink and the
+  full-screen button when enlarged, without removing the buttons below the video; the same on
+  the phone; and a full-screen music video should have the same controls as a normal video
+  (the user picked "like a normal video": progress bar, skips, volume, over just the round
+  buttons).
+- **Video page** (`video_player_screen.dart`): in the normal layout the picture has a round
+  **Enlarge** `_OverlayButton` top-left (`video-overlay-enlarge`), always shown like the enlarged
+  view's Shrink. A round Full screen top-right was tried and taken off (build +60, the user's
+  choice): the player's own Full screen button is already in the bottom corner. The enlarged
+  view's top-right Full screen went for the same reason. In full screen, media_kit's `topButtonBar` (new `top:` parameter
+  of `desktopControlsTheme` / `phoneControlsTheme`, only for the `fullscreen:` theme) has a
+  round **Leave full screen** (`video-leave-fullscreen`) that shows and hides with the controls.
+  Same code on PC and phone.
+- **Music video full screen** (`music_video_view.dart`, `_FullScreenBar`): title and artist, the
+  song's `SeekBar` (compact, white times via the new `timeColor`), skip back / forward by
+  Settings › Videos' amounts (`PlayerModel.skipBy`; white `SkipIcon`s via its new `color`),
+  previous / play-pause / next, `VolumeControl` when the bar is 640 px or wider (phones use their
+  volume buttons), and Leave full screen; the controls shrink to fit narrow screens. ← → skip
+  too. A touch or drag on the buttons keeps them up (a `Listener`), so dragging the progress bar
+  on a phone doesn't hide them.
+- **Tests:** the video page and music video need the real engine, so `test/video_buttons_test.dart`
+  checks the pieces (the top button row only in full screen, white skip icons). Try on the PC and
+  the phone.
+
 ## Music videos back to the usual drawing (5 Oct 2026, 0.1.58, released in v0.1.58)
 - **What the third log showed (5 Oct, 0.1.57, the user's phone):**
   - *Normal video* (1080p HEVC, now `mediacodec` + `mediacodec_embed`): **no pictures dropped**

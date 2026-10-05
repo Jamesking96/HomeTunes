@@ -232,14 +232,30 @@ folds it down to icons and opens it again.
   to the volume you had. The slider is in the player bar on a PC, under the play controls on Now Playing (with the
   cover or the lyrics showing), and the speaker button in the phone's mini player, which opens a
   small slider.
+- **Volume boost:** if something's too quiet even at full volume, turn on **Settings › Playback ›
+  Volume boost** and choose how far the volume can go, up to 500% (five times as loud), like
+  VLC. Every volume slider (music, audiobooks and videos) then goes past 100% up to that; past
+  100% is louder than normal. It's off (100%) to start with; very high volumes can make loud
+  parts crackle, so turn it down if they do.
+- **Always on top (PC):** click the pin button to keep HomeTunes in front of your other windows,
+  handy for a video in a corner while you work. Click it again to turn it off. It's at the right
+  end of the player bar along the bottom (beside the tabs in a narrow window), at the top of Now
+  Playing and the Details pages, and in the top corner of a full-screen video or music video. A
+  filled pin means it's on, and HomeTunes remembers it next time.
 - **Videos:** the **Videos** tab has **Collections**, **All videos** and **Favourites**. Tap a
   collection to see its seasons underneath, or right-click it (press and hold on a phone) for
   **Open collection page**, **Edit collection…**, **Change poster…** and more. A video carries on
   where you stopped, and the next episode starts after a short countdown.
   - **Watching:** the player has skip buttons, **previous / next video**, speed, and a subtitles
-    button for choosing audio and subtitle tracks (remembered for each collection). Below the
-    video are **Enlarge**, **Full screen** and more. On a PC, Space, the arrow keys, F and Esc work,
-    and the mouse wheel over any progress bar skips 5 seconds.
+    button for choosing audio and subtitle tracks (remembered for each collection). A round
+    **Enlarge** button sits in the top corner of the picture (**Shrink** once it's enlarged, and
+    **Leave full screen** in full screen); **Full screen** is in the bottom corner with the other
+    controls. The same buttons are below the video too, with more. On a PC, Space, the arrow keys, F and Esc work, and the mouse wheel over
+    any progress bar skips 5 seconds.
+  - **Music videos in full screen** show the song's title, a progress bar, skip back / forward,
+    previous / play / next, the volume (on a big screen) and **Leave full screen**, like a normal
+    video. Tap or move the mouse to bring them back. On a PC, Space plays or pauses, the arrow
+    keys skip, and Esc or F leaves.
   - **While a video plays** the bottom bar shows it; tap its title to go back to it. Your media
     keys and the phone notification control it. Starting a video pauses your music, and starting
     music pauses the video.

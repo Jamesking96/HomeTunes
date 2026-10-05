@@ -28,7 +28,10 @@ import 'wheel_seek.dart';
 class SeekBar extends StatefulWidget {
   /// Small version with the times either side of the bar (desktop player bar).
   final bool compact;
-  const SeekBar({super.key, this.compact = false});
+
+  /// The times' colour (0.1.59: white over a full-screen music video); the usual dim text if null.
+  final Color? timeColor;
+  const SeekBar({super.key, this.compact = false, this.timeColor});
 
   @override
   State<SeekBar> createState() => _SeekBarState();
@@ -63,7 +66,7 @@ class _SeekBarState extends State<SeekBar> {
         // and disable dragging.
         final value = (_dragValue ?? pos.inMilliseconds.toDouble()).clamp(0.0, maxMs <= 0 ? 1.0 : maxMs);
         final shown = Duration(milliseconds: value.round());
-        final times = TextStyle(color: AppColors.textDim, fontSize: widget.compact ? 11 : 12);
+        final times = TextStyle(color: widget.timeColor ?? AppColors.textDim, fontSize: widget.compact ? 11 : 12);
 
         final slider = Slider(
           value: value,
@@ -474,30 +477,34 @@ class VolumeControl extends StatelessWidget {
   static IconData iconFor(double volume) =>
       volume <= 0 ? Icons.volume_off : (volume < 50 ? Icons.volume_down : Icons.volume_up);
 
-  /// The volume after one wheel notch: scrolling down ([dy] > 0) turns it down.
-  static double afterWheel(double volume, double dy) {
+  /// The volume after one wheel notch: scrolling down ([dy] > 0) turns it down. [max] is the
+  /// top of the slider (0.1.62: the volume boost's, else 100).
+  static double afterWheel(double volume, double dy, {double max = 100}) {
     if (dy == 0) return volume;
-    return (volume + (dy > 0 ? -wheelStep : wheelStep)).clamp(0.0, 100.0);
+    return (volume + (dy > 0 ? -wheelStep : wheelStep)).clamp(0.0, max);
   }
 
   @override
   Widget build(BuildContext context) {
     final p = context.watch<PlayerModel>();
-    final volume = p.volume.clamp(0.0, 100.0);
+    // 0 to 100, or up to the volume boost's top (Settings › Playback, 0.1.62): above 100 is
+    // louder than normal.
+    final max = context.select<LibraryModel?, double>((l) => l?.maxVolume ?? 100);
+    final volume = p.volume.clamp(0.0, max);
     return Listener(
       onPointerSignal: (event) {
         if (event is PointerScrollEvent) {
           // Claim the scroll so nothing behind the bar scrolls as well.
           GestureBinding.instance.pointerSignalResolver.register(event, (e) {
             final player = context.read<PlayerModel>();
-            player.setVolume(afterWheel(player.volume, (e as PointerScrollEvent).scrollDelta.dy));
+            player.setVolume(afterWheel(player.volume, (e as PointerScrollEvent).scrollDelta.dy, max: max));
           });
         }
       },
       onPointerPanZoomUpdate: (event) {
         // Touchpad two-finger swipe: move smoothly with the fingers (up = louder).
         final player = context.read<PlayerModel>();
-        player.setVolume((player.volume - event.panDelta.dy * 0.25).clamp(0.0, 100.0));
+        player.setVolume((player.volume - event.panDelta.dy * 0.25).clamp(0.0, max));
       },
       child: Tooltip(
         message: 'Volume ${volume.round()}% – scroll to change',
@@ -514,11 +521,11 @@ class VolumeControl extends StatelessWidget {
             onPressed: () => context.read<PlayerModel>().toggleMute(),
           ),
           if (sliderWidth == null)
-            Expanded(child: Slider(value: volume, max: 100, onChanged: p.setVolume))
+            Expanded(child: Slider(key: const ValueKey('volume-slider'), value: volume, max: max, onChanged: p.setVolume))
           else
             SizedBox(
               width: sliderWidth,
-              child: Slider(value: volume, max: 100, onChanged: p.setVolume),
+              child: Slider(key: const ValueKey('volume-slider'), value: volume, max: max, onChanged: p.setVolume),
             ),
         ]),
       ),
@@ -533,7 +540,8 @@ class VolumeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final volume = context.select<PlayerModel, double>((p) => p.volume.clamp(0.0, 100.0));
+    // (Above 100 with the volume boost, 0.1.62.)
+    final volume = context.select<PlayerModel, double>((p) => p.volume < 0 ? 0.0 : p.volume);
     return MenuAnchor(
       style: MenuStyle(
         backgroundColor: WidgetStatePropertyAll(AppColors.surfaceHigh),

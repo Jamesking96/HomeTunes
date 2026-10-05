@@ -12,6 +12,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../models/video_player_look.dart';
+import '../../models/volume_boost.dart';
 import 'wheel_seek.dart';
 
 /// Puts the chosen backing behind one control of the video player's bar.
@@ -95,10 +96,13 @@ MaterialDesktopVideoControlsThemeData desktopControlsTheme(
   Color accent, {
   required List<Widget> bar,
   Map<ShortcutActivator, VoidCallback>? keys,
+  List<Widget> top = const [],
 }) {
   final buttons = look.buttons(accent), seek = look.seek(accent), track = look.seekTrack(accent);
   return MaterialDesktopVideoControlsThemeData(
     bottomButtonBar: backedBar(bar, look, accent),
+    // 0.1.59: buttons along the top (full screen: a round "Leave full screen" button).
+    topButtonBar: top,
     keyboardShortcuts: keys,
     buttonBarHeight: videoButtonBarHeight(look),
     // The page's own wheel handling does volume, and skipping over the progress bar (30 Sep).
@@ -124,11 +128,14 @@ MaterialVideoControlsThemeData phoneControlsTheme(
   required List<Widget> bar,
   required Duration skipBack,
   required Duration skipForward,
+  List<Widget> top = const [],
 }) {
   final buttons = look.buttons(accent), seek = look.seek(accent), track = look.seekTrack(accent);
   final shade = isLightColour(buttons) ? Colors.black : Colors.white;
   return MaterialVideoControlsThemeData(
     bottomButtonBar: backedBar(bar, look, accent),
+    // 0.1.59: buttons along the top (full screen: a round "Leave full screen" button).
+    topButtonBar: top,
     seekOnDoubleTap: true,
     seekOnDoubleTapBackwardDuration: skipBack,
     seekOnDoubleTapForwardDuration: skipForward,
@@ -146,11 +153,14 @@ MaterialVideoControlsThemeData phoneControlsTheme(
 /// forward); anywhere else it turns the volume up or down by 5, as media_kit's own did. Wraps the
 /// controls (so it's in full screen too); scroll events only, clicks and hovering pass through.
 class VideoWheel extends StatefulWidget {
-  const VideoWheel({super.key, required this.player, required this.look, required this.child});
+  const VideoWheel({super.key, required this.player, required this.look, required this.child, this.maxVolume});
 
   final Player player;
   final VideoPlayerLook look;
   final Widget child;
+
+  /// The top of the volume (0.1.62: the volume boost's, else 100).
+  final double Function()? maxVolume;
 
   @override
   State<VideoWheel> createState() => _VideoWheelState();
@@ -171,7 +181,7 @@ class _VideoWheelState extends State<VideoWheel> {
     final p = widget.player;
     if (dy == 0) return;
     if (!onBar) {
-      p.setVolume((p.state.volume + (dy > 0 ? -5.0 : 5.0)).clamp(0.0, 100.0));
+      p.setVolume(stepEngineVolume(p.state.volume, dy > 0 ? -5.0 : 5.0, widget.maxVolume?.call() ?? 100));
       return;
     }
     final now = DateTime.now();
