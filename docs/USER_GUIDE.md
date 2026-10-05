@@ -165,6 +165,12 @@ audiobooks**, **Favourite videos** and your playlists underneath. Drag the sideb
 edge to make it wider or narrower; the **☰** button at its top (or a double-click on the edge)
 folds it down to icons and opens it again.
 
+**Quick links:** you can add your own shortcuts to the sidebar, under the favourites. Click the
+bookmark button at the top of an album, artist, audiobook or video collection, or right-click
+an album, audiobook, collection or video and choose **Add to sidebar**. To take one off,
+right-click it in the sidebar and choose **Remove from sidebar** (or click the bookmark button
+again). Quick links only show on a computer, where there's a sidebar.
+
 - **Home:** **Jump back in** at the top shows what you were last doing, newest first: videos and
   audiobooks you're part-way through, and the albums, playlists and artists you last played. The
   round play button on each carries on (or plays it again); tap the card itself to open it. Below

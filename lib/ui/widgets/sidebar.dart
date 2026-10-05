@@ -4,7 +4,9 @@
 // * Drag its right edge to make it wider or narrower (180–420 px; remembered in settings.json).
 // * Drag it narrower than that, click the fold button at the top, or double-click the edge, and it
 //   folds down to a strip of icons (with tooltips); the same button or a drag opens it again.
-// * Under the tabs: Liked Songs, Favourite audiobooks and Favourite videos, then the playlists.
+// * Under the tabs: Liked Songs, Favourite audiobooks and Favourite videos, then the quick links
+//   (things added with "Add to sidebar"; right-click or long-press one to remove it), then the
+//   playlists.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -12,6 +14,7 @@ import '../../state/library_model.dart';
 import '../../state/playlists_model.dart';
 import '../nav.dart';
 import '../theme.dart';
+import 'quick_links.dart';
 
 class Sidebar extends StatefulWidget {
   const Sidebar({super.key});
@@ -103,6 +106,7 @@ class _SidebarContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final nav = context.watch<AppNav>();
     final pl = context.watch<PlaylistsModel>();
+    final links = context.watch<LibraryModel>().quickLinks;
     final accent = Theme.of(context).colorScheme.primary;
 
     // One entry: a list row when open, an icon with a tooltip when folded.
@@ -213,9 +217,32 @@ class _SidebarContent extends StatelessWidget {
         dense: true,
         onTap: () => nav.openView(AppNav.videosTab, AppNav.favouriteVideosView),
       ),
-      if (!iconsOnly)
-        Expanded(
-          child: ListView(children: [
+      // Quick links (0.1.64): albums, artists, audiobooks, collections and videos pinned with
+      // "Add to sidebar". They scroll with the playlists so a long list never pushes anything off.
+      Expanded(
+        child: ListView(children: [
+          for (final link in links)
+            _QuickLinkMenu(
+              link: link,
+              child: entry(
+                key: 'sidebar-link:${link.kindName}:${link.id}',
+                icon: quickLinkIcon(link.kind),
+                label: link.label,
+                dense: true,
+                onTap: () => openQuickLink(context, link),
+              ),
+            ),
+          if (links.isEmpty && !iconsOnly)
+            Padding(
+              key: const ValueKey('sidebar-links-hint'),
+              padding: const EdgeInsets.fromLTRB(16, 6, 12, 6),
+              child: Text(
+                'Use the bookmark button on an album, artist, audiobook or video collection to add it here.',
+                style: TextStyle(fontSize: 12, color: AppColors.textDim),
+              ),
+            ),
+          if (!iconsOnly && pl.playlists.isNotEmpty) const Divider(height: 16),
+          if (!iconsOnly)
             for (final p in pl.playlists)
               ListTile(
                 dense: true,
@@ -225,8 +252,43 @@ class _SidebarContent extends StatelessWidget {
                   nav.openPlaylist(p);
                 },
               ),
-          ]),
-        ),
+        ]),
+      ),
     ]);
   }
+}
+
+/// Right-click (or long-press) on a quick link in the sidebar: a small menu to take it off.
+class _QuickLinkMenu extends StatelessWidget {
+  const _QuickLinkMenu({required this.link, required this.child});
+  final QuickLink link;
+  final Widget child;
+
+  Future<void> _menu(BuildContext context, Offset at) async {
+    final lib = context.read<LibraryModel>();
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final choice = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
+      items: [
+        PopupMenuItem(
+          key: const ValueKey('sidebar-link-remove'),
+          value: 'remove',
+          child: Row(children: [
+            Icon(quickLinkMenuIcon(true), size: 20),
+            const SizedBox(width: 12),
+            Flexible(child: Text(quickLinkMenuText(true))),
+          ]),
+        ),
+      ],
+    );
+    if (choice == 'remove') await lib.removeQuickLink(link.kind, link.id);
+  }
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onSecondaryTapUp: (d) => _menu(context, d.globalPosition),
+        onLongPressStart: (d) => _menu(context, d.globalPosition),
+        child: child,
+      );
 }

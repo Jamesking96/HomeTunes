@@ -186,6 +186,31 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Quick links in the sidebar (6 Oct 2026, 0.1.64, branch `feature/sidebar-quick-links`)
+- **The user asked (6 Oct):** add and remove more "quick links" in the computer's sidebar, below
+  Liked Songs and the favourites.
+- **What can be a link:** an album, artist, audiobook, video collection or video
+  (`models/quick_link.dart`: `QuickLink(kind, id, label)`; the id is an album's key, an
+  artist's or collection's name, a book's or video's id; the label is the name when it was
+  added). Kept in settings.json as `quickLinks`, in the order added (`LibraryModel.quickLinks`,
+  `addQuickLink`, `removeQuickLink`, `toggleQuickLink`, `isQuickLink`). Damaged entries are
+  skipped when loading.
+- **Adding / removing:** a bookmark button (`QuickLinkButton`, "Add to sidebar" / "In the
+  sidebar") at the top of an album's, artist's, audiobook's and collection's page; "Add to
+  sidebar" / "Remove from sidebar" in the right-click / long-press menus of albums, audiobooks
+  (`quick_actions.dart`, one item selected), collections and videos (`videos_screen.dart`); and a
+  right-click (or long-press) on the link in the sidebar ("Remove from sidebar").
+- **In the sidebar** (`widgets/sidebar.dart`): straight under Favourite videos, each with its
+  kind's icon; in a scrolling list with the playlists under them (a divider between), so a long
+  list never pushes anything off. Folded to icons, they're icons with the name as the tooltip.
+  With none, a dim line says how to add one. A click opens it (`openQuickLink`); something no
+  longer in the library says so, with a **Remove link** button.
+- **Phone:** there's no sidebar on a phone, so the links only show in the computer layout. The
+  buttons and menu items are still there on a phone (and a wide tablet gets the sidebar).
+  settings.json is per device, so links are per device. Open question for the user: hide the
+  buttons on a phone, or show the links there too (e.g. on Home)?
+- **Tests:** `test/quick_links_test.dart`.
+
 ## Sleep timer for videos (6 Oct 2026, 0.1.63, branch `feature/video-sleep-timer`)
 - **The user asked (6 Oct):** the sleep timer in the normal video player.
 - **How:** `state/video_sleep_timer.dart`, `VideoSleepTimer` (a ChangeNotifier provided in

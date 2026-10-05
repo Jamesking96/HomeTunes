@@ -57,7 +57,7 @@ while commenting".
 | Volume boost: up to 500 % like VLC, Settings › Playback (0.1.61) | Merged into `main` and pushed 5 Oct (reworked by 0.1.62); released in v0.1.62 (5 Oct). See `03_…` → Volume boost |
 | Volume boost through the volume sliders: the setting is the sliders' top, up to 500 % (0.1.62) | Merged into `main` and pushed 5 Oct; released as v0.1.62 (5 Oct), covering 0.1.59–0.1.62. See `03_…` → Volume boost through the volume sliders |
 | Sleep timer for videos (0.1.63) | Built 6 Oct on `feature/video-sleep-timer`, not merged yet. See `03_…` → Sleep timer for videos |
-| Quick links in the sidebar (0.1.64) | Next, on its own branch |
+| Quick links in the sidebar (0.1.64) | Built 6 Oct on `feature/sidebar-quick-links` (branched from the video sleep timer, so it holds 0.1.63 too), not merged yet. See `03_`, Quick links in the sidebar |
 | L: Linux build, incl. Steam Deck (0.1.65) | Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (0.1.66) | After L |
 | T: Android TV (0.1.67) | After A |
