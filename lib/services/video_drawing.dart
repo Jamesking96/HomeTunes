@@ -16,7 +16,12 @@ import 'dart:io';
 
 import 'package:media_kit_video/media_kit_video.dart';
 
-/// The video controller setup for this device. [android] is for tests.
+/// Music videos (a second player with no sound) always use media_kit's own setup (0.1.58): with
+/// no sound to keep time by, drawing straight from the chip let the video freeze and then race
+/// far ahead of the song.
+const musicVideoDrawing = VideoControllerConfiguration();
+
+/// The video controller setup for this device (the Videos tab's player). [android] is for tests.
 VideoControllerConfiguration videoDrawing({required bool direct, bool? android}) {
   if ((android ?? Platform.isAndroid) && direct) {
     return const VideoControllerConfiguration(vo: 'mediacodec_embed', hwdec: 'mediacodec');

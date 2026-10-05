@@ -13,7 +13,8 @@
 //    catch-up is quicker (up to 20 %), jumps only past 2 s, and a jump aims a little ahead of
 //    the song by however long the last jumps took to land ([learnSeekLead]), because on the
 //    phone a jump landed behind and soon needed another (still 4 jumps in 30 s in 0.1.56);
-//  * on a phone the picture is drawn straight from the video chip (services/video_drawing.dart);
+//  * the picture is drawn media_kit's usual way, never straight from the video chip (0.1.58,
+//    see [musicVideoDrawing]);
 //  * a new song with a video reuses the same player; the page shows the cover for songs without.
 // Until the first picture arrives (or if the file can't be shown) the [fallback] (the cover) is
 // shown instead, so there's never an empty black box.
@@ -31,7 +32,6 @@ import 'package:provider/provider.dart';
 
 import '../../services/video_drawing.dart';
 import '../../services/video_stats.dart';
-import '../../state/library_model.dart';
 import '../../state/player_model.dart';
 import '../theme.dart';
 
@@ -39,8 +39,9 @@ import '../theme.dart';
 /// smaller drifts are now caught up with [videoSyncRate]. 0.1.57: 2 s, was 1.5 s).
 const videoSyncTolerance = Duration(milliseconds: 2000);
 
-/// The most a jump aims ahead of the song to make up for the time the jump itself takes.
-const maxSeekLead = Duration(seconds: 4);
+/// The most a jump aims ahead of the song to make up for the time the jump itself takes
+/// (0.1.58: 2 s, was 4 s).
+const maxSeekLead = Duration(seconds: 2);
 
 /// Drift that's left alone: the two positions are only reported every so often, so smaller
 /// differences are mostly noise.
@@ -75,8 +76,12 @@ Duration? videoSeekTarget(
 /// meanwhile, so the video landed behind and soon had to jump again (the Playback log showed
 /// 4 jumps in 30 s). After each jump, however far the video still was behind the song ([song]
 /// minus [video] once it settled) is added to the lead; if it overshot, the lead shrinks.
+/// 0.1.58: a landing more than [videoSyncTolerance] out says the jump didn't work at all (the
+/// video was stuck, or the song moved meanwhile), not how long a jump takes, so it's ignored.
 Duration learnSeekLead(Duration lead, {required Duration song, required Duration video}) {
-  final next = lead + (song - video);
+  final miss = song - video;
+  if (miss.abs() > videoSyncTolerance) return lead;
+  final next = lead + miss;
   if (next.isNegative) return Duration.zero;
   return next > maxSeekLead ? maxSeekLead : next;
 }
@@ -117,10 +122,11 @@ class MusicVideoView extends StatefulWidget {
 class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObserver {
   // The video's own player: muted, no sound decoded, no subtitles.
   final Player _video = Player(configuration: const PlayerConfiguration(title: 'HomeTunes music video'));
-  // 0.1.57: on a phone, drawn straight from the video chip unless Settings › Videos says not.
-  late final VideoController _controller = VideoController(_video,
-      configuration: videoDrawing(
-          direct: Provider.of<LibraryModel?>(context, listen: false)?.videoDirectDrawing ?? true));
+  // Always media_kit's own drawing (0.1.58). 0.1.57 drew music videos straight from the video
+  // chip too, but this player has no sound, and without sound to keep time by that way of
+  // drawing let the video freeze and then race ahead (the Playback log showed it 18.7 s behind,
+  // then 55.5 s ahead). The usual way only dropped 1 picture a minute here anyway.
+  late final VideoController _controller = VideoController(_video, configuration: musicVideoDrawing);
   // Playback stats in the Playback log (0.1.55). Null in tests.
   late final VideoStats? _stats = VideoStats.forPlayer(_video, 'Music video');
   // Reaches the Video widget to go full screen.

@@ -89,7 +89,7 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('video-speed', SettingsPage.videos, 'Video speed', 'playback speed faster slower videos'),
   SettingInfo('video-rewind', SettingsPage.videos, 'Rewind a little when carrying on', 'resume videos'),
   SettingInfo('video-direct', SettingsPage.videos, 'Smoother video on phones',
-      'stutter lag laggy choppy smooth hardware video chip drawing black picture music videos'),
+      'stutter lag laggy choppy smooth hardware video chip drawing black picture videos'),
   SettingInfo('video-eq', SettingsPage.videos, 'Separate equaliser for videos', 'equalizer eq sound videos'),
   SettingInfo('video-folders', SettingsPage.videos, 'Video folders', 'add folder videos films movies location folder options rescan file types formats'),
   SettingInfo('video-nfo', SettingsPage.videos, 'Save edits into .nfo files', 'nfo kodi jellyfin plex details videos'),

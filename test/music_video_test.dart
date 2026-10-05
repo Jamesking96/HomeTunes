@@ -226,10 +226,16 @@ void main() {
           learnSeekLead(const Duration(seconds: 1),
               song: const Duration(seconds: 33), video: const Duration(milliseconds: 33500)),
           const Duration(milliseconds: 500));
-      // Never below nothing or over 4 s.
+      // Never below nothing or over 2 s (0.1.58).
       expect(learnSeekLead(Duration.zero, song: song, video: song + const Duration(seconds: 2)), Duration.zero);
-      expect(learnSeekLead(const Duration(seconds: 3), song: song, video: song - const Duration(seconds: 5)),
+      expect(
+          learnSeekLead(const Duration(milliseconds: 1500), song: song, video: song - const Duration(seconds: 1)),
           maxSeekLead);
+      // 0.1.58: a jump that landed far off (the video was stuck) teaches nothing.
+      expect(learnSeekLead(const Duration(seconds: 1), song: song, video: song - const Duration(seconds: 13)),
+          const Duration(seconds: 1));
+      expect(learnSeekLead(const Duration(seconds: 1), song: song, video: song + const Duration(seconds: 50)),
+          const Duration(seconds: 1));
     });
 
     // The stutter when the window wasn't focused: Windows calls that 'inactive', and the video

@@ -362,6 +362,7 @@ class _VideoPageState extends State<_VideoPage> {
       }),
       // Playing and moving on: it's showing (some files never report a first picture).
       _player.stream.position.listen((at) {
+        _stats?.moved(at); // 0.1.58: skips are noted in the Playback log
         if (_opening && at > Duration.zero && _player.state.playing) _shown();
       }),
       _player.stream.playing.listen((playing) {
