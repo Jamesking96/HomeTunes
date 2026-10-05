@@ -12,7 +12,7 @@ import 'package:hometunes/models/track.dart';
 import 'package:hometunes/models/track_edit.dart';
 import 'package:hometunes/services/local_scanner.dart';
 import 'package:hometunes/services/music_video.dart';
-import 'package:hometunes/ui/widgets/music_video_view.dart' show videoSeekTarget, videoSyncTolerance, videoVisible;
+import 'package:hometunes/ui/widgets/music_video_view.dart' show videoSeekTarget, videoSyncRate, videoSyncTolerance, videoVisible;
 import 'package:path/path.dart' as p;
 
 /// One MP4 box: 4-byte size, 4-letter type, then the body.
@@ -174,6 +174,22 @@ void main() {
   group('keeping the video in step', () {
     test('close enough: left alone', () {
       expect(videoSeekTarget(song: const Duration(seconds: 30), video: const Duration(milliseconds: 29800)), isNull);
+    });
+
+    // 0.1.56: on the phone the video jumped every few seconds (each jump freezes the picture for
+    // a moment). Small drifts are now caught up with a slightly different speed instead.
+    test('a small drift is caught up with speed, not a jump', () {
+      const song = Duration(seconds: 30);
+      expect(videoSeekTarget(song: song, video: song - const Duration(milliseconds: 800)), isNull);
+      // In step (within 0.1 s): the song's own speed.
+      expect(videoSyncRate(song: song, video: song + const Duration(milliseconds: 80)), 1.0);
+      expect(videoSyncRate(song: song, video: song, songSpeed: 1.25), 1.25);
+      // Behind: a little faster; ahead: a little slower; never more than 10 %.
+      expect(videoSyncRate(song: song, video: song - const Duration(milliseconds: 600)), closeTo(1.1, 0.001));
+      expect(videoSyncRate(song: song, video: song - const Duration(milliseconds: 150)), closeTo(1.05, 0.001));
+      expect(videoSyncRate(song: song, video: song + const Duration(milliseconds: 150)), closeTo(0.95, 0.001));
+      expect(videoSyncRate(song: song, video: song - const Duration(milliseconds: 1400)), closeTo(1.1, 0.001));
+      expect(videoSyncRate(song: song, video: song + const Duration(milliseconds: 1400)), closeTo(0.9, 0.001));
     });
 
     test('drifted, or the song was moved: jump to the song', () {

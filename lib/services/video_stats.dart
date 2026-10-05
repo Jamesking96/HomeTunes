@@ -6,7 +6,10 @@
 //     and how it's being decoded: by the device's video chip ("hardware") or by the main
 //     processor ("software"), and whether the chip's pictures are copied before drawing;
 //   - every 5 s: how many pictures were dropped (by the decoder, or because the screen couldn't
-//     keep up), how much of the file is read ahead, and whether it had to wait for the file;
+//     keep up), how much of the file is read ahead, and how often the picture paused to load
+//     (0.1.56: the engine reports that after any seek too, so the pause after opening a file or
+//     after a music video's jump back into step isn't counted; the jumps are counted on their
+//     own, see [VideoStats.jumped]);
 //   - Flutter's own frame timings: how often the app itself was slow to draw (its redraws can
 //     take time away from the video on a phone).
 // Every 30 s, only if something went wrong, one "stutter" line goes in the log; when the
@@ -59,6 +62,17 @@ String startLine(String label, String name, Map<String, String> p) {
       ' · drawing: ${(p['current-vo'] ?? '').isEmpty ? '?' : p['current-vo']}';
 }
 
+String _times(int n, String what) => '$what $n time${n == 1 ? '' : 's'}';
+
+/// What went wrong, as parts of a line. 0.1.56: "paused to load" (was "waited for the file":
+/// the engine reports any pause while it gets pictures ready, including after a seek), and
+/// the music video's jumps back into step counted on their own.
+List<String> _problems({required int drops, required int jumps, required int waits, required int slow}) => [
+      if (jumps > 0) _times(jumps, 'jumped back into step'),
+      if (waits > 0) _times(waits, 'paused to load'),
+      if (slow > 0) _times(slow, 'app slow to draw'),
+    ];
+
 /// The line logged every 30 s when something went wrong; null when all was well.
 String? stutterLine(String label,
     {required int decoderDrops,
@@ -66,14 +80,14 @@ String? stutterLine(String label,
     required int waits,
     required int slowAppFrames,
     required String readAhead,
-    required Duration over}) {
-  if (decoderDrops + screenDrops + waits + slowAppFrames == 0) return null;
+    required Duration over,
+    int jumps = 0}) {
+  if (decoderDrops + screenDrops + waits + slowAppFrames + jumps == 0) return null;
   final parts = <String>[
     if (decoderDrops + screenDrops > 0)
       '${decoderDrops + screenDrops} picture${decoderDrops + screenDrops == 1 ? '' : 's'} dropped '
           '(decoder $decoderDrops, screen $screenDrops)',
-    if (waits > 0) 'waited for the file $waits time${waits == 1 ? '' : 's'}',
-    if (slowAppFrames > 0) 'app slow to draw $slowAppFrames time${slowAppFrames == 1 ? '' : 's'}',
+    ..._problems(drops: 0, jumps: jumps, waits: waits, slow: slowAppFrames),
     if (readAhead.isNotEmpty) 'read ahead ${_num(readAhead, digits: 1)} s',
   ];
   return '$label stutter in the last ${over.inSeconds} s: ${parts.join(' · ')}';
@@ -81,15 +95,14 @@ String? stutterLine(String label,
 
 /// The line logged when a file stops (closed, or the next one starts).
 String summaryLine(String label, String name,
-    {required Duration played, required int drops, required int waits, required int slowAppFrames}) {
+    {required Duration played, required int drops, required int waits, required int slowAppFrames, int jumps = 0}) {
   String two(int n) => n.toString().padLeft(2, '0');
   final m = played.inMinutes, s = played.inSeconds % 60;
-  final verdict = drops + waits + slowAppFrames == 0
+  final verdict = drops + waits + slowAppFrames + jumps == 0
       ? 'smooth'
       : [
           if (drops > 0) '$drops picture${drops == 1 ? '' : 's'} dropped',
-          if (waits > 0) 'waited for the file $waits time${waits == 1 ? '' : 's'}',
-          if (slowAppFrames > 0) 'app slow to draw $slowAppFrames time${slowAppFrames == 1 ? '' : 's'}',
+          ..._problems(drops: drops, jumps: jumps, waits: waits, slow: slowAppFrames),
         ].join(', ');
   return '$label finished: $name · played $m:${two(s)} · $verdict';
 }
@@ -125,9 +138,22 @@ class VideoStats {
   Duration _played = Duration.zero;
   int _lastDecoder = 0, _lastScreen = 0;
   // Since the last report, and since the file started.
-  int _decoderDrops = 0, _screenDrops = 0, _waits = 0, _slow = 0, _samples = 0;
-  int _totalDrops = 0, _totalWaits = 0, _totalSlow = 0;
+  int _decoderDrops = 0, _screenDrops = 0, _waits = 0, _slow = 0, _jumps = 0, _samples = 0;
+  int _totalDrops = 0, _totalWaits = 0, _totalSlow = 0, _totalJumps = 0;
   bool _disposed = false;
+
+  /// Pauses before this time are expected (the file opening, or a jump), so they don't count.
+  DateTime _quietUntil = DateTime.fromMillisecondsSinceEpoch(0);
+  static const _settle = Duration(milliseconds: 2500);
+
+  /// The music video was jumped back into step with its song (0.1.56). The pause that follows
+  /// is expected and isn't counted as "paused to load".
+  void jumped() {
+    if (_disposed || _name == null) return;
+    _jumps++;
+    _totalJumps++;
+    _quietUntil = now().add(_settle);
+  }
 
   /// A new file is opening: sums up the last one, then logs this one's details once it's
   /// showing (a few seconds in, when the engine knows them).
@@ -136,6 +162,7 @@ class VideoStats {
     _name = name;
     _lastDecoder = 0;
     _lastScreen = 0;
+    _quietUntil = now().add(_settle); // opening the file pauses too
     _startTimer?.cancel();
     _startTimer = Timer(const Duration(seconds: 3), _logStart);
     _logDeviceOnce();
@@ -200,9 +227,10 @@ class VideoStats {
     _playingSince = null;
   }
 
-  /// The engine started (true) or stopped waiting for the file.
+  /// The engine paused (true) to get pictures ready, or carried on. Includes the pause after any
+  /// seek; the ones after opening a file or a [jumped] aren't counted.
   void buffering(bool on) {
-    if (on && _name != null && _timer != null) {
+    if (on && _name != null && _timer != null && !now().isBefore(_quietUntil)) {
       _waits++;
       _totalWaits++;
     }
@@ -226,16 +254,18 @@ class VideoStats {
   }
 
   Future<void> _report() async {
-    final readAhead = (_decoderDrops + _screenDrops + _waits + _slow) > 0 ? await _get('demuxer-cache-duration') : '';
+    final readAhead =
+        (_decoderDrops + _screenDrops + _waits + _slow + _jumps) > 0 ? await _get('demuxer-cache-duration') : '';
     final line = stutterLine(label,
         decoderDrops: _decoderDrops,
         screenDrops: _screenDrops,
         waits: _waits,
         slowAppFrames: _slow,
+        jumps: _jumps,
         readAhead: readAhead,
         over: sampleEvery * _samples);
     if (line != null) PlaybackLog.add(line);
-    _decoderDrops = _screenDrops = _waits = _slow = _samples = 0;
+    _decoderDrops = _screenDrops = _waits = _slow = _jumps = _samples = 0;
   }
 
   void _finish() {
@@ -245,12 +275,16 @@ class VideoStats {
     if (_timer != null) _playingSince = now();
     if (_played > const Duration(seconds: 2)) {
       PlaybackLog.add(summaryLine(label, name,
-          played: _played, drops: _totalDrops, waits: _totalWaits, slowAppFrames: _totalSlow));
+          played: _played,
+          drops: _totalDrops,
+          waits: _totalWaits,
+          slowAppFrames: _totalSlow,
+          jumps: _totalJumps));
     }
     _name = null;
     _played = Duration.zero;
-    _decoderDrops = _screenDrops = _waits = _slow = _samples = 0;
-    _totalDrops = _totalWaits = _totalSlow = 0;
+    _decoderDrops = _screenDrops = _waits = _slow = _jumps = _samples = 0;
+    _totalDrops = _totalWaits = _totalSlow = _totalJumps = 0;
   }
 
   /// The player is closing.

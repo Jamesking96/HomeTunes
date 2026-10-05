@@ -186,6 +186,28 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Smoother music videos (5 Oct 2026, 0.1.56, branch `feature/smooth-music-video`)
+- **What the first log showed (5 Oct, the user's phone, Android, 9 cores):** a 1080p H.264
+  24 fps music video, decoded by the video chip with copying (`mediacodec-copy`, drawing `gpu`):
+  **no pictures dropped at all**, but "waited for the file" 3 times in 30 s and 6 times in
+  52 s. media_kit's buffering stream turns true whenever mpv's `core-idle` does, which includes
+  every seek; so those "waits" were HomeTunes' own jumps back into step (`videoSyncTolerance`
+  was 0.4 s, checked twice a second, 2 s pause after each jump). Each jump freezes the picture
+  for a moment: one every ~9 s on the phone, which was the stutter. Decoding was fine.
+- **Fix:** small drifts are caught up with speed: `videoSyncRate` plays the silent video up to
+  10 % faster (behind) or slower (ahead), aiming to close the gap in ~3 s, back to the song's
+  speed (`PlayerModel.speed`) once within 0.1 s (`videoInStep`); the rate is only changed when it
+  moves by 0.01 or more. Only drifts over 1.5 s (`videoSyncTolerance`, was 0.4 s) jump: after a
+  seek within the song, repeat-one, or coming back into sight. After a jump, checks wait until
+  the engine has finished settling (buffering, up to 3 s). A new file starts at the song's speed.
+- **Log changes:** "waited for the file" is now **"paused to load"** (it covers any pause to get
+  pictures ready); the pause after opening a file or after a jump isn't counted (2.5 s quiet);
+  the jumps are counted on their own, "jumped back into step n times" (`VideoStats.jumped`).
+- **Next, if the user's next log shows normal videos stuttering:** the plan's steps 2/3 (video
+  chip without copying, drawing at screen size), then buffering. No log of a normal video yet.
+- **Tests:** `test/music_video_test.dart` ("a small drift is caught up with speed, not a jump"),
+  `test/video_stats_test.dart`.
+
 ## Video playback stats (5 Oct 2026, 0.1.55, branch `feature/video-stats`)
 - **Why:** the user said videos and music videos are sometimes laggy, more on the phone but on
   the PC too, and asked about pre-buffering. Agreed plan (5 Oct): measure first, then, in order,

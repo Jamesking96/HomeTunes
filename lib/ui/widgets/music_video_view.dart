@@ -4,9 +4,12 @@
 // ReplayGain, media keys all unchanged). This widget opens the song's video file in a second,
 // muted player that decodes pictures only, and keeps it in step with the song:
 //  * play / pause follow the song;
-//  * the video's position is checked against the song's twice a second, and moved when they're
-//    more than [videoSyncTolerance] apart (after a seek, a skip back, repeat-one starting again,
-//    or slow drift between the two engines);
+//  * the video's position is checked against the song's twice a second. Small drifts are caught
+//    up by playing the (silent) video a little faster or slower ([videoSyncRate], 0.1.56), which
+//    can't be seen; only when they're more than [videoSyncTolerance] apart (after a seek, a skip
+//    back, repeat-one starting again) does the video jump. Before 0.1.56 every drift over 0.4 s
+//    was a jump, and each jump froze the picture for a moment: on the phone that happened every
+//    few seconds (the Playback log showed it), which was the music video stutter;
 //  * a new song with a video reuses the same player; the page shows the cover for songs without.
 // Until the first picture arrives (or if the file can't be shown) the [fallback] (the cover) is
 // shown instead, so there's never an empty black box.
@@ -26,8 +29,23 @@ import '../../services/video_stats.dart';
 import '../../state/player_model.dart';
 import '../theme.dart';
 
-/// How far the video may drift from the song before it's moved back into step.
-const videoSyncTolerance = Duration(milliseconds: 400);
+/// How far the video may drift from the song before it jumps back into step (0.1.56: was 0.4 s;
+/// smaller drifts are now caught up with [videoSyncRate]).
+const videoSyncTolerance = Duration(milliseconds: 1500);
+
+/// Drift that's left alone: the two positions are only reported every so often, so smaller
+/// differences are mostly noise.
+const videoInStep = Duration(milliseconds: 100);
+
+/// The video's speed to catch up a small drift: the song's speed when they're in step, else up
+/// to 10 % faster (video behind) or slower (video ahead), aiming to close the gap in about
+/// 3 seconds. The video is silent, so the change can't be heard and is hard to see.
+double videoSyncRate({required Duration song, required Duration video, double songSpeed = 1.0}) {
+  final drift = video - song; // positive: the video is ahead
+  if (drift.abs() <= videoInStep) return songSpeed;
+  final adjust = (drift.inMilliseconds / 3000).clamp(-0.1, 0.1);
+  return songSpeed * (1 - adjust);
+}
 
 /// Where the video should jump to, or null when it's close enough to the song already.
 /// [videoLength] is null while the video's length isn't known yet.
@@ -143,6 +161,7 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
     try {
       final at = _song.position;
       _stats?.started(_song.current?.title ?? p.basenameWithoutExtension(file));
+      _setRate(_song.speed, force: true); // a new file starts at the song's own speed
       await _video.open(Media(file, start: at > Duration.zero ? at : null), play: _shouldPlay);
     } catch (_) {
       if (mounted) setState(() => _failed = true);
@@ -171,15 +190,37 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
     // Out of sight the video is paused on purpose: don't drag it along behind the song.
     // It's lined up again as soon as the window can be seen (didChangeAppLifecycleState).
     if (!_onScreen) return;
-    final target = videoSeekTarget(
-      song: _song.position,
-      video: _video.state.position,
-      videoLength: _video.state.duration,
-    );
+    // Still settling after a jump: wait for it (up to 3 s) rather than measuring a half-finished
+    // seek.
+    if (_video.state.buffering && now.isBefore(_settleUntil)) return;
+    final song = _song.position, video = _video.state.position, length = _video.state.duration;
+    final target = videoSeekTarget(song: song, video: video, videoLength: length);
     if (target != null) {
+      // Far apart (the song was moved, or the video was paused out of sight): jump.
       _nextCheck = now.add(const Duration(seconds: 2));
+      _settleUntil = now.add(const Duration(seconds: 3));
+      _stats?.jumped();
+      _setRate(_song.speed);
       _video.seek(target);
+      return;
     }
+    // Past the end of a shorter video: it stays on its last picture.
+    if (length > Duration.zero && song >= length) return;
+    // Close: nudge the video's speed so it catches up without a visible jump (0.1.56).
+    _setRate(videoSyncRate(song: song, video: video, songSpeed: _song.speed));
+  }
+
+  // The video's speed now (1.0 unless catching up), and until when a jump is still settling.
+  double _rate = 1.0;
+  DateTime _settleUntil = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Changes the video's speed, skipping tiny changes (each one is a call into the engine), but
+  /// always going back exactly to the song's speed once in step.
+  void _setRate(double r, {bool force = false}) {
+    if (!force && r == _rate) return;
+    if (!force && (r - _rate).abs() < 0.01 && r != _song.speed) return;
+    _rate = r;
+    _video.setRate(r);
   }
 
   @override
