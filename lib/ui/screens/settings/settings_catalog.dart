@@ -72,6 +72,7 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('sleep-button', SettingsPage.sleepTimer, 'Show sleep timer button', 'moon'),
   SettingInfo('sleep-music', SettingsPage.sleepTimer, 'Timer length for music', 'sleep minutes end of song'),
   SettingInfo('sleep-books', SettingsPage.sleepTimer, 'Timer length for books', 'sleep minutes end of chapter audiobook'),
+  SettingInfo('sleep-videos', SettingsPage.sleepTimer, 'Timer length for videos', 'sleep minutes end of video film episode'),
   SettingInfo('sleep-fade', SettingsPage.sleepTimer, 'Fade out before pausing', 'sleep volume'),
   SettingInfo('book-folders', SettingsPage.audiobooks, 'Audiobook folders', 'add folder books location'),
   SettingInfo('book-genres', SettingsPage.audiobooks, 'Genres that mean "audiobook"', 'genre spoken word'),

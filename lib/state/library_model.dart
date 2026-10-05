@@ -247,6 +247,9 @@ class LibraryModel extends ChangeNotifier {
   /// or "end of song" (music).
   int sleepBookMinutes = 30;
   int sleepMusicMinutes = 30;
+
+  /// The same for videos (0.1.63, VideoSleepTimer); [sleepAtEnd] means "end of the video".
+  int sleepVideoMinutes = 30;
   // (The sleep timer treats any length of 0 or less the same way.)
   static const sleepAtEnd = -1;
 
@@ -441,6 +444,7 @@ class LibraryModel extends ChangeNotifier {
     sleepButtonShown = true;
     sleepBookMinutes = 30;
     sleepMusicMinutes = 30;
+    sleepVideoMinutes = 30;
     sleepFadeSeconds = 10;
     themeId = 'default';
     customAccent = null;
@@ -517,6 +521,7 @@ class LibraryModel extends ChangeNotifier {
       sleepButtonShown = s.get('sleepButtonShown', true);
       sleepBookMinutes = s.integer('sleepBookMinutes', 30);
       sleepMusicMinutes = s.integer('sleepMusicMinutes', 30);
+      sleepVideoMinutes = s.integer('sleepVideoMinutes', 30);
       sleepFadeSeconds = s.integer('sleepFadeSeconds', 10);
       final theme = raw['theme'];
       if (theme is String && theme.isNotEmpty) themeId = theme;
@@ -683,6 +688,7 @@ class LibraryModel extends ChangeNotifier {
         'sleepButtonShown': sleepButtonShown,
         'sleepBookMinutes': sleepBookMinutes,
         'sleepMusicMinutes': sleepMusicMinutes,
+        'sleepVideoMinutes': sleepVideoMinutes,
         'sleepFadeSeconds': sleepFadeSeconds,
         'theme': themeId,
         if (customAccent != null) 'customAccent': customAccent,
@@ -1015,8 +1021,10 @@ class LibraryModel extends ChangeNotifier {
     bool? sleepButtonShown,
     int? sleepBookMinutes,
     int? sleepMusicMinutes,
+    int? sleepVideoMinutes,
     int? sleepFadeSeconds,
   }) async {
+    this.sleepVideoMinutes = sleepVideoMinutes ?? this.sleepVideoMinutes;
     this.skipBackSeconds = skipBackSeconds ?? this.skipBackSeconds;
     this.skipForwardSeconds = skipForwardSeconds ?? this.skipForwardSeconds;
     this.rewindOnResume = rewindOnResume ?? this.rewindOnResume;
