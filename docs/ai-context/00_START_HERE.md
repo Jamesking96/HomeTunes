@@ -97,7 +97,8 @@ Read the files in this order:
   copy. Update them when things change.
 - **In progress (5 Oct):** 0.1.59, the video buttons (Enlarge on the picture, a
   full-screen music video with a normal video's controls), built on `feature/video-buttons`,
-  waiting for the user to try it. The open phases are D (offline server songs, after the server
+  waiting for the user to try it; and 0.1.60, an "Always on top" pin button on the PC, built on
+  `feature/always-on-top` (on top of it). The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user.
 
 ## Rules the user cares about (follow these)

@@ -186,6 +186,28 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Always on top (5 Oct 2026, 0.1.60, branch `feature/always-on-top`)
+- **The user asked (5 Oct):** an "Always on top" toggle that's always there and easy to click on
+  and off, shown in whatever way suits each page.
+- **What it does:** keeps the PC window above other windows. Only a computer window can, so the
+  button only shows on Windows (`WindowPin.available`; tests set `WindowPin.debugAvailable`).
+  Remembered (`LibraryModel.alwaysOnTop`, settings.json, `setAlwaysOnTop`) and put back at
+  start-up (`load()` calls `WindowPin.set`).
+- **How:** `windows/runner/flutter_window.cpp` has a "hometunes/window" method channel;
+  `setAlwaysOnTop(bool)` calls `SetWindowPos(HWND_TOPMOST / HWND_NOTOPMOST, no move / size /
+  focus)` on the app's window (`services/window_pin.dart` calls it). media_kit's full screen
+  moves the window with `HWND_TOP`, which keeps a topmost window topmost, so they don't clash.
+- **Where the pin is** (`widgets/always_on_top_button.dart`, `always-on-top`; outline pin = off,
+  filled accent pin = on, tooltips "Keep HomeTunes on top of other windows" / "Always on top is
+  on (click to turn it off)"):
+  - the right end of the player bar along the bottom (`_PlayerBarWithPin` in `shell.dart`), for
+    music and videos, under every tab and page; in a narrow window, beside the tab bar
+    (`Shell._withPin`);
+  - Now Playing's top bar and the Details pages' app bars (they cover the player bar);
+  - full screen: a round pin top-right on videos (media_kit's top row, opposite Leave full
+    screen) and on music videos (`round: true`).
+- **Tests:** `test/always_on_top_test.dart` (on / off, remembered, round, none on a phone).
+
 ## Video buttons on the picture (5 Oct 2026, 0.1.59, branch `feature/video-buttons`)
 - **The user asked (5 Oct):** Enlarge and Full screen on the video itself, like Shrink and the
   full-screen button when enlarged, without removing the buttons below the video; the same on

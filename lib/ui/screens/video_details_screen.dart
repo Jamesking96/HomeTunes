@@ -21,6 +21,7 @@ import '../../services/video_details.dart';
 import '../../services/video_probe.dart';
 import '../../state/video_library_model.dart';
 import '../theme.dart';
+import '../widgets/always_on_top_button.dart';
 import 'details_screen.dart';
 import 'video_player_screen.dart' show languageName;
 import 'videos_screen.dart' show videoLength;
@@ -162,7 +163,8 @@ class VideoDetailsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final v = context.select<VideoLibraryModel, VideoItem?>((m) => m.byId(videoId));
     return Scaffold(
-      appBar: AppBar(title: const Text('Details')),
+      // The pin (0.1.60): this page covers the player bar, where it usually is.
+      appBar: AppBar(title: const Text('Details'), actions: const [AlwaysOnTopButton()]),
       body: v == null
           ? const Center(child: Text('This video isn\'t in your library any more.'))
           : _Page(
@@ -400,7 +402,8 @@ class CollectionDetailsScreen extends StatelessWidget {
     final model = context.watch<VideoLibraryModel>();
     final c = model.collectionNamed(name);
     return Scaffold(
-      appBar: AppBar(title: const Text('Details')),
+      // The pin (0.1.60): this page covers the player bar, where it usually is.
+      appBar: AppBar(title: const Text('Details'), actions: const [AlwaysOnTopButton()]),
       body: c == null || c.videos.isEmpty
           ? const Center(child: Text('This collection isn\'t in your library any more.'))
           : _Page(kind: 'Collection', title: c.name, subtitle: c.category, children: [_CollectionBody(c)]),

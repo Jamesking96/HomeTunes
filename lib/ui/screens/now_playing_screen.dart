@@ -18,6 +18,7 @@ import '../../models/track.dart';
 import '../../state/library_model.dart';
 import '../../state/player_model.dart';
 import 'equalizer_screen.dart';
+import '../widgets/always_on_top_button.dart';
 import '../widgets/artwork.dart';
 import '../widgets/bookmark_widgets.dart';
 import '../widgets/listening_controls.dart';
@@ -146,6 +147,8 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                   )
                 else
                   TrackMenuButton(track: t, closeRouteFirst: true),
+                // Now Playing covers the player bar, so the pin is here too (0.1.60, the PC).
+                const AlwaysOnTopButton(),
               ]),
               // The middle area: lyrics on narrow screens when turned on, else the cover.
               Expanded(
