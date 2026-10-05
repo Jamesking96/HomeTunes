@@ -237,9 +237,15 @@ folds it down to icons and opens it again.
   **Open collection page**, **Edit collection…**, **Change poster…** and more. A video carries on
   where you stopped, and the next episode starts after a short countdown.
   - **Watching:** the player has skip buttons, **previous / next video**, speed, and a subtitles
-    button for choosing audio and subtitle tracks (remembered for each collection). Below the
-    video are **Enlarge**, **Full screen** and more. On a PC, Space, the arrow keys, F and Esc work,
-    and the mouse wheel over any progress bar skips 5 seconds.
+    button for choosing audio and subtitle tracks (remembered for each collection). Round
+    **Enlarge** and **Full screen** buttons sit in the top corners of the picture (**Shrink** once
+    it's enlarged, and **Leave full screen** in full screen), and the same buttons are below the
+    video too, with more. On a PC, Space, the arrow keys, F and Esc work, and the mouse wheel over
+    any progress bar skips 5 seconds.
+  - **Music videos in full screen** show the song's title, a progress bar, skip back / forward,
+    previous / play / next, the volume (on a big screen) and **Leave full screen**, like a normal
+    video. Tap or move the mouse to bring them back. On a PC, Space plays or pauses, the arrow
+    keys skip, and Esc or F leaves.
   - **While a video plays** the bottom bar shows it; tap its title to go back to it. Your media
     keys and the phone notification control it. Starting a video pauses your music, and starting
     music pauses the video.

@@ -28,7 +28,10 @@ import 'wheel_seek.dart';
 class SeekBar extends StatefulWidget {
   /// Small version with the times either side of the bar (desktop player bar).
   final bool compact;
-  const SeekBar({super.key, this.compact = false});
+
+  /// The times' colour (0.1.59: white over a full-screen music video); the usual dim text if null.
+  final Color? timeColor;
+  const SeekBar({super.key, this.compact = false, this.timeColor});
 
   @override
   State<SeekBar> createState() => _SeekBarState();
@@ -63,7 +66,7 @@ class _SeekBarState extends State<SeekBar> {
         // and disable dragging.
         final value = (_dragValue ?? pos.inMilliseconds.toDouble()).clamp(0.0, maxMs <= 0 ? 1.0 : maxMs);
         final shown = Duration(milliseconds: value.round());
-        final times = TextStyle(color: AppColors.textDim, fontSize: widget.compact ? 11 : 12);
+        final times = TextStyle(color: widget.timeColor ?? AppColors.textDim, fontSize: widget.compact ? 11 : 12);
 
         final slider = Slider(
           value: value,

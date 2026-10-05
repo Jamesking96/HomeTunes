@@ -846,16 +846,35 @@ class _VideoPageState extends State<_VideoPage> {
       phoneTracks,
       const MaterialFullscreenButton(),
     ];
+    // Full screen (0.1.59): a round "Leave full screen" button in the top corner, like the ones
+    // on the picture in the page, shown and hidden with the other controls.
+    final fullTop = <Widget>[
+      Builder(
+        builder: (context) => Padding(
+          padding: const EdgeInsets.all(8),
+          child: _OverlayButton(
+            key: const ValueKey('video-leave-fullscreen'),
+            icon: Icons.fullscreen_exit,
+            tooltip: 'Leave full screen',
+            onPressed: () => exitFullscreen(context),
+          ),
+        ),
+      ),
+    ];
     // Double-tap the left or right of the picture on a phone: skip by the chosen amounts too.
-    MaterialVideoControlsThemeData phone() => phoneControlsTheme(look, accent,
-        bar: phoneBar, skipBack: Duration(seconds: back), skipForward: Duration(seconds: ahead));
-    MaterialDesktopVideoControlsThemeData desktop() => desktopControlsTheme(look, accent, bar: desktopBar, keys: keys);
+    MaterialVideoControlsThemeData phone({bool full = false}) => phoneControlsTheme(look, accent,
+        bar: phoneBar,
+        skipBack: Duration(seconds: back),
+        skipForward: Duration(seconds: ahead),
+        top: full ? fullTop : const []);
+    MaterialDesktopVideoControlsThemeData desktop({bool full = false}) =>
+        desktopControlsTheme(look, accent, bar: desktopBar, keys: keys, top: full ? fullTop : const []);
     return MaterialDesktopVideoControlsTheme(
       normal: desktop(),
-      fullscreen: desktop(),
+      fullscreen: desktop(full: true),
       child: MaterialVideoControlsTheme(
         normal: phone(),
-        fullscreen: phone(),
+        fullscreen: phone(full: true),
         child: Video(
           key: _videoKey,
           controller: _controller,
@@ -986,7 +1005,36 @@ class _VideoPageState extends State<_VideoPage> {
         var h = c.maxWidth / ratio;
         if (h > c.maxHeight * 0.7) h = c.maxHeight * 0.7;
         return ListView(children: [
-          Container(color: Colors.black, height: h, child: video),
+          // 0.1.59: Enlarge and Full screen on the picture too (like Shrink and Full screen when
+          // it's enlarged); the buttons below stay.
+          Container(
+            color: Colors.black,
+            height: h,
+            child: Stack(children: [
+              Positioned.fill(child: video),
+              Positioned(
+                left: 8,
+                top: 8,
+                child: _OverlayButton(
+                  key: const ValueKey('video-overlay-enlarge'),
+                  icon: Icons.open_in_full,
+                  tooltip: 'Enlarge',
+                  onPressed: () => setState(() => _enlarged = true),
+                ),
+              ),
+              if (_problem == null)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: _OverlayButton(
+                    key: const ValueKey('video-overlay-fullscreen'),
+                    icon: Icons.fullscreen,
+                    tooltip: 'Full screen',
+                    onPressed: _fullScreen,
+                  ),
+                ),
+            ]),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1090,7 +1138,7 @@ class _OverlayButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
-  const _OverlayButton({required this.icon, required this.tooltip, required this.onPressed});
+  const _OverlayButton({super.key, required this.icon, required this.tooltip, required this.onPressed});
 
   @override
   Widget build(BuildContext context) => Material(

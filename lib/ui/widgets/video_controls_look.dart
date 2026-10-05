@@ -95,10 +95,13 @@ MaterialDesktopVideoControlsThemeData desktopControlsTheme(
   Color accent, {
   required List<Widget> bar,
   Map<ShortcutActivator, VoidCallback>? keys,
+  List<Widget> top = const [],
 }) {
   final buttons = look.buttons(accent), seek = look.seek(accent), track = look.seekTrack(accent);
   return MaterialDesktopVideoControlsThemeData(
     bottomButtonBar: backedBar(bar, look, accent),
+    // 0.1.59: buttons along the top (full screen: a round "Leave full screen" button).
+    topButtonBar: top,
     keyboardShortcuts: keys,
     buttonBarHeight: videoButtonBarHeight(look),
     // The page's own wheel handling does volume, and skipping over the progress bar (30 Sep).
@@ -124,11 +127,14 @@ MaterialVideoControlsThemeData phoneControlsTheme(
   required List<Widget> bar,
   required Duration skipBack,
   required Duration skipForward,
+  List<Widget> top = const [],
 }) {
   final buttons = look.buttons(accent), seek = look.seek(accent), track = look.seekTrack(accent);
   final shade = isLightColour(buttons) ? Colors.black : Colors.white;
   return MaterialVideoControlsThemeData(
     bottomButtonBar: backedBar(bar, look, accent),
+    // 0.1.59: buttons along the top (full screen: a round "Leave full screen" button).
+    topButtonBar: top,
     seekOnDoubleTap: true,
     seekOnDoubleTapBackwardDuration: skipBack,
     seekOnDoubleTapForwardDuration: skipForward,
