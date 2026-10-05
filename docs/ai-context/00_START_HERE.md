@@ -95,12 +95,7 @@ Read the files in this order:
   that up for new files.
 - **These notes** are also in the repo under `docs/ai-context/`, kept the same as the project
   copy. Update them when things change.
-- **In progress (5 Oct):** 0.1.59, the video buttons (Enlarge on the picture, a
-  full-screen music video with a normal video's controls), built on `feature/video-buttons`,
-  waiting for the user to try it; and 0.1.60, an "Always on top" pin button on the PC, built on
-  `feature/always-on-top` (on top of it), both "look good" to the user; and 0.1.61 / 0.1.62, a volume
-  boost: Settings › Playback sets how far every volume slider goes (up to 500 %), on
-  `feature/volume-boost`. The open phases are D (offline server songs, after the server
+- **On `main`, not released yet (5 Oct):** 0.1.59–0.1.62, merged and pushed after the user tried them: Enlarge on the video picture and Leave full screen in full screen, full-screen music videos with a normal video's controls, an "Always on top" pin on the PC, and a volume boost (Settings › Playback sets how far every volume slider goes, up to 500 %). The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user.
 
 ## Rules the user cares about (follow these)
