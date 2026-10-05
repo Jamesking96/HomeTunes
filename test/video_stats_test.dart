@@ -46,7 +46,7 @@ void main() {
               readAhead: '8.250000',
               over: const Duration(seconds: 30)),
           'Music video stutter in the last 30 s: 15 pictures dropped (decoder 3, screen 12) · '
-          'waited for the file 1 time · app slow to draw 4 times · read ahead 8.3 s');
+          'paused to load 1 time · app slow to draw 4 times · read ahead 8.3 s');
       expect(summaryLine('Video', 'Film', played: const Duration(minutes: 2, seconds: 5), drops: 0, waits: 0, slowAppFrames: 0),
           'Video finished: Film · played 2:05 · smooth');
     });
@@ -85,18 +85,21 @@ void main() {
     // Then some dropped pictures and a wait for the file.
     decoderDrops = 2;
     screenDrops = 5;
+    clock = clock.add(const Duration(seconds: 20)); // past the pause that comes with opening
     stats.buffering(true);
+    stats.jumped();
+    stats.buffering(true); // the pause after a jump isn't counted
     await tester.pump(const Duration(seconds: 10));
     final stutter = PlaybackLog.lines.where((l) => l.contains('stutter')).toList();
     expect(stutter, hasLength(1));
     expect(stutter.single, contains('7 pictures dropped (decoder 2, screen 5)'));
-    expect(stutter.single, contains('waited for the file 1 time'));
+    expect(stutter.single, contains('jumped back into step 1 time · paused to load 1 time'));
     expect(stutter.single, contains('read ahead 4.5 s'));
 
     // Closing sums it up.
-    clock = clock.add(const Duration(minutes: 1, seconds: 30));
+    clock = clock.add(const Duration(minutes: 1, seconds: 10));
     stats.dispose();
-    expect(PlaybackLog.lines.last, contains('Video finished: Film · played 1:30 · 7 pictures dropped, waited for the file 1 time'));
+    expect(PlaybackLog.lines.last, contains('Video finished: Film · played 1:30 · 7 pictures dropped, jumped back into step 1 time, paused to load 1 time'));
     await tester.pump(const Duration(seconds: 10)); // no timers left running
   });
 }
