@@ -151,6 +151,51 @@ void main() {
       expect(album('Night Ferry').tracks.single.genre, 'Folk'); // not selected
     });
 
+    // 0.1.54: changing one song's album used to rename the whole album, because "Also update
+    // the other songs" started ticked.
+    testWidgets('one song: a new album name moves just that song unless the box is ticked', (tester) async {
+      final song = album('Harbour Lights').tracks.firstWhere((t) => t.title == 'a1');
+      await pump(tester, (c) => showEditDetails(c, [song]));
+      await tester.enterText(find.widgetWithText(TextField, 'Album'), 'Lighthouse');
+      await tester.pump();
+      final box = find.byKey(const ValueKey('update-album-too'), skipOffstage: false);
+      expect(box, findsOneWidget);
+      expect(tester.widget<CheckboxListTile>(box).value, isFalse);
+      expect(find.textContaining('Leave unticked to move just this song', skipOffstage: false), findsOneWidget);
+      await save(tester);
+
+      expect(album('Lighthouse').tracks.map((t) => t.title), ['a1']);
+      expect(album('Harbour Lights').tracks.map((t) => t.title), ['a2']);
+    });
+
+    testWidgets('one song: ticking the box renames the whole album', (tester) async {
+      final song = album('Harbour Lights').tracks.firstWhere((t) => t.title == 'a1');
+      await pump(tester, (c) => showEditDetails(c, [song]));
+      await tester.enterText(find.widgetWithText(TextField, 'Album'), 'Lighthouse');
+      await tester.pump();
+      await tester.ensureVisible(find.byKey(const ValueKey('update-album-too'), skipOffstage: false));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('update-album-too'), skipOffstage: false));
+      await tester.pump();
+      expect(tester.widget<CheckboxListTile>(find.byKey(const ValueKey('update-album-too'), skipOffstage: false)).value, isTrue);
+      await save(tester);
+
+      expect(album('Lighthouse').tracks.length, 2);
+      expect(lib.albums.where((a) => a.title == 'Harbour Lights'), isEmpty);
+    });
+
+    testWidgets('one song: a year or genre change still offers the rest of the album, ticked', (tester) async {
+      final song = album('Harbour Lights').tracks.firstWhere((t) => t.title == 'a1');
+      await pump(tester, (c) => showEditDetails(c, [song]));
+      await tester.enterText(find.widgetWithText(TextField, 'Genre'), 'Jazz');
+      await tester.pump();
+      expect(tester.widget<CheckboxListTile>(find.byKey(const ValueKey('update-album-too'), skipOffstage: false)).value, isTrue);
+      await save(tester);
+
+      expect(album('Harbour Lights').tracks.every((t) => t.genre == 'Jazz'), isTrue);
+      expect(album('Harbour Lights').tracks.length, 2);
+    });
+
     testWidgets('several songs show --:-- too', (tester) async {
       final songs = [album('Harbour Lights').tracks.first, album('Paper Kites').tracks.first];
       await pump(tester, (c) => showEditDetails(c, songs));

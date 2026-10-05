@@ -89,8 +89,19 @@ class _EditDetailsState extends State<_EditDetails> {
   /// True while saving; disables the buttons so it can't be pressed twice.
   bool _saving = false;
 
-  /// Single song: also give the rest of its album the album-wide changes.
-  bool _updateAlbum = true;
+  /// Single song: the tick box "Also update the other songs on this album", once the user has
+  /// clicked it (null until then, see [_updateAlbum]).
+  bool? _updateAlbumChoice;
+
+  /// Single song: whether the album-wide changes also go to the rest of its album. Until the box
+  /// is clicked it follows [_movesSong] (0.1.54): changing just the album name or album artist of
+  /// one song usually means it belongs on another album, so the box starts unticked and only
+  /// that song changes; it used to start ticked, which renamed the whole album. Year, genre
+  /// and cover changes still start ticked.
+  bool get _updateAlbum => _updateAlbumChoice ?? !_movesSong;
+
+  /// The album name or album artist was changed (which moves the song to another album).
+  bool get _movesSong => _changedAlbumFields.any((f) => f == _Field.album || f == _Field.albumArtist);
 
   /// Single song: the other songs on the same album (found when the editor opens).
   late final List<Track> _albumSiblings;
@@ -481,10 +492,11 @@ class _EditDetailsState extends State<_EditDetails> {
         // to the other songs on the album.
         if (_offerAlbumUpdate)
           CheckboxListTile(
+            key: const ValueKey('update-album-too'),
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
             value: _updateAlbum,
-            onChanged: _saving ? null : (v) => setState(() => _updateAlbum = v ?? true),
+            onChanged: _saving ? null : (v) => setState(() => _updateAlbumChoice = v ?? false),
             title: Text(
               'Also update the other ${_albumSiblings.length} '
               'song${_albumSiblings.length == 1 ? '' : 's'} on "${_tracks.first.album}"',
@@ -493,7 +505,9 @@ class _EditDetailsState extends State<_EditDetails> {
               'Changes to: ${[
                 for (final f in _changedAlbumFields) _label(f).toLowerCase(),
                 if (_albumCoverChanged) 'cover',
-              ].join(', ')}',
+              ].join(', ')}'
+              // Say what happens when it's left unticked, as that's the starting choice here.
+              '${_movesSong && !_updateAlbum ? '. Leave unticked to move just this song.' : ''}',
               style: TextStyle(color: AppColors.textDim, fontSize: 12),
             ),
           ),
