@@ -186,7 +186,7 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
-## Music videos back to the usual drawing (5 Oct 2026, 0.1.58, branch `feature/music-video-drawing-fix`)
+## Music videos back to the usual drawing (5 Oct 2026, 0.1.58, released in v0.1.58)
 - **What the third log showed (5 Oct, 0.1.57, the user's phone):**
   - *Normal video* (1080p HEVC, now `mediacodec` + `mediacodec_embed`): **no pictures dropped**
     in a minute (10 in 30 s before). "Paused to load 5 times" in the first 30 s: the user said
@@ -206,7 +206,7 @@ before changing that area.
 - **Tests:** `test/music_video_test.dart` (far-off landings teach nothing, 2 s cap),
   `test/video_stats_test.dart` (skips, `musicVideoDrawing`).
 
-## Smoother video drawing on phones (5 Oct 2026, 0.1.57, branch `feature/smoother-video-drawing`)
+## Smoother video drawing on phones (5 Oct 2026, 0.1.57, released in v0.1.58)
 - **What the second log showed (5 Oct, 0.1.56, the user's phone):**
   - *Music video* (1080p H.264 24 fps, `mediacodec-copy`, `gpu`): 1 picture dropped, but still
     **4 jumps back into step in 30 s** and the app slow to draw 16 times. The likely cause: a
@@ -243,7 +243,7 @@ before changing that area.
   updated speeds), `test/video_stats_test.dart` (new line parts, "how videos are drawn"),
   `test/settings_test.dart` (the new setting is on Settings › Videos).
 
-## Smoother music videos (5 Oct 2026, 0.1.56, branch `feature/smooth-music-video`)
+## Smoother music videos (5 Oct 2026, 0.1.56, released in v0.1.58)
 - **What the first log showed (5 Oct, the user's phone, Android, 9 cores):** a 1080p H.264
   24 fps music video, decoded by the video chip with copying (`mediacodec-copy`, drawing `gpu`):
   **no pictures dropped at all**, but "waited for the file" 3 times in 30 s and 6 times in
@@ -265,7 +265,7 @@ before changing that area.
 - **Tests:** `test/music_video_test.dart` ("a small drift is caught up with speed, not a jump"),
   `test/video_stats_test.dart`.
 
-## Video playback stats (5 Oct 2026, 0.1.55, branch `feature/video-stats`)
+## Video playback stats (5 Oct 2026, 0.1.55, released in v0.1.58)
 - **Why:** the user said videos and music videos are sometimes laggy, more on the phone but on
   the PC too, and asked about pre-buffering. Agreed plan (5 Oct): measure first, then, in order,
   make the video chip work properly, draw at screen size, smooth the music video syncing,

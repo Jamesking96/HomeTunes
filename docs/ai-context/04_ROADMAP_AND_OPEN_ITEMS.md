@@ -48,10 +48,10 @@ while commenting".
 | Artists tab: list or grid (0.1.52) | Done, released in v0.1.53 (3 Oct; built 2 Oct). See `03_…` → Artists tab: list or grid |
 | Artist pictures: change the picture an artist shows (0.1.53) | Done, released in v0.1.53 (3 Oct; built 2 Oct). See `03_…` → Artist pictures |
 | Fix: editing one song's album renamed the whole album (0.1.54) | Done, released as v0.1.54 (5 Oct). See `03_…` → One song's album edit |
-| Video playback stats in the Playback log, step 1 of the video smoothness plan (0.1.55) | Built 5 Oct on `feature/video-stats`, not merged yet. See `03_…` → Video playback stats |
-| Smoother music videos: small drifts caught up with speed instead of jumps (0.1.56) | Built 5 Oct on `feature/smooth-music-video` (on top of `feature/video-stats`), not merged yet. See `03_…` → Smoother music videos |
-| Smoother video on phones: drawing straight from the video chip, music video jumps aim ahead, more detail in the log (0.1.57) | Built 5 Oct on `feature/smoother-video-drawing` (on top of the two above), not merged yet. The user's log: normal videos now drop no pictures, but music videos went badly out of step. See `03_…` → Smoother video drawing on phones |
-| Music videos back to the usual drawing, skips noted in the log (0.1.58) | Built 5 Oct on `feature/music-video-drawing-fix` (on top of the three above), not merged yet. The user's log (5 Oct, 12:31): the music video played 1:26 with no dropped pictures and no jumps (one 212 ms slow frame at the start). Ready to merge 0.1.55–0.1.58 when the user says. See `03_…` → Music videos back to the usual drawing |
+| Video playback stats in the Playback log, step 1 of the video smoothness plan (0.1.55) | Done, released in v0.1.58 (5 Oct; built 5 Oct). See `03_…` → Video playback stats |
+| Smoother music videos: small drifts caught up with speed instead of jumps (0.1.56) | Done, released in v0.1.58 (5 Oct). See `03_…` → Smoother music videos |
+| Smoother video on phones: drawing straight from the video chip, music video jumps aim ahead, more detail in the log (0.1.57) | Done, released in v0.1.58 (5 Oct). The user's log: normal videos now drop no pictures, but music videos went badly out of step. See `03_…` → Smoother video drawing on phones |
+| Music videos back to the usual drawing, skips noted in the log (0.1.58) | Done, released as v0.1.58 (5 Oct), covering 0.1.55–0.1.58. The user's log (5 Oct, 12:31): the music video played 1:26 with no dropped pictures and no jumps (one 212 ms slow frame at the start). See `03_…` → Music videos back to the usual drawing |
 | L: Linux build, incl. Steam Deck (0.1.59) | Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (0.1.60) | After L |
 | T: Android TV (0.1.61) | After A |

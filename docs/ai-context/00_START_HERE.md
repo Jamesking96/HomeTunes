@@ -19,6 +19,10 @@ Read the files in this order:
 ## Status (5 Oct 2026)
 
 - **Released:** the latest release is
+  [v0.1.58](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.58) (5 Oct), which
+  covers 0.1.55–0.1.58 in one release: video playback stats in the Playback log, smoother music
+  video syncing, and videos on phones drawn straight from the video chip (music videos keep the
+  usual drawing). Before it,
   [v0.1.54](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.54) (5 Oct): editing one
   song's album name moves just that song instead of renaming the whole album. Before it,
   [v0.1.53](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.53) (3 Oct), which
@@ -44,8 +48,8 @@ Read the files in this order:
   `HomeTunes-audio-engine-source.zip` from `tool/engine_source.ps1`) are explained in `04_…`
   (Music videos, "Done 1 Oct"). See `03_…` → Licence, which includes the rule about GPL
   libraries.
-- **Checks:** 543 tests passed on 0.1.54 (3 Oct), and `flutter analyze` is clean.
-- **Devices:** the phone was last known to have 0.1.23. Installed Windows copies update
+- **Checks:** 550 tests passed on 0.1.58 (5 Oct), and `flutter analyze` is clean.
+- **Devices:** the phone had 0.1.58 on 5 Oct (the user tested the video builds on it). Installed Windows copies update
   themselves from GitHub releases, so the PC's copy may be newer.
 - **Publishing:** every release goes out with `tool/publish_release.ps1 -NotesFile …` (see `02_…`
   → publishing builds). Installed copies look for its file names and checksum file to update
@@ -83,12 +87,17 @@ Read the files in this order:
     list / grid, and artist pictures
   - 0.1.54: one song's album edit moves just that song (the "also update the album" box starts
     unticked for album name / album artist changes)
+  - 0.1.55–0.1.58 (released together as v0.1.58): video playback stats in the Playback log,
+    music videos kept in step by speed instead of jumps, videos on phones drawn straight from
+    the video chip (Settings › Videos › Smoother video on phones), music videos on the usual
+    drawing. The user's logs showed no dropped pictures afterwards
 - **Code comments:** every source file has a header comment saying what it does and why. Keep
   that up for new files.
 - **These notes** are also in the repo under `docs/ai-context/`, kept the same as the project
   copy. Update them when things change.
-- **Next:** nothing is agreed yet. Videos still need trying on the phone and in a real window
-  (see `04_…` → Music videos). The open phases are D (offline server songs, after the server
+- **Next (agreed 5 Oct):** tidy up the video buttons: Enlarge and Full screen on the video
+  itself (like Shrink and Exit full screen), keeping the buttons below it, on the PC and the
+  phone; and the same controls on a full-screen music video. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user.
 
 ## Rules the user cares about (follow these)
