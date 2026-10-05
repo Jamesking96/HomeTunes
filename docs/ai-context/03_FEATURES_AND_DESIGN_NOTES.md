@@ -186,6 +186,26 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Music videos back to the usual drawing (5 Oct 2026, 0.1.58, branch `feature/music-video-drawing-fix`)
+- **What the third log showed (5 Oct, 0.1.57, the user's phone):**
+  - *Normal video* (1080p HEVC, now `mediacodec` + `mediacodec_embed`): **no pictures dropped**
+    in a minute (10 in 30 s before). "Paused to load 5 times" in the first 30 s: the user said
+    they skipped by a few seconds, and each skip pauses to load. Read ahead 136 s.
+  - *Music video* (same drawing): much worse: jumps with the video **18.7 s behind**, then
+    13.3 s behind and 4.5–55.5 s ahead. This player has no sound (`aid=no`); with no sound to
+    keep time by, drawing straight from the chip let the video freeze and then race ahead.
+    Skipping the song a few seconds can't explain drifts that size. The learnt lead
+    (`learnSeekLead`) also learnt from those wild landings.
+- **Fix:** music videos always use media_kit's own drawing (`musicVideoDrawing` in
+  `video_drawing.dart`; in 0.1.56 it only dropped 1 picture a minute); the Settings switch now
+  only affects the Videos tab's player. `learnSeekLead` ignores landings more than
+  `videoSyncTolerance` (2 s) out, and the lead is at most 2 s (`maxSeekLead`, was 4 s).
+- **Log:** skips are noted ("you skipped or moved it n times", `VideoStats.moved`, from the
+  video page's position stream: a jump over 1.5 s between readings, not in the 2.5 s after
+  opening), so pauses to load after a skip aren't mistaken for stutter.
+- **Tests:** `test/music_video_test.dart` (far-off landings teach nothing, 2 s cap),
+  `test/video_stats_test.dart` (skips, `musicVideoDrawing`).
+
 ## Smoother video drawing on phones (5 Oct 2026, 0.1.57, branch `feature/smoother-video-drawing`)
 - **What the second log showed (5 Oct, 0.1.56, the user's phone):**
   - *Music video* (1080p H.264 24 fps, `mediacodec-copy`, `gpu`): 1 picture dropped, but still

@@ -68,6 +68,16 @@ void main() {
           'Music video stutter in the last 30 s: jumped back into step 3 times '
           '(video behind by 1.8–2.6 s, video ahead by 2.1 s) · app slow to draw 3 times '
           '(worst 85 ms, mostly drawing) · the app was out of sight for part of it');
+      expect(
+          stutterLine('Video',
+              decoderDrops: 0,
+              screenDrops: 0,
+              waits: 5,
+              slowAppFrames: 0,
+              skips: 4,
+              readAhead: '',
+              over: const Duration(seconds: 30)),
+          'Video stutter in the last 30 s: paused to load 5 times · you skipped or moved it 4 times');
       expect(slowDetail(worstMs: 40, building: 2, drawing: 0), 'worst 40 ms, mostly building the screen');
       expect(slowDetail(worstMs: 0, building: 0, drawing: 0), '');
       expect(jumpDetail(const [Duration(seconds: -2)]), 'video behind by 2 s');
@@ -85,6 +95,9 @@ void main() {
     expect(direct.hwdec, 'mediacodec');
     expect(videoDrawing(direct: false, android: true).vo, isNull);
     expect(videoDrawing(direct: true, android: false).vo, isNull);
+    // 0.1.58: music videos have no sound to keep time by, so they always draw the usual way.
+    expect(musicVideoDrawing.vo, isNull);
+    expect(musicVideoDrawing.hwdec, isNull);
   });
 
   testWidgets('a watched player: start line, a stutter report, and a summary', (tester) async {
@@ -121,6 +134,10 @@ void main() {
     decoderDrops = 2;
     screenDrops = 5;
     clock = clock.add(const Duration(seconds: 20)); // past the pause that comes with opening
+    // 0.1.58: the viewer skipping ahead is said too.
+    stats.moved(const Duration(seconds: 40));
+    stats.moved(const Duration(milliseconds: 40300));
+    stats.moved(const Duration(seconds: 50));
     stats.buffering(true);
     stats.jumped();
     stats.buffering(true); // the pause after a jump isn't counted
@@ -130,6 +147,7 @@ void main() {
     expect(stutter.single, contains('7 pictures dropped (decoder 2, screen 5)'));
     expect(stutter.single, contains('jumped back into step 1 time · paused to load 1 time'));
     expect(stutter.single, contains('read ahead 4.5 s'));
+    expect(stutter.single, contains('you skipped or moved it once'));
 
     // Closing sums it up.
     clock = clock.add(const Duration(minutes: 1, seconds: 10));

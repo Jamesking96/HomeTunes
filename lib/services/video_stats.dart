@@ -136,13 +136,16 @@ String? stutterLine(String label,
     int jumps = 0,
     List<Duration> jumpDrifts = const [],
     String slowWhy = '',
-    bool leftScreen = false}) {
+    bool leftScreen = false,
+    int skips = 0}) {
   if (decoderDrops + screenDrops + waits + slowAppFrames + jumps == 0) return null;
   final parts = <String>[
     if (decoderDrops + screenDrops > 0)
       '${decoderDrops + screenDrops} picture${decoderDrops + screenDrops == 1 ? '' : 's'} dropped '
           '(decoder $decoderDrops, screen $screenDrops)',
     ..._problems(drops: 0, jumps: jumps, waits: waits, slow: slowAppFrames, drifts: jumpDrifts, slowWhy: slowWhy),
+    // 0.1.58: skipping or dragging the progress bar pauses to load too, so it's said.
+    if (skips > 0) 'you skipped or moved it ${skips == 1 ? 'once' : '$skips times'}',
     if (readAhead.isNotEmpty) 'read ahead ${_num(readAhead, digits: 1)} s',
     if (leftScreen) 'the app was out of sight for part of it',
   ];
@@ -207,6 +210,21 @@ class VideoStats {
   // the screen.
   final List<Duration> _drifts = [];
   int _worstMs = 0, _slowBuilding = 0, _slowDrawing = 0;
+  // 0.1.58: times the viewer skipped or dragged the progress bar since the last report.
+  int _skips = 0;
+  Duration? _lastPosition;
+
+  /// The video's position, from the player (the video page only). A jump of more than 1.5 s
+  /// between two readings is the viewer skipping or dragging the progress bar; the pause to
+  /// load after it is expected, so the report says so (0.1.58).
+  void moved(Duration position) {
+    final last = _lastPosition;
+    _lastPosition = position;
+    // Just opened: the move to the saved place isn't a skip.
+    if (last == null || _disposed || _name == null || now().isBefore(_quietUntil)) return;
+    if ((position - last).abs() > const Duration(milliseconds: 1500)) _skips++;
+  }
+
   bool _leftScreen = false;
   AppLifecycleListener? _lifecycle;
 
@@ -226,6 +244,7 @@ class VideoStats {
   void started(String name) {
     _finish();
     _name = name;
+    _lastPosition = null; // a new file starting at its saved place isn't a skip
     _lastDecoder = 0;
     _lastScreen = 0;
     _quietUntil = now().add(_settle); // opening the file pauses too
@@ -334,6 +353,7 @@ class VideoStats {
         jumpDrifts: _drifts,
         slowWhy: slowDetail(worstMs: _worstMs, building: _slowBuilding, drawing: _slowDrawing),
         leftScreen: _leftScreen,
+        skips: _skips,
         readAhead: readAhead,
         over: sampleEvery * _samples);
     if (line != null) PlaybackLog.add(line);
@@ -345,6 +365,7 @@ class VideoStats {
     _worstMs = _slowBuilding = _slowDrawing = 0;
     _drifts.clear();
     _leftScreen = false;
+    _skips = 0;
   }
 
   void _finish() {

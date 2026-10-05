@@ -112,7 +112,8 @@ class VideoSettings extends StatelessWidget {
           child: SwitchListTile(
             title: const Text('Smoother video on phones'),
             subtitle: Text(Platform.isAndroid
-                ? 'Shows the picture straight from the phone\'s video chip. Turn this off if a video shows '
+                ? 'Shows videos straight from the phone\'s video chip (not music videos, which always '
+                    'play the usual way). Turn this off if a video shows '
                     'a black picture. Takes effect the next time a video opens.'
                 : 'Only changes anything on a phone.'),
             value: lib.videoDirectDrawing,
