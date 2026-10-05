@@ -192,10 +192,11 @@ before changing that area.
   the phone; and a full-screen music video should have the same controls as a normal video
   (the user picked "like a normal video": progress bar, skips, volume, over just the round
   buttons).
-- **Video page** (`video_player_screen.dart`): in the normal layout the picture has round
-  `_OverlayButton`s, **Enlarge** top-left (`video-overlay-enlarge`) and **Full screen** top-right
-  (`video-overlay-fullscreen`, not when the file can't play), always shown like the enlarged
-  view's Shrink / Full screen. In full screen, media_kit's `topButtonBar` (new `top:` parameter
+- **Video page** (`video_player_screen.dart`): in the normal layout the picture has a round
+  **Enlarge** `_OverlayButton` top-left (`video-overlay-enlarge`), always shown like the enlarged
+  view's Shrink. A round Full screen top-right was tried and taken off (build +60, the user's
+  choice): the player's own Full screen button is already in the bottom corner. The enlarged
+  view's top-right Full screen went for the same reason. In full screen, media_kit's `topButtonBar` (new `top:` parameter
   of `desktopControlsTheme` / `phoneControlsTheme`, only for the `fullscreen:` theme) has a
   round **Leave full screen** (`video-leave-fullscreen`) that shows and hides with the controls.
   Same code on PC and phone.

@@ -964,11 +964,8 @@ class _VideoPageState extends State<_VideoPage> {
               onPressed: () => setState(() => _enlarged = false),
             ),
           ),
-          Positioned(
-            right: 8,
-            top: 8,
-            child: _OverlayButton(icon: Icons.fullscreen, tooltip: 'Full screen', onPressed: _fullScreen),
-          ),
+          // (0.1.59: no Full screen button at the top any more; the player's own one is in the
+          // bottom corner.)
         ]),
       );
     }
@@ -1005,8 +1002,9 @@ class _VideoPageState extends State<_VideoPage> {
         var h = c.maxWidth / ratio;
         if (h > c.maxHeight * 0.7) h = c.maxHeight * 0.7;
         return ListView(children: [
-          // 0.1.59: Enlarge and Full screen on the picture too (like Shrink and Full screen when
-          // it's enlarged); the buttons below stay.
+          // 0.1.59: Enlarge on the picture too (like Shrink when it's enlarged); the buttons below
+          // stay. Full screen is the player's own button in the bottom corner (a second one at
+          // the top was taken off: the user found it doubled up).
           Container(
             color: Colors.black,
             height: h,
@@ -1022,17 +1020,6 @@ class _VideoPageState extends State<_VideoPage> {
                   onPressed: () => setState(() => _enlarged = true),
                 ),
               ),
-              if (_problem == null)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: _OverlayButton(
-                    key: const ValueKey('video-overlay-fullscreen'),
-                    icon: Icons.fullscreen,
-                    tooltip: 'Full screen',
-                    onPressed: _fullScreen,
-                  ),
-                ),
             ]),
           ),
           Padding(

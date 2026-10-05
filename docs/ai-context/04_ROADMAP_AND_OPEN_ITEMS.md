@@ -52,7 +52,7 @@ while commenting".
 | Smoother music videos: small drifts caught up with speed instead of jumps (0.1.56) | Done, released in v0.1.58 (5 Oct). See `03_…` → Smoother music videos |
 | Smoother video on phones: drawing straight from the video chip, music video jumps aim ahead, more detail in the log (0.1.57) | Done, released in v0.1.58 (5 Oct). The user's log: normal videos now drop no pictures, but music videos went badly out of step. See `03_…` → Smoother video drawing on phones |
 | Music videos back to the usual drawing, skips noted in the log (0.1.58) | Done, released as v0.1.58 (5 Oct), covering 0.1.55–0.1.58. The user's log (5 Oct, 12:31): the music video played 1:26 with no dropped pictures and no jumps (one 212 ms slow frame at the start). See `03_…` → Music videos back to the usual drawing |
-| Video buttons: Enlarge / Full screen on the picture, Leave full screen in full screen, a full-screen music video with a normal video's controls (0.1.59) | Built 5 Oct on `feature/video-buttons`, not merged yet. Waiting for the user to try it. See `03_…` → Video buttons on the picture |
+| Video buttons: Enlarge on the picture, Leave full screen in full screen, a full-screen music video with a normal video's controls (0.1.59) | Built 5 Oct on `feature/video-buttons`, not merged yet. Waiting for the user to try it. See `03_…` → Video buttons on the picture |
 | L: Linux build, incl. Steam Deck (0.1.60) | Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (0.1.61) | After L |
 | T: Android TV (0.1.62) | After A |
