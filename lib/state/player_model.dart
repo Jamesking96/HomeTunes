@@ -91,8 +91,8 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   /// Engine settings last applied (so they're only sent when they change).
   String? _appliedReplayGain;
-  // The volume boost last sent (null: not yet, so the engine's volume limit isn't raised yet).
-  double? _appliedBoost;
+  // The engine's volume limit has been raised for the volume boost (0.1.61).
+  bool _volumeMaxRaised = false;
   bool? _appliedGapless;
   bool? _appliedLoopOne;
   bool _videoOff = false;
@@ -462,14 +462,14 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         _appliedReplayGain = rg;
         await engine.setProperty('replaygain', rg == 'off' ? 'no' : rg);
       }
-      // Volume boost (0.1.61): let the engine's volume go above 100 (it stops at 130 unless
-      // told), then send the boosted volume whenever the boost changes.
-      final boost = _boostScale;
-      if (_appliedBoost != boost) {
-        if (_appliedBoost == null) await engine.setProperty('volume-max', '$engineVolumeMax');
-        _appliedBoost = boost;
-        await _sendVolume();
+      // Volume boost (0.1.61 / 0.1.62): let the engine's volume go above 100 (it stops at 130
+      // unless told); when the boost's top is lowered (or it's turned off), bring a louder
+      // volume down to it.
+      if (!_volumeMaxRaised) {
+        _volumeMaxRaised = true;
+        await engine.setProperty('volume-max', '$engineVolumeMax');
       }
+      if (volume > library.maxVolume) await setVolume(library.maxVolume);
     } catch (e) {
       debugPrint('HomeTunes: couldn\'t apply playback settings: $e');
     }
@@ -605,17 +605,15 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   }
   @override
   Future<void> setVolume(double v) async {
-    volume = v.clamp(0.0, 100.0);
+    volume = v.clamp(0.0, library.maxVolume);
     notifyListeners();
     await _sendVolume();
   }
 
-  /// The engine's volume: the listener's (0–100), turned down a little by the equaliser's
-  /// overall level and up by the volume boost (0.1.61, models/volume_boost.dart).
-  double get _engineVolume => volume * _eqLevel * _boostScale;
-
-  double get _boostScale =>
-      boostVolumeScale(boostFactor(on: library.volumeBoost, percent: library.volumeBoostPercent));
+  /// The engine's volume: the listener's (0–100, or up to the volume boost's top, 0.1.62),
+  /// turned down a little by the equaliser's overall level. Above 100 it's amplified
+  /// (models/volume_boost.dart).
+  double get _engineVolume => engineVolume(volume) * _eqLevel;
 
   Future<void> _sendVolume() async {
     try {

@@ -233,9 +233,10 @@ folds it down to icons and opens it again.
   cover or the lyrics showing), and the speaker button in the phone's mini player, which opens a
   small slider.
 - **Volume boost:** if something's too quiet even at full volume, turn on **Settings › Playback ›
-  Volume boost** and slide it up, to as much as 500% (five times as loud), like VLC. It works
-  for music, audiobooks and videos. It's off (100%) to start with; very high boosts can make
-  loud parts crackle, so turn it down if they do.
+  Volume boost** and choose how far the volume can go, up to 500% (five times as loud), like
+  VLC. Every volume slider (music, audiobooks and videos) then goes past 100% up to that; past
+  100% is louder than normal. It's off (100%) to start with; very high volumes can make loud
+  parts crackle, so turn it down if they do.
 - **Always on top (PC):** click the pin button to keep HomeTunes in front of your other windows,
   handy for a video in a corner while you work. Click it again to turn it off. It's at the right
   end of the player bar along the bottom (beside the tabs in a narrow window), at the top of Now

@@ -145,9 +145,13 @@ class LibraryModel extends ChangeNotifier {
   bool alwaysOnTop = false;
 
   /// Volume boost (0.1.61, Settings › Playback): louder than normal, up to 500 %, for music,
-  /// audiobooks and videos. Off and 100 % by default (models/volume_boost.dart).
+  /// audiobooks and videos. Off and 100 % by default (models/volume_boost.dart). Since 0.1.62
+  /// the percentage is how far the volume sliders go ([maxVolume]), not a fixed boost.
   bool volumeBoost = false;
   int volumeBoostPercent = 100;
+
+  /// The top of every volume slider: 100, or the boost's percentage while it's on.
+  double get maxVolume => maxVolumeFor(on: volumeBoost, percent: volumeBoostPercent);
 
   /// Now Playing can show a song's music video in place of its cover, when it has one (0.1.40).
   /// Off: no videos and no video button (Settings › Music).
@@ -908,7 +912,8 @@ class LibraryModel extends ChangeNotifier {
     await _saveSettings();
   }
 
-  /// Volume boost on / off and how much (100–500 %, 0.1.61). The players follow straight away.
+  /// Volume boost on / off and how far the volume sliders go (100–500 %, 0.1.61 / 0.1.62). A
+  /// volume above the new top is brought down to it by the players.
   Future<void> setVolumeBoost({bool? on, int? percent}) async {
     if (on != null) volumeBoost = on;
     if (percent != null) volumeBoostPercent = percent.clamp(volumeBoostMin, volumeBoostMax).toInt();

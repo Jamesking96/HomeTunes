@@ -98,7 +98,8 @@ class PlaybackSettings extends StatelessWidget {
             ],
           ),
         ),
-        // Volume boost (0.1.61): louder than 100 %, like VLC (models/volume_boost.dart).
+        // Volume boost (0.1.61): louder than 100 %, like VLC (models/volume_boost.dart). Since
+        // 0.1.62 the slider here only sets how far the volume sliders go.
         SettingTarget(
           'volume-boost',
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -106,8 +107,8 @@ class PlaybackSettings extends StatelessWidget {
               key: const ValueKey('volume-boost-switch'),
               title: const Text('Volume boost'),
               subtitle: Text(lib.volumeBoost
-                  ? 'Music, audiobooks and videos play at ${lib.volumeBoostPercent}% of their normal loudness'
-                  : 'Make everything louder than full volume, up to 500% (like VLC). Off: normal loudness.'),
+                  ? 'Every volume slider now goes up to ${lib.volumeBoostPercent}%. Past 100% is louder than normal.'
+                  : 'Let the volume sliders go past 100%, up to 500% (like VLC). Off: they stop at 100%.'),
               value: lib.volumeBoost,
               onChanged: (v) => lib.setVolumeBoost(on: v),
             ),
@@ -132,8 +133,9 @@ class PlaybackSettings extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Text(
-                'Boost: ${lib.volumeBoostPercent}%. Very high boosts can make loud parts crackle, as in VLC; '
-                'turn it down if they do. Mind your ears and speakers.',
+                'Loudest the sliders go: ${lib.volumeBoostPercent}%. You choose how loud with the volume '
+                'sliders as usual. Very high volumes can make loud parts crackle, as in VLC; turn it down if '
+                'they do. Mind your ears and speakers.',
                 style: TextStyle(color: AppColors.textDim, fontSize: 12),
               ),
             ),
