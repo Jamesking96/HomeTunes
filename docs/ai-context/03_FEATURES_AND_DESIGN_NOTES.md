@@ -186,7 +186,28 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
-## Volume boost (5 Oct 2026, 0.1.61, branch `feature/volume-boost`)
+## Volume boost through the volume sliders (5 Oct 2026, 0.1.62, branch `feature/volume-boost`)
+- **The user asked (5 Oct, after 0.1.61):** with the boost on, the Settings slider should only
+  say how far the volume can go, and the normal volume sliders should run up to that.
+- **Now:** `LibraryModel.maxVolume` = 100, or the boost's percentage while it's on
+  (`maxVolumeFor`). Every volume slider runs 0 → `maxVolume`: the player bar / Now Playing /
+  phone pop-up (`VolumeControl`, `VolumeButton`; the wheel and touchpad too,
+  `afterWheel(max:)`), the video bottom bar (`_VideoVolume`, `NowWatching.maxVolume` via the
+  `VolumeTop` interface on `MediaKitTransport`), and the video player's own bar, where media_kit's
+  volume button (fixed at 100) is replaced by `_VideoBarVolume`; ↑ ↓ and the wheel over a video
+  step 5 on the same scale (`stepEngineVolume`).
+- **Sound:** up to 100 the engine gets the slider value as before (nothing changes for normal
+  listening). Above 100 it gets 100 × ∛(value / 100) (`engineVolume`; mpv's volume is cubic),
+  so 500 % is 5 × as loud; `volume-max` is raised to 200 on both players. The video player keeps
+  its volume in the engine, so its sliders read it back with `sliderVolume`. The 0.1.61 fixed
+  boost (cube-root multiplier for music, `replaygain-fallback` dB for videos) is gone.
+- **Turning the boost off or lowering its top** brings a louder volume down to it
+  (`PlayerModel._applyEngineSettings`, the video page's `_followVolumeTop`).
+- **Settings text:** "Every volume slider now goes up to N%. Past 100% is louder than normal."
+- **Tests:** `test/volume_boost_test.dart` (the slider top, the volume maths both ways, steps,
+  the Settings page, the wheel past 100).
+
+## Volume boost (5 Oct 2026, 0.1.61, branch `feature/volume-boost`, reworked in 0.1.62)
 - **The user asked (5 Oct):** a volume boost like VLC's (up to 500 %) in Settings: a switch and
   a scale for how much, off and 100 % by default.
 - **Settings › Playback › Volume boost** (`volume-boost`): a switch and a slider, 100–500 % in

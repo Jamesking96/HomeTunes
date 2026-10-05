@@ -22,13 +22,19 @@ abstract class VideoTransport {
   Stream<Duration> get positionStream;
   Duration get duration;
   Stream<Duration> get durationStream;
-  double get volume; // 0–100
+  double get volume; // 0–100 (up to the volume boost's top, see [VolumeTop])
   Stream<double> get volumeStream;
   double get rate;
   Future<void> play();
   Future<void> pause();
   Future<void> seek(Duration to);
   Future<void> setVolume(double volume);
+}
+
+/// A player whose volume can go above 100 with the volume boost (0.1.62): the top of its slider.
+/// Players without it stop at 100.
+abstract class VolumeTop {
+  double get maxVolume;
 }
 
 class NowWatching extends ChangeNotifier {
@@ -276,8 +282,15 @@ class NowWatching extends ChangeNotifier {
   void previous() => onPrevious?.call();
 
   double get volume => _transport?.volume ?? 100;
+
+  /// The top of the video's volume slider: 100, or the volume boost's top (0.1.62).
+  double get maxVolume {
+    if (_transport case final VolumeTop top) return top.maxVolume;
+    return 100;
+  }
+
   Future<void> setVolume(double v) async {
-    await _transport?.setVolume(v.clamp(0.0, 100.0));
+    await _transport?.setVolume(v.clamp(0.0, maxVolume));
     _notify();
   }
 

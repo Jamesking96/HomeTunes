@@ -27,6 +27,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/eq_preset.dart' show eqFilter;
 import '../../models/video_item.dart';
+import '../../models/video_player_look.dart';
 import '../../models/volume_boost.dart';
 import '../../services/path_safety.dart';
 import '../../services/video_drawing.dart';
@@ -296,7 +297,7 @@ class _VideoPageState extends State<_VideoPage> {
   String? _appliedEq;
   // What the bottom bar and media keys use to reach this player. Null in tests without one.
   NowWatching? _watching;
-  late final VideoTransport _transport = MediaKitTransport(_player);
+  late final VideoTransport _transport = MediaKitTransport(_player, maxVolume: () => _settings.maxVolume);
 
   /// The speed now (starts at the collection's own, else Settings › Videos' usual one).
   double _speed = 1.0;
@@ -352,7 +353,9 @@ class _VideoPageState extends State<_VideoPage> {
     _settings = _videos.library;
     _eq = Provider.of<EqualizerModel?>(context, listen: false);
     _eq?.addListener(_applyEqualizer);
-    _settings.addListener(_applyEqualizer); // the volume boost (0.1.61)
+    // Volume boost (0.1.62): the volume can go above 100 up to Settings › Playback's top.
+    _settings.addListener(_followVolumeTop);
+    _engine?.setProperty('volume-max', '$engineVolumeMax');
     _subs.addAll([
       _player.stream.completed.listen((done) {
         if (done) _finished();
@@ -561,17 +564,20 @@ class _VideoPageState extends State<_VideoPage> {
     if (picked != null) await _setSpeed(picked);
   }
 
+  /// The volume boost's top was lowered (or the boost turned off): bring a louder volume down.
+  void _followVolumeTop() {
+    final max = _settings.maxVolume;
+    if (sliderVolume(_player.state.volume) > max + 0.01) _player.setVolume(engineVolume(max));
+  }
+
   /// Sends the videos' equaliser preset to this player: the bands as a filter, and the overall
   /// level as mpv's `replaygain-fallback` (the gain used for files without ReplayGain tags, as
   /// videos are), so the volume slider stays the listener's. A volume filter in the lavfi graph
   /// stalled playback on this engine (tool/bench/frame_picker_engine_test.dart).
-  /// 0.1.61: the volume boost (Settings › Playback) is added to that gain too, as media_kit's own
-  /// volume controls set this player's volume directly (models/volume_boost.dart).
   Future<void> _applyEqualizer() async {
     final preset = _eq?.activeForVideos;
     final filter = eqFilter(preset);
-    final boost = boostDb(boostFactor(on: _settings.volumeBoost, percent: _settings.volumeBoostPercent));
-    final level = ((preset?.level ?? 0) + boost).toStringAsFixed(1);
+    final level = (preset?.level ?? 0).toStringAsFixed(1);
     if ('$filter|$level' == _appliedEq) return;
     final engine = _engine;
     if (engine == null) return;
@@ -726,7 +732,7 @@ class _VideoPageState extends State<_VideoPage> {
     _music.removeListener(_onMusicChanged);
     _watching?.detach(_transport);
     _eq?.removeListener(_applyEqualizer);
-    _settings.removeListener(_applyEqualizer);
+    _settings.removeListener(_followVolumeTop);
     for (final s in _subs) {
       s.cancel();
     }
@@ -795,7 +801,8 @@ class _VideoPageState extends State<_VideoPage> {
       MaterialDesktopCustomButton(
           icon: Icon(skipIcon(forward: true, seconds: ahead)), onPressed: () => _skip(forward: true)),
       jump(forward: true, size: look.size.desktop),
-      const MaterialDesktopVolumeButton(),
+      // 0.1.62: our own volume (media_kit's stops at 100), up to the volume boost's top.
+      _VideoBarVolume(player: _player, maxVolume: () => _settings.maxVolume, look: look, accent: accent),
       paddedTime(MaterialDesktopPositionIndicator(style: timeTextStyle(look, accent))),
       const Spacer(),
       speedButton,
@@ -814,9 +821,9 @@ class _VideoPageState extends State<_VideoPage> {
       const SingleActivator(LogicalKeyboardKey.keyJ): () => _skip(forward: false),
       const SingleActivator(LogicalKeyboardKey.keyL): () => _skip(forward: true),
       const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
-          _player.setVolume((_player.state.volume + 5).clamp(0.0, 100.0)),
+          _player.setVolume(stepEngineVolume(_player.state.volume, 5, _settings.maxVolume)),
       const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
-          _player.setVolume((_player.state.volume - 5).clamp(0.0, 100.0)),
+          _player.setVolume(stepEngineVolume(_player.state.volume, -5, _settings.maxVolume)),
       // Shift+N / Shift+P: next / previous video (as on YouTube).
       const SingleActivator(LogicalKeyboardKey.keyN, shift: true): () {
         if (nextVideo != null) _goTo(nextVideo.id);
@@ -888,7 +895,11 @@ class _VideoPageState extends State<_VideoPage> {
           controller: _controller,
           fill: Colors.black,
           // The mouse wheel: 5 s skips over the progress bar, volume elsewhere (30 Sep).
-          controls: (state) => VideoWheel(player: _player, look: look, child: AdaptiveVideoControls(state)),
+          controls: (state) => VideoWheel(
+              player: _player,
+              look: look,
+              maxVolume: () => _settings.maxVolume,
+              child: AdaptiveVideoControls(state)),
           // With libass the engine draws the subtitles into the picture; the app's own text
           // subtitles would show them twice.
           subtitleViewConfiguration: SubtitleViewConfiguration(visible: Platform.isAndroid),
@@ -1147,10 +1158,84 @@ class _OverlayButton extends StatelessWidget {
       );
 }
 
-/// A media_kit player as seen by [NowWatching] (the bottom bar and the system media controls).
-class MediaKitTransport implements VideoTransport {
-  MediaKitTransport(this.player);
+/// The video bar's volume on a computer (0.1.62, in place of media_kit's, which stops at 100):
+/// the speaker (mute / unmute) and a slider from 0 to 100, or up to the volume boost's top.
+/// Above 100 the sound is amplified (models/volume_boost.dart).
+class _VideoBarVolume extends StatefulWidget {
   final Player player;
+  final double Function() maxVolume;
+  final VideoPlayerLook look;
+  final Color accent;
+  const _VideoBarVolume({required this.player, required this.maxVolume, required this.look, required this.accent});
+
+  @override
+  State<_VideoBarVolume> createState() => _VideoBarVolumeState();
+}
+
+class _VideoBarVolumeState extends State<_VideoBarVolume> {
+  double _beforeMute = 100;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.player;
+    final buttons = widget.look.buttons(widget.accent), track = widget.look.seekTrack(widget.accent);
+    return StreamBuilder<double>(
+      stream: p.stream.volume,
+      initialData: p.state.volume,
+      builder: (context, snap) {
+        final max = widget.maxVolume();
+        final volume = sliderVolume(snap.data ?? 100).clamp(0.0, max);
+        void set(double v) => p.setVolume(engineVolume(v.clamp(0.0, max)));
+        return Row(mainAxisSize: MainAxisSize.min, children: [
+          IconButton(
+            key: const ValueKey('video-bar-mute'),
+            tooltip: volume <= 0 ? 'Unmute' : 'Mute',
+            iconSize: widget.look.size.desktop,
+            color: buttons,
+            icon: Icon(volume <= 0 ? Icons.volume_off : (volume < 50 ? Icons.volume_down : Icons.volume_up)),
+            onPressed: () {
+              if (volume > 0) {
+                _beforeMute = volume;
+                set(0);
+              } else {
+                set(_beforeMute <= 0 ? 100 : _beforeMute);
+              }
+            },
+          ),
+          SizedBox(
+            width: 96,
+            child: Tooltip(
+              message: 'Volume ${volume.round()}%',
+              waitDuration: const Duration(milliseconds: 800),
+              child: SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  activeTrackColor: buttons,
+                  inactiveTrackColor: track,
+                  thumbColor: buttons,
+                  trackHeight: 2,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                  overlayShape: SliderComponentShape.noOverlay,
+                ),
+                child: Slider(key: const ValueKey('video-bar-volume'), value: volume, max: max, onChanged: set),
+              ),
+            ),
+          ),
+        ]);
+      },
+    );
+  }
+}
+
+/// A media_kit player as seen by [NowWatching] (the bottom bar and the system media controls).
+/// The volume here is on the sliders' scale (0–100, or up to the volume boost's top, 0.1.62);
+/// the engine's own number differs above 100 (models/volume_boost.dart).
+class MediaKitTransport implements VideoTransport, VolumeTop {
+  MediaKitTransport(this.player, {double Function()? maxVolume}) : _maxVolume = maxVolume ?? (() => 100);
+  final Player player;
+  final double Function() _maxVolume;
+
+  @override
+  double get maxVolume => _maxVolume();
 
   @override
   bool get playing => player.state.playing;
@@ -1165,9 +1250,9 @@ class MediaKitTransport implements VideoTransport {
   @override
   Stream<Duration> get durationStream => player.stream.duration;
   @override
-  double get volume => player.state.volume;
+  double get volume => sliderVolume(player.state.volume);
   @override
-  Stream<double> get volumeStream => player.stream.volume;
+  Stream<double> get volumeStream => player.stream.volume.map(sliderVolume);
   @override
   double get rate => player.state.rate;
   @override
@@ -1177,5 +1262,5 @@ class MediaKitTransport implements VideoTransport {
   @override
   Future<void> seek(Duration to) => player.seek(to);
   @override
-  Future<void> setVolume(double volume) => player.setVolume(volume);
+  Future<void> setVolume(double volume) => player.setVolume(engineVolume(volume.clamp(0.0, maxVolume)));
 }
