@@ -12,7 +12,8 @@ import 'package:hometunes/models/track.dart';
 import 'package:hometunes/models/track_edit.dart';
 import 'package:hometunes/services/local_scanner.dart';
 import 'package:hometunes/services/music_video.dart';
-import 'package:hometunes/ui/widgets/music_video_view.dart' show videoSeekTarget, videoSyncTolerance, videoVisible;
+import 'package:hometunes/ui/widgets/music_video_view.dart'
+    show learnSeekLead, maxSeekLead, videoSeekTarget, videoSyncRate, videoSyncTolerance, videoVisible;
 import 'package:path/path.dart' as p;
 
 /// One MP4 box: 4-byte size, 4-letter type, then the body.
@@ -176,12 +177,65 @@ void main() {
       expect(videoSeekTarget(song: const Duration(seconds: 30), video: const Duration(milliseconds: 29800)), isNull);
     });
 
+    // 0.1.56: on the phone the video jumped every few seconds (each jump freezes the picture for
+    // a moment). Small drifts are now caught up with a slightly different speed instead.
+    test('a small drift is caught up with speed, not a jump', () {
+      const song = Duration(seconds: 30);
+      expect(videoSeekTarget(song: song, video: song - const Duration(milliseconds: 800)), isNull);
+      // In step (within 0.1 s): the song's own speed.
+      expect(videoSyncRate(song: song, video: song + const Duration(milliseconds: 80)), 1.0);
+      expect(videoSyncRate(song: song, video: song, songSpeed: 1.25), 1.25);
+      // Behind: a little faster; ahead: a little slower; never more than 20 % (0.1.57).
+      expect(videoSyncRate(song: song, video: song - const Duration(milliseconds: 200)), closeTo(1.1, 0.001));
+      expect(videoSyncRate(song: song, video: song - const Duration(milliseconds: 150)), closeTo(1.075, 0.001));
+      expect(videoSyncRate(song: song, video: song + const Duration(milliseconds: 150)), closeTo(0.925, 0.001));
+      expect(videoSyncRate(song: song, video: song - const Duration(milliseconds: 1400)), closeTo(1.2, 0.001));
+      expect(videoSyncRate(song: song, video: song + const Duration(milliseconds: 1400)), closeTo(0.8, 0.001));
+      // 1.8 s out is still caught up with speed (0.1.57: jumps only past 2 s).
+      expect(videoSeekTarget(song: song, video: song - const Duration(milliseconds: 1800)), isNull);
+    });
+
     test('drifted, or the song was moved: jump to the song', () {
       final far = videoSyncTolerance + const Duration(milliseconds: 1);
       expect(videoSeekTarget(song: const Duration(seconds: 30), video: const Duration(seconds: 30) - far),
           const Duration(seconds: 30));
       // Repeat-one starting again, or pressing back to the start.
       expect(videoSeekTarget(song: Duration.zero, video: const Duration(minutes: 3)), Duration.zero);
+    });
+
+    // 0.1.57: on the phone a jump landed behind the song (decoding from the last keyframe takes
+    // a while) and soon needed another. Each jump now aims ahead by what the last ones lacked.
+    test('a jump aims ahead by what the last jumps lacked', () {
+      const song = Duration(seconds: 30);
+      expect(
+          videoSeekTarget(song: song, video: const Duration(seconds: 20), lead: const Duration(milliseconds: 1500)),
+          const Duration(milliseconds: 31500));
+      // Never past the end of the video.
+      expect(
+          videoSeekTarget(
+              song: song,
+              video: const Duration(seconds: 20),
+              videoLength: const Duration(seconds: 31),
+              lead: const Duration(seconds: 2)),
+          const Duration(seconds: 31));
+      // Landed 1.2 s behind: aim 1.2 s further ahead next time.
+      expect(learnSeekLead(Duration.zero, song: const Duration(seconds: 33), video: const Duration(milliseconds: 31800)),
+          const Duration(milliseconds: 1200));
+      // Landed 0.5 s ahead: aim a little less far.
+      expect(
+          learnSeekLead(const Duration(seconds: 1),
+              song: const Duration(seconds: 33), video: const Duration(milliseconds: 33500)),
+          const Duration(milliseconds: 500));
+      // Never below nothing or over 2 s (0.1.58).
+      expect(learnSeekLead(Duration.zero, song: song, video: song + const Duration(seconds: 2)), Duration.zero);
+      expect(
+          learnSeekLead(const Duration(milliseconds: 1500), song: song, video: song - const Duration(seconds: 1)),
+          maxSeekLead);
+      // 0.1.58: a jump that landed far off (the video was stuck) teaches nothing.
+      expect(learnSeekLead(const Duration(seconds: 1), song: song, video: song - const Duration(seconds: 13)),
+          const Duration(seconds: 1));
+      expect(learnSeekLead(const Duration(seconds: 1), song: song, video: song + const Duration(seconds: 50)),
+          const Duration(seconds: 1));
     });
 
     // The stutter when the window wasn't focused: Windows calls that 'inactive', and the video

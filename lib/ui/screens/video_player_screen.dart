@@ -28,7 +28,9 @@ import 'package:provider/provider.dart';
 import '../../models/eq_preset.dart' show eqFilter;
 import '../../models/video_item.dart';
 import '../../services/path_safety.dart';
+import '../../services/video_drawing.dart';
 import '../../services/video_names.dart';
+import '../../services/video_stats.dart';
 import '../../state/equalizer_model.dart';
 import '../../state/library_model.dart';
 import '../../state/now_watching.dart';
@@ -275,7 +277,12 @@ class _VideoPageState extends State<_VideoPage> {
   // Windows: the engine draws subtitles (libass), so styled and picture subtitles work.
   final Player _player =
       Player(configuration: PlayerConfiguration(title: 'HomeTunes video', libass: !Platform.isAndroid));
-  late final VideoController _controller = VideoController(_player);
+  // 0.1.57: on a phone, drawn straight from the video chip unless Settings › Videos says not
+  // (services/video_drawing.dart). First used in initState, after _settings is set.
+  late final VideoController _controller =
+      VideoController(_player, configuration: videoDrawing(direct: _settings.videoDirectDrawing));
+  // Playback stats in the Playback log (0.1.55): decoding, dropped pictures, waits. Null in tests.
+  late final VideoStats? _stats = VideoStats.forPlayer(_player, 'Video');
   // Keeps the same Video widget (and its picture) when switching between normal and enlarged,
   // and reaches it to go full screen.
   final GlobalKey<VideoState> _videoKey = GlobalKey<VideoState>();
@@ -355,6 +362,7 @@ class _VideoPageState extends State<_VideoPage> {
       }),
       // Playing and moving on: it's showing (some files never report a first picture).
       _player.stream.position.listen((at) {
+        _stats?.moved(at); // 0.1.58: skips are noted in the Playback log
         if (_opening && at > Duration.zero && _player.state.playing) _shown();
       }),
       _player.stream.playing.listen((playing) {
@@ -362,7 +370,9 @@ class _VideoPageState extends State<_VideoPage> {
         // audiobook pauses (30 Sep: before, only when the page first opened).
         if (playing && _music.playing) _music.pause();
         if (!playing) _savePlace();
+        _stats?.playing(playing);
       }),
+      _player.stream.buffering.listen((b) => _stats?.buffering(b)),
       _player.stream.tracks.listen((_) => _setUpTracks()),
       _player.stream.track.listen((_) => _readCurrentTracks()),
     ]);
@@ -421,6 +431,7 @@ class _VideoPageState extends State<_VideoPage> {
       if (start < Duration.zero) start = Duration.zero;
     }
     await _applyEqualizer();
+    _stats?.started(v.episodeLabel == null ? v.title : '${v.collection} ${v.episodeLabel}');
     await _player.open(Media(file, start: start > Duration.zero ? start : null));
     _speed = _videos.speedFor(v.collection);
     await _player.setRate(_speed);
@@ -712,6 +723,7 @@ class _VideoPageState extends State<_VideoPage> {
     for (final s in _subs) {
       s.cancel();
     }
+    _stats?.dispose();
     _player.dispose();
     super.dispose();
   }
