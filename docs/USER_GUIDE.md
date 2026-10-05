@@ -232,6 +232,11 @@ folds it down to icons and opens it again.
   to the volume you had. The slider is in the player bar on a PC, under the play controls on Now Playing (with the
   cover or the lyrics showing), and the speaker button in the phone's mini player, which opens a
   small slider.
+- **Always on top (PC):** click the pin button to keep HomeTunes in front of your other windows,
+  handy for a video in a corner while you work. Click it again to turn it off. It's at the right
+  end of the player bar along the bottom (beside the tabs in a narrow window), at the top of Now
+  Playing and the Details pages, and in the top corner of a full-screen video or music video. A
+  filled pin means it's on, and HomeTunes remembers it next time.
 - **Videos:** the **Videos** tab has **Collections**, **All videos** and **Favourites**. Tap a
   collection to see its seasons underneath, or right-click it (press and hold on a phone) for
   **Open collection page**, **Edit collection…**, **Change poster…** and more. A video carries on

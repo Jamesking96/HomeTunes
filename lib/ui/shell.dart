@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../services/window_pin.dart';
 import '../state/library_model.dart';
 import '../models/book.dart';
 import '../models/track.dart';
@@ -27,6 +28,7 @@ import 'screens/search_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/videos_screen.dart';
 import 'theme.dart';
+import 'widgets/always_on_top_button.dart';
 import 'widgets/escape_cancels.dart';
 import 'widgets/player_controls.dart';
 import 'widgets/quick_actions.dart';
@@ -96,7 +98,7 @@ class Shell extends StatelessWidget {
           ),
           const _StatusStrip(),
           const _SelectionBar(),
-          const DesktopPlayerBar(),
+          const _PlayerBarWithPin(),
         ]),
       );
     }
@@ -109,7 +111,7 @@ class Shell extends StatelessWidget {
         const _StatusStrip(),
         const _SelectionBar(),
         const MiniPlayer(),
-        NavigationBar(
+        _withPin(context, NavigationBar(
           selectedIndex: nav.tab,
           onDestinationSelected: nav.selectTab,
           destinations: const [
@@ -124,7 +126,38 @@ class Shell extends StatelessWidget {
             NavigationDestination(
                 icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),
           ],
-        ),
+        )),
+      ]),
+    );
+  }
+
+  /// A narrow PC window: the "Always on top" pin beside the tab bar (0.1.60). Phones can't keep
+  /// a window on top, so there it's just the tab bar.
+  static Widget _withPin(BuildContext context, Widget tabBar) {
+    if (!WindowPin.available) return tabBar;
+    return ColoredBox(
+      color: NavigationBarTheme.of(context).backgroundColor ?? Theme.of(context).colorScheme.surfaceContainer,
+      child: Row(children: [
+        Expanded(child: tabBar),
+        const Padding(padding: EdgeInsets.only(right: 8), child: AlwaysOnTopButton()),
+      ]),
+    );
+  }
+}
+
+/// The player bar along the bottom with the "Always on top" pin at its right end (0.1.60, the
+/// PC). It's there under every tab and page, whether music or a video is playing.
+class _PlayerBarWithPin extends StatelessWidget {
+  const _PlayerBarWithPin();
+
+  @override
+  Widget build(BuildContext context) {
+    if (!WindowPin.available) return const DesktopPlayerBar();
+    return ColoredBox(
+      color: AppColors.surface,
+      child: const Row(children: [
+        Expanded(child: DesktopPlayerBar()),
+        Padding(padding: EdgeInsets.only(right: 8), child: AlwaysOnTopButton()),
       ]),
     );
   }

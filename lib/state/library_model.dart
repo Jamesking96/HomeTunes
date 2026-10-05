@@ -31,6 +31,7 @@ import '../services/storage.dart';
 import '../services/subsonic_client.dart';
 import '../services/tag_writer.dart';
 import '../services/track_matching.dart';
+import '../services/window_pin.dart';
 import 'book_index.dart';
 import 'library_index.dart' as index;
 
@@ -137,6 +138,10 @@ class LibraryModel extends ChangeNotifier {
   /// Swipe the player left or right (touch screens) to go to the next or previous song, or to
   /// skip forward or back in an audiobook (0.1.17).
   bool swipeToSkip = true;
+
+  /// PC: the window stays on top of other windows (0.1.60, the pin button; see
+  /// services/window_pin.dart). Remembered, and put back when the app opens.
+  bool alwaysOnTop = false;
 
   /// Now Playing can show a song's music video in place of its cover, when it has one (0.1.40).
   /// Off: no videos and no video button (Settings › Music).
@@ -397,6 +402,7 @@ class LibraryModel extends ChangeNotifier {
     gaplessPlayback = true;
     replayGain = ReplayGainMode.off;
     swipeToSkip = true;
+    alwaysOnTop = false;
     showMusicVideos = true;
     autoPlayMusicVideos = true;
     artistsGrid = false;
@@ -464,6 +470,7 @@ class LibraryModel extends ChangeNotifier {
       gaplessPlayback = s.get('gaplessPlayback', true);
       replayGain = ReplayGainMode.values.asNameMap()[raw['replayGain']] ?? ReplayGainMode.off;
       swipeToSkip = s.get('swipeToSkip', true);
+      alwaysOnTop = s.get('alwaysOnTop', false);
       showMusicVideos = s.get('showMusicVideos', true);
       autoPlayMusicVideos = s.get('autoPlayMusicVideos', true);
       artistsGrid = s.get('artistsGrid', false);
@@ -524,6 +531,8 @@ class LibraryModel extends ChangeNotifier {
       settingsDamaged = s.damaged;
     }
     if (settingsDamaged) await storage.keepCopy('settings.json');
+    // The pin (0.1.60): put the window back on top if it was left that way.
+    unawaited(WindowPin.set(alwaysOnTop));
     // The server password lives in the system's protected storage (0.1.17). A plain-text one in
     // settings.json (an older version, or a restored backup that included it) is moved there,
     // and settings.json is saved again without it.
@@ -631,6 +640,7 @@ class LibraryModel extends ChangeNotifier {
         'gaplessPlayback': gaplessPlayback,
         'replayGain': replayGain.name,
         'swipeToSkip': swipeToSkip,
+        'alwaysOnTop': alwaysOnTop,
         'showMusicVideos': showMusicVideos,
         'autoPlayMusicVideos': autoPlayMusicVideos,
         'artistsGrid': artistsGrid,
@@ -883,6 +893,14 @@ class LibraryModel extends ChangeNotifier {
     if (width != null) sidebarWidth = width.clamp(sidebarMinWidth, sidebarMaxWidth).toDouble();
     if (folded != null) sidebarFolded = folded;
     notifyListeners();
+    await _saveSettings();
+  }
+
+  /// PC: keep the window on top of other windows, or not (0.1.60, the pin button).
+  Future<void> setAlwaysOnTop(bool on) async {
+    alwaysOnTop = on;
+    notifyListeners();
+    await WindowPin.set(on);
     await _saveSettings();
   }
 

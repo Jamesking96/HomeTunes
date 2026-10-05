@@ -39,6 +39,7 @@ import '../../state/video_filters.dart';
 import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../widgets/always_on_top_button.dart';
 import '../widgets/listening_controls.dart' show SpeedButton;
 import '../widgets/video_controls_look.dart';
 import 'edit_video.dart';
@@ -849,17 +850,18 @@ class _VideoPageState extends State<_VideoPage> {
     // Full screen (0.1.59): a round "Leave full screen" button in the top corner, like the ones
     // on the picture in the page, shown and hidden with the other controls.
     final fullTop = <Widget>[
+      // (No padding: media_kit gives the row its side margins, and a button bar's height.)
       Builder(
-        builder: (context) => Padding(
-          padding: const EdgeInsets.all(8),
-          child: _OverlayButton(
-            key: const ValueKey('video-leave-fullscreen'),
-            icon: Icons.fullscreen_exit,
-            tooltip: 'Leave full screen',
-            onPressed: () => exitFullscreen(context),
-          ),
+        builder: (context) => _OverlayButton(
+          key: const ValueKey('video-leave-fullscreen'),
+          icon: Icons.fullscreen_exit,
+          tooltip: 'Leave full screen',
+          onPressed: () => exitFullscreen(context),
         ),
       ),
+      // And the "Always on top" pin in the other corner (0.1.60, the PC only).
+      const Spacer(),
+      const AlwaysOnTopButton(round: true),
     ];
     // Double-tap the left or right of the picture on a phone: skip by the chosen amounts too.
     MaterialVideoControlsThemeData phone({bool full = false}) => phoneControlsTheme(look, accent,

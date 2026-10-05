@@ -18,6 +18,7 @@ import '../../services/media_details.dart';
 import '../../services/path_safety.dart';
 import '../../state/library_model.dart';
 import '../theme.dart';
+import '../widgets/always_on_top_button.dart';
 
 /// Opens the Details page for [tracks]: one song, an album's songs, or a book's files.
 Future<void> openDetails(
@@ -52,7 +53,8 @@ class DetailsScreen extends StatelessWidget {
     final many = tracks.length > 1;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Details')),
+      // The pin (0.1.60): this page covers the player bar, where it usually is.
+      appBar: AppBar(title: const Text('Details'), actions: const [AlwaysOnTopButton()]),
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(

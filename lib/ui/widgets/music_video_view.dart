@@ -35,6 +35,7 @@ import '../../services/video_stats.dart';
 import '../../state/library_model.dart';
 import '../../state/player_model.dart';
 import '../theme.dart';
+import 'always_on_top_button.dart';
 import 'listening_controls.dart' show SkipIcon;
 import 'player_controls.dart' show SeekBar, VolumeControl;
 
@@ -484,6 +485,8 @@ class _FullScreenBar extends StatelessWidget {
         top: 16,
         child: _RoundButton(icon: Icons.fullscreen_exit, tooltip: 'Leave full screen (Esc)', onPressed: () => exitFullscreen(context)),
       ),
+      // The "Always on top" pin (0.1.60, the PC only).
+      const Positioned(right: 16, top: 16, child: AlwaysOnTopButton(round: true)),
       Positioned(
         left: 0,
         right: 0,
