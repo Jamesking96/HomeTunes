@@ -1,6 +1,7 @@
 // 0.1.55: video playback stats in the Playback log (services/video_stats.dart).
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/services/playback_log.dart';
+import 'package:hometunes/services/video_drawing.dart';
 import 'package:hometunes/services/video_stats.dart';
 
 void main() {
@@ -47,9 +48,43 @@ void main() {
               over: const Duration(seconds: 30)),
           'Music video stutter in the last 30 s: 15 pictures dropped (decoder 3, screen 12) · '
           'paused to load 1 time · app slow to draw 4 times · read ahead 8.3 s');
+      // 0.1.57: how far out the jumps were, why the app was slow, and leaving the app.
+      expect(
+          stutterLine('Music video',
+              decoderDrops: 0,
+              screenDrops: 0,
+              waits: 0,
+              slowAppFrames: 3,
+              jumps: 3,
+              jumpDrifts: const [
+                Duration(milliseconds: -1800),
+                Duration(milliseconds: -2600),
+                Duration(milliseconds: 2100),
+              ],
+              slowWhy: slowDetail(worstMs: 85, building: 1, drawing: 2),
+              leftScreen: true,
+              readAhead: '',
+              over: const Duration(seconds: 30)),
+          'Music video stutter in the last 30 s: jumped back into step 3 times '
+          '(video behind by 1.8–2.6 s, video ahead by 2.1 s) · app slow to draw 3 times '
+          '(worst 85 ms, mostly drawing) · the app was out of sight for part of it');
+      expect(slowDetail(worstMs: 40, building: 2, drawing: 0), 'worst 40 ms, mostly building the screen');
+      expect(slowDetail(worstMs: 0, building: 0, drawing: 0), '');
+      expect(jumpDetail(const [Duration(seconds: -2)]), 'video behind by 2 s');
+      expect(describeDrawing('mediacodec_embed'), 'straight from the video chip (mediacodec_embed)');
+      expect(describeDrawing('gpu'), 'gpu');
       expect(summaryLine('Video', 'Film', played: const Duration(minutes: 2, seconds: 5), drops: 0, waits: 0, slowAppFrames: 0),
           'Video finished: Film · played 2:05 · smooth');
     });
+  });
+
+  // 0.1.57: on a phone, videos are drawn straight from the video chip unless switched off.
+  test('how videos are drawn', () {
+    final direct = videoDrawing(direct: true, android: true);
+    expect(direct.vo, 'mediacodec_embed');
+    expect(direct.hwdec, 'mediacodec');
+    expect(videoDrawing(direct: false, android: true).vo, isNull);
+    expect(videoDrawing(direct: true, android: false).vo, isNull);
   });
 
   testWidgets('a watched player: start line, a stutter report, and a summary', (tester) async {

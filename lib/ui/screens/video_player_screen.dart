@@ -28,6 +28,7 @@ import 'package:provider/provider.dart';
 import '../../models/eq_preset.dart' show eqFilter;
 import '../../models/video_item.dart';
 import '../../services/path_safety.dart';
+import '../../services/video_drawing.dart';
 import '../../services/video_names.dart';
 import '../../services/video_stats.dart';
 import '../../state/equalizer_model.dart';
@@ -276,7 +277,10 @@ class _VideoPageState extends State<_VideoPage> {
   // Windows: the engine draws subtitles (libass), so styled and picture subtitles work.
   final Player _player =
       Player(configuration: PlayerConfiguration(title: 'HomeTunes video', libass: !Platform.isAndroid));
-  late final VideoController _controller = VideoController(_player);
+  // 0.1.57: on a phone, drawn straight from the video chip unless Settings › Videos says not
+  // (services/video_drawing.dart). First used in initState, after _settings is set.
+  late final VideoController _controller =
+      VideoController(_player, configuration: videoDrawing(direct: _settings.videoDirectDrawing));
   // Playback stats in the Playback log (0.1.55): decoding, dropped pictures, waits. Null in tests.
   late final VideoStats? _stats = VideoStats.forPlayer(_player, 'Video');
   // Keeps the same Video widget (and its picture) when switching between normal and enlarged,

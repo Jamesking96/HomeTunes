@@ -1,13 +1,16 @@
 // Settings › Videos (0.1.40): like Settings › Audiobooks, for the Videos tab.
 //   Watching: skip back / forward amounts (the player's buttons, ← → and J / L, double-tap on a
 //             phone), the speed for collections that haven't had one chosen, rewinding a little
-//             when carrying on, and a separate equaliser preset for videos.
+//             when carrying on, smoother video on phones (0.1.57: drawing straight from the
+//             video chip), and a separate equaliser preset for videos.
 //   Where your videos are: the video folders (the same list as Settings › Folders & scanning).
 //   Your edits: whether edits are also saved into .nfo files beside the videos.
 //   Look: the usual picture shape for videos and for collections (wide, tall or square); each
 //         video or collection can have its own in Edit details / Edit collection.
 // Settings are saved through LibraryModel (settings.json), EqualizerModel (equalizer.json) and
 // VideoLibraryModel (videos.json).
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -101,6 +104,19 @@ class VideoSettings extends StatelessWidget {
             subtitle: const Text('A few seconds after a short pause, up to 30 seconds after a long break'),
             value: lib.videoRewindOnResume,
             onChanged: (v) => lib.updateVideoSettings(rewindOnResume: v),
+          ),
+        ),
+        // 0.1.57: draw straight from the phone's video chip (services/video_drawing.dart).
+        SettingTarget(
+          'video-direct',
+          child: SwitchListTile(
+            title: const Text('Smoother video on phones'),
+            subtitle: Text(Platform.isAndroid
+                ? 'Shows the picture straight from the phone\'s video chip. Turn this off if a video shows '
+                    'a black picture. Takes effect the next time a video opens.'
+                : 'Only changes anything on a phone.'),
+            value: lib.videoDirectDrawing,
+            onChanged: Platform.isAndroid ? (v) => lib.updateVideoSettings(directDrawing: v) : null,
           ),
         ),
         SettingTarget(

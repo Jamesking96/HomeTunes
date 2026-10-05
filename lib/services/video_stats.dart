@@ -12,6 +12,10 @@
 //     own, see [VideoStats.jumped]);
 //   - Flutter's own frame timings: how often the app itself was slow to draw (its redraws can
 //     take time away from the video on a phone).
+// 0.1.57: a stutter line also says how far out each music video jump was ("video behind by
+// 1.8–2.6 s"), the slowest app frame and whether building or drawing made it slow, and when the
+// app was out of sight for part of the 30 s (coming back redraws everything and drops pictures,
+// which isn't stutter while watching).
 // Every 30 s, only if something went wrong, one "stutter" line goes in the log; when the
 // video closes (or the next one starts) a one-line summary. The log is in Settings › About ›
 // Playback log, where it can be copied and sent.
@@ -20,8 +24,10 @@
 // engine is read through [ReadProperty], so tests use a fake.
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleListener, AppLifecycleState;
 import 'package:media_kit/media_kit.dart';
 
 import 'playback_log.dart';
@@ -35,6 +41,42 @@ String describeDecoder(String hwdec) {
   if (h.isEmpty || h == 'no') return 'software (main processor)';
   if (h.contains('copy')) return 'video chip, copied before drawing ($h)';
   return 'video chip ($h)';
+}
+
+/// How the pictures reach the screen, in plain words, from mpv's `current-vo` (0.1.57).
+String describeDrawing(String vo) {
+  final v = vo.trim();
+  if (v.isEmpty) return '?';
+  if (v == 'mediacodec_embed') return 'straight from the video chip ($v)';
+  return v;
+}
+
+/// The music video's jumps back into step, by how far out it was (0.1.57): "video behind by
+/// 1.8–2.6 s". [drifts] are video minus song: negative when the video was behind.
+String jumpDetail(List<Duration> drifts) {
+  String secs(Duration d) => _num((d.inMilliseconds.abs() / 1000).toString(), digits: 1);
+  String range(List<Duration> ds, String how) {
+    final ms = ds.map((d) => d.inMilliseconds.abs()).toList()..sort();
+    final lo = Duration(milliseconds: ms.first), hi = Duration(milliseconds: ms.last);
+    final a = secs(lo), b = secs(hi);
+    return 'video $how by ${a == b ? a : '$a–$b'} s';
+  }
+
+  final behind = drifts.where((d) => d.isNegative).toList();
+  final ahead = drifts.where((d) => !d.isNegative).toList();
+  return [if (behind.isNotEmpty) range(behind, 'behind'), if (ahead.isNotEmpty) range(ahead, 'ahead')].join(', ');
+}
+
+/// What made the app's slow frames slow (0.1.57): "worst 85 ms, mostly drawing". Building is the
+/// app working out what to show; drawing is turning that into pixels (the video picture included).
+String slowDetail({required int worstMs, required int building, required int drawing}) {
+  if (worstMs <= 0) return '';
+  final mostly = building > drawing
+      ? ', mostly building the screen'
+      : drawing > building
+          ? ', mostly drawing'
+          : '';
+  return 'worst $worstMs ms$mostly';
 }
 
 /// "HEVC 10-bit" from mpv's `video-format` and `video-params/pixelformat`.
@@ -59,7 +101,7 @@ String startLine(String label, String name, Map<String, String> p) {
   return '$label started: $name · $size · ${describeFormat(p['video-format'] ?? '', p['video-params/pixelformat'] ?? '')}'
       '${fps.isEmpty ? '' : ' · ${_num(fps)} fps'}'
       ' · decoding: ${describeDecoder(p['hwdec-current'] ?? '')}'
-      ' · drawing: ${(p['current-vo'] ?? '').isEmpty ? '?' : p['current-vo']}';
+      ' · drawing: ${describeDrawing(p['current-vo'] ?? '')}';
 }
 
 String _times(int n, String what) => '$what $n time${n == 1 ? '' : 's'}';
@@ -67,13 +109,23 @@ String _times(int n, String what) => '$what $n time${n == 1 ? '' : 's'}';
 /// What went wrong, as parts of a line. 0.1.56: "paused to load" (was "waited for the file":
 /// the engine reports any pause while it gets pictures ready, including after a seek), and
 /// the music video's jumps back into step counted on their own.
-List<String> _problems({required int drops, required int jumps, required int waits, required int slow}) => [
-      if (jumps > 0) _times(jumps, 'jumped back into step'),
+List<String> _problems(
+        {required int drops,
+        required int jumps,
+        required int waits,
+        required int slow,
+        List<Duration> drifts = const [],
+        String slowWhy = ''}) =>
+    [
+      if (jumps > 0) _times(jumps, 'jumped back into step') + (drifts.isEmpty ? '' : ' (${jumpDetail(drifts)})'),
       if (waits > 0) _times(waits, 'paused to load'),
-      if (slow > 0) _times(slow, 'app slow to draw'),
+      if (slow > 0) _times(slow, 'app slow to draw') + (slowWhy.isEmpty ? '' : ' ($slowWhy)'),
     ];
 
 /// The line logged every 30 s when something went wrong; null when all was well.
+/// 0.1.57: how far out each jump was ([jumpDrifts]), what made slow frames slow ([slowWhy]),
+/// and whether the app was out of sight for part of the time ([leftScreen]: leaving and coming
+/// back drops pictures and redraws everything, which isn't the same as stutter while watching).
 String? stutterLine(String label,
     {required int decoderDrops,
     required int screenDrops,
@@ -81,14 +133,18 @@ String? stutterLine(String label,
     required int slowAppFrames,
     required String readAhead,
     required Duration over,
-    int jumps = 0}) {
+    int jumps = 0,
+    List<Duration> jumpDrifts = const [],
+    String slowWhy = '',
+    bool leftScreen = false}) {
   if (decoderDrops + screenDrops + waits + slowAppFrames + jumps == 0) return null;
   final parts = <String>[
     if (decoderDrops + screenDrops > 0)
       '${decoderDrops + screenDrops} picture${decoderDrops + screenDrops == 1 ? '' : 's'} dropped '
           '(decoder $decoderDrops, screen $screenDrops)',
-    ..._problems(drops: 0, jumps: jumps, waits: waits, slow: slowAppFrames),
+    ..._problems(drops: 0, jumps: jumps, waits: waits, slow: slowAppFrames, drifts: jumpDrifts, slowWhy: slowWhy),
     if (readAhead.isNotEmpty) 'read ahead ${_num(readAhead, digits: 1)} s',
+    if (leftScreen) 'the app was out of sight for part of it',
   ];
   return '$label stutter in the last ${over.inSeconds} s: ${parts.join(' · ')}';
 }
@@ -146,10 +202,20 @@ class VideoStats {
   DateTime _quietUntil = DateTime.fromMillisecondsSinceEpoch(0);
   static const _settle = Duration(milliseconds: 2500);
 
+  // 0.1.57: how far out each jump since the last report was (video minus song), what the slow
+  // frames' worst was and whether building or drawing made them slow, and whether the app left
+  // the screen.
+  final List<Duration> _drifts = [];
+  int _worstMs = 0, _slowBuilding = 0, _slowDrawing = 0;
+  bool _leftScreen = false;
+  AppLifecycleListener? _lifecycle;
+
   /// The music video was jumped back into step with its song (0.1.56). The pause that follows
-  /// is expected and isn't counted as "paused to load".
-  void jumped() {
+  /// is expected and isn't counted as "paused to load". [drift] is how far out it was (video
+  /// minus song: negative when the video was behind).
+  void jumped([Duration? drift]) {
     if (_disposed || _name == null) return;
+    if (drift != null) _drifts.add(drift);
     _jumps++;
     _totalJumps++;
     _quietUntil = now().add(_settle);
@@ -213,6 +279,9 @@ class VideoStats {
       _playingSince = now();
       _timer = Timer.periodic(sampleEvery, (_) => _sample());
       _watchFrames(true);
+      _lifecycle ??= AppLifecycleListener(onStateChange: (s) {
+        if (s == AppLifecycleState.hidden || s == AppLifecycleState.paused) _leftScreen = true;
+      });
     } else if (!on && _timer != null) {
       _timer?.cancel();
       _timer = null;
@@ -262,10 +331,20 @@ class VideoStats {
         waits: _waits,
         slowAppFrames: _slow,
         jumps: _jumps,
+        jumpDrifts: _drifts,
+        slowWhy: slowDetail(worstMs: _worstMs, building: _slowBuilding, drawing: _slowDrawing),
+        leftScreen: _leftScreen,
         readAhead: readAhead,
         over: sampleEvery * _samples);
     if (line != null) PlaybackLog.add(line);
+    _resetPeriod();
+  }
+
+  void _resetPeriod() {
     _decoderDrops = _screenDrops = _waits = _slow = _jumps = _samples = 0;
+    _worstMs = _slowBuilding = _slowDrawing = 0;
+    _drifts.clear();
+    _leftScreen = false;
   }
 
   void _finish() {
@@ -283,7 +362,7 @@ class VideoStats {
     }
     _name = null;
     _played = Duration.zero;
-    _decoderDrops = _screenDrops = _waits = _slow = _jumps = _samples = 0;
+    _resetPeriod();
     _totalDrops = _totalWaits = _totalSlow = _totalJumps = 0;
   }
 
@@ -295,6 +374,8 @@ class VideoStats {
     _timer?.cancel();
     _startTimer?.cancel();
     _watchFrames(false);
+    _lifecycle?.dispose();
+    _lifecycle = null;
   }
 
   // ---- the app's own drawing ----
@@ -318,11 +399,15 @@ class VideoStats {
   }
 
   static void _onTimings(List<FrameTiming> timings) {
-    final slow = timings.where((t) => t.totalSpan > slowFrame).length;
-    if (slow == 0) return;
+    final slow = timings.where((t) => t.totalSpan > slowFrame).toList();
+    if (slow.isEmpty) return;
     for (final s in _framesFor) {
-      s._slow += slow;
-      s._totalSlow += slow;
+      s._slow += slow.length;
+      s._totalSlow += slow.length;
+      for (final t in slow) {
+        s._worstMs = math.max(s._worstMs, t.totalSpan.inMilliseconds);
+        t.buildDuration > t.rasterDuration ? s._slowBuilding++ : s._slowDrawing++;
+      }
     }
   }
 }
