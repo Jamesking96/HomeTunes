@@ -19,8 +19,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
+import '../../services/video_stats.dart';
 import '../../state/player_model.dart';
 import '../theme.dart';
 
@@ -72,6 +74,8 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
   // The video's own player: muted, no sound decoded, no subtitles.
   final Player _video = Player(configuration: const PlayerConfiguration(title: 'HomeTunes music video'));
   late final VideoController _controller = VideoController(_video);
+  // Playback stats in the Playback log (0.1.55). Null in tests.
+  late final VideoStats? _stats = VideoStats.forPlayer(_video, 'Music video');
   // Reaches the Video widget to go full screen.
   final GlobalKey<VideoState> _videoKey = GlobalKey<VideoState>();
   late final PlayerModel _song;
@@ -122,6 +126,8 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
         if (!_ready && mounted) setState(() => _failed = true);
       }),
       _song.positionStream.listen((_) => _keepInStep()),
+      _video.stream.playing.listen((p) => _stats?.playing(p)),
+      _video.stream.buffering.listen((b) => _stats?.buffering(b)),
     ]);
     _song.addListener(_followPlayPause);
     await _open(widget.file);
@@ -136,6 +142,7 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
     _nextCheck = DateTime.now().add(const Duration(seconds: 1));
     try {
       final at = _song.position;
+      _stats?.started(_song.current?.title ?? p.basenameWithoutExtension(file));
       await _video.open(Media(file, start: at > Duration.zero ? at : null), play: _shouldPlay);
     } catch (_) {
       if (mounted) setState(() => _failed = true);
@@ -199,6 +206,7 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
     for (final s in _subs) {
       s.cancel();
     }
+    _stats?.dispose();
     // Still full screen (e.g. the next song has no video): leave it first, and let the
     // full-screen page go before its player does.
     final state = _videoKey.currentState;

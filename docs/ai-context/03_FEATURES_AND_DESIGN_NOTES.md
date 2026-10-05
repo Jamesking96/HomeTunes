@@ -186,6 +186,34 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Video playback stats (5 Oct 2026, 0.1.55, branch `feature/video-stats`)
+- **Why:** the user said videos and music videos are sometimes laggy, more on the phone but on
+  the PC too, and asked about pre-buffering. Agreed plan (5 Oct): measure first, then, in order,
+  make the video chip work properly, draw at screen size, smooth the music video syncing,
+  pre-buffering / opening the next one early (mainly for network shares or servers), and fewer
+  redraws while a video plays. This version is step 1.
+- **What it logs** (`services/video_stats.dart`, in Settings › About › Playback log):
+  - `Device: android … , N processor cores` once per run;
+  - `Video started: <name> · 3840×2160 · HEVC 10-bit · 23.98 fps · decoding: … · drawing: gpu`
+    about 3 s after a file opens (from mpv `video-params/w|h`, `video-format`,
+    `video-params/pixelformat`, `container-fps`, `hwdec-current`, `current-vo`). Decoding in
+    plain words: "software (main processor)", "video chip (…)" or "video chip, copied before
+    drawing (…-copy)";
+  - every 30 s while playing, **only if something went wrong**: `Video stutter in the last 30 s:
+    N pictures dropped (decoder a, screen b) · waited for the file n times · app slow to draw n
+    times · read ahead x s` (`decoder-frame-drop-count`, `frame-drop-count`, the player's
+    buffering stream, Flutter frame timings over 34 ms, `demuxer-cache-duration`);
+  - `Video finished: <name> · played m:ss · smooth` (or what went wrong) when it closes or the
+    next file starts.
+  The same for music videos ("Music video …"). Sampling every 5 s, only while playing; nothing
+  under `flutter test`.
+- **Known from reading the engine's code (5 Oct):** on Android media_kit_video 2.0.1 defaults
+  to `vo=gpu` with `hwdec=auto-safe` (software in an emulator); on Windows `vo=libmpv`,
+  `hwdec=auto`. HomeTunes didn't change either. `VideoController.setSize` can draw at a smaller
+  size (step 3). Music videos are moved back into step whenever they drift more than 400 ms
+  (`videoSyncTolerance`), each move a seek (step 4).
+- **Tests:** `test/video_stats_test.dart`.
+
 ## One song's album edit no longer renames the album (3 Oct 2026, 0.1.54, released as v0.1.54)
 - **What the user reported:** "when 1 song has it's album edited it renames the whole album rather
   than just updates that song."

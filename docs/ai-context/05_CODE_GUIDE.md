@@ -114,6 +114,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `local_lyrics.dart` | Reads lyrics from a song's tags or a `.lrc` file beside it. |
 | `media_session.dart` | Connects the player to Android's notification, lock screen and headset buttons, and to Windows media keys. For books the buttons skip by seconds. |
 | `playback_log.dart` | A short diary of what the player did (last 400 lines in `playback-log.txt`), shown in Settings › About › Playback log. |
+| `video_stats.dart` | Video playback stats for the Playback log (0.1.55): `VideoStats` watches a video player (the video page's and the music video's) and logs, per file, size / format / frame rate / how it's decoded (`hwdec-current`, `current-vo`), then every 30 s only if something went wrong the dropped pictures (decoder / screen), waits for the file and slow app frames (Flutter `FrameTiming` over 34 ms), and a summary when it ends. Plain-words helpers `describeDecoder`, `describeFormat`, `startLine`, `stutterLine`, `summaryLine`. Off under `flutter test`. |
 | `media_details.dart` | For the Details page: re-reads a file and works out where each detail came from (tags, book details file, folder or file name, your edit, server). |
 | `music_permission.dart` | Android's "read your music" permission, which differs by Android version. |
 | `cover_search.dart` | Finds album covers on MusicBrainz and Cover Art Archive and downloads the one you pick. |
@@ -354,6 +355,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `update_test.dart` | Check for updates: version comparison, reading the release and checksum file, the "What's new" text, which links may be downloaded, the start-up check (every start since 0.1.51) and its switch, a wrong checksum being refused (fake GitHub) |
 | `whats_new_test.dart` | "What's new" after an update: which releases are listed, noticing the first start after an update (and not on a fresh install), and the pop-up (fake GitHub) |
 | `equalizer_test.dart` | Preset filter text (including bands left out for low sample rates), editing and restoring presets, your own presets, music vs audiobook presets, saving, and the Equaliser screen |
+| `video_stats_test.dart` | Video playback stats (0.1.55): the plain-words lines, and a watched player with a fake engine (start line, quiet when smooth, a stutter report, the summary) |
 | `playback_guard_test.dart` | The locked-phone fix: the 5-second wait before telling the phone "paused", the stall detector, and the playback log |
 | `theme_test.dart` | Colour themes: the ready-made ones, "Your own" staying readable, saving the choice, the Appearance page, the colour picker, and the whole app redrawing in the new colours |
 | `theme_sharing_test.dart` | Typing or pasting a colour code, theme codes and files, reading them back safely, importing without clashing with your own themes, and the Share / Import dialogs |
