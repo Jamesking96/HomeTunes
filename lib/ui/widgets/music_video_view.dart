@@ -32,8 +32,11 @@ import 'package:provider/provider.dart';
 
 import '../../services/video_drawing.dart';
 import '../../services/video_stats.dart';
+import '../../state/library_model.dart';
 import '../../state/player_model.dart';
 import '../theme.dart';
+import 'listening_controls.dart' show SkipIcon;
+import 'player_controls.dart' show SeekBar, VolumeControl;
 
 /// How far the video may drift from the song before it jumps back into step (0.1.56: was 0.4 s;
 /// smaller drifts are now caught up with [videoSyncRate]. 0.1.57: 2 s, was 1.5 s).
@@ -348,10 +351,13 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
 }
 
 /// The buttons over a music video. On Now Playing: Enlarge / Shrink and Full screen, in the
-/// bottom corner. In full screen: the song's title, previous / play-pause / next and a button to
-/// leave full screen. Both fade in when the mouse moves (or on a tap) and out after 3 seconds.
-/// Keys in full screen: Esc or F leaves, Space plays or pauses the song. Double-click switches
-/// full screen on and off.
+/// bottom corner. In full screen: the song's title, a progress bar with the times, skip back /
+/// forward, previous / play-pause / next, the volume (wide screens) and a button to leave full
+/// screen (0.1.59: like a normal video's full screen; before, just the title and three buttons).
+/// Both fade in when the mouse moves (or on a touch, which also keeps them up while dragging the
+/// progress bar) and out after 3 seconds. Keys in full screen: Esc or F leaves, Space plays or
+/// pauses the song, ← → skip by Settings › Videos' amounts (0.1.59). Double-click switches full
+/// screen on and off.
 class MusicVideoControls extends StatefulWidget {
   final bool enlarged;
   final VoidCallback? onToggleEnlarge;
@@ -397,6 +403,15 @@ class _MusicVideoControlsState extends State<MusicVideoControls> {
       _poke();
       return KeyEventResult.handled;
     }
+    // ← → skip, as on a normal video (0.1.59).
+    final back = e.logicalKey == LogicalKeyboardKey.arrowLeft, ahead = e.logicalKey == LogicalKeyboardKey.arrowRight;
+    if (back || ahead) {
+      final lib = Provider.of<LibraryModel?>(context, listen: false);
+      final secs = back ? (lib?.videoSkipBackSeconds ?? 10) : (lib?.videoSkipForwardSeconds ?? 10);
+      context.read<PlayerModel>().skipBy(Duration(seconds: back ? -secs : secs));
+      _poke();
+      return KeyEventResult.handled;
+    }
     return KeyEventResult.ignored;
   }
 
@@ -421,7 +436,13 @@ class _MusicVideoControlsState extends State<MusicVideoControls> {
                 child: AnimatedOpacity(
                   opacity: _visible ? 1 : 0,
                   duration: const Duration(milliseconds: 200),
-                  child: full ? const _FullScreenBar() : _cornerButtons(context),
+                  // A touch or drag on the buttons keeps them up (dragging the progress bar or
+                  // the volume on a phone isn't a tap, 0.1.59).
+                  child: Listener(
+                    onPointerDown: (_) => _poke(),
+                    onPointerMove: (_) => _poke(),
+                    child: full ? const _FullScreenBar() : _cornerButtons(context),
+                  ),
                 ),
               ),
             ),
@@ -472,39 +493,46 @@ class _FullScreenBar extends StatelessWidget {
           decoration: const BoxDecoration(
             gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black87]),
           ),
-          child: Row(children: [
-            Expanded(
-              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(t?.title ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)),
-                Text(t?.artist ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white70, fontSize: 16)),
+          // 0.1.59: like a normal video's full screen: the title, a progress bar with the
+          // times, skip back / forward (Settings › Videos' amounts), previous / play-pause /
+          // next, and the volume (on wider screens; a phone has its own volume buttons).
+          child: LayoutBuilder(builder: (context, box) {
+            final wide = box.maxWidth >= 640;
+            final lib = Provider.of<LibraryModel?>(context);
+            final back = lib?.videoSkipBackSeconds ?? 10, ahead = lib?.videoSkipForwardSeconds ?? 10;
+            Widget button(String tip, Widget icon, VoidCallback onPressed, {double size = 32, Key? key}) =>
+                IconButton(key: key, tooltip: tip, iconSize: size, color: Colors.white, icon: icon, onPressed: onPressed);
+            final controls = Row(mainAxisSize: MainAxisSize.min, children: [
+              button('Back $back seconds', SkipIcon(seconds: back, forward: false, size: 28, color: Colors.white),
+                  () => p.skipBy(-Duration(seconds: back)), key: const ValueKey('music-video-skip-back')),
+              button('Previous', const Icon(Icons.skip_previous), () => p.previous()),
+              button(p.playing ? 'Pause' : 'Play', Icon(p.playing ? Icons.pause_circle_filled : Icons.play_circle_filled),
+                  p.togglePlay, size: 48),
+              button('Next', const Icon(Icons.skip_next), p.next),
+              button('Forward $ahead seconds', SkipIcon(seconds: ahead, forward: true, size: 28, color: Colors.white),
+                  () => p.skipBy(Duration(seconds: ahead)), key: const ValueKey('music-video-skip-forward')),
+            ]);
+            return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(t?.title ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)),
+              Text(t?.artist ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white70, fontSize: 16)),
+              const SizedBox(height: 4),
+              const SeekBar(key: ValueKey('music-video-seek'), compact: true, timeColor: Colors.white70),
+              Row(children: [
+                Expanded(
+                  child: Align(
+                    alignment: wide ? Alignment.centerLeft : Alignment.center,
+                    child: FittedBox(fit: BoxFit.scaleDown, child: controls),
+                  ),
+                ),
+                if (wide) const VolumeControl(key: ValueKey('music-video-volume'), sliderWidth: 110),
+                const SizedBox(width: 8),
+                _RoundButton(
+                    icon: Icons.fullscreen_exit, tooltip: 'Leave full screen', onPressed: () => exitFullscreen(context)),
               ]),
-            ),
-            IconButton(
-              tooltip: 'Previous',
-              iconSize: 32,
-              color: Colors.white,
-              icon: const Icon(Icons.skip_previous),
-              onPressed: () => p.previous(),
-            ),
-            IconButton(
-              tooltip: p.playing ? 'Pause' : 'Play',
-              iconSize: 48,
-              color: Colors.white,
-              icon: Icon(p.playing ? Icons.pause_circle_filled : Icons.play_circle_filled),
-              onPressed: p.togglePlay,
-            ),
-            IconButton(
-              tooltip: 'Next',
-              iconSize: 32,
-              color: Colors.white,
-              icon: const Icon(Icons.skip_next),
-              onPressed: p.next,
-            ),
-            const SizedBox(width: 12),
-            _RoundButton(icon: Icons.fullscreen_exit, tooltip: 'Leave full screen', onPressed: () => exitFullscreen(context)),
-          ]),
+            ]);
+          }),
         ),
       ),
     ]);

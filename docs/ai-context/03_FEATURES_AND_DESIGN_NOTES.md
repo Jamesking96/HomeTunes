@@ -186,6 +186,30 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Video buttons on the picture (5 Oct 2026, 0.1.59, branch `feature/video-buttons`)
+- **The user asked (5 Oct):** Enlarge and Full screen on the video itself, like Shrink and the
+  full-screen button when enlarged, without removing the buttons below the video; the same on
+  the phone; and a full-screen music video should have the same controls as a normal video
+  (the user picked "like a normal video": progress bar, skips, volume, over just the round
+  buttons).
+- **Video page** (`video_player_screen.dart`): in the normal layout the picture has round
+  `_OverlayButton`s, **Enlarge** top-left (`video-overlay-enlarge`) and **Full screen** top-right
+  (`video-overlay-fullscreen`, not when the file can't play), always shown like the enlarged
+  view's Shrink / Full screen. In full screen, media_kit's `topButtonBar` (new `top:` parameter
+  of `desktopControlsTheme` / `phoneControlsTheme`, only for the `fullscreen:` theme) has a
+  round **Leave full screen** (`video-leave-fullscreen`) that shows and hides with the controls.
+  Same code on PC and phone.
+- **Music video full screen** (`music_video_view.dart`, `_FullScreenBar`): title and artist, the
+  song's `SeekBar` (compact, white times via the new `timeColor`), skip back / forward by
+  Settings › Videos' amounts (`PlayerModel.skipBy`; white `SkipIcon`s via its new `color`),
+  previous / play-pause / next, `VolumeControl` when the bar is 640 px or wider (phones use their
+  volume buttons), and Leave full screen; the controls shrink to fit narrow screens. ← → skip
+  too. A touch or drag on the buttons keeps them up (a `Listener`), so dragging the progress bar
+  on a phone doesn't hide them.
+- **Tests:** the video page and music video need the real engine, so `test/video_buttons_test.dart`
+  checks the pieces (the top button row only in full screen, white skip icons). Try on the PC and
+  the phone.
+
 ## Music videos back to the usual drawing (5 Oct 2026, 0.1.58, released in v0.1.58)
 - **What the third log showed (5 Oct, 0.1.57, the user's phone):**
   - *Normal video* (1080p HEVC, now `mediacodec` + `mediacodec_embed`): **no pictures dropped**

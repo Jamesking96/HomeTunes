@@ -72,12 +72,15 @@ class SkipIcon extends StatelessWidget {
   final int seconds;
   final bool forward;
   final double size;
-  const SkipIcon({super.key, required this.seconds, required this.forward, this.size = 32});
+
+  /// The arrow's and number's colour (0.1.59: white over a music video); the icon colour if null.
+  final Color? color;
+  const SkipIcon({super.key, required this.seconds, required this.forward, this.size = 32, this.color});
 
   @override
   Widget build(BuildContext context) {
     // The "replay" arrow points backwards; mirrored it makes a forward arrow.
-    final arrow = Icon(Icons.replay, size: size);
+    final arrow = Icon(Icons.replay, size: size, color: color);
     return SizedBox(
       width: size,
       height: size,
@@ -85,7 +88,7 @@ class SkipIcon extends StatelessWidget {
         forward ? Transform.flip(flipX: true, child: arrow) : arrow,
         Padding(
           padding: EdgeInsets.only(top: size * 0.12),
-          child: Text('$seconds', style: TextStyle(fontSize: size * 0.28, fontWeight: FontWeight.w700)),
+          child: Text('$seconds', style: TextStyle(fontSize: size * 0.28, fontWeight: FontWeight.w700, color: color)),
         ),
       ]),
     );

@@ -95,9 +95,9 @@ Read the files in this order:
   that up for new files.
 - **These notes** are also in the repo under `docs/ai-context/`, kept the same as the project
   copy. Update them when things change.
-- **Next (agreed 5 Oct):** tidy up the video buttons: Enlarge and Full screen on the video
-  itself (like Shrink and Exit full screen), keeping the buttons below it, on the PC and the
-  phone; and the same controls on a full-screen music video. The open phases are D (offline server songs, after the server
+- **In progress (5 Oct):** 0.1.59, the video buttons (Enlarge / Full screen on the picture, a
+  full-screen music video with a normal video's controls), built on `feature/video-buttons`,
+  waiting for the user to try it. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). Ask the user.
 
 ## Rules the user cares about (follow these)
