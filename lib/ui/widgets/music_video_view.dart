@@ -9,7 +9,11 @@
 //    can't be seen; only when they're more than [videoSyncTolerance] apart (after a seek, a skip
 //    back, repeat-one starting again) does the video jump. Before 0.1.56 every drift over 0.4 s
 //    was a jump, and each jump froze the picture for a moment: on the phone that happened every
-//    few seconds (the Playback log showed it), which was the music video stutter;
+//    few seconds (the Playback log showed it), which was the music video stutter. 0.1.57: the
+//    catch-up is quicker (up to 20 %), jumps only past 2 s, and a jump aims a little ahead of
+//    the song by however long the last jumps took to land ([learnSeekLead]), because on the
+//    phone a jump landed behind and soon needed another (still 4 jumps in 30 s in 0.1.56);
+//  * on a phone the picture is drawn straight from the video chip (services/video_drawing.dart);
 //  * a new song with a video reuses the same player; the page shows the cover for songs without.
 // Until the first picture arrives (or if the file can't be shown) the [fallback] (the cover) is
 // shown instead, so there's never an empty black box.
@@ -25,34 +29,56 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
+import '../../services/video_drawing.dart';
 import '../../services/video_stats.dart';
+import '../../state/library_model.dart';
 import '../../state/player_model.dart';
 import '../theme.dart';
 
 /// How far the video may drift from the song before it jumps back into step (0.1.56: was 0.4 s;
-/// smaller drifts are now caught up with [videoSyncRate]).
-const videoSyncTolerance = Duration(milliseconds: 1500);
+/// smaller drifts are now caught up with [videoSyncRate]. 0.1.57: 2 s, was 1.5 s).
+const videoSyncTolerance = Duration(milliseconds: 2000);
+
+/// The most a jump aims ahead of the song to make up for the time the jump itself takes.
+const maxSeekLead = Duration(seconds: 4);
 
 /// Drift that's left alone: the two positions are only reported every so often, so smaller
 /// differences are mostly noise.
 const videoInStep = Duration(milliseconds: 100);
 
 /// The video's speed to catch up a small drift: the song's speed when they're in step, else up
-/// to 10 % faster (video behind) or slower (video ahead), aiming to close the gap in about
-/// 3 seconds. The video is silent, so the change can't be heard and is hard to see.
+/// to 20 % faster (video behind) or slower (video ahead), aiming to close the gap in about
+/// 2 seconds (0.1.57: was 10 % and 3 s, which couldn't keep up on the phone). The video is
+/// silent, so the change can't be heard and is hard to see.
 double videoSyncRate({required Duration song, required Duration video, double songSpeed = 1.0}) {
   final drift = video - song; // positive: the video is ahead
   if (drift.abs() <= videoInStep) return songSpeed;
-  final adjust = (drift.inMilliseconds / 3000).clamp(-0.1, 0.1);
+  final adjust = (drift.inMilliseconds / 2000).clamp(-0.2, 0.2);
   return songSpeed * (1 - adjust);
 }
 
 /// Where the video should jump to, or null when it's close enough to the song already.
-/// [videoLength] is null while the video's length isn't known yet.
-Duration? videoSeekTarget({required Duration song, required Duration video, Duration? videoLength}) {
+/// [videoLength] is null while the video's length isn't known yet. [lead] aims a little ahead
+/// of the song (see [learnSeekLead]).
+Duration? videoSeekTarget(
+    {required Duration song, required Duration video, Duration? videoLength, Duration lead = Duration.zero}) {
+  final known = videoLength != null && videoLength > Duration.zero;
   // A video shorter than the song (an intro cut off, say) just stays on its last picture.
-  if (videoLength != null && videoLength > Duration.zero && song >= videoLength) return null;
-  return (song - video).abs() > videoSyncTolerance ? song : null;
+  if (known && song >= videoLength) return null;
+  if ((song - video).abs() <= videoSyncTolerance) return null;
+  final target = song + lead;
+  return known && target > videoLength ? videoLength : target;
+}
+
+/// The lead for the next jump (0.1.57). A jump takes time on a phone: the video decodes from
+/// the nearest keyframe, which can be seconds back in a music video, and the song plays on
+/// meanwhile, so the video landed behind and soon had to jump again (the Playback log showed
+/// 4 jumps in 30 s). After each jump, however far the video still was behind the song ([song]
+/// minus [video] once it settled) is added to the lead; if it overshot, the lead shrinks.
+Duration learnSeekLead(Duration lead, {required Duration song, required Duration video}) {
+  final next = lead + (song - video);
+  if (next.isNegative) return Duration.zero;
+  return next > maxSeekLead ? maxSeekLead : next;
 }
 
 /// Whether the video should keep playing in this app state. Only a window that can't be seen
@@ -91,7 +117,10 @@ class MusicVideoView extends StatefulWidget {
 class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObserver {
   // The video's own player: muted, no sound decoded, no subtitles.
   final Player _video = Player(configuration: const PlayerConfiguration(title: 'HomeTunes music video'));
-  late final VideoController _controller = VideoController(_video);
+  // 0.1.57: on a phone, drawn straight from the video chip unless Settings › Videos says not.
+  late final VideoController _controller = VideoController(_video,
+      configuration: videoDrawing(
+          direct: Provider.of<LibraryModel?>(context, listen: false)?.videoDirectDrawing ?? true));
   // Playback stats in the Playback log (0.1.55). Null in tests.
   late final VideoStats? _stats = VideoStats.forPlayer(_video, 'Music video');
   // Reaches the Video widget to go full screen.
@@ -194,12 +223,18 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
     // seek.
     if (_video.state.buffering && now.isBefore(_settleUntil)) return;
     final song = _song.position, video = _video.state.position, length = _video.state.duration;
-    final target = videoSeekTarget(song: song, video: video, videoLength: length);
+    // The first look after a jump: learn how far behind (or ahead) it landed (0.1.57).
+    if (_justJumped) {
+      _justJumped = false;
+      _seekLead = learnSeekLead(_seekLead, song: song, video: video);
+    }
+    final target = videoSeekTarget(song: song, video: video, videoLength: length, lead: _seekLead);
     if (target != null) {
       // Far apart (the song was moved, or the video was paused out of sight): jump.
       _nextCheck = now.add(const Duration(seconds: 2));
       _settleUntil = now.add(const Duration(seconds: 3));
-      _stats?.jumped();
+      _stats?.jumped(video - song);
+      _justJumped = true;
       _setRate(_song.speed);
       _video.seek(target);
       return;
@@ -213,6 +248,10 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
   // The video's speed now (1.0 unless catching up), and until when a jump is still settling.
   double _rate = 1.0;
   DateTime _settleUntil = DateTime.fromMillisecondsSinceEpoch(0);
+  // How far ahead of the song a jump aims, learnt from how the last jumps landed (0.1.57,
+  // [learnSeekLead]); kept for the next songs, as it depends on the device more than the file.
+  Duration _seekLead = Duration.zero;
+  bool _justJumped = false;
 
   /// Changes the video's speed, skipping tiny changes (each one is a call into the engine), but
   /// always going back exactly to the song's speed once in step.

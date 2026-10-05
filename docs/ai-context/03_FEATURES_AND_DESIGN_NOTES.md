@@ -186,6 +186,43 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Smoother video drawing on phones (5 Oct 2026, 0.1.57, branch `feature/smoother-video-drawing`)
+- **What the second log showed (5 Oct, 0.1.56, the user's phone):**
+  - *Music video* (1080p H.264 24 fps, `mediacodec-copy`, `gpu`): 1 picture dropped, but still
+    **4 jumps back into step in 30 s** and the app slow to draw 16 times. The likely cause: a
+    jump (a precise seek) decodes from the last keyframe, which can be seconds back in a music
+    video; the song plays on meanwhile, so the video lands behind, past the 1.5 s limit again,
+    and jumps again.
+  - *Normal video* (1080p HEVC 23.98 fps, `mediacodec-copy`, `gpu`): 10 pictures dropped, **all
+    by the screen** (decoder 0), read ahead 130 s. Decoding and file reading are fine, so
+    buffering wouldn't help; the loss is in the copy-then-redraw path. That 30 s also included
+    the app going to the background and back, which by itself drops pictures and redraws
+    everything.
+- **Music video fixes** (`music_video_view.dart`): catch-up by speed is quicker (up to 20 %,
+  aiming at ~2 s; was 10 % / 3 s); jumps only past 2 s (`videoSyncTolerance`, was 1.5 s); each
+  jump aims ahead of the song by a learnt lead (`learnSeekLead`: after a jump, the first check
+  adds however far the video still is behind; overshooting shrinks it; 0–4 s, `maxSeekLead`;
+  kept for the next songs).
+- **Drawing straight from the video chip on the phone** (`services/video_drawing.dart`):
+  `VideoControllerConfiguration(vo: 'mediacodec_embed', hwdec: 'mediacodec')` on Android for
+  both the video page and music videos, instead of media_kit's `gpu` + `mediacodec-copy`. Lost:
+  the engine can't draw on top of the picture (the phone already draws text subtitles itself);
+  a format the chip can't decode may show black. **Settings › Videos › "Smoother video on
+  phones"** (`LibraryModel.videoDirectDrawing`, default on, `video-direct`) turns it off; it
+  applies the next time a video opens; greyed out off Android. Drawing at screen size isn't
+  possible on Android (media_kit's `setSize` throws there).
+- **Log additions** (`video_stats.dart`): the jumps' distances ("jumped back into step 4 times
+  (video behind by 1.8–2.6 s)", `jumpDetail`), the worst slow frame and whether building or
+  drawing made the slow frames slow ("app slow to draw 16 times (worst 85 ms, mostly drawing)",
+  `slowDetail`, Flutter's `buildDuration` / `rasterDuration`), and "the app was out of sight for
+  part of it" when it was hidden during those 30 s. The start line says "drawing: straight from
+  the video chip (mediacodec_embed)" (`describeDrawing`).
+- **Next:** the user's next log decides: if the app is still slow to draw while a video plays,
+  look at what redraws (media_kit's controls rebuild on each position tick even when hidden).
+- **Tests:** `test/music_video_test.dart` ("a jump aims ahead by what the last jumps lacked",
+  updated speeds), `test/video_stats_test.dart` (new line parts, "how videos are drawn"),
+  `test/settings_test.dart` (the new setting is on Settings › Videos).
+
 ## Smoother music videos (5 Oct 2026, 0.1.56, branch `feature/smooth-music-video`)
 - **What the first log showed (5 Oct, the user's phone, Android, 9 cores):** a 1080p H.264
   24 fps music video, decoded by the video chip with copying (`mediacodec-copy`, drawing `gpu`):

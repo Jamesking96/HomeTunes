@@ -321,6 +321,10 @@ use a HomeTunes backup file as described above.
   format, how your device is decoding it, and (only when something goes wrong) how many
   pictures were dropped and whether it had to wait for the file. Play the video until it
   stutters, then copy the log the same way.
+- **A video shows a black picture on the phone** (but you can hear it): turn off **Settings ›
+  Videos › Smoother video on phones** and open the video again. That setting shows the picture
+  straight from the phone's video chip, which is smoother, but a few unusual video formats can't
+  be shown that way.
 - **Windows won't start the app:** if you used the zip, make sure you extracted it first (don't run
   it from inside the zip).
 
