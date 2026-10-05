@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 
 import '../../state/now_watching.dart';
 import '../theme.dart';
+import 'video_sleep_button.dart';
 import 'wheel_seek.dart';
 
 String _time(Duration d) {
@@ -198,6 +199,8 @@ class VideoTransportControls extends StatelessWidget {
           icon: const Icon(Icons.skip_next_rounded),
           onPressed: w.hasNext ? w.next : null,
         ),
+        // The sleep timer (0.1.63), as beside the music's play / pause.
+        const VideoSleepTimerButton(),
       ],
     );
   }

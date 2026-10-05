@@ -44,6 +44,7 @@ import '../theme.dart';
 import '../widgets/always_on_top_button.dart';
 import '../widgets/listening_controls.dart' show SpeedButton;
 import '../widgets/video_controls_look.dart';
+import '../widgets/video_sleep_button.dart';
 import 'edit_video.dart';
 import 'equalizer_screen.dart' show openEqualizer;
 import 'video_details_screen.dart' show openVideoDetails;
@@ -805,6 +806,8 @@ class _VideoPageState extends State<_VideoPage> {
       _VideoBarVolume(player: _player, maxVolume: () => _settings.maxVolume, look: look, accent: accent),
       paddedTime(MaterialDesktopPositionIndicator(style: timeTextStyle(look, accent))),
       const Spacer(),
+      // The sleep timer (0.1.63).
+      VideoSleepTimerButton(iconSize: look.size.desktop, color: look.buttons(accent)),
       speedButton,
       tracksButton,
       const MaterialDesktopFullscreenButton(),
@@ -856,6 +859,7 @@ class _VideoPageState extends State<_VideoPage> {
       jump(forward: true, size: look.size.phone),
       paddedTime(MaterialPositionIndicator(style: timeTextStyle(look, accent, phone: true))),
       const Spacer(),
+      VideoSleepTimerButton(iconSize: look.size.phone, color: look.buttons(accent)), // 0.1.63
       phoneSpeed,
       phoneTracks,
       const MaterialFullscreenButton(),

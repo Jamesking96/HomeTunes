@@ -186,6 +186,24 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Sleep timer for videos (6 Oct 2026, 0.1.63, branch `feature/video-sleep-timer`)
+- **The user asked (6 Oct):** the sleep timer in the normal video player.
+- **How:** `state/video_sleep_timer.dart`, `VideoSleepTimer` (a ChangeNotifier provided in
+  `main.dart`), separate from the music's `SleepTimer` (which is tied to songs and chapters). It
+  works on whatever video is in charge through `VideoSleepTarget` (`WatchingSleepTarget` over
+  `NowWatching`; tests use a fake). Length: **Settings › Sleep timer › Timer length for videos**
+  (`LibraryModel.sleepVideoMinutes`, default 30; `sleepAtEnd` = "End of video",
+  `sleep-videos`). The fade and "Show sleep timer button" are shared with music.
+- **End of video** pauses in the last half second (`endMargin`), so the video never reaches its
+  end and the next episode's "Up next" countdown doesn't start; if the video changes anyway, the
+  new one is paused. Closing the video page stops the timer. Pausing saves the place (the video
+  page saves on every pause).
+- **The moon** (`widgets/video_sleep_button.dart`, `VideoSleepTimerButton`): in the video
+  player's own bar on the computer and the phone (normal and full screen, in the chosen button
+  colour and size) and in the bottom bar's video controls (`VideoTransportControls`). On, it's
+  a pill with the time left; a tap turns it off.
+- **Tests:** `test/video_sleep_timer_test.dart`.
+
 ## Volume boost through the volume sliders (5 Oct 2026, 0.1.62, released in v0.1.62)
 - **The user asked (5 Oct, after 0.1.61):** with the boost on, the Settings slider should only
   say how far the volume can go, and the normal volume sliders should run up to that.

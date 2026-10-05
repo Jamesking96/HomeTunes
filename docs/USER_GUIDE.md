@@ -227,7 +227,9 @@ folds it down to icons and opens it again.
 - **Equaliser:** in **Settings › Playback** or the button on Now Playing. Pick a preset or make
   your own. Audiobooks can use their own preset automatically.
 - **Sleep timer:** the moon button next to the play controls stops playback after a set time or at the end of the chapter or song.
-  Options are in **Settings › Sleep timer**.
+  Videos have one too: the moon in the video player's buttons (and in the bottom bar while a
+  video plays) pauses the video after a set time or at the end of the video, so the next episode
+  doesn't start. Options, including a length for videos, are in **Settings › Sleep timer**.
 - **Volume:** click the speaker icon beside any volume slider to mute; click it again to go back
   to the volume you had. The slider is in the player bar on a PC, under the play controls on Now Playing (with the
   cover or the lyrics showing), and the speaker button in the phone's mini player, which opens a

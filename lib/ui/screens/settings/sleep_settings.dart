@@ -1,13 +1,14 @@
 // Settings › Sleep timer: whether the moon button shows, how long the timer runs for music and
 // for books, and how long the fade-out lasts. Kept on its own page (not under Audiobooks)
 // because it applies to music too. The timer itself is SleepTimer in the state folder.
+// 0.1.63: a length for videos too (VideoSleepTimer, the moon in the video player).
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../state/library_model.dart';
 import 'settings_widgets.dart';
 
-/// Settings › Sleep timer: for music and audiobooks.
+/// Settings › Sleep timer: for music, audiobooks and videos (0.1.63).
 class SleepTimerSettings extends StatelessWidget {
   const SleepTimerSettings({super.key});
 
@@ -20,7 +21,7 @@ class SleepTimerSettings extends StatelessWidget {
     final lib = context.watch<LibraryModel>();
     return SettingsPageList(
       intro: 'The sleep timer pauses playback after a while, fading the volume out first. '
-          'Music and audiobooks each have their own timer length.',
+          'Music, audiobooks and videos each have their own timer length.',
       children: [
         SettingTarget(
           'sleep-button',
@@ -50,6 +51,17 @@ class SleepTimerSettings extends StatelessWidget {
             options: _lengths,
             label: (v) => v == LibraryModel.sleepAtEnd ? 'End of chapter' : '$v minutes',
             onChanged: (v) => lib.updateListeningSettings(sleepBookMinutes: v),
+          ),
+        ),
+        // 0.1.63: videos have their own timer (VideoSleepTimer).
+        SettingTarget(
+          'sleep-videos',
+          child: ChoiceTile<int>(
+            title: 'Timer length for videos',
+            value: lib.sleepVideoMinutes,
+            options: _lengths,
+            label: (v) => v == LibraryModel.sleepAtEnd ? 'End of video' : '$v minutes',
+            onChanged: (v) => lib.updateListeningSettings(sleepVideoMinutes: v),
           ),
         ),
         const SettingsGroupTitle('When the timer ends'),
