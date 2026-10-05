@@ -186,7 +186,7 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
-## One song's album edit no longer renames the album (3 Oct 2026, 0.1.54, branch `fix/one-song-album`)
+## One song's album edit no longer renames the album (3 Oct 2026, 0.1.54, released as v0.1.54)
 - **What the user reported:** "when 1 song has it's album edited it renames the whole album rather
   than just updates that song."
 - **Cause:** the single-song editor (`edit_details.dart`) offers "Also update the other N songs on

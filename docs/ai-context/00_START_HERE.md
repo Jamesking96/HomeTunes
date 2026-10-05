@@ -16,9 +16,11 @@ Read the files in this order:
 | `04_ROADMAP_AND_OPEN_ITEMS.md` | What's done and what's next (offline server songs, audiobook server), decisions, security, known issues |
 | `05_CODE_GUIDE.md` | A plain-English tour of the code for the user: every folder and file, how the main journeys flow, scripts, tests, where to make common changes, and probable bugs spotted |
 
-## Status (3 Oct 2026)
+## Status (5 Oct 2026)
 
 - **Released:** the latest release is
+  [v0.1.54](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.54) (5 Oct): editing one
+  song's album name moves just that song instead of renaming the whole album. Before it,
   [v0.1.53](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.53) (3 Oct), which
   covers 0.1.45–0.1.53 in one release: the Home revamp, Settings › Servers for several servers,
   Shift + click and Esc in select mode, search boxes in the filter drop-downs, the no-internet
@@ -42,7 +44,7 @@ Read the files in this order:
   `HomeTunes-audio-engine-source.zip` from `tool/engine_source.ps1`) are explained in `04_…`
   (Music videos, "Done 1 Oct"). See `03_…` → Licence, which includes the rule about GPL
   libraries.
-- **Checks:** 540 tests passed on 0.1.53 (2 Oct), and `flutter analyze` is clean.
+- **Checks:** 543 tests passed on 0.1.54 (3 Oct), and `flutter analyze` is clean.
 - **Devices:** the phone was last known to have 0.1.23. Installed Windows copies update
   themselves from GitHub releases, so the PC's copy may be newer.
 - **Publishing:** every release goes out with `tool/publish_release.ps1 -NotesFile …` (see `02_…`
@@ -79,6 +81,8 @@ Read the files in this order:
     Subsonic server streams), Shift + click ranges and Esc in select mode, search in the filter
     drop-downs, the no-internet warning, the update check at every start, the Artists tab's
     list / grid, and artist pictures
+  - 0.1.54: one song's album edit moves just that song (the "also update the album" box starts
+    unticked for album name / album artist changes)
 - **Code comments:** every source file has a header comment saying what it does and why. Keep
   that up for new files.
 - **These notes** are also in the repo under `docs/ai-context/`, kept the same as the project

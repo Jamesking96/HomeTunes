@@ -47,7 +47,7 @@ while commenting".
 | Update check every time the app opens, not once a day (0.1.51) | Done, released in v0.1.53 (3 Oct; built 2 Oct). See `03_…` → Update check at start-up |
 | Artists tab: list or grid (0.1.52) | Done, released in v0.1.53 (3 Oct; built 2 Oct). See `03_…` → Artists tab: list or grid |
 | Artist pictures: change the picture an artist shows (0.1.53) | Done, released in v0.1.53 (3 Oct; built 2 Oct). See `03_…` → Artist pictures |
-| Fix: editing one song's album renamed the whole album (0.1.54) | Built 3 Oct on `fix/one-song-album`, not merged yet. See `03_…` → One song's album edit |
+| Fix: editing one song's album renamed the whole album (0.1.54) | Done, released as v0.1.54 (5 Oct). See `03_…` → One song's album edit |
 | L: Linux build, incl. Steam Deck (0.1.55) | Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (0.1.56) | After L |
 | T: Android TV (0.1.57) | After A |
