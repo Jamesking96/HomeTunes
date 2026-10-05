@@ -16,6 +16,7 @@ import 'package:flutter/painting.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/book.dart';
+import '../models/quick_link.dart';
 import '../models/track.dart';
 import '../models/track_edit.dart';
 import '../models/video_item.dart' show PictureShape;
@@ -165,6 +166,9 @@ class LibraryModel extends ChangeNotifier {
   /// album's cover. Kept in settings.json (so in backups).
   Map<String, String> artistPictures = {};
   static const artistAlbumPrefix = 'album:';
+
+  /// The sidebar's quick links (0.1.64, models/quick_link.dart), in the order added.
+  List<QuickLink> quickLinks = [];
 
   /// The music video starts by itself when a song with one plays. Off: the cover shows until
   /// the video button on Now Playing is pressed (for that song).
@@ -422,6 +426,7 @@ class LibraryModel extends ChangeNotifier {
     autoPlayMusicVideos = true;
     artistsGrid = false;
     artistPictures = {};
+    quickLinks = [];
     sidebarWidth = 250;
     sidebarFolded = false;
     scaleWithWindow = true;
@@ -492,6 +497,8 @@ class LibraryModel extends ChangeNotifier {
       showMusicVideos = s.get('showMusicVideos', true);
       autoPlayMusicVideos = s.get('autoPlayMusicVideos', true);
       artistsGrid = s.get('artistsGrid', false);
+      final links = raw['quickLinks'];
+      if (links is List) quickLinks = [for (final j in links) ?QuickLink.fromJson(j)];
       final pics = raw['artistPictures'];
       if (pics is Map) {
         artistPictures = {
@@ -666,6 +673,7 @@ class LibraryModel extends ChangeNotifier {
         'autoPlayMusicVideos': autoPlayMusicVideos,
         'artistsGrid': artistsGrid,
         if (artistPictures.isNotEmpty) 'artistPictures': artistPictures,
+        if (quickLinks.isNotEmpty) 'quickLinks': [for (final l in quickLinks) l.toJson()],
         'sidebarWidth': sidebarWidth,
         'sidebarFolded': sidebarFolded,
         'scaleWithWindow': scaleWithWindow,
@@ -934,6 +942,30 @@ class LibraryModel extends ChangeNotifier {
     await WindowPin.set(on);
     await _saveSettings();
   }
+
+  /// Whether this album / artist / book / collection / video is a quick link in the sidebar.
+  bool isQuickLink(QuickLinkKind kind, String id) => quickLinks.any((l) => l.sameAs(kind, id));
+
+  /// Adds a quick link at the end of the sidebar's list (0.1.64); one per item.
+  Future<void> addQuickLink(QuickLink link) async {
+    if (isQuickLink(link.kind, link.id)) return;
+    quickLinks = [...quickLinks, link];
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Takes a quick link off the sidebar.
+  Future<void> removeQuickLink(QuickLinkKind kind, String id) async {
+    final before = quickLinks.length;
+    quickLinks = [for (final l in quickLinks) if (!l.sameAs(kind, id)) l];
+    if (quickLinks.length == before) return;
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Adds it if it isn't there, takes it off if it is (the menus' "Add to / Remove from sidebar").
+  Future<void> toggleQuickLink(QuickLink link) =>
+      isQuickLink(link.kind, link.id) ? removeQuickLink(link.kind, link.id) : addQuickLink(link);
 
   /// Your Library › Artists: grid (true) or list (false) (0.1.52).
   Future<void> setArtistsGrid(bool on) async {

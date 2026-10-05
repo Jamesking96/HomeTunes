@@ -22,6 +22,7 @@ import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/cards.dart' show HoverPlayCover;
+import '../widgets/quick_links.dart';
 import '../widgets/save_nfo.dart';
 import 'video_details_screen.dart' show openCollectionDetails;
 import 'video_pictures.dart';
@@ -348,6 +349,9 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c,
   final fav = model.isFavourite(c);
   final allWatched = model.watchedCount(c) == c.main.length && c.main.isNotEmpty;
   final next = model.nextUp(c);
+  final lib = model.library;
+  final link = QuickLink(QuickLinkKind.collection, c.name, c.name);
+  final linked = lib.isQuickLink(link.kind, link.id);
   final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
   final choice = await showMenu<String>(
     context: context,
@@ -371,6 +375,10 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c,
           title: Text(fav ? 'Remove from favourites' : 'Add to favourites'),
         ),
       ),
+      // A quick link in the sidebar (0.1.64).
+      PopupMenuItem(
+          value: 'link',
+          child: ListTile(leading: Icon(quickLinkMenuIcon(linked)), title: Text(quickLinkMenuText(linked)))),
       const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Edit collection…'))),
       const PopupMenuItem(value: 'poster', child: ListTile(leading: Icon(Icons.image_outlined), title: Text('Change poster…'))),
       PopupMenuItem(
@@ -401,6 +409,8 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c,
       if (next != null) nav.openVideo(next);
     case 'fav':
       await model.setFavourite(c, !fav);
+    case 'link':
+      await lib.toggleQuickLink(link);
     case 'edit':
       await showEditCollection(context, c);
     case 'poster':
@@ -574,6 +584,8 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> with _Epi
       appBar: AppBar(
         title: Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
+          // A quick link in the sidebar (0.1.64).
+          QuickLinkButton(link: QuickLink(QuickLinkKind.collection, c.name, c.name)),
           Builder(
             builder: (context) => IconButton(
               tooltip: 'More',

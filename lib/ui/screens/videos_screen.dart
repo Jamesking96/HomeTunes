@@ -26,6 +26,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/cards.dart' show EmptyState;
 import '../widgets/escape_cancels.dart';
+import '../widgets/quick_links.dart';
 import '../widgets/music_filter_sheet.dart' show MusicFilterBar, showMusicFilterSheet;
 import 'edit_video.dart';
 import 'video_collection_screen.dart';
@@ -835,6 +836,8 @@ Future<void> showVideoMenu(BuildContext context, VideoItem video, {required Offs
   final nav = context.read<AppNav>();
   final watched = model.placeOf(video.id)?.watched ?? false;
   final started = model.placeOf(video.id)?.inProgress ?? false;
+  final link = QuickLink(QuickLinkKind.video, video.id, video.title);
+  final linked = model.library.isQuickLink(link.kind, link.id);
   final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
   final choice = await showMenu<String>(
     context: context,
@@ -860,6 +863,10 @@ Future<void> showVideoMenu(BuildContext context, VideoItem video, {required Offs
           title: Text(watched ? 'Mark as not watched' : 'Mark as watched'),
         ),
       ),
+      // A quick link in the sidebar (0.1.64).
+      PopupMenuItem(
+          value: 'link',
+          child: ListTile(leading: Icon(quickLinkMenuIcon(linked)), title: Text(quickLinkMenuText(linked)))),
       copyTitleMenuItem('copy'),
       // Where it comes from, and what's inside the file (0.1.44).
       const PopupMenuItem(value: 'details', child: ListTile(leading: Icon(Icons.info_outline), title: Text('Details…'))),
@@ -888,6 +895,8 @@ Future<void> showVideoMenu(BuildContext context, VideoItem video, {required Offs
       nav.openVideoCollection(video.collection);
     case 'watched':
       await model.setWatched([video.id], !watched);
+    case 'link':
+      await model.library.toggleQuickLink(link);
     case 'folder':
       final file = model.playableFile(video);
       if (file != null) await Process.run('explorer', ['/select,', p.normalize(file)]);
