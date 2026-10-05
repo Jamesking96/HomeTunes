@@ -17,6 +17,7 @@ import 'package:media_kit/media_kit.dart' show Media, NativePlayer, Player, Play
 import '../models/book.dart';
 import '../models/eq_preset.dart';
 import '../models/track.dart';
+import '../models/volume_boost.dart';
 import '../services/playback_log.dart';
 import '../services/subsonic_client.dart' show hideSecrets;
 import 'equalizer_model.dart';
@@ -90,6 +91,8 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   /// Engine settings last applied (so they're only sent when they change).
   String? _appliedReplayGain;
+  // The engine's volume limit has been raised for the volume boost (0.1.61).
+  bool _volumeMaxRaised = false;
   bool? _appliedGapless;
   bool? _appliedLoopOne;
   bool _videoOff = false;
@@ -459,6 +462,14 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         _appliedReplayGain = rg;
         await engine.setProperty('replaygain', rg == 'off' ? 'no' : rg);
       }
+      // Volume boost (0.1.61 / 0.1.62): let the engine's volume go above 100 (it stops at 130
+      // unless told); when the boost's top is lowered (or it's turned off), bring a louder
+      // volume down to it.
+      if (!_volumeMaxRaised) {
+        _volumeMaxRaised = true;
+        await engine.setProperty('volume-max', '$engineVolumeMax');
+      }
+      if (volume > library.maxVolume) await setVolume(library.maxVolume);
     } catch (e) {
       debugPrint('HomeTunes: couldn\'t apply playback settings: $e');
     }
@@ -594,10 +605,22 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   }
   @override
   Future<void> setVolume(double v) async {
-    volume = v.clamp(0.0, 100.0);
+    volume = v.clamp(0.0, library.maxVolume);
     notifyListeners();
-    // The engine uses 0–100; the equaliser's overall level turns it down a little more.
-    await _player.setVolume(volume * _eqLevel);
+    await _sendVolume();
+  }
+
+  /// The engine's volume: the listener's (0–100, or up to the volume boost's top, 0.1.62),
+  /// turned down a little by the equaliser's overall level. Above 100 it's amplified
+  /// (models/volume_boost.dart).
+  double get _engineVolume => engineVolume(volume) * _eqLevel;
+
+  Future<void> _sendVolume() async {
+    try {
+      await _player.setVolume(_engineVolume);
+    } catch (e) {
+      debugPrint('HomeTunes: couldn\'t set the volume: $e');
+    }
   }
 
   /// The volume before [toggleMute] silenced it, so unmuting puts it back.
@@ -648,11 +671,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     final level = eqLevelFactor(preset);
     if (level != _eqLevel) {
       _eqLevel = level;
-      try {
-        await _player.setVolume(volume * level);
-      } catch (e) {
-        debugPrint('HomeTunes: couldn\'t set the equaliser level: $e');
-      }
+      await _sendVolume();
     }
     final filter = eqFilter(preset, sampleRate: _sampleRate);
     if (filter == _appliedEq) return;

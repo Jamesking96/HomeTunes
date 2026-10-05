@@ -1,9 +1,11 @@
 #include "flutter_window.h"
 
 #include <commctrl.h>
+#include <flutter/standard_method_codec.h>
 
 #include <optional>
 #include <string>
+#include <variant>
 
 #include "flutter/generated_plugin_registrant.h"
 
@@ -59,6 +61,30 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+
+  // HomeTunes (0.1.60): "Always on top" (the pin button, lib/services/window_pin.dart).
+  // setAlwaysOnTop(true / false) puts this window above other windows, or lets it go behind
+  // them again, without moving, resizing or focusing it.
+  window_channel_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+      flutter_controller_->engine()->messenger(), "hometunes/window",
+      &flutter::StandardMethodCodec::GetInstance());
+  window_channel_->SetMethodCallHandler(
+      [this](const flutter::MethodCall<flutter::EncodableValue>& call,
+             std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+        if (call.method_name() != "setAlwaysOnTop") {
+          result->NotImplemented();
+          return;
+        }
+        const auto* on = call.arguments() ? std::get_if<bool>(call.arguments()) : nullptr;
+        if (on == nullptr) {
+          result->Error("bad-argument", "Expected true or false");
+          return;
+        }
+        ::SetWindowPos(GetHandle(), *on ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
+                       SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        result->Success(flutter::EncodableValue(*on));
+      });
+
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
   if (!ScreenReaderRequested()) {
     SetWindowSubclass(flutter_controller_->view()->GetNativeWindow(),
@@ -78,6 +104,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  window_channel_ = nullptr;  // before the engine it talks through
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }

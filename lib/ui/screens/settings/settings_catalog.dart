@@ -66,6 +66,8 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('music-video-autoplay', SettingsPage.music, 'Play music videos automatically',
       'music video auto play autoplay start automatically cover button'),
   SettingInfo('recently-played', SettingsPage.playback, 'Forget recently played music', 'history recent jump back in home clear played'),
+  SettingInfo('volume-boost', SettingsPage.playback, 'Volume boost',
+      'louder loud amplify boost 200 300 400 500 percent vlc quiet volume'),
   SettingInfo('replaygain', SettingsPage.playback, 'Even out volume (ReplayGain)', 'loudness loud quiet level normalise normalize'),
   SettingInfo('sleep-button', SettingsPage.sleepTimer, 'Show sleep timer button', 'moon'),
   SettingInfo('sleep-music', SettingsPage.sleepTimer, 'Timer length for music', 'sleep minutes end of song'),

@@ -217,7 +217,9 @@ class _VideoVolumeState extends State<_VideoVolume> {
   @override
   Widget build(BuildContext context) {
     final w = context.watch<NowWatching>();
-    final volume = w.volume.clamp(0.0, 100.0);
+    // Up to 100, or the volume boost's top (0.1.62).
+    final max = w.maxVolume;
+    final volume = w.volume.clamp(0.0, max);
     return Listener(
       onPointerSignal: (event) {
         if (event is PointerScrollEvent) {
@@ -247,7 +249,11 @@ class _VideoVolumeState extends State<_VideoVolume> {
           ),
           SizedBox(
             width: 120,
-            child: Slider(value: volume, max: 100, onChanged: w.setVolume),
+            child: Tooltip(
+              message: 'Volume ${volume.round()}%',
+              waitDuration: const Duration(milliseconds: 800),
+              child: Slider(value: volume, max: max, onChanged: w.setVolume),
+            ),
           ),
         ],
       ),

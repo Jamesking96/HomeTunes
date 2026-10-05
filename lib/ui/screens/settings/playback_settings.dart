@@ -1,10 +1,13 @@
-// Settings › Playback: gapless playback on/off and ReplayGain (even out volume).
+// Settings › Playback: gapless playback on/off, ReplayGain (even out volume) and, since 0.1.61,
+// the volume boost (louder than 100 %, up to 500 %, off by default).
 //
-// Both are saved in LibraryModel; PlayerModel reads them from there and passes them to mpv
-// (gapless-audio / prefetch-playlist / replaygain properties), only when they change.
+// All are saved in LibraryModel; PlayerModel reads them from there and passes them to mpv
+// (gapless-audio / prefetch-playlist / replaygain properties, volume), only when they change.
+// The video page reads the boost too (models/volume_boost.dart).
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../models/volume_boost.dart';
 import '../../../state/equalizer_model.dart';
 import '../../../state/library_model.dart';
 import '../../../state/play_history.dart';
@@ -94,6 +97,49 @@ class PlaybackSettings extends StatelessWidget {
               ),
             ],
           ),
+        ),
+        // Volume boost (0.1.61): louder than 100 %, like VLC (models/volume_boost.dart). Since
+        // 0.1.62 the slider here only sets how far the volume sliders go.
+        SettingTarget(
+          'volume-boost',
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SwitchListTile(
+              key: const ValueKey('volume-boost-switch'),
+              title: const Text('Volume boost'),
+              subtitle: Text(lib.volumeBoost
+                  ? 'Every volume slider now goes up to ${lib.volumeBoostPercent}%. Past 100% is louder than normal.'
+                  : 'Let the volume sliders go past 100%, up to 500% (like VLC). Off: they stop at 100%.'),
+              value: lib.volumeBoost,
+              onChanged: (v) => lib.setVolumeBoost(on: v),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+              child: Row(children: [
+                Text('100%', style: TextStyle(color: AppColors.textDim, fontSize: 12)),
+                Expanded(
+                  child: Slider(
+                    key: const ValueKey('volume-boost-amount'),
+                    value: lib.volumeBoostPercent.toDouble(),
+                    min: volumeBoostMin.toDouble(),
+                    max: volumeBoostMax.toDouble(),
+                    divisions: (volumeBoostMax - volumeBoostMin) ~/ volumeBoostStep,
+                    label: '${lib.volumeBoostPercent}%',
+                    onChanged: lib.volumeBoost ? (v) => lib.setVolumeBoost(percent: v.round()) : null,
+                  ),
+                ),
+                Text('500%', style: TextStyle(color: AppColors.textDim, fontSize: 12)),
+              ]),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                'Loudest the sliders go: ${lib.volumeBoostPercent}%. You choose how loud with the volume '
+                'sliders as usual. Very high volumes can make loud parts crackle, as in VLC; turn it down if '
+                'they do. Mind your ears and speakers.',
+                style: TextStyle(color: AppColors.textDim, fontSize: 12),
+              ),
+            ),
+          ]),
         ),
         // Home's "Jump back in" (0.1.45): what's been played recently.
         const SettingsGroupTitle('Recently played'),
