@@ -27,6 +27,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/eq_preset.dart' show eqFilter;
 import '../../models/video_item.dart';
+import '../../models/volume_boost.dart';
 import '../../services/path_safety.dart';
 import '../../services/video_drawing.dart';
 import '../../services/video_names.dart';
@@ -351,6 +352,7 @@ class _VideoPageState extends State<_VideoPage> {
     _settings = _videos.library;
     _eq = Provider.of<EqualizerModel?>(context, listen: false);
     _eq?.addListener(_applyEqualizer);
+    _settings.addListener(_applyEqualizer); // the volume boost (0.1.61)
     _subs.addAll([
       _player.stream.completed.listen((done) {
         if (done) _finished();
@@ -563,10 +565,13 @@ class _VideoPageState extends State<_VideoPage> {
   /// level as mpv's `replaygain-fallback` (the gain used for files without ReplayGain tags, as
   /// videos are), so the volume slider stays the listener's. A volume filter in the lavfi graph
   /// stalled playback on this engine (tool/bench/frame_picker_engine_test.dart).
+  /// 0.1.61: the volume boost (Settings › Playback) is added to that gain too, as media_kit's own
+  /// volume controls set this player's volume directly (models/volume_boost.dart).
   Future<void> _applyEqualizer() async {
     final preset = _eq?.activeForVideos;
     final filter = eqFilter(preset);
-    final level = (preset?.level ?? 0).toStringAsFixed(1);
+    final boost = boostDb(boostFactor(on: _settings.volumeBoost, percent: _settings.volumeBoostPercent));
+    final level = ((preset?.level ?? 0) + boost).toStringAsFixed(1);
     if ('$filter|$level' == _appliedEq) return;
     final engine = _engine;
     if (engine == null) return;
@@ -721,6 +726,7 @@ class _VideoPageState extends State<_VideoPage> {
     _music.removeListener(_onMusicChanged);
     _watching?.detach(_transport);
     _eq?.removeListener(_applyEqualizer);
+    _settings.removeListener(_applyEqualizer);
     for (final s in _subs) {
       s.cancel();
     }

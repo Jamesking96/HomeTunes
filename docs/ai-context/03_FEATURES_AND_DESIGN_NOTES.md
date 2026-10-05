@@ -186,6 +186,30 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Volume boost (5 Oct 2026, 0.1.61, branch `feature/volume-boost`)
+- **The user asked (5 Oct):** a volume boost like VLC's (up to 500 %) in Settings: a switch and
+  a scale for how much, off and 100 % by default.
+- **Settings › Playback › Volume boost** (`volume-boost`): a switch and a slider, 100–500 % in
+  25 % steps (the slider only moves while it's on), with a note that very high boosts can
+  crackle. `LibraryModel.volumeBoost` / `volumeBoostPercent` (settings.json, clamped),
+  `setVolumeBoost`. Applies to music, audiobooks and videos, straight away.
+- **How** (`models/volume_boost.dart`): 500 % = 5 × the sound level (+14 dB). The engine is
+  mpv 0.36 (no `volume-gain`), and a volume filter in the lavfi graph stalled playback before,
+  so:
+  - music / books (`PlayerModel`): mpv's volume, which is cubic, is multiplied by the cube root
+    of the boost (`boostVolumeScale`; 500 % → ×1.71), and `volume-max` is raised to 200
+    (`engineVolumeMax`) the first time engine settings are applied (mpv stops at 130
+    otherwise). `_sendVolume` sends volume × equaliser level × boost; `_applyEngineSettings`
+    resends when the boost changes (`_appliedBoost`).
+  - videos (video page): media_kit's controls set that player's volume directly, so the boost
+    goes into `replaygain-fallback` in dB (`boostDb`) with the videos' equaliser level; the page
+    now listens to LibraryModel for changes. (mpv applies the fallback gain without its
+    clipping guard.)
+  - music videos are muted, so nothing changes there.
+- **Not heard yet:** tests check the maths, the setting and the Settings page; the user should
+  listen on the PC and the phone.
+- **Tests:** `test/volume_boost_test.dart`.
+
 ## Always on top (5 Oct 2026, 0.1.60, branch `feature/always-on-top`)
 - **The user asked (5 Oct):** an "Always on top" toggle that's always there and easy to click on
   and off, shown in whatever way suits each page.

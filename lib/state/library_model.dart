@@ -20,6 +20,7 @@ import '../models/track.dart';
 import '../models/track_edit.dart';
 import '../models/video_item.dart' show PictureShape;
 import '../models/video_player_look.dart';
+import '../models/volume_boost.dart';
 import '../services/app_backup.dart';
 import '../services/local_scanner.dart';
 import '../services/music_permission.dart';
@@ -142,6 +143,11 @@ class LibraryModel extends ChangeNotifier {
   /// PC: the window stays on top of other windows (0.1.60, the pin button; see
   /// services/window_pin.dart). Remembered, and put back when the app opens.
   bool alwaysOnTop = false;
+
+  /// Volume boost (0.1.61, Settings › Playback): louder than normal, up to 500 %, for music,
+  /// audiobooks and videos. Off and 100 % by default (models/volume_boost.dart).
+  bool volumeBoost = false;
+  int volumeBoostPercent = 100;
 
   /// Now Playing can show a song's music video in place of its cover, when it has one (0.1.40).
   /// Off: no videos and no video button (Settings › Music).
@@ -403,6 +409,8 @@ class LibraryModel extends ChangeNotifier {
     replayGain = ReplayGainMode.off;
     swipeToSkip = true;
     alwaysOnTop = false;
+    volumeBoost = false;
+    volumeBoostPercent = 100;
     showMusicVideos = true;
     autoPlayMusicVideos = true;
     artistsGrid = false;
@@ -471,6 +479,8 @@ class LibraryModel extends ChangeNotifier {
       replayGain = ReplayGainMode.values.asNameMap()[raw['replayGain']] ?? ReplayGainMode.off;
       swipeToSkip = s.get('swipeToSkip', true);
       alwaysOnTop = s.get('alwaysOnTop', false);
+      volumeBoost = s.get('volumeBoost', false);
+      volumeBoostPercent = s.integer('volumeBoostPercent', 100).clamp(volumeBoostMin, volumeBoostMax).toInt();
       showMusicVideos = s.get('showMusicVideos', true);
       autoPlayMusicVideos = s.get('autoPlayMusicVideos', true);
       artistsGrid = s.get('artistsGrid', false);
@@ -641,6 +651,8 @@ class LibraryModel extends ChangeNotifier {
         'replayGain': replayGain.name,
         'swipeToSkip': swipeToSkip,
         'alwaysOnTop': alwaysOnTop,
+        'volumeBoost': volumeBoost,
+        'volumeBoostPercent': volumeBoostPercent,
         'showMusicVideos': showMusicVideos,
         'autoPlayMusicVideos': autoPlayMusicVideos,
         'artistsGrid': artistsGrid,
@@ -892,6 +904,14 @@ class LibraryModel extends ChangeNotifier {
   Future<void> setSidebar({double? width, bool? folded}) async {
     if (width != null) sidebarWidth = width.clamp(sidebarMinWidth, sidebarMaxWidth).toDouble();
     if (folded != null) sidebarFolded = folded;
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Volume boost on / off and how much (100–500 %, 0.1.61). The players follow straight away.
+  Future<void> setVolumeBoost({bool? on, int? percent}) async {
+    if (on != null) volumeBoost = on;
+    if (percent != null) volumeBoostPercent = percent.clamp(volumeBoostMin, volumeBoostMax).toInt();
     notifyListeners();
     await _saveSettings();
   }
