@@ -51,6 +51,7 @@ import 'video_details_screen.dart' show openVideoDetails;
 import 'video_pictures.dart';
 import 'videos_screen.dart' show videoLength;
 import '../widgets/selectable_title.dart';
+import '../widgets/volume_slider.dart';
 
 /// Language codes the engine reports, as words.
 const _languages = {
@@ -1220,7 +1221,7 @@ class _VideoBarVolumeState extends State<_VideoBarVolume> {
                   thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                   overlayShape: SliderComponentShape.noOverlay,
                 ),
-                child: Slider(key: const ValueKey('video-bar-volume'), value: volume, max: max, onChanged: set),
+                child: VolumeSlider(sliderKey: const ValueKey('video-bar-volume'), value: volume, max: max, onChanged: set),
               ),
             ),
           ),

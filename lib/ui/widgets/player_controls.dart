@@ -22,6 +22,7 @@ import '../theme.dart';
 import 'artwork.dart';
 import 'listening_controls.dart';
 import 'video_now_playing.dart';
+import 'volume_slider.dart';
 import 'wheel_seek.dart';
 
 /// Seek bar with elapsed / total times. Rebuilds from the position stream only.
@@ -520,12 +521,17 @@ class VolumeControl extends StatelessWidget {
             icon: Icon(iconFor(volume)),
             onPressed: () => context.read<PlayerModel>().toggleMute(),
           ),
+          // With the "65%" bubble while it changes (0.1.65, widgets/volume_slider.dart).
           if (sliderWidth == null)
-            Expanded(child: Slider(key: const ValueKey('volume-slider'), value: volume, max: max, onChanged: p.setVolume))
+            Expanded(
+              child: VolumeSlider(
+                  sliderKey: const ValueKey('volume-slider'), value: volume, max: max, onChanged: p.setVolume),
+            )
           else
             SizedBox(
               width: sliderWidth,
-              child: Slider(key: const ValueKey('volume-slider'), value: volume, max: max, onChanged: p.setVolume),
+              child: VolumeSlider(
+                  sliderKey: const ValueKey('volume-slider'), value: volume, max: max, onChanged: p.setVolume),
             ),
         ]),
       ),

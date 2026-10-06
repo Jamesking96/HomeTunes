@@ -141,6 +141,18 @@ class PlaybackSettings extends StatelessWidget {
             ),
           ]),
         ),
+        // The "65%" bubble over the volume sliders while they change (0.1.65).
+        SettingTarget(
+          'volume-percent',
+          child: SwitchListTile(
+            key: const ValueKey('volume-percent-switch'),
+            title: const Text('Show the volume percentage'),
+            subtitle: const Text('While you change the volume, a small bubble above the slider shows how loud, '
+                'e.g. 65%.'),
+            value: lib.showVolumePercent,
+            onChanged: lib.setShowVolumePercent,
+          ),
+        ),
         // Home's "Jump back in" (0.1.45): what's been played recently.
         const SettingsGroupTitle('Recently played'),
         SettingTarget(

@@ -68,6 +68,8 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('recently-played', SettingsPage.playback, 'Forget recently played music', 'history recent jump back in home clear played'),
   SettingInfo('volume-boost', SettingsPage.playback, 'Volume boost',
       'louder loud amplify boost 200 300 400 500 percent vlc quiet volume'),
+  SettingInfo('volume-percent', SettingsPage.playback, 'Show the volume percentage',
+      'volume percent percentage number level bubble slider how loud'),
   SettingInfo('replaygain', SettingsPage.playback, 'Even out volume (ReplayGain)', 'loudness loud quiet level normalise normalize'),
   SettingInfo('sleep-button', SettingsPage.sleepTimer, 'Show sleep timer button', 'moon'),
   SettingInfo('sleep-music', SettingsPage.sleepTimer, 'Timer length for music', 'sleep minutes end of song'),

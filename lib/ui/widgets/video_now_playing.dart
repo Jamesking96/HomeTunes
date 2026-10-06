@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../../state/now_watching.dart';
 import '../theme.dart';
 import 'video_sleep_button.dart';
+import 'volume_slider.dart';
 import 'wheel_seek.dart';
 
 String _time(Duration d) {
@@ -255,7 +256,7 @@ class _VideoVolumeState extends State<_VideoVolume> {
             child: Tooltip(
               message: 'Volume ${volume.round()}%',
               waitDuration: const Duration(milliseconds: 800),
-              child: Slider(value: volume, max: max, onChanged: w.setVolume),
+              child: VolumeSlider(value: volume, max: max, onChanged: w.setVolume),
             ),
           ),
         ],

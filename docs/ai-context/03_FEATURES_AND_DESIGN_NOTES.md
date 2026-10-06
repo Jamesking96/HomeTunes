@@ -186,6 +186,20 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Volume percentage bubble (6 Oct 2026, 0.1.65, branch `feature/volume-percent`)
+- **The user asked (6 Oct):** show what % the volume is on above the volume slider, with a
+  setting to turn it off. They chose "only while adjusting" (not always shown).
+- **How:** `widgets/volume_slider.dart`, `VolumeSlider` (a `Slider` plus an `OverlayPortal`
+  bubble following the handle through a `LayerLink`, so pop-ups and video controls can't clip
+  it). It shows while the slider is held, and for `VolumeSlider.showFor` (1 s) after any other
+  change to the value (wheel, touchpad, mute, keys: noticed in `didUpdateWidget`). Used by
+  `VolumeControl` (player bar, Now Playing, phone pop-up, full-screen music video), the video
+  bottom bar (`_VideoVolume`) and the video player's own bar (`_VideoBarVolume`). Handle
+  position: the track runs inside the larger of the handle's and its glow's radius.
+- **Setting:** Settings › Playback › **Show the volume percentage** (`volume-percent`,
+  `LibraryModel.showVolumePercent`, on by default, settings.json `showVolumePercent`).
+- **Tests:** `test/volume_percent_test.dart`.
+
 ## Quick links in the sidebar (6 Oct 2026, 0.1.64, branch `feature/sidebar-quick-links`)
 - **The user asked (6 Oct):** add and remove more "quick links" in the computer's sidebar, below
   Liked Songs and the favourites.

@@ -246,6 +246,10 @@ again). Quick links only show on a computer, where there's a sidebar.
   VLC. Every volume slider (music, audiobooks and videos) then goes past 100% up to that; past
   100% is louder than normal. It's off (100%) to start with; very high volumes can make loud
   parts crackle, so turn it down if they do.
+- **Volume percentage:** while you change the volume (dragging the slider, scrolling over it or
+  pressing mute), a small bubble above the slider shows how loud it is, e.g. **65%**. It goes
+  a second after you stop. Turn it off with **Settings › Playback › Show the volume
+  percentage**.
 - **Always on top (PC):** click the pin button to keep HomeTunes in front of your other windows,
   handy for a video in a corner while you work. Click it again to turn it off. It's at the right
   end of the player bar along the bottom (beside the tabs in a narrow window), at the top of Now
