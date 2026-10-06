@@ -186,6 +186,25 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Ascending / descending for every sort (6 Oct 2026, 0.1.69, branch `feature/sort-direction`)
+- **The user asked (6 Oct):** when sorting, add an ascending / descending option for each.
+- **How:** `state/sort_order.dart`: `SortWords` (text, order, date, number, length) gives each
+  sort the words for its two directions ("A to Z" / "Z to A", "Oldest first" / "Newest first",
+  "Fewest first" / "Most first", "Shortest first" / "Longest first", "First to last" / "Last to
+  first") and where it starts (dates, counts and lengths descending). `reversedIf` /
+  `reverseGroupsIf` turn a list, or headed groups and what's in each, round.
+- **Menu:** `SortMenu` (widgets/music_filter_sheet.dart, also used by `MusicFilterBar`): the sorts,
+  a divider, then **Ascending (…)** and **Descending (…)**, ticked by direction. Screens keep
+  `_reversed` (other way round from the sort's usual direction; picking a sort clears it), not
+  saved, like the sort. The sort icon becomes ⇅ while reversed.
+- **Where:** Your Library › Artists / Albums / Songs, Audiobooks (its own app-bar menu now uses
+  `SortMenu`), Videos › Collections and All videos (Continue watching stays newest first).
+- **Tidied:** "Name (Z–A)" (Artists) and "Year (oldest first)" (Albums) left the menus (the enum
+  values stay for the sorting code and tests); "Year (newest first)" → "Year", "Longest first" →
+  "Length", "Name (A–Z)" → "Name".
+- **Tests:** `test/sort_order_test.dart`; `library_filters_test.dart` checks Year + Ascending
+  and that a new sort starts in its usual direction.
+
 ## A video in a small window (6 Oct 2026, 0.1.68, branch `feature/small-window-video`)
 - **The user asked (6 Oct):** when the UI is scaled down and a video is present, prioritise the
   video's size over text and controls; those scale down to a value just small enough that

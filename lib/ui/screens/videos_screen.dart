@@ -27,7 +27,7 @@ import '../theme.dart';
 import '../widgets/cards.dart' show EmptyState;
 import '../widgets/escape_cancels.dart';
 import '../widgets/quick_links.dart';
-import '../widgets/music_filter_sheet.dart' show MusicFilterBar, showMusicFilterSheet;
+import '../widgets/music_filter_sheet.dart' show MusicFilterBar, showMusicFilterSheet, reverseGroupsIf;
 import 'edit_video.dart';
 import 'video_collection_screen.dart';
 import 'video_details_screen.dart' show openVideoDetails;
@@ -134,6 +134,9 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
   MusicFilters _only = MusicFilters.none;
   CollectionSort _sort = CollectionSort.category;
 
+  /// The other way round from the sort's usual direction (0.1.69).
+  bool _reversed = false;
+
   /// The collection whose contents are open under its row (by key), like an album on an artist
   /// page.
   String? _open;
@@ -170,7 +173,7 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
     }
     final shown = searchCollections(
         [for (final c in all) if (_only.matches(c, collectionFilterFields)) c], _query);
-    final groups = sortCollections(shown, _sort, lastWatched: model.lastWatchedMs);
+    final groups = reverseGroupsIf(_reversed, sortCollections(shown, _sort, lastWatched: model.lastWatchedMs));
     // The order they're shown in, for Shift + click.
     final order = [for (final (_, list) in groups) for (final c in list) c.key];
     final picked = [for (final c in all) if (_selected.contains(c.key)) c];
@@ -245,7 +248,13 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
         sort: _sort,
         sorts: CollectionSort.values,
         sortLabel: collectionSortLabel,
-        onSort: (s) => setState(() => _sort = s),
+        onSort: (s) => setState(() {
+          _sort = s;
+          _reversed = false;
+        }),
+        sortWords: collectionSortWords,
+        reversed: _reversed,
+        onReversed: (r) => setState(() => _reversed = r),
       ),
       _FilterChips(filters: _only, onChanged: (f) => setState(() => _only = f)),
       Expanded(
@@ -350,6 +359,9 @@ class _AllVideosTab extends StatefulWidget {
 class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveClientMixin {
   VideoShow _show = VideoShow.all;
   VideoSort _sort = VideoSort.collection;
+
+  /// The other way round from the sort's usual direction (0.1.69).
+  bool _reversed = false;
   final _search = TextEditingController();
   String _query = '';
 
@@ -395,12 +407,17 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
       for (final s in VideoShow.values) s: narrowed.where((v) => videoShown(s, places[v.id])).length,
     };
     final shown = [for (final v in narrowed) if (videoShown(_show, places[v.id])) v];
-    final groups = sortVideos(shown, _show == VideoShow.continueWatching ? VideoSort.recentlyWatched : _sort,
-        places: places, groupLabel: (name, heading, list) {
-      // Season headings with their titles, the user's own included ("Silo · Season 1 – Offline News").
-      final c = model.collectionNamed(name);
-      return c == null ? heading : model.groupLabel(c, heading, list);
-    });
+    final continuingOnly = _show == VideoShow.continueWatching;
+    // (Ascending / Descending, 0.1.69: for the chosen sort; Continue watching is always newest
+    // first.)
+    final groups = reverseGroupsIf(
+        _reversed && !continuingOnly,
+        sortVideos(shown, continuingOnly ? VideoSort.recentlyWatched : _sort, places: places,
+            groupLabel: (name, heading, list) {
+          // Season headings with their titles, the user's own included ("Silo · Season 1 – Offline News").
+          final c = model.collectionNamed(name);
+          return c == null ? heading : model.groupLabel(c, heading, list);
+        }));
     final shownIds = [for (final (_, g) in groups) for (final v in g) v.id];
     final continuing =
         _show == VideoShow.all && _query.trim().isEmpty && _only.isEmpty ? model.continueWatching : const <VideoItem>[];
@@ -423,7 +440,13 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
           sort: _sort,
           sorts: VideoSort.values,
           sortLabel: videoSortLabel,
-          onSort: (s) => setState(() => _sort = s),
+          onSort: (s) => setState(() {
+            _sort = s;
+            _reversed = false;
+          }),
+          sortWords: videoSortWords,
+          reversed: _reversed,
+          onReversed: (r) => setState(() => _reversed = r),
         ),
       Expanded(
         child: LayoutBuilder(builder: (context, c) {

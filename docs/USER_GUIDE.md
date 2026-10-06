@@ -209,6 +209,9 @@ again). Quick links only show on a computer, where there's a sidebar.
   word you type must match.
 - **Playlists and favourites:** make playlists in **Library**, like songs with the heart, and
   heart whole albums or books. Library tabs have filters and sorting, including **Favourites**.
+  Every sort menu (Library, Audiobooks and Videos) also has **Ascending** and **Descending**,
+  with what they mean for that sort, e.g. **A to Z** / **Z to A** or **Oldest first** /
+  **Newest first**. Picking another sort starts it in its usual direction.
   On the **Artists** tab, the button beside the filter switches between a list and a grid of
   round pictures; HomeTunes remembers which you chose.
   Each list in the filter (artist, album, genre, author, collection and so on) has a search box

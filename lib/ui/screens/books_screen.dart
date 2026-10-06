@@ -18,6 +18,7 @@ import '../theme.dart';
 import '../widgets/book_card.dart';
 import '../widgets/cards.dart';
 import '../widgets/music_access_banner.dart';
+import '../widgets/music_filter_sheet.dart' show SortMenu, SortWords, reverseGroupsIf;
 import '../widgets/search_choice_field.dart';
 
 /// The quick "state" chips along the top of the Books tab.
@@ -36,6 +37,15 @@ class _BooksScreenState extends State<BooksScreen> {
   BookFilter _filter = BookFilter.all;
   /// The chosen sort order. Not saved, so it starts as "Recently listened" each run.
   BookSort _sort = BookSort.recentlyListened;
+
+  /// The other way round from the sort's usual direction (0.1.69).
+  bool _reversed = false;
+
+  static SortWords _words(BookSort s) => switch (s) {
+        BookSort.recentlyListened || BookSort.recentlyAdded => SortWords.date,
+        BookSort.title || BookSort.author || BookSort.narrator => SortWords.text,
+        BookSort.series => SortWords.order,
+      };
 
   /// One author / narrator / series to show (chosen with the filter button).
   BookFilters _only = BookFilters.none;
@@ -169,7 +179,7 @@ class _BooksScreenState extends State<BooksScreen> {
         if (_matches(b, listening, playlists) && _only.matches(b) && (found == null || found.contains(b.id))) b
     ];
     // 3. Sort, and split into groups with headings where the sort calls for it.
-    final groups = sortBooks(shown, _sort, lastListened: listening.lastListened);
+    final groups = reverseGroupsIf(_reversed, sortBooks(shown, _sort, lastListened: listening.lastListened));
     // Everything shown, in the order shown: what "Select all" ticks.
     final shownIds = [for (final (_, g) in groups) for (final b in g) b.id];
 
@@ -203,14 +213,18 @@ class _BooksScreenState extends State<BooksScreen> {
             ),
             onPressed: () => _chooseFilters(lib.books),
           ),
-          PopupMenuButton<BookSort>(
-            tooltip: 'Sort',
-            icon: const Icon(Icons.sort),
-            initialValue: _sort,
-            onSelected: (s) => setState(() => _sort = s),
-            itemBuilder: (_) => [
-              for (final s in BookSort.values) CheckedPopupMenuItem(value: s, checked: s == _sort, child: Text(_sortLabel(s))),
-            ],
+          // With Ascending / Descending (0.1.69).
+          SortMenu<BookSort>(
+            sort: _sort,
+            sorts: BookSort.values,
+            sortLabel: _sortLabel,
+            onSort: (s) => setState(() {
+              _sort = s;
+              _reversed = false;
+            }),
+            sortWords: _words,
+            reversed: _reversed,
+            onReversed: (r) => setState(() => _reversed = r),
           ),
         ],
       ),

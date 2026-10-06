@@ -202,7 +202,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `bookmark_widgets.dart` | Adding, listing and jumping to bookmarks. |
 | `collection_header.dart` | The big header on album, artist and playlist pages with Play and Shuffle. |
 | `quick_actions.dart` | The quick actions for albums and books (edit, cover, favourites, details) used by tile menus and the selection bar. |
-| `music_filter_sheet.dart` | The title box / filter / sort bar (`MusicFilterBar`) and the "Show only" sheet (`showMusicFilterSheet`) used by the Library tabs. |
+| `music_filter_sheet.dart` | The title box / filter / sort bar (`MusicFilterBar`) and the "Show only" sheet (`showMusicFilterSheet`) used by the Library tabs. `SortMenu` (0.1.69): the sort button's menu with Ascending / Descending (also on Audiobooks and Videos); re-exports `state/sort_order.dart` (`SortWords`, `reversedIf`, `reverseGroupsIf`). |
 | `artwork.dart` | Cover images, loaded at a sensible size to save memory. `Artwork(artist: …)` (0.1.53) draws an artist's picture (`LibraryModel.artistImage`) and redraws when it's changed. |
 | `artist_picture.dart` | Change an artist's picture (0.1.53): `showArtistPictureOptions` (Choose an image file…, Use one of their album covers… with a grid of their albums, Use the automatic picture) and `showArtistMenu` (the right-click / press-and-hold menu on artist cards and the Artists tab's rows). |
 | `save_nfo.dart` | The "Also save into .nfo files" tick box in the video editors, and `saveNfoAfterEdit` (0.1.40). |
