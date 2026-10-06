@@ -1199,11 +1199,14 @@ class _VideoBarVolumeState extends State<_VideoBarVolume> {
   Widget build(BuildContext context) {
     final p = widget.player;
     final buttons = widget.look.buttons(widget.accent), track = widget.look.seekTrack(widget.accent);
+    // Redrawn as soon as the volume boost is changed in Settings, not only when the volume
+    // moves (0.1.70).
+    final top = context.select<LibraryModel?, double?>((l) => l?.maxVolume);
     return StreamBuilder<double>(
       stream: p.stream.volume,
       initialData: p.state.volume,
       builder: (context, snap) {
-        final max = widget.maxVolume();
+        final max = top ?? widget.maxVolume();
         final volume = sliderVolume(snap.data ?? 100).clamp(0.0, max);
         void set(double v) => p.setVolume(engineVolume(v.clamp(0.0, max)));
         return Row(mainAxisSize: MainAxisSize.min, children: [

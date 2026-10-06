@@ -186,6 +186,20 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Fix: video volume sliders follow the boost at once (6 Oct 2026, 0.1.70, branch `fix/video-volume-top`)
+- **The user asked (6 Oct):** make sure the volume sliders update when the boost settings are
+  changed.
+- **Found:** the music sliders (`VolumeControl`) already did (`context.select` on
+  `LibraryModel.maxVolume`; PlayerModel brings a louder volume down on any settings change). The
+  two video sliders didn't: the bottom bar's (`_VideoVolume`, reads `NowWatching.maxVolume`,
+  and NowWatching doesn't hear about settings) and the video player's own (`_VideoBarVolume`,
+  rebuilt only by the volume stream). They kept the old top until the volume moved.
+- **Fix:** both now `context.select<LibraryModel?, double?>((l) => l?.maxVolume)`, so they
+  redraw as soon as the boost is changed. (The video page's `_followVolumeTop` still brings a
+  louder volume down when the top is lowered.)
+- **Tests:** `test/video_volume_top_test.dart` (the bottom bar's slider, key
+  `video-bottom-volume`: 100 → 300 → 150 → 100).
+
 ## Ascending / descending for every sort (6 Oct 2026, 0.1.69, branch `feature/sort-direction`)
 - **The user asked (6 Oct):** when sorting, add an ascending / descending option for each.
 - **How:** `state/sort_order.dart`: `SortWords` (text, order, date, number, length) gives each
