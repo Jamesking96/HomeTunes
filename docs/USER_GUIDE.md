@@ -312,6 +312,9 @@ again). Quick links only show on a computer, where there's a sidebar.
   also has **Text size** and **Corners** (from square to extra round).
   On a PC, **Shrink to fit small windows** (on to start with) makes buttons, text and pictures a
   little smaller when you make the window small, so more fits; turn it off to keep them full size.
+  On a video's page in a small window, the video comes first. It takes more of the page, and the
+  title, details and buttons under it shrink a little more (never below three quarters of their
+  usual size, so they stay easy to read and click).
   In any colour picker you can also type or paste a colour code such as `#FF7A59` into
   **Colour code** (the paste button beside it pastes straight in).
 - **Sharing themes with friends:** a saved theme's **⋮ › Share…** (or **Share these colours**
