@@ -23,6 +23,7 @@ import '../widgets/artist_picture.dart';
 import '../widgets/artwork.dart';
 import '../widgets/cards.dart';
 import '../widgets/music_filter_sheet.dart';
+import '../widgets/playlist_art.dart';
 import '../widgets/quick_links.dart';
 import '../widgets/track_tile.dart';
 
@@ -70,7 +71,8 @@ class _PlaylistsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pl = context.watch<PlaylistsModel>();
-    final lib = context.watch<LibraryModel>();
+    // Redrawn when the songs change, so a playlist showing its first song's cover follows it.
+    context.watch<LibraryModel>();
     final nav = context.read<AppNav>();
     final accent = Theme.of(context).colorScheme.primary;
     return ListView(children: [
@@ -94,11 +96,8 @@ class _PlaylistsTab extends StatelessWidget {
         QuickLinkMenu(
           link: QuickLink(QuickLinkKind.playlist, p.id, p.name),
           child: ListTile(
-            leading: Artwork(
-              track: p.trackIds.isEmpty ? null : lib.byId(p.trackIds.first),
-              size: 52,
-              placeholder: Icons.queue_music,
-            ),
+            // Its own icon or picture, else the first song's cover (0.1.67).
+            leading: PlaylistArt(playlist: p, size: 52),
             title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Text('Playlist · ${p.trackIds.length} songs'),
             onTap: () => nav.openPlaylist(p),

@@ -60,7 +60,7 @@ while commenting".
 | Quick links in the sidebar (0.1.64) | Built 6 Oct on `feature/sidebar-quick-links` (branched from the video sleep timer, so it holds 0.1.63 too), not merged yet. Playlists added as links the same day (build +66). See `03_`, Quick links in the sidebar |
 | Volume percentage bubble above the volume sliders while changing them, can be turned off (0.1.65) | Built 6 Oct on `feature/volume-percent` (from the quick links branch), not merged yet. See `03_`, Volume percentage bubble |
 | Special seasons: mark a season special with a title from a list kept in Settings; badge, listed last, skipped by Up next (0.1.66) | Built 6 Oct on `feature/special-seasons` (from the volume percentage branch), not merged yet. See `03_`, Special seasons |
-| Playlist icons: a built-in icon and colour, or a picture (0.1.67) | Planned (asked 6 Oct) |
+| Playlist icons: a built-in icon and colour, or a picture (0.1.67) | Built 6 Oct on `feature/playlist-icons` (from the special seasons branch), not merged yet. See `03_`, Playlist icons |
 | Small windows: a showing video keeps its size; text and controls shrink to a usable minimum (0.1.68) | Planned (asked 6 Oct) |
 | Ascending / descending for every sort (0.1.69) | Planned (asked 6 Oct) |
 | L: Linux build, incl. Steam Deck (0.1.70) | Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |

@@ -428,6 +428,13 @@ class AppBackup {
           if (!ids.contains(id)) ids.add(id);
         }
         same['trackIds'] = ids;
+        // Its own icon or picture (0.1.67): the backup's, if this one has none.
+        const iconKeys = ['iconName', 'iconColour', 'iconImage'];
+        if (!iconKeys.any((k) => same[k] != null) && iconKeys.any((k) => m[k] != null)) {
+          for (final k in iconKeys) {
+            if (m[k] != null) same[k] = m[k];
+          }
+        }
       }
     }
     final liked = [...(current['liked'] as List? ?? const [])];

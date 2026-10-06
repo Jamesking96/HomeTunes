@@ -227,7 +227,7 @@ class _SidebarContent extends StatelessWidget {
               link: link,
               child: entry(
                 key: 'sidebar-link:${link.kindName}:${link.id}',
-                icon: quickLinkIcon(link.kind),
+                icon: quickLinkIconFor(context, link),
                 label: quickLinkLabel(context, link),
                 dense: true,
                 onTap: () => openQuickLink(context, link),

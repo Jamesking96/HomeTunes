@@ -186,6 +186,27 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Playlist icons (6 Oct 2026, 0.1.67, branch `feature/playlist-icons`)
+- **The user asked (6 Oct):** an option on playlists to customise their icons. They chose a
+  built-in icon + colour, or a picture.
+- **Saved:** `Playlist.iconName` (a name from `playlistIcons` in `widgets/playlist_art.dart`;
+  names must never change once used), `iconColour` (ARGB, null = the accent), `iconImage` (a
+  plain file name; `fromJson` refuses anything with a path in it). In playlists.json.
+- **Pictures:** `PlaylistsModel.setPicture` copies the chosen file into
+  `art/custom/playlists/<md5>.<ext>` (`pictureDir`): under `custom` so backups carry it, in a
+  sub-folder so LibraryModel's custom-cover tidy-up (which only lists art/custom itself) leaves
+  it alone. `_tidyPictures` deletes ones no playlist uses (after setIcon / setPicture /
+  clearIcon / delete). Backup merge (`AppBackup.mergePlaylists`): a playlist with no icon takes
+  the backup's.
+- **Shown by `PlaylistArt`:** picture, else `PlaylistIconTile` (the icon on a gradient of the
+  colour, white or black by brightness), else the first song's cover as before. Used in the
+  Library's Playlists tab, the playlist page's header (click it to change), and Home's quick
+  tiles (`_QuickTile.art`). The sidebar quick link uses the icon (`quickLinkIconFor`).
+- **Changing:** `showPlaylistIconPicker` (playlist page ⋮ › **Change icon…**, or a click on its
+  picture): an icon grid, colour swatches (first = the app's colour), **Choose a picture…**,
+  **Use the first song's cover** (when it has its own).
+- **Tests:** `test/playlist_icons_test.dart`.
+
 ## Special seasons (6 Oct 2026, 0.1.66, branch `feature/special-seasons`)
 - **The user asked (6 Oct):** mark seasons as special with their own titles that they can
   customise and apply. Their choices: title + badge + listed last + skipped by Up next / playing
