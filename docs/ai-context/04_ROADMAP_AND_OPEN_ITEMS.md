@@ -185,8 +185,7 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
 
 ## Source control
 `main` is **0.1.70+72** and the latest release is **v0.1.70** (6 Oct). From the next release versions are
-0.2.x (see the Platforms plan above). On 6 Oct the PC still had local copies of 11 merged feature branches
-(`feature/always-on-top` … `fix/video-volume-top`); they can be deleted when the user says so. Each feature gets its own branch, merged into `main` with
+0.2.x (see the Platforms plan above). There are no other branches (the 11 merged ones were deleted on 6 Oct). Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
 repo copy of these notes (`docs/ai-context/`) is kept the same as the project copy.
