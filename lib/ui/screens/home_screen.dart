@@ -31,11 +31,11 @@ import '../../state/playlists_model.dart';
 import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
-import '../widgets/artwork.dart';
 import '../widgets/book_card.dart';
 import '../widgets/cards.dart';
 import '../widgets/jump_back_in.dart';
 import '../widgets/music_access_banner.dart';
+import '../widgets/playlist_art.dart';
 import 'video_collection_screen.dart' show CollectionCard, collectionCardHeight;
 import 'videos_screen.dart' show VideoCard, videoCardHeight;
 
@@ -338,12 +338,12 @@ class _QuickTiles extends StatelessWidget {
           label: 'Favourite videos',
           onTap: () => nav.openView(AppNav.videosTab, AppNav.favouriteVideosView),
         ),
-      // Up to six playlists, using the first song's cover as the picture.
+      // Up to six playlists, with their own icon or picture, else the first song's cover (0.1.67).
       for (final p in pl.playlists.take(6))
         _QuickTile(
           icon: Icons.queue_music,
           label: p.name,
-          track: p.trackIds.isEmpty ? null : lib.byId(p.trackIds.first),
+          art: PlaylistArt(playlist: p, radius: 0),
           onTap: () => nav.openPlaylist(p),
         ),
     ];
@@ -375,9 +375,11 @@ class _QuickTiles extends StatelessWidget {
 class _QuickTile extends StatelessWidget {
   final IconData icon;
   final String label;
-  final Track? track;
+
+  /// A picture of its own (a playlist's, 0.1.67), in place of [icon].
+  final Widget? art;
   final VoidCallback onTap;
-  const _QuickTile({required this.icon, required this.label, required this.onTap, this.track});
+  const _QuickTile({required this.icon, required this.label, required this.onTap, this.art});
 
   @override
   Widget build(BuildContext context) {
@@ -391,12 +393,11 @@ class _QuickTile extends StatelessWidget {
           children: [
             AspectRatio(
               aspectRatio: 1,
-              child: track != null
-                  ? ArtworkFill(track: track, radius: 0)
-                  : Container(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
-                      child: Icon(icon, color: AppColors.current.onAccent),
-                    ),
+              child: art ??
+                  Container(
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+                    child: Icon(icon, color: AppColors.current.onAccent),
+                  ),
             ),
             const SizedBox(width: 10),
             Expanded(

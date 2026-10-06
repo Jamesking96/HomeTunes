@@ -15,6 +15,7 @@ import '../../state/library_model.dart';
 import '../../state/playlists_model.dart';
 import '../../state/video_library_model.dart';
 import '../nav.dart';
+import 'playlist_art.dart' show playlistIconOf;
 
 export '../../models/quick_link.dart';
 
@@ -27,6 +28,15 @@ IconData quickLinkIcon(QuickLinkKind kind) => switch (kind) {
       QuickLinkKind.video => Icons.smart_display_outlined,
       QuickLinkKind.playlist => Icons.queue_music,
     };
+
+/// The icon a link shows in the sidebar: a playlist's own icon (0.1.67), else its kind's.
+IconData quickLinkIconFor(BuildContext context, QuickLink link) {
+  if (link.kind == QuickLinkKind.playlist) {
+    final pl = Provider.of<PlaylistsModel?>(context, listen: false)?.byId(link.id);
+    if (pl != null) return playlistIconOf(pl);
+  }
+  return quickLinkIcon(link.kind);
+}
 
 /// The name a link shows: a playlist's current name (it can be renamed), otherwise the name it
 /// had when it was added.

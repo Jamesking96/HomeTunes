@@ -11,9 +11,9 @@ import '../../models/track.dart';
 import '../../state/library_model.dart';
 import '../../state/playlists_model.dart';
 import '../theme.dart';
-import '../widgets/artwork.dart';
 import '../widgets/cards.dart';
 import '../widgets/collection_header.dart';
+import '../widgets/playlist_art.dart';
 import '../widgets/quick_links.dart';
 import '../widgets/track_tile.dart';
 
@@ -105,7 +105,9 @@ class PlaylistScreen extends StatelessWidget {
         QuickLinkButton(link: QuickLink(QuickLinkKind.playlist, playlist.id, playlist.name)),
         PopupMenuButton<String>(
           onSelected: (v) async {
-            if (v == 'rename') {
+            if (v == 'icon') {
+              await showPlaylistIconPicker(context, playlist);
+            } else if (v == 'rename') {
               final name = await askForName(context, title: 'Rename playlist', initial: playlist.name);
               if (name != null) pl.rename(playlist, name);
             } else if (v == 'delete') {
@@ -130,6 +132,8 @@ class PlaylistScreen extends StatelessWidget {
             }
           },
           itemBuilder: (_) => const [
+            // Its own icon or picture (0.1.67).
+            PopupMenuItem(key: ValueKey('playlist-change-icon'), value: 'icon', child: Text('Change icon…')),
             PopupMenuItem(value: 'rename', child: Text('Rename')),
             PopupMenuItem(value: 'delete', child: Text('Delete playlist')),
           ],
@@ -139,7 +143,15 @@ class PlaylistScreen extends StatelessWidget {
       body: CustomScrollView(slivers: [
         SliverToBoxAdapter(
           child: CollectionHeader(
-            art: ArtworkFill(track: tracks.isEmpty ? null : tracks.first, placeholder: Icons.queue_music),
+            // Its own icon or picture, else the first song's cover; a click changes it (0.1.67).
+            art: Tooltip(
+              message: 'Change icon',
+              child: InkWell(
+                key: const ValueKey('playlist-art'),
+                onTap: () => showPlaylistIconPicker(context, playlist),
+                child: PlaylistArt(playlist: playlist, radius: 6),
+              ),
+            ),
             kind: 'Playlist',
             title: playlist.name,
             subtitle: [

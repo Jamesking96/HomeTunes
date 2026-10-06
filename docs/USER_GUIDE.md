@@ -213,6 +213,10 @@ again). Quick links only show on a computer, where there's a sidebar.
   round pictures; HomeTunes remembers which you chose.
   Each list in the filter (artist, album, genre, author, collection and so on) has a search box
   at the top: type part of a name to find it, and press Enter to pick the first match.
+- **Playlist icons:** a playlist shows its first song's cover until you give it its own. On the
+  playlist's page, click its picture (or choose **⋮ › Change icon…**). Then pick an icon and a
+  colour, or **Choose a picture…** from your files. **Use the first song's cover** goes back.
+  The icon shows in your Library, on Home and in the sidebar's quick links.
 - **Menus:** right-click (PC) or press and hold (phone) on an album or book for quick actions:
   **Edit details…**, **Choose cover…**, **Add to favourites** and **Details…** (where it came
   from). A song's menu has **Go to album**, **Go to artist**, **Edit details…**, **Lyrics** and
