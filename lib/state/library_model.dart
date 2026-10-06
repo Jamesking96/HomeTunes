@@ -154,6 +154,10 @@ class LibraryModel extends ChangeNotifier {
   /// The top of every volume slider: 100, or the boost's percentage while it's on.
   double get maxVolume => maxVolumeFor(on: volumeBoost, percent: volumeBoostPercent);
 
+  /// A small "65%" bubble above a volume slider while it's being changed (0.1.65, Settings ›
+  /// Playback). On by default.
+  bool showVolumePercent = true;
+
   /// Now Playing can show a song's music video in place of its cover, when it has one (0.1.40).
   /// Off: no videos and no video button (Settings › Music).
   bool showMusicVideos = true;
@@ -422,6 +426,7 @@ class LibraryModel extends ChangeNotifier {
     alwaysOnTop = false;
     volumeBoost = false;
     volumeBoostPercent = 100;
+    showVolumePercent = true;
     showMusicVideos = true;
     autoPlayMusicVideos = true;
     artistsGrid = false;
@@ -494,6 +499,7 @@ class LibraryModel extends ChangeNotifier {
       alwaysOnTop = s.get('alwaysOnTop', false);
       volumeBoost = s.get('volumeBoost', false);
       volumeBoostPercent = s.integer('volumeBoostPercent', 100).clamp(volumeBoostMin, volumeBoostMax).toInt();
+      showVolumePercent = s.get('showVolumePercent', true);
       showMusicVideos = s.get('showMusicVideos', true);
       autoPlayMusicVideos = s.get('autoPlayMusicVideos', true);
       artistsGrid = s.get('artistsGrid', false);
@@ -669,6 +675,7 @@ class LibraryModel extends ChangeNotifier {
         'alwaysOnTop': alwaysOnTop,
         'volumeBoost': volumeBoost,
         'volumeBoostPercent': volumeBoostPercent,
+        'showVolumePercent': showVolumePercent,
         'showMusicVideos': showMusicVideos,
         'autoPlayMusicVideos': autoPlayMusicVideos,
         'artistsGrid': artistsGrid,
@@ -931,6 +938,13 @@ class LibraryModel extends ChangeNotifier {
   Future<void> setVolumeBoost({bool? on, int? percent}) async {
     if (on != null) volumeBoost = on;
     if (percent != null) volumeBoostPercent = percent.clamp(volumeBoostMin, volumeBoostMax).toInt();
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// The volume percentage bubble on or off (0.1.65).
+  Future<void> setShowVolumePercent(bool on) async {
+    showVolumePercent = on;
     notifyListeners();
     await _saveSettings();
   }
