@@ -16,8 +16,14 @@ Read the files in this order:
 | `04_ROADMAP_AND_OPEN_ITEMS.md` | What's done and what's next (offline server songs, audiobook server), decisions, security, known issues |
 | `05_CODE_GUIDE.md` | A plain-English tour of the code for the user: every folder and file, how the main journeys flow, scripts, tests, where to make common changes, and probable bugs spotted |
 
-## Status (5 Oct 2026)
+## Status (6 Oct 2026)
 
+- **Ready to release (6 Oct):** 0.1.63–0.1.70 are merged into `main` and pushed ("Everything
+  works great"), built from `main`, with notes in `build\dist\notes-0.1.70.md`. They're waiting
+  for the user's go-ahead to publish as v0.1.70. They cover the video sleep timer, sidebar
+  quick links (playlists too), the volume % bubble, special seasons, playlist icons, a video's
+  priority in small windows, Ascending / Descending on every sort, and the video volume
+  sliders following the boost at once.
 - **Released:** the latest release is
   [v0.1.62](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.62) (5 Oct), which
   covers 0.1.59–0.1.62 in one release: Enlarge on the video picture and Leave full screen in
@@ -52,7 +58,11 @@ Read the files in this order:
   `HomeTunes-audio-engine-source.zip` from `tool/engine_source.ps1`) are explained in `04_…`
   (Music videos, "Done 1 Oct"). See `03_…` → Licence, which includes the rule about GPL
   libraries.
-- **Checks:** 561 tests passed on 0.1.62 (5 Oct), and `flutter analyze` is clean.
+- **Checks:** 592 tests passed on 0.1.70 (6 Oct), and `flutter analyze` is clean.
+- **Build script stall (6 Oct):** `tool\build_release.ps1 -Android` has stopped after Gradle
+  makes the APK (the script's process goes away before copying it). When that happens, copy
+  `build\app\outputs\flutter-apk\app-release.apk` to `build\dist\HomeTunes-<ver>-android.apk`
+  and check it with apksigner (JAVA_HOME = Android Studio's jbr), as the script would.
 - **Devices:** the phone had 0.1.58 on 5 Oct (the user tested the video builds on it). Installed Windows copies update
   themselves from GitHub releases, so the PC's copy may be newer.
 - **Publishing:** every release goes out with `tool/publish_release.ps1 -NotesFile …` (see `02_…`
@@ -99,6 +109,11 @@ Read the files in this order:
     screen in full screen, full-screen music videos with a normal video's controls, the
     "Always on top" pin (PC), and the volume boost (Settings › Playback sets how far every
     volume slider goes, up to 500 %)
+  - 0.1.63–0.1.70 (merged 6 Oct, to be released together as v0.1.70): sleep timer for videos,
+    quick links in the sidebar (albums, artists, audiobooks, collections, videos, playlists),
+    the volume % bubble, special seasons with titles from a list, playlist icons and pictures,
+    the video first in small windows, Ascending / Descending on every sort, and the video
+    volume sliders following the boost at once
 - **Code comments:** every source file has a header comment saying what it does and why. Keep
   that up for new files.
 - **These notes** are also in the repo under `docs/ai-context/`, kept the same as the project
