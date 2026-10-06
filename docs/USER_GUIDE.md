@@ -165,6 +165,13 @@ audiobooks**, **Favourite videos** and your playlists underneath. Drag the sideb
 edge to make it wider or narrower; the **☰** button at its top (or a double-click on the edge)
 folds it down to icons and opens it again.
 
+**Quick links:** you can add your own shortcuts to the sidebar, under the favourites. Click the
+bookmark button at the top of an album, artist, audiobook, playlist or video collection, or
+right-click an album, audiobook, playlist, collection or video and choose **Add to sidebar**
+(this works on the playlists in the sidebar too). To take one off,
+right-click it in the sidebar and choose **Remove from sidebar** (or click the bookmark button
+again). Quick links only show on a computer, where there's a sidebar.
+
 - **Home:** **Jump back in** at the top shows what you were last doing, newest first: videos and
   audiobooks you're part-way through, and the albums, playlists and artists you last played. The
   round play button on each carries on (or plays it again); tap the card itself to open it. Below
@@ -202,10 +209,17 @@ folds it down to icons and opens it again.
   word you type must match.
 - **Playlists and favourites:** make playlists in **Library**, like songs with the heart, and
   heart whole albums or books. Library tabs have filters and sorting, including **Favourites**.
+  Every sort menu (Library, Audiobooks and Videos) also has **Ascending** and **Descending**,
+  with what they mean for that sort, e.g. **A to Z** / **Z to A** or **Oldest first** /
+  **Newest first**. Picking another sort starts it in its usual direction.
   On the **Artists** tab, the button beside the filter switches between a list and a grid of
   round pictures; HomeTunes remembers which you chose.
   Each list in the filter (artist, album, genre, author, collection and so on) has a search box
   at the top: type part of a name to find it, and press Enter to pick the first match.
+- **Playlist icons:** a playlist shows its first song's cover until you give it its own. On the
+  playlist's page, click its picture (or choose **⋮ › Change icon…**). Then pick an icon and a
+  colour, or **Choose a picture…** from your files. **Use the first song's cover** goes back.
+  The icon shows in your Library, on Home and in the sidebar's quick links.
 - **Menus:** right-click (PC) or press and hold (phone) on an album or book for quick actions:
   **Edit details…**, **Choose cover…**, **Add to favourites** and **Details…** (where it came
   from). A song's menu has **Go to album**, **Go to artist**, **Edit details…**, **Lyrics** and
@@ -227,7 +241,9 @@ folds it down to icons and opens it again.
 - **Equaliser:** in **Settings › Playback** or the button on Now Playing. Pick a preset or make
   your own. Audiobooks can use their own preset automatically.
 - **Sleep timer:** the moon button next to the play controls stops playback after a set time or at the end of the chapter or song.
-  Options are in **Settings › Sleep timer**.
+  Videos have one too: the moon in the video player's buttons (and in the bottom bar while a
+  video plays) pauses the video after a set time or at the end of the video, so the next episode
+  doesn't start. Options, including a length for videos, are in **Settings › Sleep timer**.
 - **Volume:** click the speaker icon beside any volume slider to mute; click it again to go back
   to the volume you had. The slider is in the player bar on a PC, under the play controls on Now Playing (with the
   cover or the lyrics showing), and the speaker button in the phone's mini player, which opens a
@@ -237,6 +253,10 @@ folds it down to icons and opens it again.
   VLC. Every volume slider (music, audiobooks and videos) then goes past 100% up to that; past
   100% is louder than normal. It's off (100%) to start with; very high volumes can make loud
   parts crackle, so turn it down if they do.
+- **Volume percentage:** while you change the volume (dragging the slider, scrolling over it or
+  pressing mute), a small bubble above the slider shows how loud it is, e.g. **65%**. It goes
+  a second after you stop. Turn it off with **Settings › Playback › Show the volume
+  percentage**.
 - **Always on top (PC):** click the pin button to keep HomeTunes in front of your other windows,
   handy for a video in a corner while you work. Click it again to turn it off. It's at the right
   end of the player bar along the bottom (beside the tabs in a narrow window), at the top of Now
@@ -263,6 +283,12 @@ folds it down to icons and opens it again.
     Right-click a season's heading to select all of it, mark it watched, or give it a title
     (**Season 1 – Offline News**). Pictures can be changed with **Change picture…**: an image
     file, a frame from the video, or a search online.
+  - **Special seasons:** right-click a season's heading and choose **Mark as special…** to give
+    it a title such as **OVA** or **Movies**. Pick one from the list or type your own (it's kept
+    for next time). A special season shows a **Special** badge and is listed after the normal
+    seasons. Playing on and **Up next** go past it, but you can still play it yourself. To undo,
+    right-click it and choose **Not special any more**. Edit the list of titles in **Settings ›
+    Videos › Special season titles**.
   - **Details…** (in a video's or a collection's right-click menu, under the video player and the
     ⓘ on a collection's page) shows where the file is, where each detail came from (its file or
     folder name, an .nfo file, or your edit), and what's inside the file: its picture size and
@@ -289,6 +315,9 @@ folds it down to icons and opens it again.
   also has **Text size** and **Corners** (from square to extra round).
   On a PC, **Shrink to fit small windows** (on to start with) makes buttons, text and pictures a
   little smaller when you make the window small, so more fits; turn it off to keep them full size.
+  On a video's page in a small window, the video comes first. It takes more of the page, and the
+  title, details and buttons under it shrink a little more (never below three quarters of their
+  usual size, so they stay easy to read and click).
   In any colour picker you can also type or paste a colour code such as `#FF7A59` into
   **Colour code** (the paste button beside it pastes straight in).
 - **Sharing themes with friends:** a saved theme's **⋮ › Share…** (or **Share these colours**

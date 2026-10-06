@@ -186,6 +186,166 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Fix: video volume sliders follow the boost at once (6 Oct 2026, 0.1.70, branch `fix/video-volume-top`)
+- **The user asked (6 Oct):** make sure the volume sliders update when the boost settings are
+  changed.
+- **Found:** the music sliders (`VolumeControl`) already did (`context.select` on
+  `LibraryModel.maxVolume`; PlayerModel brings a louder volume down on any settings change). The
+  two video sliders didn't: the bottom bar's (`_VideoVolume`, reads `NowWatching.maxVolume`,
+  and NowWatching doesn't hear about settings) and the video player's own (`_VideoBarVolume`,
+  rebuilt only by the volume stream). They kept the old top until the volume moved.
+- **Fix:** both now `context.select<LibraryModel?, double?>((l) => l?.maxVolume)`, so they
+  redraw as soon as the boost is changed. (The video page's `_followVolumeTop` still brings a
+  louder volume down when the top is lowered.)
+- **Tests:** `test/video_volume_top_test.dart` (the bottom bar's slider, key
+  `video-bottom-volume`: 100 → 300 → 150 → 100).
+
+## Ascending / descending for every sort (6 Oct 2026, 0.1.69, branch `feature/sort-direction`)
+- **The user asked (6 Oct):** when sorting, add an ascending / descending option for each.
+- **How:** `state/sort_order.dart`: `SortWords` (text, order, date, number, length) gives each
+  sort the words for its two directions ("A to Z" / "Z to A", "Oldest first" / "Newest first",
+  "Fewest first" / "Most first", "Shortest first" / "Longest first", "First to last" / "Last to
+  first") and where it starts (dates, counts and lengths descending). `reversedIf` /
+  `reverseGroupsIf` turn a list, or headed groups and what's in each, round.
+- **Menu:** `SortMenu` (widgets/music_filter_sheet.dart, also used by `MusicFilterBar`): the sorts,
+  a divider, then **Ascending (…)** and **Descending (…)**, ticked by direction. Screens keep
+  `_reversed` (other way round from the sort's usual direction; picking a sort clears it), not
+  saved, like the sort. The sort icon becomes ⇅ while reversed.
+- **Where:** Your Library › Artists / Albums / Songs, Audiobooks (its own app-bar menu now uses
+  `SortMenu`), Videos › Collections and All videos (Continue watching stays newest first).
+- **Tidied:** "Name (Z–A)" (Artists) and "Year (oldest first)" (Albums) left the menus (the enum
+  values stay for the sorting code and tests); "Year (newest first)" → "Year", "Longest first" →
+  "Length", "Name (A–Z)" → "Name".
+- **Tests:** `test/sort_order_test.dart`; `library_filters_test.dart` checks Year + Ascending
+  and that a new sort starts in its usual direction.
+
+## A video in a small window (6 Oct 2026, 0.1.68, branch `feature/small-window-video`)
+- **The user asked (6 Oct):** when the UI is scaled down and a video is present, prioritise the
+  video's size over text and controls; those scale down to a value just small enough that
+  they're still usable.
+- **How (computer only; phones unchanged):** on the video page (`_VideoPageState.build`), from
+  the real window size (`View.of(context)`, not the shrunk layout size):
+  `WindowScale.squeeze(window)` (0 at 1200 × 760 and above, 1 at 760 × 520 and below).
+  - The video's height cap goes from 70 % of the page to 85 % (`WindowScale.videoShare`).
+  - The title, facts and button rows under it are wrapped in `ShrinkToWidth` (laid out wider,
+    drawn smaller with a FittedBox, so no gap is left and clicks land) at
+    `WindowScale.videoInfoScale(window, appFactor:)`: on screen, together with the whole app's
+    own shrink (when Shrink to fit small windows is on), they go from 100 % down to
+    `smallestVideoInfo` = 75 % (about 10–11 px text). With the app shrink on, that's only 6 %
+    more than the app's own 80 %.
+  - The video's own control bar is left as it is (already shrunk with the app).
+- **Tests:** `test/small_window_video_test.dart` (the sizes, and ShrinkToWidth's drawing and
+  clicks). The video page itself isn't widget-tested (needs the video engine).
+
+## Playlist icons (6 Oct 2026, 0.1.67, branch `feature/playlist-icons`)
+- **The user asked (6 Oct):** an option on playlists to customise their icons. They chose a
+  built-in icon + colour, or a picture.
+- **Saved:** `Playlist.iconName` (a name from `playlistIcons` in `widgets/playlist_art.dart`;
+  names must never change once used), `iconColour` (ARGB, null = the accent), `iconImage` (a
+  plain file name; `fromJson` refuses anything with a path in it). In playlists.json.
+- **Pictures:** `PlaylistsModel.setPicture` copies the chosen file into
+  `art/custom/playlists/<md5>.<ext>` (`pictureDir`): under `custom` so backups carry it, in a
+  sub-folder so LibraryModel's custom-cover tidy-up (which only lists art/custom itself) leaves
+  it alone. `_tidyPictures` deletes ones no playlist uses (after setIcon / setPicture /
+  clearIcon / delete). Backup merge (`AppBackup.mergePlaylists`): a playlist with no icon takes
+  the backup's.
+- **Shown by `PlaylistArt`:** picture, else `PlaylistIconTile` (the icon on a gradient of the
+  colour, white or black by brightness), else the first song's cover as before. Used in the
+  Library's Playlists tab, the playlist page's header (click it to change), and Home's quick
+  tiles (`_QuickTile.art`). The sidebar quick link uses the icon (`quickLinkIconFor`).
+- **Changing:** `showPlaylistIconPicker` (playlist page ⋮ › **Change icon…**, or a click on its
+  picture): an icon grid, colour swatches (first = the app's colour), **Choose a picture…**,
+  **Use the first song's cover** (when it has its own).
+- **Tests:** `test/playlist_icons_test.dart`.
+
+## Special seasons (6 Oct 2026, 0.1.66, branch `feature/special-seasons`)
+- **The user asked (6 Oct):** mark seasons as special with their own titles that they can
+  customise and apply. Their choices: title + badge + listed last + skipped by Up next / playing
+  on; titles from a reusable list in Settings (typing a new one adds it).
+- **Marks:** `VideoLibraryModel._specialSeasons` (collection key → season "3" / "1.2" → title),
+  videos.json `specialSeasons`, moved with a collection rename, merged by backups
+  (`app_backup.dart`, the backup's win). `setSpecialSeason(c, season, title|null, sub:)`,
+  `specialTitleOf`, `isSpecialGroup`. Season 0 and extras can't be marked.
+- **How it shows:** `_rebuild` puts the title on each video in a marked season
+  (`VideoItem.specialTitle`, via `withSpecial`; not saved with the video). `groupOf` then gives
+  the title as the heading (seasons with the same title share it); `sortForCollection` ranks
+  them with Season 0 "Specials" (after normal seasons and named parts, before extras), by season
+  number. `_GroupHeading` shows a "Special" badge (`SpecialBadge`). The season-title pencil
+  isn't offered on a special group.
+- **Playing:** `after()` doesn't run from a normal episode into a special one (within specials
+  it plays on); `nextUp()` leaves specials out unless there's nothing else (so Home's Up next
+  and the collection's "Up next" skip them).
+- **UI:** a season heading's right-click menu (`showVideoGroupMenu`, `onSpecial`) › **Mark as
+  special…** (`showSpecialSeasonDialog`, `screens/special_seasons.dart`: chips from the list and
+  a text box) or **Not special any more** (`unmarkSpecialGroup`, every season in the group).
+  Settings › Videos › **Special season titles** (`SpecialSeasonTitlesSection`,
+  `special-season-titles`): `LibraryModel.specialSeasonTitles` (default Specials, OVA, Movies,
+  Bonus episodes; settings.json `specialSeasonTitles`; blanks and repeats dropped).
+- **Tests:** `test/special_seasons_test.dart`.
+
+## Volume percentage bubble (6 Oct 2026, 0.1.65, branch `feature/volume-percent`)
+- **The user asked (6 Oct):** show what % the volume is on above the volume slider, with a
+  setting to turn it off. They chose "only while adjusting" (not always shown).
+- **How:** `widgets/volume_slider.dart`, `VolumeSlider` (a `Slider` plus an `OverlayPortal`
+  bubble following the handle through a `LayerLink`, so pop-ups and video controls can't clip
+  it). It shows while the slider is held, and for `VolumeSlider.showFor` (1 s) after any other
+  change to the value (wheel, touchpad, mute, keys: noticed in `didUpdateWidget`). Used by
+  `VolumeControl` (player bar, Now Playing, phone pop-up, full-screen music video), the video
+  bottom bar (`_VideoVolume`) and the video player's own bar (`_VideoBarVolume`). Handle
+  position: the track runs inside the larger of the handle's and its glow's radius.
+- **Setting:** Settings › Playback › **Show the volume percentage** (`volume-percent`,
+  `LibraryModel.showVolumePercent`, on by default, settings.json `showVolumePercent`).
+- **Tests:** `test/volume_percent_test.dart`.
+
+## Quick links in the sidebar (6 Oct 2026, 0.1.64, branch `feature/sidebar-quick-links`)
+- **The user asked (6 Oct):** add and remove more "quick links" in the computer's sidebar, below
+  Liked Songs and the favourites.
+- **What can be a link:** an album, artist, audiobook, video collection or video
+  (`models/quick_link.dart`: `QuickLink(kind, id, label)`; the id is an album's key, an
+  artist's or collection's name, a book's or video's id; the label is the name when it was
+  added). Kept in settings.json as `quickLinks`, in the order added (`LibraryModel.quickLinks`,
+  `addQuickLink`, `removeQuickLink`, `toggleQuickLink`, `isQuickLink`). Damaged entries are
+  skipped when loading.
+- **Adding / removing:** a bookmark button (`QuickLinkButton`, "Add to sidebar" / "In the
+  sidebar") at the top of an album's, artist's, audiobook's and collection's page; "Add to
+  sidebar" / "Remove from sidebar" in the right-click / long-press menus of albums, audiobooks
+  (`quick_actions.dart`, one item selected), collections and videos (`videos_screen.dart`); and a
+  right-click (or long-press) on the link in the sidebar ("Remove from sidebar").
+- **In the sidebar** (`widgets/sidebar.dart`): straight under Favourite videos, each with its
+  kind's icon; in a scrolling list with the playlists under them (a divider between), so a long
+  list never pushes anything off. Folded to icons, they're icons with the name as the tooltip.
+  With none, a dim line says how to add one. A click opens it (`openQuickLink`); something no
+  longer in the library says so, with a **Remove link** button.
+- **Playlists too (6 Oct, the user's follow-up, build 0.1.64+66):** `QuickLinkKind.playlist`
+  (id = the playlist's id). Added with the bookmark button on a playlist's page, or a
+  right-click / press and hold on a playlist in the sidebar's list or the Library's Playlists
+  tab (`QuickLinkMenu`, the shared add-or-remove menu, also used on the links themselves). The
+  link shows the playlist's current name (`quickLinkLabel`), so a rename follows. Deleting the
+  playlist takes its link off too. A pinned playlist still appears in the playlists list below.
+- **Phone:** there's no sidebar on a phone, so the links only show in the computer layout. The
+  buttons and menu items are still there on a phone (and a wide tablet gets the sidebar).
+  settings.json is per device, so links are per device. Open question for the user: hide the
+  buttons on a phone, or show the links there too (e.g. on Home)?
+- **Tests:** `test/quick_links_test.dart`.
+
+## Sleep timer for videos (6 Oct 2026, 0.1.63, branch `feature/video-sleep-timer`)
+- **The user asked (6 Oct):** the sleep timer in the normal video player.
+- **How:** `state/video_sleep_timer.dart`, `VideoSleepTimer` (a ChangeNotifier provided in
+  `main.dart`), separate from the music's `SleepTimer` (which is tied to songs and chapters). It
+  works on whatever video is in charge through `VideoSleepTarget` (`WatchingSleepTarget` over
+  `NowWatching`; tests use a fake). Length: **Settings › Sleep timer › Timer length for videos**
+  (`LibraryModel.sleepVideoMinutes`, default 30; `sleepAtEnd` = "End of video",
+  `sleep-videos`). The fade and "Show sleep timer button" are shared with music.
+- **End of video** pauses in the last half second (`endMargin`), so the video never reaches its
+  end and the next episode's "Up next" countdown doesn't start; if the video changes anyway, the
+  new one is paused. Closing the video page stops the timer. Pausing saves the place (the video
+  page saves on every pause).
+- **The moon** (`widgets/video_sleep_button.dart`, `VideoSleepTimerButton`): in the video
+  player's own bar on the computer and the phone (normal and full screen, in the chosen button
+  colour and size) and in the bottom bar's video controls (`VideoTransportControls`). On, it's
+  a pill with the time left; a tap turns it off.
+- **Tests:** `test/video_sleep_timer_test.dart`.
+
 ## Volume boost through the volume sliders (5 Oct 2026, 0.1.62, released in v0.1.62)
 - **The user asked (5 Oct, after 0.1.61):** with the boost on, the Settings slider should only
   say how far the volume can go, and the normal volume sliders should run up to that.

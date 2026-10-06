@@ -231,10 +231,29 @@ void main() {
       // Year sort: decade headings.
       await tester.tap(find.byTooltip('Sort'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Year (newest first)'), warnIfMissed: false); // the menu is still animating in
+      await tester.tap(find.text('Year').last, warnIfMissed: false); // the menu is still animating in
       await tester.pumpAndSettle();
       expect(find.text('1980s'), findsOneWidget);
       expect(find.text('1950s'), findsOneWidget);
+      expect(tester.getTopLeft(find.text('1980s')).dy, lessThan(tester.getTopLeft(find.text('1950s')).dy));
+
+      // Ascending / descending (0.1.69): Year starts newest first; Ascending turns it round.
+      await tester.tap(find.byTooltip('Sort'));
+      await tester.pumpAndSettle();
+      expect(find.text('Descending (Newest first)'), findsOneWidget);
+      await tester.tap(find.text('Ascending (Oldest first)'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('1950s')).dy, lessThan(tester.getTopLeft(find.text('1980s')).dy));
+      // Another sort starts in its own usual direction again.
+      await tester.tap(find.byTooltip('Sort'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Title').last, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Sort'));
+      await tester.pumpAndSettle();
+      final ascending = tester.widget<CheckedPopupMenuItem<Object>>(find.byKey(const ValueKey('sort-ascending')));
+      expect(ascending.checked, isTrue);
+      expect(find.text('Ascending (A to Z)'), findsOneWidget);
     });
   });
 }

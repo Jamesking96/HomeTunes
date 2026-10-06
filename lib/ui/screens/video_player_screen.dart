@@ -44,12 +44,15 @@ import '../theme.dart';
 import '../widgets/always_on_top_button.dart';
 import '../widgets/listening_controls.dart' show SpeedButton;
 import '../widgets/video_controls_look.dart';
+import '../widgets/video_sleep_button.dart';
 import 'edit_video.dart';
 import 'equalizer_screen.dart' show openEqualizer;
 import 'video_details_screen.dart' show openVideoDetails;
 import 'video_pictures.dart';
 import 'videos_screen.dart' show videoLength;
 import '../widgets/selectable_title.dart';
+import '../widgets/volume_slider.dart';
+import '../widgets/window_scale.dart';
 
 /// Language codes the engine reports, as words.
 const _languages = {
@@ -805,6 +808,8 @@ class _VideoPageState extends State<_VideoPage> {
       _VideoBarVolume(player: _player, maxVolume: () => _settings.maxVolume, look: look, accent: accent),
       paddedTime(MaterialDesktopPositionIndicator(style: timeTextStyle(look, accent))),
       const Spacer(),
+      // The sleep timer (0.1.63).
+      VideoSleepTimerButton(iconSize: look.size.desktop, color: look.buttons(accent)),
       speedButton,
       tracksButton,
       const MaterialDesktopFullscreenButton(),
@@ -856,6 +861,7 @@ class _VideoPageState extends State<_VideoPage> {
       jump(forward: true, size: look.size.phone),
       paddedTime(MaterialPositionIndicator(style: timeTextStyle(look, accent, phone: true))),
       const Spacer(),
+      VideoSleepTimerButton(iconSize: look.size.phone, color: look.buttons(accent)), // 0.1.63
       phoneSpeed,
       phoneTracks,
       const MaterialFullscreenButton(),
@@ -912,6 +918,8 @@ class _VideoPageState extends State<_VideoPage> {
   Widget build(BuildContext context) {
     final v = context.select<VideoLibraryModel, VideoItem?>((m) => m.byId(_id));
     final watched = context.select<VideoLibraryModel, bool>((m) => m.placeOf(_id)?.watched ?? false);
+    // Settings › Appearance › Shrink to fit small windows (for the small-window layout, 0.1.68).
+    final scaleWithWindow = context.select<LibraryModel, bool>((l) => l.scaleWithWindow);
     if (v == null) {
       return Scaffold(appBar: AppBar(), body: const Center(child: Text('This video isn\'t in your library any more.')));
     }
@@ -1016,10 +1024,19 @@ class _VideoPageState extends State<_VideoPage> {
         ],
       ),
       body: LayoutBuilder(builder: (context, c) {
-        // As big as fits: the video's own shape, at most 70 % of the page's height.
+        // A small window on a computer (0.1.68): the video comes first. It may take more of the
+        // page (70 % up to 85 % of its height), and the text and buttons under it shrink, but
+        // never below three quarters of their usual size on screen (widgets/window_scale.dart).
+        final view = View.of(context);
+        final window = view.physicalSize / view.devicePixelRatio;
+        final desktop = WindowScale.isDesktop;
+        final appFactor = desktop && scaleWithWindow ? WindowScale.factorFor(window) : 1.0;
+        final share = desktop ? WindowScale.videoShare(window) : 0.7;
+        final infoScale = desktop ? WindowScale.videoInfoScale(window, appFactor: appFactor) : 1.0;
+        // As big as fits: the video's own shape, at most [share] of the page's height.
         final ratio = (v.width != null && v.height != null && v.height! > 0) ? v.width! / v.height! : 16 / 9;
         var h = c.maxWidth / ratio;
-        if (h > c.maxHeight * 0.7) h = c.maxHeight * 0.7;
+        if (h > c.maxHeight * share) h = c.maxHeight * share;
         return ListView(children: [
           // 0.1.59: Enlarge on the picture too (like Shrink when it's enlarged); the buttons below
           // stay. Full screen is the player's own button in the bottom corner (a second one at
@@ -1041,7 +1058,9 @@ class _VideoPageState extends State<_VideoPage> {
               ),
             ]),
           ),
-          Padding(
+          ShrinkToWidth(
+            scale: infoScale,
+            child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               SelectableTitle(v.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
@@ -1133,6 +1152,7 @@ class _VideoPageState extends State<_VideoPage> {
               const SizedBox(height: 24),
             ]),
           ),
+          ),
         ]);
       }),
     );
@@ -1179,11 +1199,14 @@ class _VideoBarVolumeState extends State<_VideoBarVolume> {
   Widget build(BuildContext context) {
     final p = widget.player;
     final buttons = widget.look.buttons(widget.accent), track = widget.look.seekTrack(widget.accent);
+    // Redrawn as soon as the volume boost is changed in Settings, not only when the volume
+    // moves (0.1.70).
+    final top = context.select<LibraryModel?, double?>((l) => l?.maxVolume);
     return StreamBuilder<double>(
       stream: p.stream.volume,
       initialData: p.state.volume,
       builder: (context, snap) {
-        final max = widget.maxVolume();
+        final max = top ?? widget.maxVolume();
         final volume = sliderVolume(snap.data ?? 100).clamp(0.0, max);
         void set(double v) => p.setVolume(engineVolume(v.clamp(0.0, max)));
         return Row(mainAxisSize: MainAxisSize.min, children: [
@@ -1216,7 +1239,7 @@ class _VideoBarVolumeState extends State<_VideoBarVolume> {
                   thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                   overlayShape: SliderComponentShape.noOverlay,
                 ),
-                child: Slider(key: const ValueKey('video-bar-volume'), value: volume, max: max, onChanged: set),
+                child: VolumeSlider(sliderKey: const ValueKey('video-bar-volume'), value: volume, max: max, onChanged: set),
               ),
             ),
           ),

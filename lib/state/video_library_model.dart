@@ -139,7 +139,9 @@ class VideoLibraryModel extends ChangeNotifier {
   /// The next thing to watch in [c]: one in progress, else the first not watched after the last
   /// one watched, else the first not watched, else the first. Extras only if there's nothing else.
   VideoItem? nextUp(VideoCollection c) {
-    final list = c.main.isEmpty ? c.videos : c.main;
+    // Not seasons marked special (0.1.66), unless there's nothing else.
+    final regular = [for (final v in c.main) if (v.specialTitle == null) v];
+    final list = regular.isNotEmpty ? regular : (c.main.isEmpty ? c.videos : c.main);
     if (list.isEmpty) return null;
     for (final v in list) {
       if (_places[v.id]?.inProgress ?? false) return v;
@@ -164,8 +166,11 @@ class VideoLibraryModel extends ChangeNotifier {
     final i = c.videos.indexWhere((x) => x.id == v.id);
     if (i < 0 || i + 1 >= c.videos.length) return null;
     final next = c.videos[i + 1];
-    // Don't run on from the last episode into the extras.
-    return next.extra && !v.extra ? null : next;
+    // Don't run on from the last episode into the extras, or into a season marked special
+    // (0.1.66); within the specials it plays on.
+    if (next.extra && !v.extra) return null;
+    if (next.specialTitle != null && v.specialTitle == null) return null;
+    return next;
   }
 
   /// The video before [v] in its collection (the previous-video button), or null at the start.
@@ -261,6 +266,8 @@ class VideoLibraryModel extends ChangeNotifier {
       if (speed != null) _speeds[newKey] = speed;
       final titles = _seasonTitles.remove(oldKey);
       if (titles != null) _seasonTitles[newKey] = titles;
+      final specials = _specialSeasons.remove(oldKey);
+      if (specials != null) _specialSeasons[newKey] = specials;
     }
     _rebuild();
     await _save();
@@ -444,6 +451,34 @@ class VideoLibraryModel extends ChangeNotifier {
     ]);
   }
 
+  // ---- special seasons (0.1.66) ----
+
+  // Seasons the user marked special, by collection key then season ("3", "1.2"), with the
+  // title they chose ("OVA"). Kept in videos.json as specialSeasons.
+  Map<String, Map<String, String>> _specialSeasons = {};
+
+  /// The special title of a season, or null when it's a normal season.
+  String? specialTitleOf(VideoCollection c, int season, [int? sub]) =>
+      _specialSeasons[c.key]?[seasonText(season, sub)];
+
+  /// Marks a season special with [title] (from Settings › Videos › Special season titles, or
+  /// typed), or back to a normal season with null. Season 0 is already "Specials".
+  Future<void> setSpecialSeason(VideoCollection c, int season, String? title, {int? sub}) async {
+    final t = title?.trim();
+    final key = seasonText(season, sub);
+    if (t == null || t.isEmpty) {
+      _specialSeasons[c.key]?.remove(key);
+      if (_specialSeasons[c.key]?.isEmpty ?? false) _specialSeasons.remove(c.key);
+    } else {
+      (_specialSeasons[c.key] ??= {})[key] = t;
+    }
+    _rebuild();
+    await _save();
+  }
+
+  /// Whether a group on a collection's page is a season the user marked special (for its badge).
+  static bool isSpecialGroup(List<VideoItem> list) => list.firstOrNull?.specialTitle != null;
+
   /// Heading text for a group on a collection's page: "Season 1 – Offline News",
   /// "Season 1.2 – Outside".
   String groupLabel(VideoCollection c, String heading, List<VideoItem> list) {
@@ -624,6 +659,21 @@ class VideoLibraryModel extends ChangeNotifier {
                   s.key as String: s.value as String,
             },
     }..removeWhere((_, v) => v.isEmpty);
+    // Special seasons (0.1.66): {"silo": {"3": "OVA"}}.
+    final sp2 = j['specialSeasons'];
+    _specialSeasons = {
+      if (sp2 is Map)
+        for (final e in sp2.entries)
+          if (e.key is String && e.value is Map)
+            e.key as String: {
+              for (final s in (e.value as Map).entries)
+                if (s.key is String &&
+                    seasonKey.hasMatch(s.key as String) &&
+                    s.value is String &&
+                    (s.value as String).trim().isNotEmpty)
+                  s.key as String: (s.value as String).trim(),
+            },
+    }..removeWhere((_, v) => v.isEmpty);
     _rebuild();
   }
 
@@ -645,6 +695,10 @@ class VideoLibraryModel extends ChangeNotifier {
       if (_seasonTitles.isNotEmpty)
         'seasonTitles': {
           for (final e in _seasonTitles.entries) e.key: {for (final s in e.value.entries) s.key: s.value},
+        },
+      if (_specialSeasons.isNotEmpty)
+        'specialSeasons': {
+          for (final e in _specialSeasons.entries) e.key: {for (final s in e.value.entries) s.key: s.value},
         },
       if (_favourites.isNotEmpty) 'favourites': _favourites.toList()..sort(),
       if (_descriptions.isNotEmpty) 'descriptions': _descriptions,
@@ -765,6 +819,21 @@ class VideoLibraryModel extends ChangeNotifier {
     final groups = <String, List<VideoItem>>{};
     for (final v in all) {
       (groups[VideoCollection.keyFor(v.collection)] ??= []).add(v);
+    }
+    // Seasons marked special (0.1.66): their videos carry the title, which decides their
+    // heading and place (after the normal seasons) and keeps Up next off them.
+    if (_specialSeasons.isNotEmpty) {
+      for (final e in groups.entries) {
+        final marks = _specialSeasons[e.key];
+        if (marks == null) continue;
+        e.value.setAll(0, [
+          for (final v in e.value)
+            v.season == null || v.season == 0 || v.extra ? v : v.withSpecial(marks[seasonText(v.season!, v.subSeason)]),
+        ]);
+      }
+      final marked = {for (final l in groups.values) for (final v in l) v.id: v};
+      videos = [for (final v in all) marked[v.id] ?? v];
+      _byId = {for (final v in videos) v.id: v};
     }
     final built = <VideoCollection>[];
     for (final e in groups.entries) {

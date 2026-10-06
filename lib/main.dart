@@ -36,6 +36,7 @@ import 'state/servers_model.dart';
 import 'state/sleep_timer.dart';
 import 'state/update_model.dart';
 import 'state/video_library_model.dart';
+import 'state/video_sleep_timer.dart';
 import 'ui/nav.dart';
 import 'ui/screens/settings/appearance_settings.dart';
 import 'ui/screens/settings/update_ui.dart';
@@ -260,6 +261,9 @@ class HomeTunesApp extends StatelessWidget {
         if (servers != null) ChangeNotifierProvider<ServersModel>.value(value: servers!),
         // These only matter to the UI, so Provider creates (and owns) them itself.
         ChangeNotifierProvider(create: (_) => SleepTimer(player, library)),
+        // The video sleep timer (0.1.63) works on the video in charge.
+        ChangeNotifierProvider(
+            create: (_) => VideoSleepTimer(WatchingSleepTarget(watching), library, changes: watching)),
         ChangeNotifierProvider(create: (_) => AppNav()),
         ChangeNotifierProvider(create: (_) => SelectionModel()),
       ],

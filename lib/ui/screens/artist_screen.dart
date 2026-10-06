@@ -21,6 +21,7 @@ import '../widgets/artist_picture.dart';
 import '../widgets/artwork.dart';
 import '../widgets/cards.dart';
 import '../widgets/collection_header.dart';
+import '../widgets/quick_links.dart';
 import '../widgets/track_tile.dart';
 
 /// Shows one artist, found by [name] in the library.
@@ -87,6 +88,8 @@ class _ArtistScreenState extends State<ArtistScreen> {
                   icon: const Icon(Icons.image_outlined),
                   onPressed: () => showArtistPictureOptions(context, artist),
                 ),
+                // A quick link in the sidebar (0.1.64).
+                QuickLinkButton(link: QuickLink(QuickLinkKind.artist, artist.name, artist.name)),
               ],
             ),
           ),

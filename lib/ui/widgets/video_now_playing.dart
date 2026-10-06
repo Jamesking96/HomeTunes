@@ -9,8 +9,11 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../state/library_model.dart';
 import '../../state/now_watching.dart';
 import '../theme.dart';
+import 'video_sleep_button.dart';
+import 'volume_slider.dart';
 import 'wheel_seek.dart';
 
 String _time(Duration d) {
@@ -198,6 +201,8 @@ class VideoTransportControls extends StatelessWidget {
           icon: const Icon(Icons.skip_next_rounded),
           onPressed: w.hasNext ? w.next : null,
         ),
+        // The sleep timer (0.1.63), as beside the music's play / pause.
+        const VideoSleepTimerButton(),
       ],
     );
   }
@@ -217,7 +222,9 @@ class _VideoVolumeState extends State<_VideoVolume> {
   @override
   Widget build(BuildContext context) {
     final w = context.watch<NowWatching>();
-    // Up to 100, or the volume boost's top (0.1.62).
+    // Up to 100, or the volume boost's top (0.1.62). Redrawn as soon as the boost is changed in
+    // Settings (0.1.70; before, the slider kept its old top until the volume moved).
+    context.select<LibraryModel?, double?>((l) => l?.maxVolume);
     final max = w.maxVolume;
     final volume = w.volume.clamp(0.0, max);
     return Listener(
@@ -252,7 +259,8 @@ class _VideoVolumeState extends State<_VideoVolume> {
             child: Tooltip(
               message: 'Volume ${volume.round()}%',
               waitDuration: const Duration(milliseconds: 800),
-              child: Slider(value: volume, max: max, onChanged: w.setVolume),
+              child: VolumeSlider(
+                  sliderKey: const ValueKey('video-bottom-volume'), value: volume, max: max, onChanged: w.setVolume),
             ),
           ),
         ],

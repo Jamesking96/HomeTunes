@@ -23,6 +23,7 @@ import '../../theme.dart';
 import '../../widgets/listening_controls.dart' show SpeedButton;
 import '../../widgets/save_nfo.dart' show canSaveNfo;
 import '../equalizer_screen.dart';
+import '../special_seasons.dart' show SpecialSeasonTitlesSection;
 import 'library_settings.dart' show VideoFoldersSection;
 import 'settings_widgets.dart';
 
@@ -152,6 +153,8 @@ class VideoSettings extends StatelessWidget {
               onChanged: videos.setSaveNfo,
             ),
           ),
+        // The titles offered for special seasons (0.1.66, special_seasons.dart).
+        SettingTarget('special-season-titles', child: const SpecialSeasonTitlesSection()),
         // --- Look ---
         const SettingsGroupTitle('Look'),
         SettingTarget(
