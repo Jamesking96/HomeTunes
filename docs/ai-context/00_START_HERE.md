@@ -118,7 +118,9 @@ Read the files in this order:
 - **These notes** are also in the repo under `docs/ai-context/`, kept the same as the project
   copy. Update them when things change.
 - **Next:** nothing agreed yet. The open phases are D (offline server songs, after the server
-  review) and E (the Audiobookshelf connection, which needs a plan). Ask the user.
+  review) and E (the Audiobookshelf connection, which needs a plan). The Platforms plan (Linux, Android
+  Auto, Android TV; see `04_…`) is agreed but paused; its phases take the next free 0.2.x numbers.
+  Ask the user.
 
 ## Rules the user cares about (follow these)
 
@@ -128,7 +130,8 @@ Read the files in this order:
    build and install over adb). Merge to `main` with `--no-ff` only when the user approves ("get it
    into github" = merge + push; "delete the others" = remove merged branches).
 3. **Always raise the build number** (the part after `+` in `pubspec.yaml`) for every build that
-   goes on the phone. Android refuses downgrades. Bump the version for each feature (0.1.x).
+   goes on the phone. Android refuses downgrades. Bump the version for each feature: **0.2.x** from the next release (the user's choice, 6 Oct; the first
+   one after v0.1.70 is 0.2.0, and the build number keeps counting up from 72).
 4. **Before building or testing on the PC, check that the user isn't running HomeTunes or a
    `flutter run` (VS Code F5).** Never kill their app. `LNK1168` during a Windows build means the
    app is open: skip the Windows build and say so. (A process check whose own command line contains

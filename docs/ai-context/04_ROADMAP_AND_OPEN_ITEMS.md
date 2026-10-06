@@ -64,14 +64,14 @@ while commenting".
 | Small windows: a showing video keeps its size; text and controls shrink to a usable minimum (0.1.68) | Merged into `main` and pushed 6 Oct (the user: "Everything works great"); released in v0.1.70 (6 Oct). Needs the user's eye in a small window. See `03_`, A video in a small window |
 | Ascending / descending for every sort (0.1.69) | Merged into `main` and pushed 6 Oct (the user: "Everything works great"); released in v0.1.70 (6 Oct). See `03_`, Ascending / descending |
 | Fix: the video volume sliders follow the volume boost as soon as it's changed (0.1.70) | Merged into `main` and pushed 6 Oct (the user: "Everything works great"); released in v0.1.70 (6 Oct). See `03_`, Fix: video volume sliders |
-| L: Linux build, incl. Steam Deck (0.1.71) | Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
-| A: Android Auto (0.1.72) | After L |
-| T: Android TV (0.1.73) | After A |
+| L: Linux build, incl. Steam Deck (next free 0.2.x; 0.2.0 if nothing comes first) | Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
+| A: Android Auto (the 0.2.x after L) | After L |
+| T: Android TV (the 0.2.x after A) | After A |
 | D: offline copies of server songs (was phase 4) | After the server review |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to D isn't decided |
 
 ### Platforms plan: Linux, Android Auto, Android TV (agreed 1 Oct)
-(Versions moved up by one on 1 Oct, the user's choice: 0.1.41 went to selectable titles, video search and window scaling, so Linux is 0.1.42, Android Auto 0.1.43 and Android TV 0.1.44. The plan doc was updated to match. Moved up by one again later on 1 Oct: Linux was paused and 0.1.42 went to the video loading page, so Linux was 0.1.43, Android Auto 0.1.44 and Android TV 0.1.45. And once more the same day: 0.1.43 went to the bottom bar fix, so Linux was 0.1.44. Then 0.1.44 went to video Details, and 0.1.45 / 0.1.46 to the Home revamp and the Servers page (the user chose two updates), so Linux was 0.1.47. Then 0.1.47 went to Shift + click selection (2 Oct), so Linux was 0.1.48. Then 0.1.48 went to Esc cancelling a selection (2 Oct), so Linux was 0.1.49. Then 0.1.49 went to the search box in the filter drop-downs (2 Oct), so Linux was 0.1.50. Then 0.1.50 went to the no-internet warning (2 Oct), so Linux was 0.1.51. Then 0.1.51 went to the update check at every start (2 Oct), so Linux was 0.1.52. Then 0.1.52 went to the Artists tab's list / grid (2 Oct), so Linux was 0.1.53. Then 0.1.53 went to artist pictures (2 Oct), so Linux was 0.1.54. Then 0.1.54 went to the one-song album fix (3 Oct), so Linux was 0.1.55. Then 0.1.55 went to video playback stats (5 Oct), so Linux was 0.1.56. Then 0.1.56 went to smoother music videos (5 Oct), so Linux was 0.1.57. Then 0.1.57 went to smoother video drawing on phones (5 Oct), so Linux was 0.1.58. Then 0.1.58 went to the music video drawing fix (5 Oct), so Linux was 0.1.59. Then 0.1.59 went to the video buttons (5 Oct), so Linux was 0.1.60. Then 0.1.60 went to Always on top (5 Oct), so Linux was 0.1.61. Then 0.1.61 went to the volume boost (5 Oct), so Linux was 0.1.62. Then 0.1.62 went to the volume boost through the volume sliders (5 Oct), so Linux was 0.1.63. Then 0.1.63 went to the video sleep timer and 0.1.64 to sidebar quick links (6 Oct), so Linux was 0.1.65. Then 0.1.65 to 0.1.69 went to the volume percentage, special seasons, playlist icons, the small-window video layout and sort direction (6 Oct), so Linux was 0.1.70. Then 0.1.70 went to the video volume slider fix (6 Oct), so Linux is now **0.1.71**, Android Auto **0.1.72** and Android TV **0.1.73**. Each new piece of work while Linux is paused takes the next number and moves these up. The plan doc may still show older numbers.)
+(Versions, 6 Oct, the user's choice: from the next release HomeTunes moves from 0.1.x to **0.2.x**. The first release after v0.1.70 is 0.2.0, whatever it contains. Each platform phase takes the next free 0.2.x number when it starts: Linux **0.2.0**, Android Auto **0.2.1** and Android TV **0.2.2** if nothing else ships first. Other work in between takes the next number and moves these up. The build number after `+` keeps counting up from 72, so phones still accept each update. The plan doc matches this. Before 6 Oct the phases were renumbered each time other 0.1.x work went first, ending at 0.1.71–0.1.73.)
 The plan is the doc "HomeTunes Platforms Plan" (https://claude.ai/code/artifact/831e2a97-57ac-4af8-b0fd-738442c570d9),
 with numbered steps per phase (L1–L7, A1–A7, T1–T7). Agreed order: **L Linux → A Android Auto → T Android TV**, each
 on its own branch (`feature/linux`, `feature/android-auto`, `feature/android-tv`) and released on its own.
@@ -91,6 +91,9 @@ on its own branch (`feature/linux`, `feature/android-auto`, `feature/android-tv`
   needs `automotive_app_desc.xml`, a browse tree (`getChildren`/`playFromMediaId`/`playFromSearch`), a cold-start
   check and maybe a `ContentProvider` for covers. The D-pad focus work (T3) is started in L6 for the Steam Deck's
   controller.
+- **New since the plan (checked 6 Oct on 0.1.70):** Always on top (`services/window_pin.dart`, 0.1.60) is Windows
+  only. On Linux, `linux/runner/my_application.cc` needs to answer the same `hometunes/window` channel with GTK's
+  keep-above setting (L2 in the plan doc). The other Windows-only calls are unchanged; only their line numbers moved.
 - Model/Android version of the TV still to confirm (Settings › Device Preferences › About), optional.
 
 ### E: Audiobook server (asked for 25 Sep)
@@ -181,8 +184,9 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
   - Chosen pictures / posters (same branch): the Pick a frame dialog's engine steps were checked with `tool/bench/frame_picker_engine_test.dart`, but the dialog itself (the moving picture in it) not yet in a real window. Search online was checked live (`tool/probe_video_art.dart`: Silo, Mickey 17, Claymore). Ideas: TMDB / fanart.tv as extra sources if the user adds their own free API key; writing a chosen poster as `poster.jpg` into the collection's folder (alongside the .nfo option) so other apps see it.
 
 ## Source control
-`main` is **0.1.44+44** and the latest release is **v0.1.44** (1 Oct; v0.1.40, the videos
-release, and v0.1.41 to v0.1.43 came out the same day). `feature/home-revamp` (0.1.45+45) and `feature/servers` (0.1.46+46, branched from it, so merge Home first) are waiting for the user's approval; there are no other branches (merged feature branches are deleted). Each feature gets its own branch, merged into `main` with
+`main` is **0.1.70+72** and the latest release is **v0.1.70** (6 Oct). From the next release versions are
+0.2.x (see the Platforms plan above). On 6 Oct the PC still had local copies of 11 merged feature branches
+(`feature/always-on-top` … `fix/video-volume-top`); they can be deleted when the user says so. Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
 repo copy of these notes (`docs/ai-context/`) is kept the same as the project copy.
