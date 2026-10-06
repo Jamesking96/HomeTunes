@@ -3,6 +3,7 @@
 import '../models/video_item.dart';
 import 'library_index.dart' show sortKey;
 import 'music_filters.dart';
+import 'sort_order.dart';
 
 /// The chips along the top of the Videos tab.
 enum VideoShow { all, continueWatching, unwatched, watched }
@@ -23,8 +24,16 @@ String videoSortLabel(VideoSort s) => switch (s) {
       VideoSort.title => 'Title',
       VideoSort.recentlyAdded => 'Recently added',
       VideoSort.recentlyWatched => 'Recently watched',
-      VideoSort.year => 'Year (newest first)',
-      VideoSort.longest => 'Longest first',
+      VideoSort.year => 'Year',
+      VideoSort.longest => 'Length',
+    };
+
+/// What each video sort orders by, for Ascending / Descending (0.1.69).
+SortWords videoSortWords(VideoSort s) => switch (s) {
+      VideoSort.collection || VideoSort.title => SortWords.text,
+      VideoSort.season => SortWords.order,
+      VideoSort.recentlyAdded || VideoSort.recentlyWatched || VideoSort.year => SortWords.date,
+      VideoSort.longest => SortWords.length,
     };
 
 /// Whether a video with [place] belongs under chip [show].
@@ -209,7 +218,14 @@ String collectionSortLabel(CollectionSort s) => switch (s) {
       CollectionSort.recentlyAdded => 'Recently added',
       CollectionSort.recentlyWatched => 'Recently watched',
       CollectionSort.mostVideos => 'Most videos',
-      CollectionSort.year => 'Year (newest first)',
+      CollectionSort.year => 'Year',
+    };
+
+/// What each collection sort orders by, for Ascending / Descending (0.1.69).
+SortWords collectionSortWords(CollectionSort s) => switch (s) {
+      CollectionSort.category || CollectionSort.name => SortWords.text,
+      CollectionSort.recentlyAdded || CollectionSort.recentlyWatched || CollectionSort.year => SortWords.date,
+      CollectionSort.mostVideos => SortWords.number,
     };
 
 /// What the Collections tab can be filtered by.

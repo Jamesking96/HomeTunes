@@ -16,6 +16,7 @@ import 'package:flutter/painting.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/book.dart';
+import '../models/quick_link.dart';
 import '../models/track.dart';
 import '../models/track_edit.dart';
 import '../models/video_item.dart' show PictureShape;
@@ -153,6 +154,10 @@ class LibraryModel extends ChangeNotifier {
   /// The top of every volume slider: 100, or the boost's percentage while it's on.
   double get maxVolume => maxVolumeFor(on: volumeBoost, percent: volumeBoostPercent);
 
+  /// A small "65%" bubble above a volume slider while it's being changed (0.1.65, Settings ›
+  /// Playback). On by default.
+  bool showVolumePercent = true;
+
   /// Now Playing can show a song's music video in place of its cover, when it has one (0.1.40).
   /// Off: no videos and no video button (Settings › Music).
   bool showMusicVideos = true;
@@ -165,6 +170,9 @@ class LibraryModel extends ChangeNotifier {
   /// album's cover. Kept in settings.json (so in backups).
   Map<String, String> artistPictures = {};
   static const artistAlbumPrefix = 'album:';
+
+  /// The sidebar's quick links (0.1.64, models/quick_link.dart), in the order added.
+  List<QuickLink> quickLinks = [];
 
   /// The music video starts by itself when a song with one plays. Off: the cover shows until
   /// the video button on Now Playing is pressed (for that song).
@@ -203,6 +211,11 @@ class LibraryModel extends ChangeNotifier {
 
   /// Genres that mark a file as an audiobook.
   List<String> bookGenres = List.of(defaultBookGenres);
+
+  /// Titles offered when marking a video season as special (0.1.66, Settings › Videos ›
+  /// Special season titles): the user's own list, starting with these.
+  static const defaultSpecialSeasonTitles = ['Specials', 'OVA', 'Movies', 'Bonus episodes'];
+  List<String> specialSeasonTitles = List.of(defaultSpecialSeasonTitles);
 
   /// Show book covers tall like a book, rather than square like music.
   bool bookCoversTall = false;
@@ -247,6 +260,9 @@ class LibraryModel extends ChangeNotifier {
   /// or "end of song" (music).
   int sleepBookMinutes = 30;
   int sleepMusicMinutes = 30;
+
+  /// The same for videos (0.1.63, VideoSleepTimer); [sleepAtEnd] means "end of the video".
+  int sleepVideoMinutes = 30;
   // (The sleep timer treats any length of 0 or less the same way.)
   static const sleepAtEnd = -1;
 
@@ -415,16 +431,19 @@ class LibraryModel extends ChangeNotifier {
     alwaysOnTop = false;
     volumeBoost = false;
     volumeBoostPercent = 100;
+    showVolumePercent = true;
     showMusicVideos = true;
     autoPlayMusicVideos = true;
     artistsGrid = false;
     artistPictures = {};
+    quickLinks = [];
     sidebarWidth = 250;
     sidebarFolded = false;
     scaleWithWindow = true;
     audiobookFolders = [];
     videoFolders = [];
     bookGenres = List.of(defaultBookGenres);
+    specialSeasonTitles = List.of(defaultSpecialSeasonTitles);
     bookCoversTall = false;
     skipBackSeconds = 15;
     skipForwardSeconds = 30;
@@ -441,6 +460,7 @@ class LibraryModel extends ChangeNotifier {
     sleepButtonShown = true;
     sleepBookMinutes = 30;
     sleepMusicMinutes = 30;
+    sleepVideoMinutes = 30;
     sleepFadeSeconds = 10;
     themeId = 'default';
     customAccent = null;
@@ -485,9 +505,12 @@ class LibraryModel extends ChangeNotifier {
       alwaysOnTop = s.get('alwaysOnTop', false);
       volumeBoost = s.get('volumeBoost', false);
       volumeBoostPercent = s.integer('volumeBoostPercent', 100).clamp(volumeBoostMin, volumeBoostMax).toInt();
+      showVolumePercent = s.get('showVolumePercent', true);
       showMusicVideos = s.get('showMusicVideos', true);
       autoPlayMusicVideos = s.get('autoPlayMusicVideos', true);
       artistsGrid = s.get('artistsGrid', false);
+      final links = raw['quickLinks'];
+      if (links is List) quickLinks = [for (final j in links) ?QuickLink.fromJson(j)];
       final pics = raw['artistPictures'];
       if (pics is Map) {
         artistPictures = {
@@ -501,6 +524,7 @@ class LibraryModel extends ChangeNotifier {
       audiobookFolders = s.strings('audiobookFolders') ?? [];
       videoFolders = s.strings('videoFolders') ?? [];
       bookGenres = s.strings('bookGenres') ?? List.of(defaultBookGenres);
+      specialSeasonTitles = s.strings('specialSeasonTitles') ?? List.of(defaultSpecialSeasonTitles);
       bookCoversTall = s.get('bookCoversTall', false);
       skipBackSeconds = s.integer('skipBackSeconds', 15);
       skipForwardSeconds = s.integer('skipForwardSeconds', 30);
@@ -517,6 +541,7 @@ class LibraryModel extends ChangeNotifier {
       sleepButtonShown = s.get('sleepButtonShown', true);
       sleepBookMinutes = s.integer('sleepBookMinutes', 30);
       sleepMusicMinutes = s.integer('sleepMusicMinutes', 30);
+      sleepVideoMinutes = s.integer('sleepVideoMinutes', 30);
       sleepFadeSeconds = s.integer('sleepFadeSeconds', 10);
       final theme = raw['theme'];
       if (theme is String && theme.isNotEmpty) themeId = theme;
@@ -657,16 +682,19 @@ class LibraryModel extends ChangeNotifier {
         'alwaysOnTop': alwaysOnTop,
         'volumeBoost': volumeBoost,
         'volumeBoostPercent': volumeBoostPercent,
+        'showVolumePercent': showVolumePercent,
         'showMusicVideos': showMusicVideos,
         'autoPlayMusicVideos': autoPlayMusicVideos,
         'artistsGrid': artistsGrid,
         if (artistPictures.isNotEmpty) 'artistPictures': artistPictures,
+        if (quickLinks.isNotEmpty) 'quickLinks': [for (final l in quickLinks) l.toJson()],
         'sidebarWidth': sidebarWidth,
         'sidebarFolded': sidebarFolded,
         'scaleWithWindow': scaleWithWindow,
         'audiobookFolders': audiobookFolders,
         'videoFolders': videoFolders,
         'bookGenres': bookGenres,
+        'specialSeasonTitles': specialSeasonTitles,
         'bookCoversTall': bookCoversTall,
         'skipBackSeconds': skipBackSeconds,
         'skipForwardSeconds': skipForwardSeconds,
@@ -683,6 +711,7 @@ class LibraryModel extends ChangeNotifier {
         'sleepButtonShown': sleepButtonShown,
         'sleepBookMinutes': sleepBookMinutes,
         'sleepMusicMinutes': sleepMusicMinutes,
+        'sleepVideoMinutes': sleepVideoMinutes,
         'sleepFadeSeconds': sleepFadeSeconds,
         'theme': themeId,
         if (customAccent != null) 'customAccent': customAccent,
@@ -898,6 +927,23 @@ class LibraryModel extends ChangeNotifier {
     _rebuild();
   }
 
+  /// The titles offered for special seasons (0.1.66): blank ones and repeats (any case) dropped,
+  /// order kept.
+  Future<void> setSpecialSeasonTitles(List<String> titles) async {
+    final seen = <String>{};
+    specialSeasonTitles = [
+      for (final t in titles)
+        if (t.trim().isNotEmpty && seen.add(t.trim().toLowerCase())) t.trim(),
+    ];
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Adds a title to the special season list if it isn't there yet (typed in the Mark as special
+  /// box, so it's offered next time).
+  Future<void> addSpecialSeasonTitle(String title) =>
+      setSpecialSeasonTitles([...specialSeasonTitles, title]);
+
   Future<void> setBookCoversTall(bool tall) async {
     bookCoversTall = tall;
     await _saveSettings();
@@ -921,6 +967,13 @@ class LibraryModel extends ChangeNotifier {
     await _saveSettings();
   }
 
+  /// The volume percentage bubble on or off (0.1.65).
+  Future<void> setShowVolumePercent(bool on) async {
+    showVolumePercent = on;
+    notifyListeners();
+    await _saveSettings();
+  }
+
   /// PC: keep the window on top of other windows, or not (0.1.60, the pin button).
   Future<void> setAlwaysOnTop(bool on) async {
     alwaysOnTop = on;
@@ -928,6 +981,30 @@ class LibraryModel extends ChangeNotifier {
     await WindowPin.set(on);
     await _saveSettings();
   }
+
+  /// Whether this album / artist / book / collection / video is a quick link in the sidebar.
+  bool isQuickLink(QuickLinkKind kind, String id) => quickLinks.any((l) => l.sameAs(kind, id));
+
+  /// Adds a quick link at the end of the sidebar's list (0.1.64); one per item.
+  Future<void> addQuickLink(QuickLink link) async {
+    if (isQuickLink(link.kind, link.id)) return;
+    quickLinks = [...quickLinks, link];
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Takes a quick link off the sidebar.
+  Future<void> removeQuickLink(QuickLinkKind kind, String id) async {
+    final before = quickLinks.length;
+    quickLinks = [for (final l in quickLinks) if (!l.sameAs(kind, id)) l];
+    if (quickLinks.length == before) return;
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Adds it if it isn't there, takes it off if it is (the menus' "Add to / Remove from sidebar").
+  Future<void> toggleQuickLink(QuickLink link) =>
+      isQuickLink(link.kind, link.id) ? removeQuickLink(link.kind, link.id) : addQuickLink(link);
 
   /// Your Library › Artists: grid (true) or list (false) (0.1.52).
   Future<void> setArtistsGrid(bool on) async {
@@ -1015,8 +1092,10 @@ class LibraryModel extends ChangeNotifier {
     bool? sleepButtonShown,
     int? sleepBookMinutes,
     int? sleepMusicMinutes,
+    int? sleepVideoMinutes,
     int? sleepFadeSeconds,
   }) async {
+    this.sleepVideoMinutes = sleepVideoMinutes ?? this.sleepVideoMinutes;
     this.skipBackSeconds = skipBackSeconds ?? this.skipBackSeconds;
     this.skipForwardSeconds = skipForwardSeconds ?? this.skipForwardSeconds;
     this.rewindOnResume = rewindOnResume ?? this.rewindOnResume;

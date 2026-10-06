@@ -16,6 +16,7 @@ import '../theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/cards.dart';
 import '../widgets/collection_header.dart';
+import '../widgets/quick_links.dart';
 import '../widgets/track_tile.dart';
 import '../../models/track_edit.dart';
 import '../../services/music_info.dart';
@@ -80,6 +81,8 @@ class AlbumScreen extends StatelessWidget {
           // Extra buttons in the header: edit details, add to playlist, and a link to the artist.
           extraActions: [
             _FavouriteAlbumButton(album: album),
+            // A quick link in the sidebar (0.1.64).
+            QuickLinkButton(link: QuickLink(QuickLinkKind.album, album.key, album.title)),
             IconButton(
               tooltip: 'Details: where it comes from',
               icon: const Icon(Icons.info_outline),

@@ -4,8 +4,11 @@
 import 'package:flutter/material.dart';
 
 import '../../state/music_filters.dart';
+import '../../state/sort_order.dart';
 import '../theme.dart';
 import 'search_choice_field.dart';
+
+export '../../state/sort_order.dart';
 
 /// Title box + filter button + sort menu, shown at the top of a library tab.
 class MusicFilterBar<S> extends StatelessWidget {
@@ -19,12 +22,20 @@ class MusicFilterBar<S> extends StatelessWidget {
   final String Function(S) sortLabel;
   final ValueChanged<S> onSort;
 
+  /// Ascending / descending (0.1.69, see [SortMenu]).
+  final SortWords Function(S)? sortWords;
+  final bool reversed;
+  final ValueChanged<bool>? onReversed;
+
   /// Extra buttons before Filter (the Artists tab's list / grid button, 0.1.52).
   final List<Widget> actions;
 
   const MusicFilterBar({
     super.key,
     this.actions = const [],
+    this.sortWords,
+    this.reversed = false,
+    this.onReversed,
     required this.controller,
     required this.hint,
     required this.onChanged,
@@ -76,16 +87,83 @@ class MusicFilterBar<S> extends StatelessWidget {
           icon: Badge(isLabelVisible: filtersActive, smallSize: 8, child: const Icon(Icons.filter_list)),
           onPressed: onFilter,
         ),
-        PopupMenuButton<S>(
-          tooltip: 'Sort',
-          icon: const Icon(Icons.sort),
-          initialValue: sort,
-          onSelected: onSort,
-          itemBuilder: (_) => [
-            for (final s in sorts) CheckedPopupMenuItem(value: s, checked: s == sort, child: Text(sortLabel(s))),
-          ],
+        SortMenu<S>(
+          sort: sort,
+          sorts: sorts,
+          sortLabel: sortLabel,
+          onSort: onSort,
+          sortWords: sortWords,
+          reversed: reversed,
+          onReversed: onReversed,
         ),
       ]),
+    );
+  }
+}
+
+enum _Direction { ascending, descending }
+
+/// The sort button's menu: the sorts, then (0.1.69) Ascending and Descending with what they
+/// mean for the chosen sort ("A to Z", "Newest first"…). Shared by the Library tabs, Audiobooks
+/// and Videos.
+class SortMenu<S> extends StatelessWidget {
+  final S sort;
+  final List<S> sorts;
+  final String Function(S) sortLabel;
+  final ValueChanged<S> onSort;
+
+  /// What [sort] orders by; null leaves out Ascending / Descending.
+  final SortWords Function(S)? sortWords;
+
+  /// Whether the list is the other way round from the sort's usual direction.
+  final bool reversed;
+  final ValueChanged<bool>? onReversed;
+
+  const SortMenu({
+    super.key,
+    required this.sort,
+    required this.sorts,
+    required this.sortLabel,
+    required this.onSort,
+    this.sortWords,
+    this.reversed = false,
+    this.onReversed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final words = sortWords?.call(sort);
+    final descending = words != null && words.startsDescending != reversed;
+    return PopupMenuButton<Object>(
+      key: const ValueKey('sort-menu'),
+      tooltip: 'Sort',
+      icon: Icon(reversed ? Icons.swap_vert : Icons.sort),
+      onSelected: (v) {
+        if (v is _Direction) {
+          if (words != null) onReversed?.call((v == _Direction.descending) != words.startsDescending);
+        } else {
+          onSort(v as S);
+        }
+      },
+      itemBuilder: (_) => [
+        for (final s in sorts)
+          CheckedPopupMenuItem<Object>(value: s as Object, checked: s == sort, child: Text(sortLabel(s))),
+        if (words != null && onReversed != null) ...[
+          const PopupMenuDivider(),
+          CheckedPopupMenuItem<Object>(
+            key: const ValueKey('sort-ascending'),
+            value: _Direction.ascending,
+            checked: !descending,
+            child: Text('Ascending (${words.words.$1})'),
+          ),
+          CheckedPopupMenuItem<Object>(
+            key: const ValueKey('sort-descending'),
+            value: _Direction.descending,
+            checked: descending,
+            child: Text('Descending (${words.words.$2})'),
+          ),
+        ],
+      ],
     );
   }
 }

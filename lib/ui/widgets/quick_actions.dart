@@ -16,6 +16,7 @@ import '../screens/cover_search_dialog.dart';
 import '../screens/details_screen.dart';
 import '../screens/edit_book.dart';
 import '../screens/edit_details.dart';
+import 'quick_links.dart';
 import 'selectable_title.dart';
 
 /// One item in a quick-actions menu.
@@ -100,12 +101,19 @@ List<QuickAction> albumActions(BuildContext context, List<Album> albums) {
     QuickAction(allFavourite ? Icons.favorite : Icons.favorite_border,
         allFavourite ? 'Remove from favourites' : 'Add to favourites',
         () async => playlists.setFavouriteAlbums(albums, !allFavourite)),
+    if (n == 1) _sidebarAction(lib, QuickLink(QuickLinkKind.album, albums.first.key, albums.first.title)),
     if (n == 1) QuickAction(Icons.content_copy, 'Copy title', () => copyTitle(context, albums.first.title)),
     QuickAction(Icons.info_outline, 'Details…', () => openDetails(context,
         kind: n == 1 ? 'Album' : '$n albums',
         title: n == 1 ? albums.first.title : albums.map((a) => a.title).join(', '),
         tracks: tracks)),
   ];
+}
+
+/// "Add to sidebar" / "Remove from sidebar" for one album or audiobook (quick links, 0.1.64).
+QuickAction _sidebarAction(LibraryModel lib, QuickLink link) {
+  final linked = lib.isQuickLink(link.kind, link.id);
+  return QuickAction(quickLinkMenuIcon(linked), quickLinkMenuText(linked), () => lib.toggleQuickLink(link));
 }
 
 /// Quick actions for one or more audiobooks.
@@ -133,6 +141,7 @@ List<QuickAction> bookActions(BuildContext context, List<Book> books) {
     QuickAction(allFavourite ? Icons.favorite : Icons.favorite_border,
         allFavourite ? 'Remove from favourites' : 'Add to favourites',
         () async => playlists.setFavouriteBooks(books, !allFavourite)),
+    if (n == 1) _sidebarAction(lib, QuickLink(QuickLinkKind.book, books.first.id, books.first.title)),
     if (n == 1) QuickAction(Icons.content_copy, 'Copy title', () => copyTitle(context, books.first.title)),
     QuickAction(Icons.info_outline, 'Details…', () => openDetails(context,
         kind: n == 1 ? 'Audiobook' : '$n audiobooks',

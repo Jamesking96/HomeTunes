@@ -110,8 +110,8 @@ void main() {
     expect(collectionCardHeight(250), lessThan(collectionCardHeight(250, PictureShape.square)));
   });
 
-  Future<void> pump(WidgetTester tester, Widget home) async {
-    tester.view.physicalSize = const Size(1200, 1000);
+  Future<void> pump(WidgetTester tester, Widget home, {double height = 1000}) async {
+    tester.view.physicalSize = Size(1200, height);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(MultiProvider(
@@ -128,9 +128,10 @@ void main() {
 
   testWidgets('Settings › Videos: everything is there, and the Look changes the Videos tab', (tester) async {
     await tester.runAsync(scan);
-    await pump(tester, const VideoSettings());
+    // Tall enough for the whole page (it grew with Special season titles, 0.1.66).
+    await pump(tester, const VideoSettings(), height: 2000);
     for (final t in ['Skip back', 'Skip forward', 'Speed', 'Rewind a little when carrying on',
-      'Separate equaliser for videos', 'Video picture shape', 'Collection poster shape']) {
+      'Separate equaliser for videos', 'Special season titles', 'Video picture shape', 'Collection poster shape']) {
       expect(find.text(t), findsOneWidget, reason: t);
     }
     await tester.runAsync(() async {

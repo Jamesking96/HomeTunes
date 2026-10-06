@@ -23,6 +23,7 @@ import '../theme.dart';
 import '../widgets/book_card.dart';
 import '../widgets/bookmark_widgets.dart';
 import '../widgets/cards.dart';
+import '../widgets/quick_links.dart';
 import 'details_screen.dart';
 import 'edit_book.dart';
 import '../widgets/selectable_title.dart';
@@ -151,6 +152,8 @@ class BookScreen extends StatelessWidget {
             onPressed: () => playlists.setFavouriteBooks([book], !on),
           );
         }),
+        // A quick link in the sidebar (0.1.64).
+        QuickLinkButton(link: QuickLink(QuickLinkKind.book, book.id, book.title)),
         IconButton(
           tooltip: 'Edit book details',
           icon: const Icon(Icons.edit_outlined),

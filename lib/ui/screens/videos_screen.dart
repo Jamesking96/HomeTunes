@@ -26,7 +26,8 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/cards.dart' show EmptyState;
 import '../widgets/escape_cancels.dart';
-import '../widgets/music_filter_sheet.dart' show MusicFilterBar, showMusicFilterSheet;
+import '../widgets/quick_links.dart';
+import '../widgets/music_filter_sheet.dart' show MusicFilterBar, showMusicFilterSheet, reverseGroupsIf;
 import 'edit_video.dart';
 import 'video_collection_screen.dart';
 import 'video_details_screen.dart' show openVideoDetails;
@@ -133,6 +134,9 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
   MusicFilters _only = MusicFilters.none;
   CollectionSort _sort = CollectionSort.category;
 
+  /// The other way round from the sort's usual direction (0.1.69).
+  bool _reversed = false;
+
   /// The collection whose contents are open under its row (by key), like an album on an artist
   /// page.
   String? _open;
@@ -169,7 +173,7 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
     }
     final shown = searchCollections(
         [for (final c in all) if (_only.matches(c, collectionFilterFields)) c], _query);
-    final groups = sortCollections(shown, _sort, lastWatched: model.lastWatchedMs);
+    final groups = reverseGroupsIf(_reversed, sortCollections(shown, _sort, lastWatched: model.lastWatchedMs));
     // The order they're shown in, for Shift + click.
     final order = [for (final (_, list) in groups) for (final c in list) c.key];
     final picked = [for (final c in all) if (_selected.contains(c.key)) c];
@@ -244,7 +248,13 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
         sort: _sort,
         sorts: CollectionSort.values,
         sortLabel: collectionSortLabel,
-        onSort: (s) => setState(() => _sort = s),
+        onSort: (s) => setState(() {
+          _sort = s;
+          _reversed = false;
+        }),
+        sortWords: collectionSortWords,
+        reversed: _reversed,
+        onReversed: (r) => setState(() => _reversed = r),
       ),
       _FilterChips(filters: _only, onChanged: (f) => setState(() => _only = f)),
       Expanded(
@@ -349,6 +359,9 @@ class _AllVideosTab extends StatefulWidget {
 class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveClientMixin {
   VideoShow _show = VideoShow.all;
   VideoSort _sort = VideoSort.collection;
+
+  /// The other way round from the sort's usual direction (0.1.69).
+  bool _reversed = false;
   final _search = TextEditingController();
   String _query = '';
 
@@ -394,12 +407,17 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
       for (final s in VideoShow.values) s: narrowed.where((v) => videoShown(s, places[v.id])).length,
     };
     final shown = [for (final v in narrowed) if (videoShown(_show, places[v.id])) v];
-    final groups = sortVideos(shown, _show == VideoShow.continueWatching ? VideoSort.recentlyWatched : _sort,
-        places: places, groupLabel: (name, heading, list) {
-      // Season headings with their titles, the user's own included ("Silo · Season 1 – Offline News").
-      final c = model.collectionNamed(name);
-      return c == null ? heading : model.groupLabel(c, heading, list);
-    });
+    final continuingOnly = _show == VideoShow.continueWatching;
+    // (Ascending / Descending, 0.1.69: for the chosen sort; Continue watching is always newest
+    // first.)
+    final groups = reverseGroupsIf(
+        _reversed && !continuingOnly,
+        sortVideos(shown, continuingOnly ? VideoSort.recentlyWatched : _sort, places: places,
+            groupLabel: (name, heading, list) {
+          // Season headings with their titles, the user's own included ("Silo · Season 1 – Offline News").
+          final c = model.collectionNamed(name);
+          return c == null ? heading : model.groupLabel(c, heading, list);
+        }));
     final shownIds = [for (final (_, g) in groups) for (final v in g) v.id];
     final continuing =
         _show == VideoShow.all && _query.trim().isEmpty && _only.isEmpty ? model.continueWatching : const <VideoItem>[];
@@ -422,7 +440,13 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
           sort: _sort,
           sorts: VideoSort.values,
           sortLabel: videoSortLabel,
-          onSort: (s) => setState(() => _sort = s),
+          onSort: (s) => setState(() {
+            _sort = s;
+            _reversed = false;
+          }),
+          sortWords: videoSortWords,
+          reversed: _reversed,
+          onReversed: (r) => setState(() => _reversed = r),
         ),
       Expanded(
         child: LayoutBuilder(builder: (context, c) {
@@ -609,7 +633,7 @@ class VideoSelectionBar extends StatelessWidget {
   }
 }
 
-enum _GroupAction { selectAll, unselect, watched, unwatched, rename, fold }
+enum _GroupAction { selectAll, unselect, watched, unwatched, rename, special, fold }
 
 /// The right-click (or long-press) menu on a season's heading (a collection's page, its in-place
 /// contents and All videos' group headings): Select all in the season, unselect it, mark it
@@ -623,6 +647,8 @@ Future<void> showVideoGroupMenu(
   required VoidCallback onSelectAll,
   required VoidCallback onUnselect,
   VoidCallback? onRename,
+  VoidCallback? onSpecial,
+  bool special = false,
   bool? folded,
   VoidCallback? onFold,
 }) async {
@@ -648,6 +674,10 @@ Future<void> showVideoGroupMenu(
       if (!allWatched) item(_GroupAction.watched, 'group-watched', Icons.check_circle_outline, 'Mark as watched'),
       if (anyWatched) item(_GroupAction.unwatched, 'group-unwatched', Icons.remove_done, 'Mark as not watched'),
       if (onRename != null) item(_GroupAction.rename, 'group-rename', Icons.edit_outlined, 'Season title…'),
+      // Special seasons (0.1.66): mark a season special with a title, or make it normal again.
+      if (onSpecial != null)
+        item(_GroupAction.special, 'group-special', special ? Icons.star_outline : Icons.auto_awesome_outlined,
+            special ? 'Not special any more' : 'Mark as special…'),
       if (onFold != null && folded != null)
         item(_GroupAction.fold, 'group-fold', folded ? Icons.unfold_more : Icons.unfold_less, folded ? 'Open' : 'Fold up'),
     ],
@@ -663,6 +693,8 @@ Future<void> showVideoGroupMenu(
       await model.setWatched(ids, false);
     case _GroupAction.rename:
       onRename?.call();
+    case _GroupAction.special:
+      onSpecial?.call();
     case _GroupAction.fold:
       onFold?.call();
     case null:
@@ -835,6 +867,8 @@ Future<void> showVideoMenu(BuildContext context, VideoItem video, {required Offs
   final nav = context.read<AppNav>();
   final watched = model.placeOf(video.id)?.watched ?? false;
   final started = model.placeOf(video.id)?.inProgress ?? false;
+  final link = QuickLink(QuickLinkKind.video, video.id, video.title);
+  final linked = model.library.isQuickLink(link.kind, link.id);
   final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
   final choice = await showMenu<String>(
     context: context,
@@ -860,6 +894,10 @@ Future<void> showVideoMenu(BuildContext context, VideoItem video, {required Offs
           title: Text(watched ? 'Mark as not watched' : 'Mark as watched'),
         ),
       ),
+      // A quick link in the sidebar (0.1.64).
+      PopupMenuItem(
+          value: 'link',
+          child: ListTile(leading: Icon(quickLinkMenuIcon(linked)), title: Text(quickLinkMenuText(linked)))),
       copyTitleMenuItem('copy'),
       // Where it comes from, and what's inside the file (0.1.44).
       const PopupMenuItem(value: 'details', child: ListTile(leading: Icon(Icons.info_outline), title: Text('Details…'))),
@@ -888,6 +926,8 @@ Future<void> showVideoMenu(BuildContext context, VideoItem video, {required Offs
       nav.openVideoCollection(video.collection);
     case 'watched':
       await model.setWatched([video.id], !watched);
+    case 'link':
+      await model.library.toggleQuickLink(link);
     case 'folder':
       final file = model.playableFile(video);
       if (file != null) await Process.run('explorer', ['/select,', p.normalize(file)]);

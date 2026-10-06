@@ -10,7 +10,12 @@
 // everywhere. Because of that, LibraryModel keeps songs that are in a playlist even when their
 // file disappears (`referencedIds`), and tells this model when files move (`remapIds`) or when
 // the user forgets missing songs (`removeIds`). Every change is saved straight away.
+import 'dart:io';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart' show PaintingBinding;
+import 'package:path/path.dart' as p;
 
 import '../models/book.dart';
 import '../models/playlist.dart';
@@ -144,6 +149,76 @@ class PlaylistsModel extends ChangeNotifier {
   void delete(Playlist p) {
     playlists.remove(p);
     _changed();
+    _tidyPictures();
+  }
+
+  // ---- playlist icons (0.1.67) ----
+
+  /// Where pictures chosen for playlists are kept: inside art/custom (so backups carry them, as
+  /// they can't be made again) but in their own folder, which the music covers' tidy-up
+  /// (LibraryModel) doesn't look into.
+  String get pictureDir => p.join(storage.artDir, 'custom', 'playlists');
+
+  /// The picture file of [pl], or null when it has none (or the file has gone).
+  String? pictureFile(Playlist pl) {
+    final name = pl.iconImage;
+    if (name == null) return null;
+    final path = p.join(pictureDir, name);
+    return File(path).existsSync() ? path : null;
+  }
+
+  /// Gives [pl] a built-in icon ([name], see widgets/playlist_art.dart) on [colour] (null = the
+  /// accent), in place of any picture.
+  void setIcon(Playlist pl, String name, int? colour) {
+    pl.iconName = name;
+    pl.iconColour = colour;
+    pl.iconImage = null;
+    _changed();
+    _tidyPictures();
+  }
+
+  /// Gives [pl] a picture: a copy of [source] goes into [pictureDir] (named by its contents, so
+  /// the same picture is kept once), so moving or deleting the original doesn't matter.
+  Future<void> setPicture(Playlist pl, String source) async {
+    final bytes = await File(source).readAsBytes();
+    var ext = p.extension(source).toLowerCase();
+    if (!RegExp(r'^\.[a-z0-9]{1,5}$').hasMatch(ext)) ext = '.img';
+    final dir = Directory(pictureDir);
+    await dir.create(recursive: true);
+    final name = '${md5.convert(bytes)}$ext';
+    final dest = File(p.join(dir.path, name));
+    if (!await dest.exists()) await dest.writeAsBytes(bytes, flush: true);
+    pl.iconImage = name;
+    pl.iconName = null;
+    pl.iconColour = null;
+    // Show the new picture even if an old one with the same path was cached.
+    PaintingBinding.instance.imageCache.clear();
+    _changed();
+    await _tidyPictures();
+  }
+
+  /// Back to the first song's cover.
+  void clearIcon(Playlist pl) {
+    pl.iconName = null;
+    pl.iconColour = null;
+    pl.iconImage = null;
+    _changed();
+    _tidyPictures();
+  }
+
+  /// Deletes playlist pictures no playlist uses any more.
+  Future<void> _tidyPictures() async {
+    final dir = Directory(pictureDir);
+    if (!await dir.exists()) return;
+    final used = {for (final pl in playlists) ?pl.iconImage};
+    await for (final f in dir.list()) {
+      if (f is File && !used.contains(p.basename(f.path))) {
+        // In use right now (e.g. being drawn on Windows): left for next time.
+        try {
+          await f.delete();
+        } catch (_) {}
+      }
+    }
   }
 
   /// Adds tracks, skipping ones already in the playlist. Returns how many were added.
