@@ -166,8 +166,9 @@ edge to make it wider or narrower; the **☰** button at its top (or a double-cl
 folds it down to icons and opens it again.
 
 **Quick links:** you can add your own shortcuts to the sidebar, under the favourites. Click the
-bookmark button at the top of an album, artist, audiobook or video collection, or right-click
-an album, audiobook, collection or video and choose **Add to sidebar**. To take one off,
+bookmark button at the top of an album, artist, audiobook, playlist or video collection, or
+right-click an album, audiobook, playlist, collection or video and choose **Add to sidebar**
+(this works on the playlists in the sidebar too). To take one off,
 right-click it in the sidebar and choose **Remove from sidebar** (or click the bookmark button
 again). Quick links only show on a computer, where there's a sidebar.
 

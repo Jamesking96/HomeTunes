@@ -21,12 +21,14 @@ void main() {
   late Storage storage;
   late LibraryModel lib;
   late AppNav nav;
+  late PlaylistsModel playlists;
 
   setUp(() {
     dir = Directory.systemTemp.createTempSync('hometunes_quick_links');
     storage = Storage.at(Directory(p.join(dir.path, 'data'))..createSync());
     lib = LibraryModel(storage);
     nav = AppNav();
+    playlists = PlaylistsModel(storage);
   });
   tearDown(() async {
     for (var i = 0; i < 20; i++) {
@@ -79,7 +81,7 @@ void main() {
       providers: [
         ChangeNotifierProvider.value(value: lib),
         ChangeNotifierProvider.value(value: nav),
-        ChangeNotifierProvider(create: (_) => PlaylistsModel(storage)),
+        ChangeNotifierProvider.value(value: playlists),
       ],
       child: MaterialApp(home: Scaffold(body: body)),
     ));
@@ -120,6 +122,40 @@ void main() {
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pumpAndSettle();
     expect(lib.quickLinks, isEmpty);
+  });
+
+  testWidgets('a playlist: right-click it in the sidebar to add it; a rename follows', (tester) async {
+    final mix = playlists.create('Road trip');
+    await pump(tester, sidebar());
+    Finder link() => find.byKey(ValueKey('sidebar-link:Playlist:${mix.id}'));
+    expect(link(), findsNothing);
+
+    await tester.tap(find.byKey(ValueKey('sidebar-playlist:${mix.id}')), buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add to sidebar'));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+    await tester.pumpAndSettle();
+    expect(lib.isQuickLink(QuickLinkKind.playlist, mix.id), isTrue);
+    expect(link(), findsOneWidget);
+    // Above the playlists list.
+    expect(tester.getTopLeft(link()).dy,
+        lessThan(tester.getTopLeft(find.byKey(ValueKey('sidebar-playlist:${mix.id}'))).dy));
+
+    playlists.rename(mix, 'Summer road trip');
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: link(), matching: find.text('Summer road trip')), findsOneWidget);
+
+    // Clicking it opens the playlist on the Library tab.
+    await tester.tap(link());
+    expect(nav.tab, AppNav.libraryTab);
+
+    // The same menu on the playlist row now takes it off.
+    await tester.tap(find.byKey(ValueKey('sidebar-playlist:${mix.id}')), buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remove from sidebar'));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+    await tester.pumpAndSettle();
+    expect(link(), findsNothing);
   });
 
   testWidgets('folded down to icons, a link is an icon with its name as the tooltip', (tester) async {

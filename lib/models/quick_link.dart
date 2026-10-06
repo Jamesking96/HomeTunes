@@ -7,14 +7,16 @@
 // the sidebar. They're kept in settings.json (LibraryModel.quickLinks), in the order added.
 // [label] is the name when it was added, shown if the item is no longer in the library.
 
-enum QuickLinkKind { album, artist, book, collection, video }
+enum QuickLinkKind { album, artist, book, collection, video, playlist }
 
 class QuickLink {
   const QuickLink(this.kind, this.id, this.label);
 
   final QuickLinkKind kind;
 
-  /// An album's key, an artist's or collection's name, a book's or video's id.
+  /// An album's key, an artist's or collection's name, a book's, video's or playlist's id
+  /// (playlists added 6 Oct, the user's request; the sidebar shows a playlist's current name, so
+  /// a rename follows).
   final String id;
   final String label;
 
@@ -38,5 +40,6 @@ class QuickLink {
         QuickLinkKind.book => 'Audiobook',
         QuickLinkKind.collection => 'Collection',
         QuickLinkKind.video => 'Video',
+        QuickLinkKind.playlist => 'Playlist',
       };
 }
