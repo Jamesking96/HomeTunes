@@ -25,6 +25,7 @@ import '../widgets/cards.dart' show HoverPlayCover;
 import '../widgets/quick_links.dart';
 import '../widgets/save_nfo.dart';
 import 'video_details_screen.dart' show openCollectionDetails;
+import 'special_seasons.dart';
 import 'video_pictures.dart';
 import 'videos_screen.dart' show VideoSelectionBar, showVideoGroupMenu, showVideoMenu, videoLength;
 import '../widgets/selectable_title.dart';
@@ -292,6 +293,7 @@ class _CollectionContentsPanelState extends State<CollectionContentsPanel> with 
                 hasNext: list.any((v) => v.id == next?.id),
                 onTap: () => setState(() => folded.contains(heading) ? folded.remove(heading) : folded.add(heading)),
                 label: model.groupLabel(c, heading, list),
+                special: VideoLibraryModel.isSpecialGroup(list),
                 onRename: switch (seasonOfGroup(heading, list)) {
                   null => null,
                   final s => () => showSeasonTitleDialog(context, c, s.season, s.sub),
@@ -664,6 +666,7 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> with _Epi
                 hasNext: list.any((v) => v.id == next?.id),
                 onTap: () => _toggle(heading),
                 label: model.groupLabel(c, heading, list),
+                special: VideoLibraryModel.isSpecialGroup(list),
                 onRename: switch (seasonOfGroup(heading, list)) {
                   null => null,
                   final s => () => showSeasonTitleDialog(context, c, s.season, s.sub),
@@ -743,6 +746,7 @@ mixin _EpisodeSelection<T extends StatefulWidget> on State<T> {
   void headingMenu(Offset at, VideoCollection c, String heading, List<VideoItem> list,
       {required bool folded, required VoidCallback onFold}) {
     final s = seasonOfGroup(heading, list);
+    final special = VideoLibraryModel.isSpecialGroup(list);
     showVideoGroupMenu(
       context,
       at: at,
@@ -752,6 +756,11 @@ mixin _EpisodeSelection<T extends StatefulWidget> on State<T> {
       onSelectAll: () => setState(() => selectedVideos.addAll([for (final v in list) v.id])),
       onUnselect: () => setState(() => selectedVideos.removeAll([for (final v in list) v.id])),
       onRename: s == null ? null : () => showSeasonTitleDialog(context, c, s.season, s.sub),
+      // Special seasons (0.1.66): mark a numbered season, or make a special one normal again.
+      special: special,
+      onSpecial: special
+          ? () => unmarkSpecialGroup(context, c, list)
+          : (s == null ? null : () => showSpecialSeasonDialog(context, c, s.season, s.sub)),
       folded: folded,
       onFold: onFold,
     );
@@ -891,8 +900,12 @@ class _GroupHeading extends StatelessWidget {
 
   /// Right-click (or press and hold): the season's menu, at the pointer.
   final void Function(Offset at)? onMenu;
+
+  /// A season the user marked special (0.1.66): shows the "Special" badge.
+  final bool special;
   const _GroupHeading(
       {required this.heading,
+      this.special = false,
       required this.count,
       required this.watched,
       required this.folded,
@@ -937,6 +950,10 @@ class _GroupHeading extends StatelessWidget {
                 child: Text('${label ?? heading}  ($count)',
                     maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               ),
+              if (special) ...[
+                const SizedBox(width: 8),
+                const SpecialBadge(),
+              ],
               if (hasNext) ...[
                 const SizedBox(width: 8),
                 Icon(Icons.play_arrow, size: 18, color: accent),

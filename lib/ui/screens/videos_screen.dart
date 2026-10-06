@@ -610,7 +610,7 @@ class VideoSelectionBar extends StatelessWidget {
   }
 }
 
-enum _GroupAction { selectAll, unselect, watched, unwatched, rename, fold }
+enum _GroupAction { selectAll, unselect, watched, unwatched, rename, special, fold }
 
 /// The right-click (or long-press) menu on a season's heading (a collection's page, its in-place
 /// contents and All videos' group headings): Select all in the season, unselect it, mark it
@@ -624,6 +624,8 @@ Future<void> showVideoGroupMenu(
   required VoidCallback onSelectAll,
   required VoidCallback onUnselect,
   VoidCallback? onRename,
+  VoidCallback? onSpecial,
+  bool special = false,
   bool? folded,
   VoidCallback? onFold,
 }) async {
@@ -649,6 +651,10 @@ Future<void> showVideoGroupMenu(
       if (!allWatched) item(_GroupAction.watched, 'group-watched', Icons.check_circle_outline, 'Mark as watched'),
       if (anyWatched) item(_GroupAction.unwatched, 'group-unwatched', Icons.remove_done, 'Mark as not watched'),
       if (onRename != null) item(_GroupAction.rename, 'group-rename', Icons.edit_outlined, 'Season title…'),
+      // Special seasons (0.1.66): mark a season special with a title, or make it normal again.
+      if (onSpecial != null)
+        item(_GroupAction.special, 'group-special', special ? Icons.star_outline : Icons.auto_awesome_outlined,
+            special ? 'Not special any more' : 'Mark as special…'),
       if (onFold != null && folded != null)
         item(_GroupAction.fold, 'group-fold', folded ? Icons.unfold_more : Icons.unfold_less, folded ? 'Open' : 'Fold up'),
     ],
@@ -664,6 +670,8 @@ Future<void> showVideoGroupMenu(
       await model.setWatched(ids, false);
     case _GroupAction.rename:
       onRename?.call();
+    case _GroupAction.special:
+      onSpecial?.call();
     case _GroupAction.fold:
       onFold?.call();
     case null:

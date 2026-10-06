@@ -276,6 +276,12 @@ again). Quick links only show on a computer, where there's a sidebar.
     Right-click a season's heading to select all of it, mark it watched, or give it a title
     (**Season 1 – Offline News**). Pictures can be changed with **Change picture…**: an image
     file, a frame from the video, or a search online.
+  - **Special seasons:** right-click a season's heading and choose **Mark as special…** to give
+    it a title such as **OVA** or **Movies**. Pick one from the list or type your own (it's kept
+    for next time). A special season shows a **Special** badge and is listed after the normal
+    seasons. Playing on and **Up next** go past it, but you can still play it yourself. To undo,
+    right-click it and choose **Not special any more**. Edit the list of titles in **Settings ›
+    Videos › Special season titles**.
   - **Details…** (in a video's or a collection's right-click menu, under the video player and the
     ⓘ on a collection's page) shows where the file is, where each detail came from (its file or
     folder name, an .nfo file, or your edit), and what's inside the file: its picture size and

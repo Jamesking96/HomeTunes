@@ -212,6 +212,11 @@ class LibraryModel extends ChangeNotifier {
   /// Genres that mark a file as an audiobook.
   List<String> bookGenres = List.of(defaultBookGenres);
 
+  /// Titles offered when marking a video season as special (0.1.66, Settings › Videos ›
+  /// Special season titles): the user's own list, starting with these.
+  static const defaultSpecialSeasonTitles = ['Specials', 'OVA', 'Movies', 'Bonus episodes'];
+  List<String> specialSeasonTitles = List.of(defaultSpecialSeasonTitles);
+
   /// Show book covers tall like a book, rather than square like music.
   bool bookCoversTall = false;
 
@@ -438,6 +443,7 @@ class LibraryModel extends ChangeNotifier {
     audiobookFolders = [];
     videoFolders = [];
     bookGenres = List.of(defaultBookGenres);
+    specialSeasonTitles = List.of(defaultSpecialSeasonTitles);
     bookCoversTall = false;
     skipBackSeconds = 15;
     skipForwardSeconds = 30;
@@ -518,6 +524,7 @@ class LibraryModel extends ChangeNotifier {
       audiobookFolders = s.strings('audiobookFolders') ?? [];
       videoFolders = s.strings('videoFolders') ?? [];
       bookGenres = s.strings('bookGenres') ?? List.of(defaultBookGenres);
+      specialSeasonTitles = s.strings('specialSeasonTitles') ?? List.of(defaultSpecialSeasonTitles);
       bookCoversTall = s.get('bookCoversTall', false);
       skipBackSeconds = s.integer('skipBackSeconds', 15);
       skipForwardSeconds = s.integer('skipForwardSeconds', 30);
@@ -687,6 +694,7 @@ class LibraryModel extends ChangeNotifier {
         'audiobookFolders': audiobookFolders,
         'videoFolders': videoFolders,
         'bookGenres': bookGenres,
+        'specialSeasonTitles': specialSeasonTitles,
         'bookCoversTall': bookCoversTall,
         'skipBackSeconds': skipBackSeconds,
         'skipForwardSeconds': skipForwardSeconds,
@@ -918,6 +926,23 @@ class LibraryModel extends ChangeNotifier {
     await _saveSettings();
     _rebuild();
   }
+
+  /// The titles offered for special seasons (0.1.66): blank ones and repeats (any case) dropped,
+  /// order kept.
+  Future<void> setSpecialSeasonTitles(List<String> titles) async {
+    final seen = <String>{};
+    specialSeasonTitles = [
+      for (final t in titles)
+        if (t.trim().isNotEmpty && seen.add(t.trim().toLowerCase())) t.trim(),
+    ];
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Adds a title to the special season list if it isn't there yet (typed in the Mark as special
+  /// box, so it's offered next time).
+  Future<void> addSpecialSeasonTitle(String title) =>
+      setSpecialSeasonTitles([...specialSeasonTitles, title]);
 
   Future<void> setBookCoversTall(bool tall) async {
     bookCoversTall = tall;

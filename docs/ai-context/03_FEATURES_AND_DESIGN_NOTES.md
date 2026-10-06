@@ -186,6 +186,31 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Special seasons (6 Oct 2026, 0.1.66, branch `feature/special-seasons`)
+- **The user asked (6 Oct):** mark seasons as special with their own titles that they can
+  customise and apply. Their choices: title + badge + listed last + skipped by Up next / playing
+  on; titles from a reusable list in Settings (typing a new one adds it).
+- **Marks:** `VideoLibraryModel._specialSeasons` (collection key → season "3" / "1.2" → title),
+  videos.json `specialSeasons`, moved with a collection rename, merged by backups
+  (`app_backup.dart`, the backup's win). `setSpecialSeason(c, season, title|null, sub:)`,
+  `specialTitleOf`, `isSpecialGroup`. Season 0 and extras can't be marked.
+- **How it shows:** `_rebuild` puts the title on each video in a marked season
+  (`VideoItem.specialTitle`, via `withSpecial`; not saved with the video). `groupOf` then gives
+  the title as the heading (seasons with the same title share it); `sortForCollection` ranks
+  them with Season 0 "Specials" (after normal seasons and named parts, before extras), by season
+  number. `_GroupHeading` shows a "Special" badge (`SpecialBadge`). The season-title pencil
+  isn't offered on a special group.
+- **Playing:** `after()` doesn't run from a normal episode into a special one (within specials
+  it plays on); `nextUp()` leaves specials out unless there's nothing else (so Home's Up next
+  and the collection's "Up next" skip them).
+- **UI:** a season heading's right-click menu (`showVideoGroupMenu`, `onSpecial`) › **Mark as
+  special…** (`showSpecialSeasonDialog`, `screens/special_seasons.dart`: chips from the list and
+  a text box) or **Not special any more** (`unmarkSpecialGroup`, every season in the group).
+  Settings › Videos › **Special season titles** (`SpecialSeasonTitlesSection`,
+  `special-season-titles`): `LibraryModel.specialSeasonTitles` (default Specials, OVA, Movies,
+  Bonus episodes; settings.json `specialSeasonTitles`; blanks and repeats dropped).
+- **Tests:** `test/special_seasons_test.dart`.
+
 ## Volume percentage bubble (6 Oct 2026, 0.1.65, branch `feature/volume-percent`)
 - **The user asked (6 Oct):** show what % the volume is on above the volume slider, with a
   setting to turn it off. They chose "only while adjusting" (not always shown).
