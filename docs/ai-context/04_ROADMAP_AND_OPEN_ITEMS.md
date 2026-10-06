@@ -64,7 +64,7 @@ while commenting".
 | Small windows: a showing video keeps its size; text and controls shrink to a usable minimum (0.1.68) | Merged into `main` and pushed 6 Oct (the user: "Everything works great"); released in v0.1.70 (6 Oct). Needs the user's eye in a small window. See `03_`, A video in a small window |
 | Ascending / descending for every sort (0.1.69) | Merged into `main` and pushed 6 Oct (the user: "Everything works great"); released in v0.1.70 (6 Oct). See `03_`, Ascending / descending |
 | Fix: the video volume sliders follow the volume boost as soon as it's changed (0.1.70) | Merged into `main` and pushed 6 Oct (the user: "Everything works great"); released in v0.1.70 (6 Oct). See `03_`, Fix: video volume sliders |
-| L: Linux build, incl. Steam Deck (next free 0.2.x; 0.2.0 if nothing comes first) | Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
+| L: Linux build, incl. Steam Deck (next free 0.2.x; 0.2.0 if nothing comes first) | On hold (6 Oct, the user's choice): WSL2 can't be installed on the current PC, so L1 (the Linux build) moves to another PC. Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (the 0.2.x after L) | After L |
 | T: Android TV (the 0.2.x after A) | After A |
 | D: offline copies of server songs (was phase 4) | After the server review |
