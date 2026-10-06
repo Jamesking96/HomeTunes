@@ -186,6 +186,24 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## A video in a small window (6 Oct 2026, 0.1.68, branch `feature/small-window-video`)
+- **The user asked (6 Oct):** when the UI is scaled down and a video is present, prioritise the
+  video's size over text and controls; those scale down to a value just small enough that
+  they're still usable.
+- **How (computer only; phones unchanged):** on the video page (`_VideoPageState.build`), from
+  the real window size (`View.of(context)`, not the shrunk layout size):
+  `WindowScale.squeeze(window)` (0 at 1200 × 760 and above, 1 at 760 × 520 and below).
+  - The video's height cap goes from 70 % of the page to 85 % (`WindowScale.videoShare`).
+  - The title, facts and button rows under it are wrapped in `ShrinkToWidth` (laid out wider,
+    drawn smaller with a FittedBox, so no gap is left and clicks land) at
+    `WindowScale.videoInfoScale(window, appFactor:)`: on screen, together with the whole app's
+    own shrink (when Shrink to fit small windows is on), they go from 100 % down to
+    `smallestVideoInfo` = 75 % (about 10–11 px text). With the app shrink on, that's only 6 %
+    more than the app's own 80 %.
+  - The video's own control bar is left as it is (already shrunk with the app).
+- **Tests:** `test/small_window_video_test.dart` (the sizes, and ShrinkToWidth's drawing and
+  clicks). The video page itself isn't widget-tested (needs the video engine).
+
 ## Playlist icons (6 Oct 2026, 0.1.67, branch `feature/playlist-icons`)
 - **The user asked (6 Oct):** an option on playlists to customise their icons. They chose a
   built-in icon + colour, or a picture.

@@ -52,6 +52,7 @@ import 'video_pictures.dart';
 import 'videos_screen.dart' show videoLength;
 import '../widgets/selectable_title.dart';
 import '../widgets/volume_slider.dart';
+import '../widgets/window_scale.dart';
 
 /// Language codes the engine reports, as words.
 const _languages = {
@@ -917,6 +918,8 @@ class _VideoPageState extends State<_VideoPage> {
   Widget build(BuildContext context) {
     final v = context.select<VideoLibraryModel, VideoItem?>((m) => m.byId(_id));
     final watched = context.select<VideoLibraryModel, bool>((m) => m.placeOf(_id)?.watched ?? false);
+    // Settings › Appearance › Shrink to fit small windows (for the small-window layout, 0.1.68).
+    final scaleWithWindow = context.select<LibraryModel, bool>((l) => l.scaleWithWindow);
     if (v == null) {
       return Scaffold(appBar: AppBar(), body: const Center(child: Text('This video isn\'t in your library any more.')));
     }
@@ -1021,10 +1024,19 @@ class _VideoPageState extends State<_VideoPage> {
         ],
       ),
       body: LayoutBuilder(builder: (context, c) {
-        // As big as fits: the video's own shape, at most 70 % of the page's height.
+        // A small window on a computer (0.1.68): the video comes first. It may take more of the
+        // page (70 % up to 85 % of its height), and the text and buttons under it shrink, but
+        // never below three quarters of their usual size on screen (widgets/window_scale.dart).
+        final view = View.of(context);
+        final window = view.physicalSize / view.devicePixelRatio;
+        final desktop = WindowScale.isDesktop;
+        final appFactor = desktop && scaleWithWindow ? WindowScale.factorFor(window) : 1.0;
+        final share = desktop ? WindowScale.videoShare(window) : 0.7;
+        final infoScale = desktop ? WindowScale.videoInfoScale(window, appFactor: appFactor) : 1.0;
+        // As big as fits: the video's own shape, at most [share] of the page's height.
         final ratio = (v.width != null && v.height != null && v.height! > 0) ? v.width! / v.height! : 16 / 9;
         var h = c.maxWidth / ratio;
-        if (h > c.maxHeight * 0.7) h = c.maxHeight * 0.7;
+        if (h > c.maxHeight * share) h = c.maxHeight * share;
         return ListView(children: [
           // 0.1.59: Enlarge on the picture too (like Shrink when it's enlarged); the buttons below
           // stay. Full screen is the player's own button in the bottom corner (a second one at
@@ -1046,7 +1058,9 @@ class _VideoPageState extends State<_VideoPage> {
               ),
             ]),
           ),
-          Padding(
+          ShrinkToWidth(
+            scale: infoScale,
+            child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               SelectableTitle(v.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
@@ -1137,6 +1151,7 @@ class _VideoPageState extends State<_VideoPage> {
               ],
               const SizedBox(height: 24),
             ]),
+          ),
           ),
         ]);
       }),
