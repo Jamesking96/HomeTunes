@@ -370,6 +370,8 @@ class AppBackup {
           'speeds': {...part(cv, 'speeds'), ...part(bv, 'speeds')},
           // Season titles the user gave, per collection: the backup's win.
           'seasonTitles': {...part(cv, 'seasonTitles'), ...part(bv, 'seasonTitles')},
+          // Seasons marked special (0.1.66), per collection: the backup's win.
+          'specialSeasons': {...part(cv, 'specialSeasons'), ...part(bv, 'specialSeasons')},
           if (cv['saveNfo'] == false) 'saveNfo': false,
         });
       }

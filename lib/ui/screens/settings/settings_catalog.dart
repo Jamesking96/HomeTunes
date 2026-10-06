@@ -97,6 +97,8 @@ const settingsCatalog = <SettingInfo>[
       'stutter lag laggy choppy smooth hardware video chip drawing black picture videos'),
   SettingInfo('video-eq', SettingsPage.videos, 'Separate equaliser for videos', 'equalizer eq sound videos'),
   SettingInfo('video-folders', SettingsPage.videos, 'Video folders', 'add folder videos films movies location folder options rescan file types formats'),
+  SettingInfo('special-season-titles', SettingsPage.videos, 'Special season titles',
+      'special specials season ova movies extras bonus title mark seasons'),
   SettingInfo('video-nfo', SettingsPage.videos, 'Save edits into .nfo files', 'nfo kodi jellyfin plex details videos'),
   SettingInfo('video-shape', SettingsPage.videos, 'Video picture shape', 'look tall square wide thumbnail videos'),
   SettingInfo('collection-shape', SettingsPage.videos, 'Collection poster shape', 'look tall square wide poster collections'),

@@ -56,6 +56,12 @@ class VideoItem {
   /// An extra (featurette, opening, deleted scene) rather than an episode.
   final bool extra;
 
+  /// Set when the user marked this video's season as special (0.1.66), to the title they gave it
+  /// ("OVA", "Movies"): it's listed under that heading after the normal seasons and Up next /
+  /// playing on don't run into it. Not saved with the video; VideoLibraryModel puts it on when
+  /// it builds the collections (from its own list of special seasons).
+  final String? specialTitle;
+
   final int? year;
   final String? genre;
   final String? description;
@@ -101,6 +107,7 @@ class VideoItem {
     this.part,
     this.seasonTitle,
     this.extra = false,
+    this.specialTitle,
     this.year,
     this.genre,
     this.description,
@@ -153,6 +160,7 @@ class VideoItem {
     String? genre,
     String? description,
     bool? extra,
+    String? specialTitle,
     Set<String> clear = const {},
   }) {
     final newSeason = clear.contains('season') ? null : (season ?? this.season);
@@ -172,6 +180,7 @@ class VideoItem {
         // A season number changed by an edit: the old season's title no longer applies.
         seasonTitle: newSeason != this.season || newSub != this.subSeason ? null : seasonTitle,
         extra: extra ?? this.extra,
+        specialTitle: clear.contains('specialTitle') ? null : (specialTitle ?? this.specialTitle),
         year: clear.contains('year') ? null : (year ?? this.year),
         genre: clear.contains('genre') ? null : (genre ?? this.genre),
         description: clear.contains('description') ? null : (description ?? this.description),
@@ -193,6 +202,10 @@ class VideoItem {
   /// A copy with things learned after the scan: its thumbnail, length and picture size.
   VideoItem copyWith({String? thumb, Duration? duration, int? width, int? height}) =>
       _with(thumb: thumb, duration: duration, width: width, height: height);
+
+  /// A copy marked special with [title] (0.1.66), or not special when null.
+  VideoItem withSpecial(String? title) =>
+      title == specialTitle ? this : _with(specialTitle: title, clear: title == null ? const {'specialTitle'} : const {});
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -508,6 +521,9 @@ class VideoCollection {
   /// The heading a video is listed under on the collection's page.
   static String groupOf(VideoItem v) {
     if (v.extra) return 'Extras';
+    // A season the user marked special (0.1.66): under its own title. Seasons given the same
+    // title are listed together.
+    if (v.specialTitle case final t?) return t;
     if (v.season == 0) return 'Specials';
     if (v.season != null) return 'Season ${v.seasonLabel}';
     return v.part ?? 'Episodes';
@@ -529,10 +545,15 @@ List<VideoItem> sortForCollection(Iterable<VideoItem> videos) {
     final seen = partStart[g];
     if (seen == null || v.path.compareTo(seen) < 0) partStart[g] = v.path;
   }
-  int rank(VideoItem v) => v.extra ? 3 : v.season == 0 ? 2 : v.season != null ? 0 : 1;
+  // Seasons the user marked special (0.1.66) go with the specials, after the normal seasons:
+  // Season 0's "Specials" first, then the marked ones by season number.
+  int rank(VideoItem v) =>
+      v.extra ? 3 : v.season == 0 || v.specialTitle != null ? 2 : v.season != null ? 0 : 1;
   list.sort((a, b) {
     final r = rank(a).compareTo(rank(b));
     if (r != 0) return r;
+    if (rank(a) == 2 && (a.season ?? -1) != (b.season ?? -1)) return (a.season ?? -1).compareTo(b.season ?? -1);
+    if (rank(a) == 2 && a.subSeason != b.subSeason) return (a.subSeason ?? -1).compareTo(b.subSeason ?? -1);
     if (rank(a) == 0 && a.season != b.season) return a.season!.compareTo(b.season!);
     // Season 1, then 1.1, 1.2… (a plain season before its sub numbers).
     if (rank(a) == 0 && a.subSeason != b.subSeason) return (a.subSeason ?? -1).compareTo(b.subSeason ?? -1);
