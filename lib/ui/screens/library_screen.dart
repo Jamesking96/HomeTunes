@@ -216,12 +216,21 @@ class _ArtistsTab extends StatefulWidget {
 class _ArtistsTabState extends _FilteredTabState<_ArtistsTab> {
   ArtistSort _sort = ArtistSort.name;
 
+  /// The other way round from the sort's usual direction (0.1.69).
+  bool _reversed = false;
+
   static String _sortLabel(ArtistSort s) => switch (s) {
-        ArtistSort.name => 'Name (A–Z)',
+        ArtistSort.name => 'Name',
         ArtistSort.nameDescending => 'Name (Z–A)',
         ArtistSort.mostAlbums => 'Most albums',
         ArtistSort.mostSongs => 'Most songs',
         ArtistSort.recentlyAdded => 'Recently added',
+      };
+
+  static SortWords _words(ArtistSort s) => switch (s) {
+        ArtistSort.name || ArtistSort.nameDescending => SortWords.text,
+        ArtistSort.mostAlbums || ArtistSort.mostSongs => SortWords.number,
+        ArtistSort.recentlyAdded => SortWords.date,
       };
 
   @override
@@ -238,7 +247,7 @@ class _ArtistsTabState extends _FilteredTabState<_ArtistsTab> {
         if (titleMatches(a.name, query) && filters.matches(a, artistFields)) a
     ];
     final favourites = passing.where(favourite).toList();
-    final shown = sortArtists(favouritesOnly ? favourites : passing, _sort);
+    final shown = reversedIf(_reversed, sortArtists(favouritesOnly ? favourites : passing, _sort));
     void edit() => chooseFilters(lib.artists, artistFields, 'Show artists');
     // "3 albums · 41 songs", under the name in both views.
     String counts(Artist a) {
@@ -300,9 +309,16 @@ class _ArtistsTabState extends _FilteredTabState<_ArtistsTab> {
         filtersActive: !filters.isEmpty,
         onFilter: edit,
         sort: _sort,
-        sorts: ArtistSort.values,
+        // Z–A is now Name + Descending (0.1.69).
+        sorts: [for (final s in ArtistSort.values) if (s != ArtistSort.nameDescending) s],
         sortLabel: _sortLabel,
-        onSort: (s) => setState(() => _sort = s),
+        onSort: (s) => setState(() {
+          _sort = s;
+          _reversed = false;
+        }),
+        sortWords: _words,
+        reversed: _reversed,
+        onReversed: (r) => setState(() => _reversed = r),
         actions: [
           IconButton(
             key: const ValueKey('artists-view'),
@@ -329,12 +345,20 @@ class _AlbumsTab extends StatefulWidget {
 class _AlbumsTabState extends _FilteredTabState<_AlbumsTab> {
   AlbumSort _sort = AlbumSort.artist;
 
+  /// The other way round from the sort's usual direction (0.1.69).
+  bool _reversed = false;
+
   static String _sortLabel(AlbumSort s) => switch (s) {
         AlbumSort.artist => 'Artist',
         AlbumSort.title => 'Title',
-        AlbumSort.newest => 'Year (newest first)',
+        AlbumSort.newest => 'Year',
         AlbumSort.oldest => 'Year (oldest first)',
         AlbumSort.recentlyAdded => 'Recently added',
+      };
+
+  static SortWords _words(AlbumSort s) => switch (s) {
+        AlbumSort.artist || AlbumSort.title => SortWords.text,
+        AlbumSort.newest || AlbumSort.oldest || AlbumSort.recentlyAdded => SortWords.date,
       };
 
   @override
@@ -348,7 +372,7 @@ class _AlbumsTabState extends _FilteredTabState<_AlbumsTab> {
         if (titleMatches(a.title, query) && filters.matches(a, albumFields)) a
     ];
     final favourites = passing.where(playlists.isFavouriteAlbum).toList();
-    final groups = sortAlbums(favouritesOnly ? favourites : passing, _sort);
+    final groups = reverseGroupsIf(_reversed, sortAlbums(favouritesOnly ? favourites : passing, _sort));
     // Everything shown, in the order shown (for the cards' "select all" and play scope).
     final keys = [for (final (_, g) in groups) for (final a in g) a.key];
     void edit() => chooseFilters(lib.albums, albumFields, 'Show albums');
@@ -402,9 +426,16 @@ class _AlbumsTabState extends _FilteredTabState<_AlbumsTab> {
         filtersActive: !filters.isEmpty,
         onFilter: edit,
         sort: _sort,
-        sorts: AlbumSort.values,
+        // Oldest first is now Year + Ascending (0.1.69).
+        sorts: [for (final s in AlbumSort.values) if (s != AlbumSort.oldest) s],
         sortLabel: _sortLabel,
-        onSort: (s) => setState(() => _sort = s),
+        onSort: (s) => setState(() {
+          _sort = s;
+          _reversed = false;
+        }),
+        sortWords: _words,
+        reversed: _reversed,
+        onReversed: (r) => setState(() => _reversed = r),
       ),
       chipRow(all: passing.length, favourites: favourites.length, favouritesLabel: 'Favourites', onEditFilters: edit),
       Expanded(child: body),
@@ -423,13 +454,22 @@ class _SongsTab extends StatefulWidget {
 class _SongsTabState extends _FilteredTabState<_SongsTab> {
   SongSort _sort = SongSort.title;
 
+  /// The other way round from the sort's usual direction (0.1.69).
+  bool _reversed = false;
+
   static String _sortLabel(SongSort s) => switch (s) {
         SongSort.title => 'Title',
         SongSort.artist => 'Artist',
         SongSort.album => 'Album',
-        SongSort.newest => 'Year (newest first)',
+        SongSort.newest => 'Year',
         SongSort.recentlyAdded => 'Recently added',
-        SongSort.longest => 'Longest first',
+        SongSort.longest => 'Length',
+      };
+
+  static SortWords _words(SongSort s) => switch (s) {
+        SongSort.title || SongSort.artist || SongSort.album => SortWords.text,
+        SongSort.newest || SongSort.recentlyAdded => SortWords.date,
+        SongSort.longest => SortWords.length,
       };
 
   @override
@@ -445,7 +485,7 @@ class _SongsTabState extends _FilteredTabState<_SongsTab> {
     ];
     final liked = passing.where(playlists.isLiked).toList();
     final picked = favouritesOnly ? liked : passing;
-    final songs = _sort == SongSort.title ? picked : sortSongs(picked, _sort);
+    final songs = reversedIf(_reversed, _sort == SongSort.title ? picked : sortSongs(picked, _sort));
     final label = narrowed ? 'Songs' : 'All songs';
     void edit() => chooseFilters(lib.tracks, songFields, 'Show songs');
     return Column(children: [
@@ -458,7 +498,13 @@ class _SongsTabState extends _FilteredTabState<_SongsTab> {
         sort: _sort,
         sorts: SongSort.values,
         sortLabel: _sortLabel,
-        onSort: (s) => setState(() => _sort = s),
+        onSort: (s) => setState(() {
+          _sort = s;
+          _reversed = false;
+        }),
+        sortWords: _words,
+        reversed: _reversed,
+        onReversed: (r) => setState(() => _reversed = r),
       ),
       chipRow(all: passing.length, favourites: liked.length, favouritesLabel: 'Liked', onEditFilters: edit),
       Expanded(
