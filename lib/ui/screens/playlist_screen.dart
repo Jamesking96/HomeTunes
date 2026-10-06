@@ -14,6 +14,7 @@ import '../theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/cards.dart';
 import '../widgets/collection_header.dart';
+import '../widgets/quick_links.dart';
 import '../widgets/track_tile.dart';
 
 /// A user playlist, or Liked Songs when [playlistId] is null.
@@ -100,6 +101,8 @@ class PlaylistScreen extends StatelessWidget {
     // App bar with a ⋮ menu for Rename and Delete.
     return Scaffold(
       appBar: AppBar(actions: [
+        // Add to / remove from the sidebar's quick links (6 Oct).
+        QuickLinkButton(link: QuickLink(QuickLinkKind.playlist, playlist.id, playlist.name)),
         PopupMenuButton<String>(
           onSelected: (v) async {
             if (v == 'rename') {
@@ -121,6 +124,8 @@ class PlaylistScreen extends StatelessWidget {
               if (ok == true && context.mounted) {
                 Navigator.of(context).pop();
                 pl.delete(playlist);
+                // Its quick link in the sidebar goes too.
+                lib.removeQuickLink(QuickLinkKind.playlist, playlist.id);
               }
             }
           },

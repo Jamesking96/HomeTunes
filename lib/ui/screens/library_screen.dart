@@ -23,6 +23,7 @@ import '../widgets/artist_picture.dart';
 import '../widgets/artwork.dart';
 import '../widgets/cards.dart';
 import '../widgets/music_filter_sheet.dart';
+import '../widgets/quick_links.dart';
 import '../widgets/track_tile.dart';
 
 /// Tabs: Playlists · Artists · Albums · Songs.
@@ -89,15 +90,19 @@ class _PlaylistsTab extends StatelessWidget {
         onTap: nav.openLiked,
       ),
       for (final p in pl.playlists)
-        ListTile(
-          leading: Artwork(
-            track: p.trackIds.isEmpty ? null : lib.byId(p.trackIds.first),
-            size: 52,
-            placeholder: Icons.queue_music,
+        // Right-click / press and hold: "Add to sidebar" / "Remove from sidebar" (6 Oct).
+        QuickLinkMenu(
+          link: QuickLink(QuickLinkKind.playlist, p.id, p.name),
+          child: ListTile(
+            leading: Artwork(
+              track: p.trackIds.isEmpty ? null : lib.byId(p.trackIds.first),
+              size: 52,
+              placeholder: Icons.queue_music,
+            ),
+            title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text('Playlist · ${p.trackIds.length} songs'),
+            onTap: () => nav.openPlaylist(p),
           ),
-          title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: Text('Playlist · ${p.trackIds.length} songs'),
-          onTap: () => nav.openPlaylist(p),
         ),
       if (pl.playlists.isEmpty)
         Padding(

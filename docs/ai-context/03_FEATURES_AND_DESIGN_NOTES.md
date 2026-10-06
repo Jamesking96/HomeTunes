@@ -205,6 +205,12 @@ before changing that area.
   list never pushes anything off. Folded to icons, they're icons with the name as the tooltip.
   With none, a dim line says how to add one. A click opens it (`openQuickLink`); something no
   longer in the library says so, with a **Remove link** button.
+- **Playlists too (6 Oct, the user's follow-up, build 0.1.64+66):** `QuickLinkKind.playlist`
+  (id = the playlist's id). Added with the bookmark button on a playlist's page, or a
+  right-click / press and hold on a playlist in the sidebar's list or the Library's Playlists
+  tab (`QuickLinkMenu`, the shared add-or-remove menu, also used on the links themselves). The
+  link shows the playlist's current name (`quickLinkLabel`), so a rename follows. Deleting the
+  playlist takes its link off too. A pinned playlist still appears in the playlists list below.
 - **Phone:** there's no sidebar on a phone, so the links only show in the computer layout. The
   buttons and menu items are still there on a phone (and a wide tablet gets the sidebar).
   settings.json is per device, so links are per device. Open question for the user: hide the

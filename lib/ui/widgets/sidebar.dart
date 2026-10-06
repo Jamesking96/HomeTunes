@@ -217,17 +217,18 @@ class _SidebarContent extends StatelessWidget {
         dense: true,
         onTap: () => nav.openView(AppNav.videosTab, AppNav.favouriteVideosView),
       ),
-      // Quick links (0.1.64): albums, artists, audiobooks, collections and videos pinned with
-      // "Add to sidebar". They scroll with the playlists so a long list never pushes anything off.
+      // Quick links (0.1.64): albums, artists, audiobooks, collections, videos and playlists
+      // pinned with "Add to sidebar". They scroll with the playlists so a long list never pushes
+      // anything off.
       Expanded(
         child: ListView(children: [
           for (final link in links)
-            _QuickLinkMenu(
+            QuickLinkMenu(
               link: link,
               child: entry(
                 key: 'sidebar-link:${link.kindName}:${link.id}',
                 icon: quickLinkIcon(link.kind),
-                label: link.label,
+                label: quickLinkLabel(context, link),
                 dense: true,
                 onTap: () => openQuickLink(context, link),
               ),
@@ -237,58 +238,29 @@ class _SidebarContent extends StatelessWidget {
               key: const ValueKey('sidebar-links-hint'),
               padding: const EdgeInsets.fromLTRB(16, 6, 12, 6),
               child: Text(
-                'Use the bookmark button on an album, artist, audiobook or video collection to add it here.',
+                'Use the bookmark button on an album, artist, audiobook, playlist or video collection '
+                'to add it here, or right-click a playlist below.',
                 style: TextStyle(fontSize: 12, color: AppColors.textDim),
               ),
             ),
           if (!iconsOnly && pl.playlists.isNotEmpty) const Divider(height: 16),
           if (!iconsOnly)
             for (final p in pl.playlists)
-              ListTile(
-                dense: true,
-                title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                onTap: () {
-                  nav.selectTab(AppNav.libraryTab);
-                  nav.openPlaylist(p);
-                },
+              // Right-click / long-press: "Add to sidebar" pins it with the quick links.
+              QuickLinkMenu(
+                link: QuickLink(QuickLinkKind.playlist, p.id, p.name),
+                child: ListTile(
+                  key: ValueKey('sidebar-playlist:${p.id}'),
+                  dense: true,
+                  title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  onTap: () {
+                    nav.selectTab(AppNav.libraryTab);
+                    nav.openPlaylist(p);
+                  },
+                ),
               ),
         ]),
       ),
     ]);
   }
-}
-
-/// Right-click (or long-press) on a quick link in the sidebar: a small menu to take it off.
-class _QuickLinkMenu extends StatelessWidget {
-  const _QuickLinkMenu({required this.link, required this.child});
-  final QuickLink link;
-  final Widget child;
-
-  Future<void> _menu(BuildContext context, Offset at) async {
-    final lib = context.read<LibraryModel>();
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    final choice = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
-      items: [
-        PopupMenuItem(
-          key: const ValueKey('sidebar-link-remove'),
-          value: 'remove',
-          child: Row(children: [
-            Icon(quickLinkMenuIcon(true), size: 20),
-            const SizedBox(width: 12),
-            Flexible(child: Text(quickLinkMenuText(true))),
-          ]),
-        ),
-      ],
-    );
-    if (choice == 'remove') await lib.removeQuickLink(link.kind, link.id);
-  }
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onSecondaryTapUp: (d) => _menu(context, d.globalPosition),
-        onLongPressStart: (d) => _menu(context, d.globalPosition),
-        child: child,
-      );
 }

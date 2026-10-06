@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/quick_link.dart';
 import '../../state/library_model.dart';
+import '../../state/playlists_model.dart';
 import '../../state/video_library_model.dart';
 import '../nav.dart';
 
@@ -24,7 +25,14 @@ IconData quickLinkIcon(QuickLinkKind kind) => switch (kind) {
       QuickLinkKind.book => Icons.menu_book,
       QuickLinkKind.collection => Icons.video_library_outlined,
       QuickLinkKind.video => Icons.smart_display_outlined,
+      QuickLinkKind.playlist => Icons.queue_music,
     };
+
+/// The name a link shows: a playlist's current name (it can be renamed), otherwise the name it
+/// had when it was added.
+String quickLinkLabel(BuildContext context, QuickLink link) => link.kind == QuickLinkKind.playlist
+    ? Provider.of<PlaylistsModel?>(context, listen: false)?.byId(link.id)?.name ?? link.label
+    : link.label;
 
 String quickLinkMenuText(bool inSidebar) => inSidebar ? 'Remove from sidebar' : 'Add to sidebar';
 IconData quickLinkMenuIcon(bool inSidebar) => inSidebar ? Icons.bookmark_remove_outlined : Icons.bookmark_add_outlined;
@@ -39,6 +47,7 @@ bool quickLinkAvailable(BuildContext context, QuickLink link) {
     QuickLinkKind.book => lib.bookById(link.id) != null,
     QuickLinkKind.collection => videos?.collectionNamed(link.id) != null,
     QuickLinkKind.video => videos?.byId(link.id) != null,
+    QuickLinkKind.playlist => Provider.of<PlaylistsModel?>(context, listen: false)?.byId(link.id) != null,
   };
 }
 
@@ -78,6 +87,13 @@ void openQuickLink(BuildContext context, QuickLink link) {
         nav.openVideo(v);
         return;
       }
+    case QuickLinkKind.playlist:
+      final p = Provider.of<PlaylistsModel?>(context, listen: false)?.byId(link.id);
+      if (p != null) {
+        nav.selectTab(AppNav.libraryTab);
+        nav.openPlaylist(p);
+        return;
+      }
   }
   // Gone (deleted, renamed, or its folder isn't scanned any more).
   ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
@@ -103,4 +119,41 @@ class QuickLinkButton extends StatelessWidget {
       onPressed: () => context.read<LibraryModel>().toggleQuickLink(link),
     );
   }
+}
+
+/// Right-click (or long-press) on [child]: a small menu with "Add to sidebar" or "Remove from
+/// sidebar" for [link]. Used on the sidebar's links and playlists and the Library's playlists.
+class QuickLinkMenu extends StatelessWidget {
+  const QuickLinkMenu({super.key, required this.link, required this.child});
+  final QuickLink link;
+  final Widget child;
+
+  Future<void> _menu(BuildContext context, Offset at) async {
+    final lib = context.read<LibraryModel>();
+    final on = lib.isQuickLink(link.kind, link.id);
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final choice = await showMenu<bool>(
+      context: context,
+      position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
+      items: [
+        PopupMenuItem(
+          key: const ValueKey('quick-link-menu-item'),
+          value: true,
+          child: Row(children: [
+            Icon(quickLinkMenuIcon(on), size: 20),
+            const SizedBox(width: 12),
+            Flexible(child: Text(quickLinkMenuText(on))),
+          ]),
+        ),
+      ],
+    );
+    if (choice == true) await lib.toggleQuickLink(link);
+  }
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onSecondaryTapUp: (d) => _menu(context, d.globalPosition),
+        onLongPressStart: (d) => _menu(context, d.globalPosition),
+        child: child,
+      );
 }
