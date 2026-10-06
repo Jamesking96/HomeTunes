@@ -18,13 +18,12 @@ Read the files in this order:
 
 ## Status (6 Oct 2026)
 
-- **Ready to release (6 Oct):** 0.1.63–0.1.70 are merged into `main` and pushed ("Everything
-  works great"), built from `main`, with notes in `build\dist\notes-0.1.70.md`. They're waiting
-  for the user's go-ahead to publish as v0.1.70. They cover the video sleep timer, sidebar
-  quick links (playlists too), the volume % bubble, special seasons, playlist icons, a video's
-  priority in small windows, Ascending / Descending on every sort, and the video volume
-  sliders following the boost at once.
 - **Released:** the latest release is
+  [v0.1.70](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.70) (6 Oct), which
+  covers 0.1.63–0.1.70 in one release: the video sleep timer, sidebar quick links (playlists
+  too), the volume % bubble, special seasons, playlist icons, a video's priority in small
+  windows, Ascending / Descending on every sort, and the video volume sliders following the
+  boost at once. Before it,
   [v0.1.62](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.62) (5 Oct), which
   covers 0.1.59–0.1.62 in one release: Enlarge on the video picture and Leave full screen in
   full screen, full-screen music videos with a normal video's controls, an "Always on top" pin
@@ -109,7 +108,7 @@ Read the files in this order:
     screen in full screen, full-screen music videos with a normal video's controls, the
     "Always on top" pin (PC), and the volume boost (Settings › Playback sets how far every
     volume slider goes, up to 500 %)
-  - 0.1.63–0.1.70 (merged 6 Oct, to be released together as v0.1.70): sleep timer for videos,
+  - 0.1.63–0.1.70 (released together as v0.1.70, 6 Oct): sleep timer for videos,
     quick links in the sidebar (albums, artists, audiobooks, collections, videos, playlists),
     the volume % bubble, special seasons with titles from a list, playlist icons and pictures,
     the video first in small windows, Ascending / Descending on every sort, and the video
