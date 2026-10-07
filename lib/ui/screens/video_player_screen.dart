@@ -310,6 +310,12 @@ class _VideoPageState extends State<_VideoPage> {
   /// The video playing now (the page moves on to the next one in its collection).
   late String _id = widget.videoId;
 
+  /// The video on screen, for the previous / next buttons (0.1.71). They listen to this rather
+  /// than being built with a fixed target: full screen keeps the controls it was opened with, so
+  /// a target worked out then went stale after one press, and the next press replayed the video
+  /// now playing.
+  late final ValueNotifier<String> _shownId = ValueNotifier(widget.videoId);
+
   /// The video fills the whole page (the details are hidden).
   bool _enlarged = false;
 
@@ -395,14 +401,28 @@ class _VideoPageState extends State<_VideoPage> {
 
   /// The previous / next video buttons: keep this one's place, then open that one.
   void _goTo(String id) {
-    if (!mounted) return;
+    if (!mounted || id == _id) return;
     _savePlace();
     _open(id);
+  }
+
+  /// The video before / after [id] in its collection, or null at either end.
+  VideoItem? _neighbour(String id, {required bool forward}) {
+    final v = _videos.byId(id);
+    if (v == null) return null;
+    return forward ? _videos.after(v) : _videos.before(v);
+  }
+
+  /// Previous / next video, worked out when pressed from the video playing now (0.1.71).
+  void _jump({required bool forward}) {
+    final target = _neighbour(_id, forward: forward);
+    if (target != null) _goTo(target.id);
   }
 
   Future<void> _open(String id) async {
     final v = _videos.byId(id);
     final file = v == null ? null : _videos.playableFile(v);
+    _shownId.value = id;
     setState(() {
       _id = id;
       _problem = null;
@@ -426,8 +446,8 @@ class _VideoPageState extends State<_VideoPage> {
         picture: _videos.thumbFile(v),
         skipBack: _settings.videoSkipBackSeconds,
         skipForward: _settings.videoSkipForwardSeconds,
-        onNext: next == null ? null : () => _goTo(next.id),
-        onPrevious: previous == null ? null : () => _goTo(previous.id),
+        onNext: next == null ? null : () => _jump(forward: true),
+        onPrevious: previous == null ? null : () => _jump(forward: false),
         transport: _transport);
     // One thing at a time: the music pauses while a video plays.
     if (_music.playing) await _music.pause();
@@ -741,6 +761,7 @@ class _VideoPageState extends State<_VideoPage> {
     }
     _stats?.dispose();
     _player.dispose();
+    _shownId.dispose();
     super.dispose();
   }
 
@@ -776,25 +797,27 @@ class _VideoPageState extends State<_VideoPage> {
     final speedButton = Builder(
       builder: (context) => MaterialDesktopCustomButton(icon: const Icon(Icons.speed), onPressed: () => _chooseSpeed(context)),
     );
-    // Previous / next video in the collection (30 Sep); greyed out at either end.
-    final current = _videos.byId(_id);
-    final previousVideo = current == null ? null : _videos.before(current);
-    final nextVideo = current == null ? null : _videos.after(current);
+    // Previous / next video in the collection (30 Sep); greyed out at either end. Worked out from
+    // the video on screen each time it changes, and again when pressed (0.1.71): full screen keeps
+    // these controls from when it opened, so nothing here may hold on to one video.
     final buttonColour = look.buttons(accent);
-    Widget jump({required bool forward, required double size}) {
-      final target = forward ? nextVideo : previousVideo;
-      return IconButton(
-        key: ValueKey(forward ? 'video-next' : 'video-previous'),
-        tooltip: target == null
-            ? (forward ? 'No next video' : 'No previous video')
-            : '${forward ? 'Next' : 'Previous'}: ${[?target.episodeLabel, target.title].join(' · ')}',
-        iconSize: size,
-        color: buttonColour,
-        disabledColor: buttonColour.withValues(alpha: 0.3),
-        icon: Icon(forward ? Icons.skip_next_rounded : Icons.skip_previous_rounded),
-        onPressed: target == null ? null : () => _goTo(target.id),
-      );
-    }
+    Widget jump({required bool forward, required double size}) => ValueListenableBuilder<String>(
+          valueListenable: _shownId,
+          builder: (context, id, _) {
+            final target = _neighbour(id, forward: forward);
+            return IconButton(
+              key: ValueKey(forward ? 'video-next' : 'video-previous'),
+              tooltip: target == null
+                  ? (forward ? 'No next video' : 'No previous video')
+                  : '${forward ? 'Next' : 'Previous'}: ${[?target.episodeLabel, target.title].join(' · ')}',
+              iconSize: size,
+              color: buttonColour,
+              disabledColor: buttonColour.withValues(alpha: 0.3),
+              icon: Icon(forward ? Icons.skip_next_rounded : Icons.skip_previous_rounded),
+              onPressed: target == null ? null : () => _jump(forward: forward),
+            );
+          },
+        );
 
     final desktopBar = [
       jump(forward: false, size: look.size.desktop),
@@ -830,18 +853,11 @@ class _VideoPageState extends State<_VideoPage> {
       const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
           _player.setVolume(stepEngineVolume(_player.state.volume, -5, _settings.maxVolume)),
       // Shift+N / Shift+P: next / previous video (as on YouTube).
-      const SingleActivator(LogicalKeyboardKey.keyN, shift: true): () {
-        if (nextVideo != null) _goTo(nextVideo.id);
-      },
-      const SingleActivator(LogicalKeyboardKey.keyP, shift: true): () {
-        if (previousVideo != null) _goTo(previousVideo.id);
-      },
-      const SingleActivator(LogicalKeyboardKey.mediaTrackNext): () {
-        if (nextVideo != null) _goTo(nextVideo.id);
-      },
-      const SingleActivator(LogicalKeyboardKey.mediaTrackPrevious): () {
-        if (previousVideo != null) _goTo(previousVideo.id);
-      },
+      // (Worked out when pressed, 0.1.71: full screen keeps these keys from when it opened.)
+      const SingleActivator(LogicalKeyboardKey.keyN, shift: true): () => _jump(forward: true),
+      const SingleActivator(LogicalKeyboardKey.keyP, shift: true): () => _jump(forward: false),
+      const SingleActivator(LogicalKeyboardKey.mediaTrackNext): () => _jump(forward: true),
+      const SingleActivator(LogicalKeyboardKey.mediaTrackPrevious): () => _jump(forward: false),
       const SingleActivator(LogicalKeyboardKey.keyF): () => _videoKey.currentState?.toggleFullscreen(),
       const SingleActivator(LogicalKeyboardKey.escape): () => _videoKey.currentState?.exitFullscreen(),
     };
