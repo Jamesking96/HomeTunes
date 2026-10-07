@@ -119,7 +119,8 @@ Read the files in this order:
   copy. Update them when things change.
 - **Next:** nothing agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). The Platforms plan (Linux, Android
-  Auto, Android TV; see `04_…`) is agreed but paused; its phases take the next free 0.2.x numbers.
+  Auto, Android TV; see `04_…`) is agreed but paused; its phases are planned as 0.2.x (the next level of development), only
+  once the user starts them.
   Ask the user.
 
 ## Rules the user cares about (follow these)
@@ -130,8 +131,10 @@ Read the files in this order:
    build and install over adb). Merge to `main` with `--no-ff` only when the user approves ("get it
    into github" = merge + push; "delete the others" = remove merged branches).
 3. **Always raise the build number** (the part after `+` in `pubspec.yaml`) for every build that
-   goes on the phone. Android refuses downgrades. Bump the version for each feature: **0.2.x** from the next release (the user's choice, 6 Oct; the first
-   one after v0.1.70 is 0.2.0, and the build number keeps counting up from 72).
+   goes on the phone. Android refuses downgrades. Bump the version for each feature or fix: it stays on **0.1.x** (0.1.71, 0.1.72…) for
+   work on the app as it is. **0.2.0 is kept for the next level of development** (the user,
+   7 Oct, correcting the 6 Oct note that the next release would be 0.2.0): don't move to 0.2.x
+   until the user starts that stage. The build number keeps counting up (73 for 0.1.71).
 4. **Before building or testing on the PC, check that the user isn't running HomeTunes or a
    `flutter run` (VS Code F5).** Never kill their app. `LNK1168` during a Windows build means the
    app is open: skip the Windows build and say so. (A process check whose own command line contains

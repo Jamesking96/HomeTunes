@@ -186,6 +186,20 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Fix: Next video sometimes replayed the same video (7 Oct 2026, 0.1.71, branch `fix/video-next-button`)
+- **The user reported (7 Oct):** in a collection, pressing Next sometimes replayed the same
+  video instead of going on.
+- **Cause:** the video page built its previous / next buttons (and the Shift+N / Shift+P /
+  media-key shortcuts) with the target worked out at build time. Full screen (media_kit) keeps
+  the controls and keys it was opened with, so after one Next the saved target was the video now
+  playing, and the next press opened it again.
+- **Fix:** `_jump(forward:)` works the target out from `_id` when pressed; the buttons are
+  `ValueListenableBuilder`s on `_shownId` (set in `_open`), so their greying-out and tooltips
+  follow the video even in full screen; `_goTo` ignores the video already playing. The bottom
+  bar / system controls' next and previous use `_jump` too.
+- **Tests:** the video page needs the video engine, so this isn't widget-tested; the full suite
+  (592) passes and `flutter analyze` is clean. Needs the user's check in full screen.
+
 ## Fix: video volume sliders follow the boost at once (6 Oct 2026, 0.1.70, branch `fix/video-volume-top`)
 - **The user asked (6 Oct):** make sure the volume sliders update when the boost settings are
   changed.
