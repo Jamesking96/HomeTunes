@@ -70,7 +70,7 @@ while commenting".
 | Audiobooks sub-tabs (Series first, then All / In progress / Not started / Finished / Favourites), each with Your Library's filter bar, chips and sorting (0.1.74) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. See `03_`, Audiobooks sub-tabs |
 | Audiobook series: a page per series, series cards, favourite series, series in the sidebar (0.1.75) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 1 of 2 (the user: "Go with your suggestions"). See `03_`, Audiobook series |
 | Edit series: name, author, description, order, add / take out books, picture (0.1.76) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 2 of 2. See `03_`, Edit series |
-| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0 (safety nets) and 1 (four small fixes) merged 8 Oct; the user tried a Phase 1 test build. Phase 2 (shared pieces) built 8 Oct on `refactor/p2-shared`, not merged yet. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
+| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0 (safety nets) and 1 (four small fixes) merged 8 Oct; the user tried a Phase 1 test build. Phase 2 (shared pieces) merged 8 Oct. Phase 3 (settings out of `LibraryModel`) in progress on `refactor/p3-settings`. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
 | L: Linux build, incl. Steam Deck (0.2.0, the start of the next level) | On hold (6 Oct, the user's choice): WSL2 can't be installed on the current PC, so L1 (the Linux build) moves to another PC. Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (the 0.2.x after L) | After L |
 | T: Android TV (the 0.2.x after A) | After A |
@@ -130,7 +130,7 @@ phases, each on its own branch (`refactor/p<n>-<name>`), merged with `--no-ff` o
     added to `onIdsForgotten` in `main.dart`).
   - `VideoLibraryModel.ownerFolder` picks the deepest folder by folder count (`splitPath`), like
     `LibraryModel.ownerFolder`; it compared text length, which a path ending in several separators could fool.
-- **Phase 2 (built 8 Oct, `refactor/p2-shared`):** four shared pieces, every existing test passing unchanged; new
+- **Phase 2 (merged into `main` 8 Oct):** four shared pieces, every existing test passing unchanged; new
   tests in `test/refactor_shared_test.dart`. All in `lib/state/` (the folder rules use `isInside` / `splitPath`
   from `book_index.dart`, so `services/` would have broken the layer rules; the plan said `services/`).
   - `sleep_countdown.dart`: `SleepCountdown<M>` holds the ticking (4 a second), the fade, pausing and putting the
@@ -143,9 +143,9 @@ phases, each on its own branch (`refactor/p<n>-<name>`), merged with `--no-ff` o
     `ownerFolder`, `formatsIn` and `folderReachable` stay as they were for callers and tests.
   - `mixed_value.dart`: `differentMarker` and `sharedValue` (the value every item shares, or `differ`), used by
     the song / album, book, video and collection editors. `edit_details.dart` re-exports `differentMarker`.
-    Kept on purpose: the two video editors show `--:--` when every item is blank too (their old `_common`
-    returns null for "all blank" as well as "different"); the music and book editors don't. Changing it would
-    change what the user sees, so it's left for the user to decide.
+    The user chose (8 Oct) to make the video and collection editors match the others: `--:--` only where the
+    items differ; boxes they all leave blank are plain (blank and missing count the same). Test in
+    `video_sub_seasons_test.dart`.
   - `song_id_follower.dart`: `SongIdFollower` (`referencedIds`, `remapIds`, `removeIds`), implemented by
     playlists, listening places, bookmarks and lyrics (lyrics return no `referencedIds`: they don't keep a
     missing song), and `connectSongIdFollowers` in `main.dart` instead of the three hand-written lists.
