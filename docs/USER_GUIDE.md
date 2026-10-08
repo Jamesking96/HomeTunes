@@ -131,6 +131,12 @@ audiobooks** in the sidebar opens), and the bookmark button adds the series to t
 **Mark all as finished** does the whole series at once. Right-click a series card (press and
 hold on a phone) for the same choices.
 
+**Edit series** (on the series page, or in its menu) changes the whole series at once: its
+name, the author of every book, a description, and its books. Drag the books into the right
+order (they're numbered 1, 2, 3… when you save), press **✕** to take one out, or **Add books…**
+to put others in. Like editing a book, your files aren't changed. **Change picture** picks an
+image file or one of the series' book covers for its card and page.
+
 If something lands in the wrong place, a song's menu has **Move to Books**, and a book's page has
 **Move to Music…**. While a book plays, Now Playing has skip back and forward buttons, a speed
 button, **Chapters** and **Bookmarks** (and a button to bookmark the spot you're at). Skip
