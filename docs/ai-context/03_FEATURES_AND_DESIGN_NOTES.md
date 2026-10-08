@@ -186,6 +186,31 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Audiobooks sub-tabs, like Music and Videos (8 Oct 2026, 0.1.74, branch `feature/audiobook-tabs`)
+- **The user asked (8 Oct):** make the Audiobooks tab line up with Music and Videos, with
+  sub-tabs instead of the chip buttons; then "include one at the start with sorts by series, and
+  ensure that the sorting and filtering systems are taken into account just how are done in the
+  other tabs".
+- **Tabs** (`BookTab`): Series · All · In progress · Not started · Finished · Favourites, in the
+  app bar's `TabBar` (`book-tabs`, scrollable, start-aligned like Your Library / Videos). Series is
+  open to start with. The top bar keeps only Rescan; search, filter and sort moved into the tabs.
+- **Each tab** (`_BookTab`, kept alive, its own state like `_FilteredTabState` in
+  library_screen.dart): `MusicFilterBar` (box `library-title-filter`, matching title, author,
+  narrator or series via `searchBookList`; Filter; Sort with Ascending / Descending), then the same
+  chip row as Your Library (`All (n)` / `Favourites (n)`, keys `books-all-chip` /
+  `books-favourites-chip`; not on the Favourites tab) and a removable chip per filter. Nothing
+  matching: "No books match." + Clear filters; an empty tab says why (`books-empty-<tab>`).
+- **Filters** now use the shared sheet (`showMusicFilterSheet`) with `bookFields`: Author,
+  Narrator, Series, Genre, Decade. The old Books-only sheet is gone (`BookFilters` stays in
+  book_index.dart, tested but unused by the screen).
+- **Series tab:** `sortSeries` (book_index.dart): a heading per series (`series-heading:<name>`,
+  with "n books"), books in series order, "Not in a series" always last. Sorts (`SeriesSort`):
+  Series name, Author, Recently listened, Recently added, Most books; Descending flips the
+  series order but keeps each series' reading order.
+- **Sidebar Favourite audiobooks** opens the Favourites tab and clears its filters (GlobalKey).
+- **Tests:** `test/books_tabs_test.dart` (sortSeries; tabs and their books; chips and box per
+  tab; empty tab text; sidebar). Full suite and analyze clean.
+
 ## Rescan buttons on Your Library and Audiobooks (8 Oct 2026, 0.1.73, branch `feature/rescan-buttons`)
 - **The user asked (8 Oct):** the Videos tab has a rescan button; add one for Audiobooks and
   Music too, as an easy, fast "rescan all".
