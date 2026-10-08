@@ -186,6 +186,38 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Audiobook series: a page, favourites and the sidebar (8 Oct 2026, 0.1.75, branch `feature/book-series`)
+- **The user asked (8 Oct):** "Allow for the favouriting and adding audiobook series to be
+  connected to the sidebar. We might need a method to edit series like how we do with video
+  collections. Review what can be done here." The review proposed two steps; the user: "Go with
+  your suggestions". This is step 1 (0.1.75); Edit series is step 2 (0.1.76).
+- **A series** is still just the books sharing a series name: `BookSeries` / `seriesNamed` /
+  `seriesOf` in book_index.dart (books in reading order, `authors` most books first,
+  `coverBook` = first book with a cover).
+- **Series page** (`screens/series_screen.dart`, `AppNav.openSeries(name)`): "AUDIOBOOK SERIES",
+  picture, name, authors, "n books · x finished" (`series-counts`) and a progress bar; Play /
+  Continue <book> / Listen again (`series-play`, the first book not finished; `playSeries`),
+  heart (`series-favourite`), Add to sidebar (`QuickLinkButton`), Mark all as (not) finished
+  (`series-mark-all`), a ⋮ menu; then one row per book (`series-book:<id>`: cover, "Book 2 ·
+  3 hr left", a play button; the next book's line in the accent colour). A gone series says
+  "Series not found". A book's page has "See the <series> series" (`book-open-series`).
+- **Series tab:** cards instead of headings (`widgets/series_card.dart`, `SeriesCard`,
+  `series-card:<name>`, the size of a book card: cover with the number of books, a heart if a
+  favourite, a tick when all finished, a bar for how many are finished, "3 books · 1
+  finished"). Tap opens the page; right-click / press and hold opens `showSeriesMenu` (Open,
+  Play / Continue, favourites, sidebar, Mark all as finished; keys `series-menu-<what>`). Books
+  not in a series follow under "Not in a series". The chips count series; its Favourites chip
+  shows favourite series.
+- **Favourites:** `PlaylistsModel.favouriteSeries` (names, playlists.json `favouriteSeries`,
+  merged by `AppBackup.mergePlaylists`; `renameFavouriteSeries` for Edit series). The Favourites
+  tab shows favourite series' cards under "Series", then the favourite books under "Books"; the
+  sidebar's Favourite audiobooks opens it.
+- **Sidebar:** `QuickLinkKind.series` (id = the name, icon `collections_bookmark_outlined`,
+  "Series"); `openQuickLink` opens the page, or offers Remove link if the series is gone.
+- **Tests:** `test/book_series_test.dart` (series order and authors, saved favourites and the
+  backup merge, the link, the page: order, Continue, heart, sidebar, Mark all, gone) and
+  `test/books_tabs_test.dart` (cards, favourite series, the card's menu).
+
 ## Audiobooks sub-tabs, like Music and Videos (8 Oct 2026, 0.1.74, branch `feature/audiobook-tabs`)
 - **The user asked (8 Oct):** make the Audiobooks tab line up with Music and Videos, with
   sub-tabs instead of the chip buttons; then "include one at the start with sorts by series, and

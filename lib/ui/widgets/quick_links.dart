@@ -27,6 +27,7 @@ IconData quickLinkIcon(QuickLinkKind kind) => switch (kind) {
       QuickLinkKind.collection => Icons.video_library_outlined,
       QuickLinkKind.video => Icons.smart_display_outlined,
       QuickLinkKind.playlist => Icons.queue_music,
+      QuickLinkKind.series => Icons.collections_bookmark_outlined,
     };
 
 /// The icon a link shows in the sidebar: a playlist's own icon (0.1.67), else its kind's.
@@ -58,6 +59,7 @@ bool quickLinkAvailable(BuildContext context, QuickLink link) {
     QuickLinkKind.collection => videos?.collectionNamed(link.id) != null,
     QuickLinkKind.video => videos?.byId(link.id) != null,
     QuickLinkKind.playlist => Provider.of<PlaylistsModel?>(context, listen: false)?.byId(link.id) != null,
+    QuickLinkKind.series => lib.books.any((b) => b.series == link.id),
   };
 }
 
@@ -102,6 +104,11 @@ void openQuickLink(BuildContext context, QuickLink link) {
       if (p != null) {
         nav.selectTab(AppNav.libraryTab);
         nav.openPlaylist(p);
+        return;
+      }
+    case QuickLinkKind.series:
+      if (lib.books.any((b) => b.series == link.id)) {
+        nav.openSeries(link.id);
         return;
       }
   }
