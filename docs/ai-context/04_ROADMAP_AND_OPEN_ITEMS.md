@@ -70,7 +70,7 @@ while commenting".
 | Audiobooks sub-tabs (Series first, then All / In progress / Not started / Finished / Favourites), each with Your Library's filter bar, chips and sorting (0.1.74) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. See `03_`, Audiobooks sub-tabs |
 | Audiobook series: a page per series, series cards, favourite series, series in the sidebar (0.1.75) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 1 of 2 (the user: "Go with your suggestions"). See `03_`, Audiobook series |
 | Edit series: name, author, description, order, add / take out books, picture (0.1.76) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 2 of 2. See `03_`, Edit series |
-| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0 (safety nets) and 1 (four small fixes) merged 8 Oct; the user tried a Phase 1 test build. Phase 2 (shared pieces) merged 8 Oct. Phase 3 (settings out of `LibraryModel`) built 8 Oct on `refactor/p3-settings`, not merged yet; with it, Phases 1–3 are ready to release as 0.1.77 once the user has tried a test build. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
+| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0–3 merged into `main` (8–9 Oct, each after the user tried a test build) and Phases 1–3 released together as **v0.1.77** (9 Oct; the user: "Everything looks good"). Next: Phase 4 (audio engine layer), released on its own. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
 | L: Linux build, incl. Steam Deck (0.2.0, the start of the next level) | On hold (6 Oct, the user's choice): WSL2 can't be installed on the current PC, so L1 (the Linux build) moves to another PC. Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (the 0.2.x after L) | After L |
 | T: Android TV (the 0.2.x after A) | After A |
@@ -152,7 +152,7 @@ phases, each on its own branch (`refactor/p<n>-<name>`), merged with `--no-ff` o
   - Also: `test/video_pictures_test.dart` waits 100 ms before deleting its folder (as other Storage tests do). Its
     poster test failed 2 times in 5 under load (the whole suite, or two runs at once: "being used by another
     process" in tearDown); alone it passed 6 of 6 on both `main` and the branch, so it was a test race, not the code.
-- **Phase 3 (built 8 Oct, `refactor/p3-settings`):** `LibraryModel` 2,125 → about 1,590 lines. Every existing test
+- **Phase 3 (merged into `main` 9 Oct; released with Phases 1–2 as v0.1.77):** `LibraryModel` 2,125 → about 1,590 lines. Every existing test
   passes unchanged (641), including the Phase 0 settings / backup round trips, and the preview pictures match.
   - 3a: `state/settings/setting.dart` (`Setting`: key, default, read, write; `SettingsReader`, LibraryModel's old
     `_Fields`) and `state/settings/settings_groups.dart`: `FolderSettings`, `ServerSettings`, `OnlineSettings`,
@@ -293,10 +293,11 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
   - Chosen pictures / posters (same branch): the Pick a frame dialog's engine steps were checked with `tool/bench/frame_picker_engine_test.dart`, but the dialog itself (the moving picture in it) not yet in a real window. Search online was checked live (`tool/probe_video_art.dart`: Silo, Mickey 17, Claymore). Ideas: TMDB / fanart.tv as extra sources if the user adds their own free API key; writing a chosen poster as `poster.jpg` into the collection's folder (alongside the .nfo option) so other apps see it.
 
 ## Source control
-`main` is **0.1.76+78** and the latest release is **v0.1.76** (8 Oct, covering 0.1.71–0.1.76). Work on the
-app as it is stays 0.1.x (0.1.77 next, the refactor's Phases 1–3); 0.2.0 is kept for the next level of development
-(the user, 7 Oct; see the Platforms plan above). No feature branches are open: the six merged on 8 Oct were deleted.
-Refactor branches are `refactor/p<n>-<name>` (see "Modular refactor" above). Each feature gets its own branch, merged into `main` with
+`main` is **0.1.77+79** and the latest release is **v0.1.77** (9 Oct: refactor Phases 1–3; the visible changes
+are the video equaliser at 22 kHz and `--:--` in the video / collection editors). Work on the app as it is stays
+0.1.x (0.1.78 next, refactor Phase 4); 0.2.0 is kept for the next level of development (the user, 7 Oct; see the
+Platforms plan above). No branches are open besides `main`. Refactor branches are `refactor/p<n>-<name>` (see
+"Modular refactor" above). Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
 repo copy of these notes (`docs/ai-context/`) is kept the same as the project copy.
