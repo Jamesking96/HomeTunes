@@ -41,6 +41,19 @@ class NowPlayingScreen extends StatefulWidget {
   /// Whether the music video was enlarged when Now Playing was last closed (this session only).
   static bool videoWasEnlarged = false;
 
+  // ---- small windows (0.1.72, the user's request) ----
+  // These are in the page's own units (after Settings › Appearance › Shrink to fit small windows),
+  // so with that on they're reached in a slightly smaller window. The window's own smallest size
+  // is set in windows/runner/window_limits.h.
+
+  /// With a music video showing: below this height the page becomes just the video, with the
+  /// song's controls over the picture (they appear when the mouse moves, as in full screen).
+  static const videoOnlyBelowHeight = 600.0;
+
+  /// Without a video: the cover shrinks as the window does, fades, and goes below this size;
+  /// after that the title, progress bar and buttons shrink together to fit.
+  static const smallestCover = 96.0;
+
   @override
   State<NowPlayingScreen> createState() => _NowPlayingScreenState();
 }
@@ -65,6 +78,10 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
 
   /// The music video fills the middle of the page (and the lyrics panel steps aside).
   bool _bigVideo = NowPlayingScreen.videoWasEnlarged;
+
+  /// Keeps the one music video playing when the page switches between its usual layout and the
+  /// video-only one in a small window (0.1.72), instead of starting it again.
+  final _videoViewKey = GlobalKey();
   void _toggleBigVideo() {
     setState(() => _bigVideo = !_bigVideo);
     NowPlayingScreen.videoWasEnlarged = _bigVideo;
@@ -107,10 +124,45 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     final videoShown = videoFile != null && showVideo;
     // Enlarged: as big as the middle of the page allows (the lyrics panel steps aside).
     final big = videoShown && _bigVideo;
+    // The music video, the same one in either layout (its key keeps it playing).
+    Widget musicVideo({required bool overlay}) => MusicVideoView(
+          key: _videoViewKey,
+          file: videoFile!,
+          fallback: cover,
+          enlarged: big,
+          onToggleEnlarge: _toggleBigVideo,
+          overlayControls: overlay,
+          onClose: () => Navigator.of(context).pop(),
+        );
+    // Without a video (0.1.72): the cover fits the space left over, fading as it nears
+    // [smallestCover] and gone below it. Drawn at its usual size and scaled, so the picture
+    // isn't loaded again at every size while the window is dragged.
+    final fittedCover = LayoutBuilder(builder: (context, box) {
+      final side = [artSize, box.maxWidth, box.maxHeight].reduce((a, b) => a < b ? a : b);
+      if (side < NowPlayingScreen.smallestCover) return const SizedBox.shrink(key: ValueKey('now-playing-no-cover'));
+      return Opacity(
+        opacity: ((side - NowPlayingScreen.smallestCover) / 60).clamp(0.0, 1.0),
+        child: SizedBox.square(
+          key: const ValueKey('now-playing-cover'),
+          dimension: side,
+          child: FittedBox(child: cover),
+        ),
+      );
+    });
 
     return Scaffold(
+      body: LayoutBuilder(builder: (context, page) {
+      // A short window with the music video showing (0.1.72): just the video, filling the page,
+      // with the song's controls over it as in full screen (the lyrics, when on, step aside).
+      if (videoShown && page.maxHeight < NowPlayingScreen.videoOnlyBelowHeight) {
+        return ColoredBox(
+          key: const ValueKey('now-playing-video-only'),
+          color: Colors.black,
+          child: SafeArea(child: Center(child: musicVideo(overlay: true))),
+        );
+      }
       // Background: a soft wash of the accent colour fading into the normal background.
-      body: Container(
+      return Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -150,6 +202,10 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                 // Now Playing covers the player bar, so the pin is here too (0.1.60, the PC).
                 const AlwaysOnTopButton(),
               ]),
+              // Middle and controls (0.1.72): the controls keep their size while they fit, and the
+              // middle (cover, video or lyrics) takes what's left. In a short window the cover goes
+              // first, then the controls shrink together to fit (scaled down only, never up).
+              Expanded(child: LayoutBuilder(builder: (context, area) => Column(children: [
               // The middle area: lyrics on narrow screens when turned on, else the cover.
               Expanded(
                 child: lyrics && !wide
@@ -169,22 +225,22 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                                     constraints: big
                                         ? const BoxConstraints()
                                         : BoxConstraints(maxWidth: (artSize * 16 / 9).clamp(artSize, 960.0)),
-                                    child: MusicVideoView(
-                                      file: videoFile,
-                                      fallback: cover,
-                                      enlarged: big,
-                                      onToggleEnlarge: _toggleBigVideo,
-                                    ),
+                                    child: musicVideo(overlay: false),
                                   )
-                                : cover,
+                                : fittedCover,
                           ),
                         ),
                       ),
               ),
-              // Controls are capped at 560 px wide so they don't stretch across big windows.
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
-                child: Column(children: [
+                key: const ValueKey('now-playing-controls'),
+                constraints: BoxConstraints(maxHeight: area.maxHeight),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: SizedBox(
+                // Controls are capped at 560 px wide so they don't stretch across big windows.
+                width: area.maxWidth < 560 ? area.maxWidth : 560,
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
                   // Title line (song title, or current chapter for books), with the
                   // artist / book below it.
                   // Tapping that second line opens the artist's or the book's page.
@@ -308,7 +364,10 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                   ),
                 ]),
               ),
-            ])),
+                ),
+              ),
+            ]))), // the middle-and-controls Column, its LayoutBuilder and its Expanded
+            ])), // the left column and its Expanded
             // Right-hand lyrics panel on wide windows.
             if (lyrics && wide && !big)
               Container(
@@ -322,7 +381,8 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
               ),
           ]),
         ),
-      ),
+      );
+      }),
     );
   }
 }

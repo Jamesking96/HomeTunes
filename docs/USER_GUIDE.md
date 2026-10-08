@@ -318,6 +318,10 @@ again). Quick links only show on a computer, where there's a sidebar.
   On a video's page in a small window, the video comes first. It takes more of the page, and the
   title, details and buttons under it shrink a little more (never below three quarters of their
   usual size, so they stay easy to read and click).
+  On **Now Playing** in a small window: if a music video is showing, the page becomes just the
+  video, with the play buttons over it like the video player (the down arrow at the top left
+  closes Now Playing). With no video, the cover fades away as the window gets shorter and the
+  play buttons get smaller so they still fit. The window can't be made smaller than 480 × 420.
   In any colour picker you can also type or paste a colour code such as `#FF7A59` into
   **Colour code** (the paste button beside it pastes straight in).
 - **Sharing themes with friends:** a saved theme's **⋮ › Share…** (or **Share these colours**
