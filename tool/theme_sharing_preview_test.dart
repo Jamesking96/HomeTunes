@@ -34,7 +34,7 @@ void main() {
     tester.view.physicalSize = const Size(900, 760);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final dir = Directory.systemTemp.createTempSync('hometunes_share_preview');
+    final dir = freshPreviewFolder('hometunes_share_preview');
     final lib = LibraryModel(Storage.at(dir));
     final key = GlobalKey();
     BuildContext host() => tester.element(find.byKey(const ValueKey('host')));
@@ -92,4 +92,12 @@ void main() {
     await shoot('share-import');
     await close();
   });
+}
+
+// A fixed folder (emptied first), so the same path shows in the pictures every run and
+// tool\compare_previews.ps1 can compare them byte for byte (8 Oct 2026).
+Directory freshPreviewFolder(String name) {
+  final d = Directory('C:\\Temp\\ht\\preview-data\\$name');
+  if (d.existsSync()) d.deleteSync(recursive: true);
+  return d..createSync(recursive: true);
 }

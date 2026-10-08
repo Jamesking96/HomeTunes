@@ -44,7 +44,7 @@ void main() {
     PackageInfo.setMockInitialValues(
         appName: 'HomeTunes', packageName: 'x', version: '0.1.40', buildNumber: '32', buildSignature: '');
     Directory(out).createSync(recursive: true);
-    final dir = Directory.systemTemp.createTempSync('hometunes_videos_preview');
+    final dir = freshPreviewFolder('hometunes_videos_preview');
     final vids = Directory(p.join(dir.path, 'Videos'))..createSync();
     final data = Directory(p.join(dir.path, 'data'))..createSync();
     final names = {
@@ -87,6 +87,8 @@ void main() {
       }
       final list = videos.videos;
       videos.savePlace(list[0].id, const Duration(minutes: 12), const Duration(minutes: 27));
+      // A moment apart, so the newest is always the same one (Continue watching's order).
+      await Future<void>.delayed(const Duration(milliseconds: 20));
       videos.savePlace(list[5].id, const Duration(minutes: 40), const Duration(minutes: 62));
       await videos.setWatched([list[1].id, list[2].id], true);
       await videos.setFavourite(videos.collectionNamed('Harbour Days')!, true);
@@ -260,4 +262,12 @@ void main() {
 img.Color _hsv(int hue, double s, double v) {
   final c = HSVColor.fromAHSV(1, (hue % 360).toDouble(), s, v).toColor();
   return img.ColorRgb8((c.r * 255).round(), (c.g * 255).round(), (c.b * 255).round());
+}
+
+// A fixed folder (emptied first), so the same path shows in the pictures every run and
+// tool\compare_previews.ps1 can compare them byte for byte (8 Oct 2026).
+Directory freshPreviewFolder(String name) {
+  final d = Directory('C:\\Temp\\ht\\preview-data\\$name');
+  if (d.existsSync()) d.deleteSync(recursive: true);
+  return d..createSync(recursive: true);
 }

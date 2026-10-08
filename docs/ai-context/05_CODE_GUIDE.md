@@ -39,7 +39,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 
 | Folder or file | What's in it | Edit by hand? |
 | --- | --- | --- |
-| `lib/` | The app itself (about 24,500 lines of Dart) | Yes: this is the code |
+| `lib/` | The app itself (about 40,300 lines of Dart, 8 Oct 2026) | Yes: this is the code |
 | `test/` | Automated tests, plus `test/fixtures/` (tiny tagged MP3, FLAC and M4A files) | Yes |
 | `tool/` | Helper scripts: release build and publishing, safe branch switching, platform patcher, probes, speed benches and off-screen preview pictures | Yes |
 | `packages/` | Two borrowed packages, copied in and patched: `audio_metadata_reader` (reads and writes tags) and `audio_service_win` (Windows media keys). Each has a `HOMETUNES_CHANGES.md` listing what was changed. | Rarely: note any change in `HOMETUNES_CHANGES.md` |
@@ -331,6 +331,8 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `tool/bench/library_scan_test.dart` | Times a first scan and a rescan through `LibraryModel` and counts screen updates | `flutter test tool/bench/library_scan_test.dart --dart-define=FOLDER=F:\Music` |
 | `tool/theme_preview_test.dart`, `ui_preview_test.dart`, `whats_new_preview_test.dart`, `theme_sharing_preview_test.dart`, `notice_close_preview_test.dart` | Draw screens off-screen and save pictures to `C:\Temp\ht\preview`, so changes can be checked without opening a window: each colour theme (0.1.24), the queue drawer and artist page (0.1.26), the What's new pop-up (0.1.28), sharing themes (0.1.29) and a notice with its ✕ (0.1.30). Nothing is shown on screen. | `flutter test tool/theme_preview_test.dart` (and so on) |
 
+`tool\compare_previews.ps1` (8 Oct, for the modular refactor): draws every `tool\*preview*_test.dart` picture and compares each, byte for byte, with a baseline (`C:\Temp\ht\baseline`). Make the baseline from `main` with `-MakeBaseline` before a change; afterwards, plain `tool\compare_previews.ps1` lists any picture that changed, went missing or is new (exit code 1). On the same PC the pictures come out identical every time.
+
 `tool\check_icons.py` (30 Sep): after a Windows release build, checks every Material icon used in lib\ (and media_kit's controls) is in the built icon font; `build_release.ps1` runs it and stops if any are missing (the icon tree shaker once left the video player's buttons blank, so releases now build with `--no-tree-shake-icons`).
 
 ## Tests
@@ -391,6 +393,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `music_settings_test.dart` | Settings › Music: show / auto-play music videos saved, the page's place in the list, the switches |
 | `video_settings_test.dart` | Settings › Videos: saving the settings, the videos' own equaliser preset, picture shapes and speeds (usual and own, kept on rename), the page, and Edit details' shape |
 | `video_tracks_test.dart` | Audio / subtitle labels and finding the remembered choice among a new video's tracks |
+| `refactor_safety_test.dart` | Safety nets for the modular refactor (8 Oct): `settings.json` saved back exactly as loaded (`test/fixtures/settings_full.json` changes every setting; a new setting must be added there), an older settings file loading to the same values, and a backup with every data file and cover restored into a new app folder unchanged |
 
 ## Working with the code
 

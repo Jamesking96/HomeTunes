@@ -79,6 +79,11 @@ If they are, don't build the Windows app (`LNK1168`), and don't switch branches 
    flutter test tool/bench/player_gapless_test.dart --dart-define=LIBMPV=...same...
    ```
    Scan timing through `LibraryModel`: `flutter test tool/bench/library_scan_test.dart --dart-define=FOLDER=F:\Music`.
+   **Refactor branches** (the modular refactor, 8 Oct): the change must not alter anything on screen
+   or in saved data. Make a picture baseline from `main` before starting
+   (`powershell -ExecutionPolicy Bypass -File tool\compare_previews.ps1 -MakeBaseline`), then run
+   `tool\compare_previews.ps1` before merging: every picture must match. `test/refactor_safety_test.dart`
+   (part of `flutter test`) guards `settings.json` and backups.
 6. **Publishing builds for download (GitHub Releases, since 0.1.20):** once main is
    merged and pushed and the three files are in `build\dist`, run
    `powershell -ExecutionPolicy Bypass -File tool\publish_release.ps1 -NotesFile <notes.md>` on the

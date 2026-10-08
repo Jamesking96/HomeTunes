@@ -1,6 +1,6 @@
 # HomeTunes architecture
 
-About 24.5k lines of Dart in `lib/`, plus two vendored packages in `packages/`. State is handled by
+About 40.3k lines of Dart in `lib/` (8 Oct 2026), plus two vendored packages in `packages/`. State is handled by
 Provider `ChangeNotifier`s created in `main.dart`, and screens `watch`/`select`/`read` them.
 
 ## Stack

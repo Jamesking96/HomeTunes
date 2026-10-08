@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/update_model.dart';
+import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/state/equalizer_model.dart';
 import 'package:hometunes/ui/screens/settings/appearance_settings.dart';
@@ -35,7 +36,7 @@ void main() {
     PackageInfo.setMockInitialValues(
         appName: 'HomeTunes', packageName: 'x', version: '0.1.24', buildNumber: '24', buildSignature: '');
     Directory(out).createSync(recursive: true);
-    final dir = Directory.systemTemp.createTempSync('hometunes_preview');
+    final dir = freshPreviewFolder('hometunes_preview');
     final lib = LibraryModel(Storage.at(dir));
     final nav = AppNav();
     tester.view.physicalSize = const Size(1280, 1100);
@@ -63,6 +64,8 @@ void main() {
           ChangeNotifierProvider.value(value: lib),
           ChangeNotifierProvider.value(value: nav),
           ChangeNotifierProvider(create: (_) => EqualizerModel(Storage.at(dir))),
+          // Settings' side list builds every page's search entries, Folders & scanning included (0.1.40).
+          ChangeNotifierProvider(create: (_) => VideoLibraryModel(Storage.at(dir), lib)),
           ChangeNotifierProvider(create: (_) => UpdateModel(Storage.at(dir), readVersion: () async => '0.1.24')),
         ],
         child: Selector<LibraryModel, AppLook>(
@@ -107,4 +110,12 @@ void main() {
     AppColors.current = defaultPalette;
     AppShape.scale = 1.0;
   });
+}
+
+// A fixed folder (emptied first), so the same path shows in the pictures every run and
+// tool\compare_previews.ps1 can compare them byte for byte (8 Oct 2026).
+Directory freshPreviewFolder(String name) {
+  final d = Directory('C:\\Temp\\ht\\preview-data\\$name');
+  if (d.existsSync()) d.deleteSync(recursive: true);
+  return d..createSync(recursive: true);
 }
