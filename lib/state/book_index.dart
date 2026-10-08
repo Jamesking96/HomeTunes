@@ -443,3 +443,52 @@ class BookFilters {
     return {for (final k in keys) k: counts[k]!};
   }
 }
+
+// ---------------------------------------------------------------- the Series tab (0.1.74)
+
+/// The order the series come in on the Audiobooks Series tab. Inside a series the books always
+/// follow their number, and "Not in a series" is always last.
+enum SeriesSort { name, author, recentlyListened, recentlyAdded, mostBooks }
+
+/// [books] in one headed group per series (the heading is the series name), ordered by [sort]
+/// (the other way round when [reverse]), then the books that aren't in a series under
+/// [noSeries], by title.
+List<(String?, List<Book>)> sortSeries(
+  List<Book> books,
+  SeriesSort sort, {
+  int Function(Book b)? lastListened,
+  bool reverse = false,
+}) {
+  final map = <String, List<Book>>{};
+  final loose = <Book>[];
+  for (final b in books) {
+    final s = b.series;
+    if (s == null || s.trim().isEmpty) {
+      loose.add(b);
+    } else {
+      (map[s] ??= []).add(b);
+    }
+  }
+  for (final g in map.values) {
+    g.sort(compareBySeries);
+  }
+  final listened = lastListened ?? (_) => 0;
+  int latest(List<Book> g) => g.fold(0, (m, b) => listened(b) > m ? listened(b) : m);
+  int added(List<Book> g) => g.fold(0, (m, b) => b.addedMs > m ? b.addedMs : m);
+  final keys = map.keys.toList()
+    ..sort((a, b) {
+      final ga = map[a]!, gb = map[b]!;
+      final c = switch (sort) {
+        SeriesSort.name => 0,
+        SeriesSort.author => naturalCompare(ga.first.author, gb.first.author),
+        SeriesSort.recentlyListened => latest(gb).compareTo(latest(ga)),
+        SeriesSort.recentlyAdded => added(gb).compareTo(added(ga)),
+        SeriesSort.mostBooks => gb.length.compareTo(ga.length),
+      };
+      return c != 0 ? c : naturalCompare(a, b);
+    });
+  return [
+    for (final k in reverse ? keys.reversed : keys) (k, map[k]!),
+    if (loose.isNotEmpty) (noSeries, loose..sort((a, b) => naturalCompare(a.title, b.title))),
+  ];
+}
