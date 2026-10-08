@@ -16,6 +16,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/eq_preset.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:hometunes/ui/screens/video_player_screen.dart' show videoEqualizerSettings;
 
 /// A WAV tone of [seconds] seconds.
 ///
@@ -195,4 +196,35 @@ void main() {
       expect(problems.where((p) => p.contains('lavfi') || p.contains('filter') || p.startsWith('error')), isEmpty);
     }, timeout: const Timeout(Duration(minutes: 1)));
   }
+  // 5. The video player's equaliser (refactor phase 1, 8 Oct 2026). Before, it always sent the
+  //    16 kHz band, and at 22 kHz ffmpeg rejected it ("Invalid frequency and/or width!"), so the
+  //    whole equaliser stopped while the sound played on. Now it leaves the band out like music.
+  test('the video player\'s equaliser at 22050 Hz has no rejected bands', () async {
+    const lib = String.fromEnvironment('LIBMPV');
+    MediaKit.ensureInitialized(libmpv: lib.isEmpty ? null : lib);
+    final dir = Directory.systemTemp.createTempSync('hometunes_video_eq');
+    final t = tone('${dir.path}/long.wav', 4, 440, rate: 22050);
+    final player = Player(configuration: const PlayerConfiguration(logLevel: MPVLogLevel.warn));
+    final native = player.platform as NativePlayer;
+    final problems = <String>[];
+    final sub = player.stream.log.listen((l) => problems.add('[${l.level}] ${l.prefix}: ${l.text.trim()}'));
+    await player.setVolume(0);
+    await player.open(Media(t.path), play: true);
+    await Future<void>.delayed(const Duration(milliseconds: 800));
+    final rate = player.state.audioParams.sampleRate;
+    final settings = videoEqualizerSettings(builtInEqPreset('rock'), sampleRate: rate);
+    await native.setProperty('af', settings.filter);
+    await native.setProperty('replaygain-fallback', settings.level);
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    final stillPlaying = player.state.playing;
+    await sub.cancel();
+    await player.dispose();
+    dir.deleteSync(recursive: true);
+    // ignore: avoid_print
+    print('video equaliser at $rate Hz: "${settings.filter}"\nengine warnings: ${problems.join(' | ')}');
+    expect(rate, 22050);
+    expect(settings.filter, isNot(contains('f=16000')));
+    expect(stillPlaying, isTrue);
+    expect(problems.where((p) => p.contains('Invalid frequency') || p.contains('lavfi')), isEmpty);
+  }, timeout: const Timeout(Duration(minutes: 1)));
 }

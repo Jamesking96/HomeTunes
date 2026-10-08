@@ -33,13 +33,22 @@ class LyricsModel extends ChangeNotifier {
   LyricsModel(this.library, this.storage, {Future<LocalLyrics> Function(String path)? readLocal, LrclibClient Function()? makeLrclib})
       : readLocal = readLocal ?? readLocalLyrics,
         makeLrclib = makeLrclib ?? LrclibClient.new {
-    // Files may have changed (rescan, lyrics written into them): read them again.
-    library.addListener(_local.clear);
+    library.addListener(_onLibraryChanged);
+  }
+
+  // Files may have changed (rescan, lyrics written into them): read them again. Only when the
+  // songs themselves were rebuilt (a new list), not for every settings change (refactor phase 1,
+  // 8 Oct 2026: a theme or sidebar change used to throw these away too).
+  late List<Track> _knownTracks = library.tracks;
+  void _onLibraryChanged() {
+    if (identical(library.tracks, _knownTracks)) return;
+    _knownTracks = library.tracks;
+    _local.clear();
   }
 
   @override
   void dispose() {
-    library.removeListener(_local.clear);
+    library.removeListener(_onLibraryChanged);
     super.dispose();
   }
 
@@ -125,6 +134,16 @@ class LyricsModel extends ChangeNotifier {
       }
     }
     if (changed) _save();
+  }
+
+  /// Songs the user chose to forget (Settings › Folders & scanning › missing songs): their
+  /// lyrics found online and "nothing found" times go too (refactor phase 1, 8 Oct 2026; wired
+  /// up in main.dart next to playlists, listening places and bookmarks).
+  void removeIds(Set<String> ids) {
+    final before = _found.length + _none.length;
+    _found.removeWhere((id, _) => ids.contains(id));
+    _none.removeWhere((id, _) => ids.contains(id));
+    if (_found.length + _none.length != before) _save();
   }
 
   /// A song's lyrics, or null if it has none (or the user hid them).
