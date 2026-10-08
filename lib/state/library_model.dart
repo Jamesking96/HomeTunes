@@ -56,6 +56,19 @@ class LibraryModel extends ChangeNotifier {
         secrets = secrets ?? SecretStore.forPlatform() {
     // Damaged files, recoveries and failed saves show in the status strip as they happen.
     storage.addListener(notifyListeners);
+    // Refactor phase 3: each settings group saves settings.json through here, and a change in a
+    // group redraws whatever watches LibraryModel, as when the settings lived here.
+    for (final g in settings.groups) {
+      g.save = _saveSettings;
+      g.addListener(_onSettingsChanged);
+    }
+  }
+
+  // Off while load() tells the groups' own watchers about the settings it read (LibraryModel
+  // redraws once at the end of load anyway).
+  bool _quietSettings = false;
+  void _onSettingsChanged() {
+    if (!_quietSettings) notifyListeners();
   }
 
   // ---- settings ----
@@ -404,6 +417,9 @@ class LibraryModel extends ChangeNotifier {
       _missing = tracksIn(lib['missing']);
     }
     if (libraryDamaged) await storage.keepCopy('library.json');
+    _quietSettings = true;
+    settings.changedAll();
+    _quietSettings = false;
     _rebuild();
     if (movedPassword) await _saveSettings();
   }
@@ -454,86 +470,35 @@ class LibraryModel extends ChangeNotifier {
 
   /// Adds a saved theme, or replaces the one with the same id (Settings › Appearance ›
   /// Advanced). [use] switches to it.
-  Future<void> saveTheme(Map<String, dynamic> theme, {bool use = true}) async {
-    final id = theme['id'];
-    if (id is! String) return;
-    final i = savedThemes.indexWhere((t) => t['id'] == id);
-    savedThemes = [...savedThemes];
-    if (i < 0) {
-      savedThemes.add(Map.of(theme));
-    } else {
-      savedThemes[i] = Map.of(theme);
-    }
-    if (use) themeId = id;
-    notifyListeners();
-    await _saveSettings();
-  }
+  Future<void> saveTheme(Map<String, dynamic> theme, {bool use = true}) => settings.appearance.saveTheme(theme, use: use);
 
   /// "Your own" back to its starting colours (the Default theme's highlight and background).
   /// Returns what it had, as (accent, background), so the change can be undone.
-  Future<(String?, String?)> resetCustomColours() async {
-    final before = (customAccent, customBackground);
-    customAccent = null;
-    customBackground = null;
-    notifyListeners();
-    await _saveSettings();
-    return before;
-  }
+  Future<(String?, String?)> resetCustomColours() => settings.appearance.resetCustomColours();
 
   /// Puts "Your own" colours back after [resetCustomColours] (Undo).
-  Future<void> restoreCustomColours((String?, String?) colours) async {
-    customAccent = colours.$1;
-    customBackground = colours.$2;
-    notifyListeners();
-    await _saveSettings();
-  }
+  Future<void> restoreCustomColours((String?, String?) colours) => settings.appearance.restoreCustomColours(colours);
 
   /// Removes a saved theme; if it was in use, goes back to Default.
-  Future<void> deleteTheme(String id) async {
-    savedThemes = [for (final t in savedThemes) if (t['id'] != id) t];
-    if (themeId == id) themeId = 'default';
-    notifyListeners();
-    await _saveSettings();
-  }
+  Future<void> deleteTheme(String id) => settings.appearance.deleteTheme(id);
 
   /// Text size and corner roundness (Settings › Appearance › Advanced).
-  Future<void> setLook({double? textSize, double? cornerRoundness}) async {
-    this.textSize = (textSize ?? this.textSize).clamp(0.8, 1.5).toDouble();
-    this.cornerRoundness = (cornerRoundness ?? this.cornerRoundness).clamp(0.0, 2.0).toDouble();
-    notifyListeners();
-    await _saveSettings();
-  }
+  Future<void> setLook({double? textSize, double? cornerRoundness}) =>
+      settings.appearance.setLook(textSize: textSize, cornerRoundness: cornerRoundness);
 
 
   /// Settings › Appearance (0.1.24): which colour theme ('default', 'midnight', 'forest' or
   /// 'custom'), and the two colours of "Your own" as "#RRGGBB" (null = not chosen yet). Kept as
   /// text here; ui/theme.dart turns them into colours.
-  Future<void> setTheme({String? id, String? accent, String? background}) async {
-    themeId = id ?? themeId;
-    if (accent != null && AppearanceSettings.hexColour.hasMatch(accent)) customAccent = accent.toUpperCase();
-    if (background != null && AppearanceSettings.hexColour.hasMatch(background)) customBackground = background.toUpperCase();
-    notifyListeners();
-    await _saveSettings();
-  }
+  Future<void> setTheme({String? id, String? accent, String? background}) =>
+      settings.appearance.setTheme(id: id, accent: accent, background: background);
 
-  // The simple on/off settings below redraw first (so the switch moves at once), then save.
-  Future<void> setOnlineDetails(bool on) async {
-    onlineDetails = on;
-    notifyListeners();
-    await _saveSettings();
-  }
+  // The simple on/off settings redraw first (so the switch moves at once), then save.
+  Future<void> setOnlineDetails(bool on) => settings.online.setOnlineDetails(on);
 
-  Future<void> setOnlineLyrics(bool on) async {
-    onlineLyrics = on;
-    notifyListeners();
-    await _saveSettings();
-  }
+  Future<void> setOnlineLyrics(bool on) => settings.online.setOnlineLyrics(on);
 
-  Future<void> setOnlineVideoArt(bool on) async {
-    onlineVideoArt = on;
-    notifyListeners();
-    await _saveSettings();
-  }
+  Future<void> setOnlineVideoArt(bool on) => settings.online.setOnlineVideoArt(on);
 
   /// Shows or leaves out the audiobooks found on the music server.
   Future<void> setServerBooks(bool on) async {
@@ -544,11 +509,7 @@ class LibraryModel extends ChangeNotifier {
     await _saveSettings();
   }
 
-  Future<void> setOnlineCovers(bool on) async {
-    onlineCovers = on;
-    notifyListeners();
-    await _saveSettings();
-  }
+  Future<void> setOnlineCovers(bool on) => settings.online.setOnlineCovers(on);
 
   /// Writes the scanned/synced songs (and the missing ones being kept) to library.json.
   Future<void> _saveLibrary() => storage.write('library.json', {
@@ -656,89 +617,41 @@ class LibraryModel extends ChangeNotifier {
 
   /// The titles offered for special seasons (0.1.66): blank ones and repeats (any case) dropped,
   /// order kept.
-  Future<void> setSpecialSeasonTitles(List<String> titles) async {
-    final seen = <String>{};
-    specialSeasonTitles = [
-      for (final t in titles)
-        if (t.trim().isNotEmpty && seen.add(t.trim().toLowerCase())) t.trim(),
-    ];
-    notifyListeners();
-    await _saveSettings();
-  }
+  Future<void> setSpecialSeasonTitles(List<String> titles) => settings.video.setSpecialSeasonTitles(titles);
 
   /// Adds a title to the special season list if it isn't there yet (typed in the Mark as special
   /// box, so it's offered next time).
-  Future<void> addSpecialSeasonTitle(String title) =>
-      setSpecialSeasonTitles([...specialSeasonTitles, title]);
+  Future<void> addSpecialSeasonTitle(String title) => settings.video.addSpecialSeasonTitle(title);
 
-  Future<void> setBookCoversTall(bool tall) async {
-    bookCoversTall = tall;
-    await _saveSettings();
-    notifyListeners();
-  }
+  Future<void> setBookCoversTall(bool tall) => settings.listening.setBookCoversTall(tall);
 
   /// The sidebar's width (kept between [sidebarMinWidth] and [sidebarMaxWidth]) and folded state.
-  Future<void> setSidebar({double? width, bool? folded}) async {
-    if (width != null) sidebarWidth = width.clamp(sidebarMinWidth, sidebarMaxWidth).toDouble();
-    if (folded != null) sidebarFolded = folded;
-    notifyListeners();
-    await _saveSettings();
-  }
+  Future<void> setSidebar({double? width, bool? folded}) => settings.layout.setSidebar(width: width, folded: folded);
 
   /// Volume boost on / off and how far the volume sliders go (100–500 %, 0.1.61 / 0.1.62). A
   /// volume above the new top is brought down to it by the players.
-  Future<void> setVolumeBoost({bool? on, int? percent}) async {
-    if (on != null) volumeBoost = on;
-    if (percent != null) volumeBoostPercent = percent.clamp(volumeBoostMin, volumeBoostMax).toInt();
-    notifyListeners();
-    await _saveSettings();
-  }
+  Future<void> setVolumeBoost({bool? on, int? percent}) => settings.playback.setVolumeBoost(on: on, percent: percent);
 
   /// The volume percentage bubble on or off (0.1.65).
-  Future<void> setShowVolumePercent(bool on) async {
-    showVolumePercent = on;
-    notifyListeners();
-    await _saveSettings();
-  }
+  Future<void> setShowVolumePercent(bool on) => settings.playback.setShowVolumePercent(on);
 
   /// PC: keep the window on top of other windows, or not (0.1.60, the pin button).
-  Future<void> setAlwaysOnTop(bool on) async {
-    alwaysOnTop = on;
-    notifyListeners();
-    await WindowPin.set(on);
-    await _saveSettings();
-  }
+  Future<void> setAlwaysOnTop(bool on) => settings.playback.setAlwaysOnTop(on);
 
   /// Whether this album / artist / book / collection / video is a quick link in the sidebar.
-  bool isQuickLink(QuickLinkKind kind, String id) => quickLinks.any((l) => l.sameAs(kind, id));
+  bool isQuickLink(QuickLinkKind kind, String id) => settings.layout.isQuickLink(kind, id);
 
   /// Adds a quick link at the end of the sidebar's list (0.1.64); one per item.
-  Future<void> addQuickLink(QuickLink link) async {
-    if (isQuickLink(link.kind, link.id)) return;
-    quickLinks = [...quickLinks, link];
-    notifyListeners();
-    await _saveSettings();
-  }
+  Future<void> addQuickLink(QuickLink link) => settings.layout.addQuickLink(link);
 
   /// Takes a quick link off the sidebar.
-  Future<void> removeQuickLink(QuickLinkKind kind, String id) async {
-    final before = quickLinks.length;
-    quickLinks = [for (final l in quickLinks) if (!l.sameAs(kind, id)) l];
-    if (quickLinks.length == before) return;
-    notifyListeners();
-    await _saveSettings();
-  }
+  Future<void> removeQuickLink(QuickLinkKind kind, String id) => settings.layout.removeQuickLink(kind, id);
 
   /// Adds it if it isn't there, takes it off if it is (the menus' "Add to / Remove from sidebar").
-  Future<void> toggleQuickLink(QuickLink link) =>
-      isQuickLink(link.kind, link.id) ? removeQuickLink(link.kind, link.id) : addQuickLink(link);
+  Future<void> toggleQuickLink(QuickLink link) => settings.layout.toggleQuickLink(link);
 
   /// Your Library › Artists: grid (true) or list (false) (0.1.52).
-  Future<void> setArtistsGrid(bool on) async {
-    artistsGrid = on;
-    notifyListeners();
-    await _saveSettings();
-  }
+  Future<void> setArtistsGrid(bool on) => settings.layout.setArtistsGrid(on);
 
   /// The track whose cover an artist shows: the album chosen with "Use an album cover", else
   /// their first album's (0.1.53).
@@ -917,11 +830,7 @@ class LibraryModel extends ChangeNotifier {
   }
 
   /// Settings › Appearance › Shrink to fit small windows.
-  Future<void> setScaleWithWindow(bool on) async {
-    scaleWithWindow = on;
-    notifyListeners();
-    await _saveSettings();
-  }
+  Future<void> setScaleWithWindow(bool on) => settings.appearance.setScaleWithWindow(on);
 
   /// Changes the playback settings (Settings > Playback).
   Future<void> updatePlaybackSettings({
@@ -930,15 +839,14 @@ class LibraryModel extends ChangeNotifier {
     bool? swipeToSkip,
     bool? showMusicVideos,
     bool? autoPlayMusicVideos,
-  }) async {
-    this.gaplessPlayback = gaplessPlayback ?? this.gaplessPlayback;
-    this.replayGain = replayGain ?? this.replayGain;
-    this.swipeToSkip = swipeToSkip ?? this.swipeToSkip;
-    this.showMusicVideos = showMusicVideos ?? this.showMusicVideos;
-    this.autoPlayMusicVideos = autoPlayMusicVideos ?? this.autoPlayMusicVideos;
-    notifyListeners();
-    await _saveSettings();
-  }
+  }) =>
+      settings.playback.update(
+        gaplessPlayback: gaplessPlayback,
+        replayGain: replayGain,
+        swipeToSkip: swipeToSkip,
+        showMusicVideos: showMusicVideos,
+        autoPlayMusicVideos: autoPlayMusicVideos,
+      );
 
   /// Changes any of the listening settings (Settings > Audiobooks) and sleep timer settings (Settings > Sleep timer).
   Future<void> updateListeningSettings({
@@ -951,19 +859,18 @@ class LibraryModel extends ChangeNotifier {
     int? sleepMusicMinutes,
     int? sleepVideoMinutes,
     int? sleepFadeSeconds,
-  }) async {
-    this.sleepVideoMinutes = sleepVideoMinutes ?? this.sleepVideoMinutes;
-    this.skipBackSeconds = skipBackSeconds ?? this.skipBackSeconds;
-    this.skipForwardSeconds = skipForwardSeconds ?? this.skipForwardSeconds;
-    this.rewindOnResume = rewindOnResume ?? this.rewindOnResume;
-    this.defaultBookSpeed = defaultBookSpeed ?? this.defaultBookSpeed;
-    this.sleepButtonShown = sleepButtonShown ?? this.sleepButtonShown;
-    this.sleepBookMinutes = sleepBookMinutes ?? this.sleepBookMinutes;
-    this.sleepMusicMinutes = sleepMusicMinutes ?? this.sleepMusicMinutes;
-    this.sleepFadeSeconds = sleepFadeSeconds ?? this.sleepFadeSeconds;
-    notifyListeners();
-    await _saveSettings();
-  }
+  }) =>
+      settings.listening.update(
+        skipBackSeconds: skipBackSeconds,
+        skipForwardSeconds: skipForwardSeconds,
+        rewindOnResume: rewindOnResume,
+        defaultBookSpeed: defaultBookSpeed,
+        sleepButtonShown: sleepButtonShown,
+        sleepBookMinutes: sleepBookMinutes,
+        sleepMusicMinutes: sleepMusicMinutes,
+        sleepVideoMinutes: sleepVideoMinutes,
+        sleepFadeSeconds: sleepFadeSeconds,
+      );
 
   /// Changes any of the video settings (Settings › Videos).
   Future<void> updateVideoSettings({
@@ -974,25 +881,19 @@ class LibraryModel extends ChangeNotifier {
     bool? directDrawing,
     PictureShape? videoShape,
     PictureShape? collectionShape,
-  }) async {
-    videoDirectDrawing = directDrawing ?? videoDirectDrawing;
-    videoSkipBackSeconds = skipBackSeconds ?? videoSkipBackSeconds;
-    videoSkipForwardSeconds = skipForwardSeconds ?? videoSkipForwardSeconds;
-    defaultVideoSpeed = defaultSpeed ?? defaultVideoSpeed;
-    videoRewindOnResume = rewindOnResume ?? videoRewindOnResume;
-    videoPictureShape = videoShape ?? videoPictureShape;
-    collectionPictureShape = collectionShape ?? collectionPictureShape;
-    notifyListeners();
-    await _saveSettings();
-  }
+  }) =>
+      settings.video.update(
+        skipBackSeconds: skipBackSeconds,
+        skipForwardSeconds: skipForwardSeconds,
+        defaultSpeed: defaultSpeed,
+        rewindOnResume: rewindOnResume,
+        directDrawing: directDrawing,
+        videoShape: videoShape,
+        collectionShape: collectionShape,
+      );
 
   /// Changes how the video player's buttons look (Settings › Appearance › Video player).
-  Future<void> setVideoPlayerLook(VideoPlayerLook look) async {
-    if (look == videoPlayerLook) return;
-    videoPlayerLook = look;
-    notifyListeners();
-    await _saveSettings();
-  }
+  Future<void> setVideoPlayerLook(VideoPlayerLook look) => settings.appearance.setVideoPlayerLook(look);
 
   /// "Move to Books" (true), "Move to Music" (false), or back to automatic (null).
   Future<void> setIsBook(Iterable<String> trackIds, bool? isBook) async {

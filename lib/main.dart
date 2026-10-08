@@ -236,6 +236,16 @@ class HomeTunesApp extends StatelessWidget {
       providers: [
         // Models made in main() are passed in with `.value`, so Provider won't dispose them.
         ChangeNotifierProvider.value(value: library),
+        // Each part of Settings on its own (refactor phase 3): a screen can watch just the part it
+        // uses. LibraryModel still redraws for every settings change too.
+        ChangeNotifierProvider.value(value: library.settings.folders),
+        ChangeNotifierProvider.value(value: library.settings.server),
+        ChangeNotifierProvider.value(value: library.settings.online),
+        ChangeNotifierProvider.value(value: library.settings.playback),
+        ChangeNotifierProvider.value(value: library.settings.listening),
+        ChangeNotifierProvider.value(value: library.settings.video),
+        ChangeNotifierProvider.value(value: library.settings.appearance),
+        ChangeNotifierProvider.value(value: library.settings.layout),
         ChangeNotifierProvider.value(value: playlists),
         ChangeNotifierProvider.value(value: listening),
         ChangeNotifierProvider.value(value: bookmarks),

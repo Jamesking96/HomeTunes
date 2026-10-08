@@ -11,6 +11,7 @@ import '../../models/video_item.dart' show PictureShape;
 import '../../models/video_player_look.dart';
 import '../../models/volume_boost.dart';
 import '../../services/subsonic_client.dart' show ServerConfig;
+import '../../services/window_pin.dart';
 import '../book_index.dart' show defaultBookGenres;
 import 'setting.dart';
 
@@ -42,6 +43,16 @@ abstract class SettingsGroup extends ChangeNotifier {
 
   /// Tells whoever watches this group that something in it changed.
   void changed() => notifyListeners();
+
+  /// Saves settings.json (set by LibraryModel, which writes every group at once).
+  Future<void> Function() save = () async {};
+
+  /// The usual change: redraw first (so a switch moves at once), then save.
+  @protected
+  Future<void> commit() {
+    notifyListeners();
+    return save();
+  }
 }
 
 /// Folders and what's in them: music, audiobook and video folders, file types switched off,
@@ -177,6 +188,27 @@ class OnlineSettings extends SettingsGroup {
     Setting.flag('onlineLyrics', true, () => onlineLyrics, (v) => onlineLyrics = v),
     Setting.flag('onlineVideoArt', true, () => onlineVideoArt, (v) => onlineVideoArt = v),
   ];
+
+  // The simple on/off settings redraw first (so the switch moves at once), then save.
+  Future<void> setOnlineCovers(bool on) {
+    onlineCovers = on;
+    return commit();
+  }
+
+  Future<void> setOnlineDetails(bool on) {
+    onlineDetails = on;
+    return commit();
+  }
+
+  Future<void> setOnlineLyrics(bool on) {
+    onlineLyrics = on;
+    return commit();
+  }
+
+  Future<void> setOnlineVideoArt(bool on) {
+    onlineVideoArt = on;
+    return commit();
+  }
 }
 
 /// Settings › Playback and Settings › Music, plus the PC's always-on-top pin.
@@ -226,6 +258,44 @@ class PlaybackSettings extends SettingsGroup {
     Setting.flag('showMusicVideos', true, () => showMusicVideos, (v) => showMusicVideos = v),
     Setting.flag('autoPlayMusicVideos', true, () => autoPlayMusicVideos, (v) => autoPlayMusicVideos = v),
   ];
+
+  /// Changes the playback settings (Settings > Playback).
+  Future<void> update({
+    bool? gaplessPlayback,
+    ReplayGainMode? replayGain,
+    bool? swipeToSkip,
+    bool? showMusicVideos,
+    bool? autoPlayMusicVideos,
+  }) {
+    this.gaplessPlayback = gaplessPlayback ?? this.gaplessPlayback;
+    this.replayGain = replayGain ?? this.replayGain;
+    this.swipeToSkip = swipeToSkip ?? this.swipeToSkip;
+    this.showMusicVideos = showMusicVideos ?? this.showMusicVideos;
+    this.autoPlayMusicVideos = autoPlayMusicVideos ?? this.autoPlayMusicVideos;
+    return commit();
+  }
+
+  /// Volume boost on / off and how far the volume sliders go (100–500 %, 0.1.61 / 0.1.62). A
+  /// volume above the new top is brought down to it by the players.
+  Future<void> setVolumeBoost({bool? on, int? percent}) {
+    if (on != null) volumeBoost = on;
+    if (percent != null) volumeBoostPercent = percent.clamp(volumeBoostMin, volumeBoostMax).toInt();
+    return commit();
+  }
+
+  /// The volume percentage bubble on or off (0.1.65).
+  Future<void> setShowVolumePercent(bool on) {
+    showVolumePercent = on;
+    return commit();
+  }
+
+  /// PC: keep the window on top of other windows, or not (0.1.60, the pin button).
+  Future<void> setAlwaysOnTop(bool on) async {
+    alwaysOnTop = on;
+    notifyListeners();
+    await WindowPin.set(on);
+    await save();
+  }
 }
 
 /// Settings › Audiobooks and Settings › Sleep timer.
@@ -267,6 +337,38 @@ class ListeningSettings extends SettingsGroup {
     Setting.whole('sleepVideoMinutes', 30, () => sleepVideoMinutes, (v) => sleepVideoMinutes = v),
     Setting.whole('sleepFadeSeconds', 10, () => sleepFadeSeconds, (v) => sleepFadeSeconds = v),
   ];
+
+  /// Changes any of the listening settings (Settings > Audiobooks) and sleep timer settings
+  /// (Settings > Sleep timer).
+  Future<void> update({
+    int? skipBackSeconds,
+    int? skipForwardSeconds,
+    bool? rewindOnResume,
+    double? defaultBookSpeed,
+    bool? sleepButtonShown,
+    int? sleepBookMinutes,
+    int? sleepMusicMinutes,
+    int? sleepVideoMinutes,
+    int? sleepFadeSeconds,
+  }) {
+    this.sleepVideoMinutes = sleepVideoMinutes ?? this.sleepVideoMinutes;
+    this.skipBackSeconds = skipBackSeconds ?? this.skipBackSeconds;
+    this.skipForwardSeconds = skipForwardSeconds ?? this.skipForwardSeconds;
+    this.rewindOnResume = rewindOnResume ?? this.rewindOnResume;
+    this.defaultBookSpeed = defaultBookSpeed ?? this.defaultBookSpeed;
+    this.sleepButtonShown = sleepButtonShown ?? this.sleepButtonShown;
+    this.sleepBookMinutes = sleepBookMinutes ?? this.sleepBookMinutes;
+    this.sleepMusicMinutes = sleepMusicMinutes ?? this.sleepMusicMinutes;
+    this.sleepFadeSeconds = sleepFadeSeconds ?? this.sleepFadeSeconds;
+    return commit();
+  }
+
+  /// Book covers tall or square (saved first, then redrawn, as before).
+  Future<void> setBookCoversTall(bool tall) async {
+    bookCoversTall = tall;
+    await save();
+    notifyListeners();
+  }
 }
 
 /// Settings › Videos (0.1.40).
@@ -311,6 +413,41 @@ class VideoSettings extends SettingsGroup {
     _shape('videoPictureShape', () => videoPictureShape, (v) => videoPictureShape = v),
     _shape('collectionPictureShape', () => collectionPictureShape, (v) => collectionPictureShape = v),
   ];
+
+  /// Changes any of the video settings (Settings › Videos).
+  Future<void> update({
+    int? skipBackSeconds,
+    int? skipForwardSeconds,
+    double? defaultSpeed,
+    bool? rewindOnResume,
+    bool? directDrawing,
+    PictureShape? videoShape,
+    PictureShape? collectionShape,
+  }) {
+    videoDirectDrawing = directDrawing ?? videoDirectDrawing;
+    videoSkipBackSeconds = skipBackSeconds ?? videoSkipBackSeconds;
+    videoSkipForwardSeconds = skipForwardSeconds ?? videoSkipForwardSeconds;
+    defaultVideoSpeed = defaultSpeed ?? defaultVideoSpeed;
+    videoRewindOnResume = rewindOnResume ?? videoRewindOnResume;
+    videoPictureShape = videoShape ?? videoPictureShape;
+    collectionPictureShape = collectionShape ?? collectionPictureShape;
+    return commit();
+  }
+
+  /// The titles offered for special seasons (0.1.66): blank ones and repeats (any case) dropped,
+  /// order kept.
+  Future<void> setSpecialSeasonTitles(List<String> titles) {
+    final seen = <String>{};
+    specialSeasonTitles = [
+      for (final t in titles)
+        if (t.trim().isNotEmpty && seen.add(t.trim().toLowerCase())) t.trim(),
+    ];
+    return commit();
+  }
+
+  /// Adds a title to the special season list if it isn't there yet (typed in the Mark as special
+  /// box, so it's offered next time).
+  Future<void> addSpecialSeasonTitle(String title) => setSpecialSeasonTitles([...specialSeasonTitles, title]);
 }
 
 /// Settings › Appearance: colour themes, text size, corners, the video player's look, and
@@ -372,6 +509,76 @@ class AppearanceSettings extends SettingsGroup {
         read: (r) => VideoPlayerLook.fromJson(r['videoPlayerLook'])),
     Setting.flag('scaleWithWindow', true, () => scaleWithWindow, (v) => scaleWithWindow = v),
   ];
+
+  /// Adds a saved theme, or replaces the one with the same id (Settings › Appearance ›
+  /// Advanced). [use] switches to it.
+  Future<void> saveTheme(Map<String, dynamic> theme, {bool use = true}) async {
+    final id = theme['id'];
+    if (id is! String) return;
+    final i = savedThemes.indexWhere((t) => t['id'] == id);
+    savedThemes = [...savedThemes];
+    if (i < 0) {
+      savedThemes.add(Map.of(theme));
+    } else {
+      savedThemes[i] = Map.of(theme);
+    }
+    if (use) themeId = id;
+    await commit();
+  }
+
+  /// "Your own" back to its starting colours (the Default theme's highlight and background).
+  /// Returns what it had, as (accent, background), so the change can be undone.
+  Future<(String?, String?)> resetCustomColours() async {
+    final before = (customAccent, customBackground);
+    customAccent = null;
+    customBackground = null;
+    await commit();
+    return before;
+  }
+
+  /// Puts "Your own" colours back after [resetCustomColours] (Undo).
+  Future<void> restoreCustomColours((String?, String?) colours) {
+    customAccent = colours.$1;
+    customBackground = colours.$2;
+    return commit();
+  }
+
+  /// Removes a saved theme; if it was in use, goes back to Default.
+  Future<void> deleteTheme(String id) {
+    savedThemes = [for (final t in savedThemes) if (t['id'] != id) t];
+    if (themeId == id) themeId = 'default';
+    return commit();
+  }
+
+  /// Text size and corner roundness (Settings › Appearance › Advanced).
+  Future<void> setLook({double? textSize, double? cornerRoundness}) {
+    this.textSize = (textSize ?? this.textSize).clamp(0.8, 1.5).toDouble();
+    this.cornerRoundness = (cornerRoundness ?? this.cornerRoundness).clamp(0.0, 2.0).toDouble();
+    return commit();
+  }
+
+  /// Settings › Appearance (0.1.24): which colour theme ('default', 'midnight', 'forest' or
+  /// 'custom'), and the two colours of "Your own" as "#RRGGBB" (null = not chosen yet). Kept as
+  /// text here; ui/theme.dart turns them into colours.
+  Future<void> setTheme({String? id, String? accent, String? background}) {
+    themeId = id ?? themeId;
+    if (accent != null && hexColour.hasMatch(accent)) customAccent = accent.toUpperCase();
+    if (background != null && hexColour.hasMatch(background)) customBackground = background.toUpperCase();
+    return commit();
+  }
+
+  /// Settings › Appearance › Shrink to fit small windows.
+  Future<void> setScaleWithWindow(bool on) {
+    scaleWithWindow = on;
+    return commit();
+  }
+
+  /// Changes how the video player's buttons look (Settings › Appearance › Video player).
+  Future<void> setVideoPlayerLook(VideoPlayerLook look) async {
+    if (look == videoPlayerLook) return;
+    videoPlayerLook = look;
+    await commit();
+  }
 }
 
 /// How the library is laid out on the computer: the sidebar (width, folded, quick links), the
@@ -447,6 +654,41 @@ class LayoutSettings extends SettingsGroup {
     Setting.decimal('sidebarWidth', 250, () => sidebarWidth, (v) => sidebarWidth = v, min: sidebarMinWidth, max: sidebarMaxWidth),
     Setting.flag('sidebarFolded', false, () => sidebarFolded, (v) => sidebarFolded = v),
   ];
+
+  /// The sidebar's width (kept between [sidebarMinWidth] and [sidebarMaxWidth]) and folded state.
+  Future<void> setSidebar({double? width, bool? folded}) {
+    if (width != null) sidebarWidth = width.clamp(sidebarMinWidth, sidebarMaxWidth).toDouble();
+    if (folded != null) sidebarFolded = folded;
+    return commit();
+  }
+
+  /// Your Library › Artists: grid (true) or list (false) (0.1.52).
+  Future<void> setArtistsGrid(bool on) {
+    artistsGrid = on;
+    return commit();
+  }
+
+  /// Whether this album / artist / book / collection / video is a quick link in the sidebar.
+  bool isQuickLink(QuickLinkKind kind, String id) => quickLinks.any((l) => l.sameAs(kind, id));
+
+  /// Adds a quick link at the end of the sidebar's list (0.1.64); one per item.
+  Future<void> addQuickLink(QuickLink link) async {
+    if (isQuickLink(link.kind, link.id)) return;
+    quickLinks = [...quickLinks, link];
+    await commit();
+  }
+
+  /// Takes a quick link off the sidebar.
+  Future<void> removeQuickLink(QuickLinkKind kind, String id) async {
+    final before = quickLinks.length;
+    quickLinks = [for (final l in quickLinks) if (!l.sameAs(kind, id)) l];
+    if (quickLinks.length == before) return;
+    await commit();
+  }
+
+  /// Adds it if it isn't there, takes it off if it is (the menus' "Add to / Remove from sidebar").
+  Future<void> toggleQuickLink(QuickLink link) =>
+      isQuickLink(link.kind, link.id) ? removeQuickLink(link.kind, link.id) : addQuickLink(link);
 }
 
 /// Every settings group, and settings.json made from them and read back into them.
