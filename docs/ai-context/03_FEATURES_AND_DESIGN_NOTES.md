@@ -186,6 +186,35 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Edit series (8 Oct 2026, 0.1.76, branch `feature/edit-series`)
+- **Step 2 of the series work** (the user: "We might need a method to edit series like how we
+  do with video collections"; "Go with your suggestions").
+- **Edit series** (`screens/edit_series.dart`, `showEditSeries`, from the page's **Edit
+  series** button `series-edit`, the ⋮ menu and the card's menu `series-menu-edit`): Name
+  (`series-edit-name`), Author (`series-edit-author`; empty / unchanged leaves each book's own;
+  with several authors the hint lists them), Description (`series-edit-description`), then the
+  books: drag to reorder (`ReorderableListView`, `onReorderItem`), ✕ takes one out
+  (`series-edit-remove:<id>`), **Add books…** (`series-edit-add`) picks from the rest of the
+  library (search, tick, Add n). Save (`series-edit-save`) returns the new name and the open page
+  follows it (SeriesScreen is stateful, `_edit`).
+- **Saved** by `LibraryModel.editSeries` as TrackEdits through `editTracks` (files unchanged,
+  like Edit book): a new name on every book; the author as artist + album artist; dragged order
+  numbered 1, 2, 3… (added books too); otherwise added books numbered after the last book left;
+  taken-out books get series "" and their number cleared. A rename moves `seriesInfo` and the
+  sidebar link; the UI moves the favourite (`PlaylistsModel.renameFavouriteSeries`).
+- **Series details:** `LibraryModel.seriesInfo` (settings.json `seriesInfo`: name →
+  `description`, `picture`), `seriesDescription`, `setSeriesDescription`. The page shows the
+  description (`series-description`) under the header.
+- **Change picture** (`showSeriesPictureOptions`, button `series-change-picture`, menu
+  `series-menu-picture`): Choose an image file… (copied into art/custom with `importCover`), Use
+  one of its book covers… (`series-cover-pick:<id>`, stored as "book:<id>"), Use the automatic
+  picture. `SeriesCover` draws it on the cards and the page; `seriesCoverBook` /
+  `seriesPictureFile`. The custom-art clean-up keeps series pictures, and a restored backup
+  drops a series picture outside the art folder (`AppBackup.sanitize`).
+- **Tests:** `test/edit_series_test.dart` (rename with details and link, reorder, add / take out
+  / author, picture + settings + backup, and on screen: rename with the page and favourite
+  following, take out and add, the menu's picture choice).
+
 ## Audiobook series: a page, favourites and the sidebar (8 Oct 2026, 0.1.75, branch `feature/book-series`)
 - **The user asked (8 Oct):** "Allow for the favouriting and adding audiobook series to be
   connected to the sidebar. We might need a method to edit series like how we do with video

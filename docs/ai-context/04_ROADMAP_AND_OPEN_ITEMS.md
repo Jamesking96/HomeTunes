@@ -69,7 +69,7 @@ while commenting".
 | Rescan buttons on Your Library and Audiobooks, like the Videos tab's (0.1.73) | Built 8 Oct on `feature/rescan-buttons` (off the 0.1.72 branch), not merged yet. See `03_`, Rescan buttons |
 | Audiobooks sub-tabs (Series first, then All / In progress / Not started / Finished / Favourites), each with Your Library's filter bar, chips and sorting (0.1.74) | Built 8 Oct on `feature/audiobook-tabs` (off the 0.1.73 branch), not merged yet. See `03_`, Audiobooks sub-tabs |
 | Audiobook series: a page per series, series cards, favourite series, series in the sidebar (0.1.75) | Built 8 Oct on `feature/book-series` (off the 0.1.74 branch), not merged yet. Step 1 of 2 (the user: "Go with your suggestions"). See `03_`, Audiobook series |
-| Edit series: name, author, description, order, add / remove books, picture (0.1.76) | Next, on the same branch: step 2 |
+| Edit series: name, author, description, order, add / take out books, picture (0.1.76) | Built 8 Oct on `feature/edit-series` (off the 0.1.75 branch), not merged yet. Step 2 of 2. See `03_`, Edit series |
 | L: Linux build, incl. Steam Deck (0.2.0, the start of the next level) | On hold (6 Oct, the user's choice): WSL2 can't be installed on the current PC, so L1 (the Linux build) moves to another PC. Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (the 0.2.x after L) | After L |
 | T: Android TV (the 0.2.x after A) | After A |
@@ -195,7 +195,8 @@ it is stays 0.1.x (0.1.71 next); 0.2.0 is kept for the next level of development
 see the Platforms plan above). Open branches: `fix/video-next-button` (0.1.71) and
 `feature/now-playing-small-window` (0.1.72, built on top of it), `feature/rescan-buttons`
 (0.1.73, on top of that), `feature/audiobook-tabs` (0.1.74, on top of that) and
-`feature/book-series` (0.1.75, on top of that); the 11 merged ones
+`feature/book-series` (0.1.75, on top of that) and `feature/edit-series` (0.1.76, on top of
+that); the 11 merged ones
 were deleted on 6 Oct. Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
