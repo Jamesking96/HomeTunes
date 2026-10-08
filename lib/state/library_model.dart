@@ -28,7 +28,6 @@ import '../services/music_permission.dart';
 import '../services/music_video.dart';
 import '../services/path_safety.dart';
 import '../services/secret_store.dart';
-import '../services/server_art_cache.dart';
 import '../services/storage.dart';
 import '../services/subsonic_client.dart';
 import '../services/tag_writer.dart';
@@ -37,6 +36,7 @@ import '../services/window_pin.dart';
 import 'book_index.dart';
 import 'library_index.dart' as index;
 import 'media_folders.dart';
+import 'server_connection.dart';
 import 'settings/settings_groups.dart';
 
 export 'settings/settings_groups.dart' show ReplayGainMode;
@@ -102,7 +102,6 @@ class LibraryModel extends ChangeNotifier {
   set httpAllowedHost(String? v) => settings.server.httpAllowedHost = v;
   bool get serverBooks => settings.server.serverBooks;
   set serverBooks(bool v) => settings.server.serverBooks = v;
-  set _passwordInSettings(bool v) => settings.server.passwordInSettings = v;
 
   // Online lookups (OnlineSettings).
   bool get onlineCovers => settings.online.onlineCovers;
@@ -214,13 +213,13 @@ class LibraryModel extends ChangeNotifier {
   Map<String, Map<String, String>> get seriesInfo => settings.layout.seriesInfo;
   set seriesInfo(Map<String, Map<String, String>> v) => settings.layout.seriesInfo = v;
   static const seriesBookPrefix = 'book:';
-  // The connection to the server, or null when there's no server or it's switched off.
-  SubsonicClient? _client;
-  SubsonicClient? get client => _client;
+  /// The connection to the music server: its password, the client and its covers
+  /// (state/server_connection.dart, refactor phase 3).
+  late final ServerConnection connection = ServerConnection(settings.server, secrets: secrets, artDir: storage.artDir);
 
-  /// Downloaded server covers for the system media controls (0.1.21, security review #2).
-  ServerArtCache? _serverArt;
-  String get _serverArtDir => p.join(storage.artDir, 'server');
+  // The connection to the server, or null when there's no server or it's switched off.
+  SubsonicClient? get _client => connection.client;
+  SubsonicClient? get client => _client;
 
   // ---- data ----
   // Songs from the scanned folders and from the server, as read (edits not applied yet).
@@ -374,8 +373,8 @@ class LibraryModel extends ChangeNotifier {
     // The server password lives in the system's protected storage (0.1.17). A plain-text one in
     // settings.json (an older version, or a restored backup that included it) is moved there,
     // and settings.json is saved again without it.
-    final movedPassword = await _loadServerPassword();
-    _rebuildClient();
+    final movedPassword = await connection.loadPassword();
+    connection.reconnect();
     // 2. The user's edits. A damaged entry is skipped (and a copy of the file kept), rather
     //    than losing every edit.
     final edits = await storage.read('edits.json');
@@ -424,47 +423,8 @@ class LibraryModel extends ChangeNotifier {
     if (movedPassword) await _saveSettings();
   }
 
-  // While the password has to stay in settings.json (no protected storage on this device, or
-  // saving it there failed): _passwordInSettings, kept in ServerSettings.passwordInSettings.
-
-  /// Fills in [server]'s password from the protected storage, or moves a plain-text one from
-  /// settings.json into it. Returns true when settings.json should be saved again without it.
-  Future<bool> _loadServerPassword() async {
-    final store = secrets;
-    _passwordInSettings = store == null;
-    if (store == null || server.url.trim().isEmpty) return false;
-    final key = SecretStore.serverPasswordKey(server.url, server.username);
-    if (server.password.isNotEmpty) {
-      if (await store.write(key, server.password)) return true;
-      _passwordInSettings = true; // couldn't move it: keep it where it is
-      return false;
-    }
-    final saved = await store.read(key);
-    if (saved != null) server = ServerConfig(url: server.url, username: server.username, password: saved);
-    return false;
-  }
-
-  /// Saves [config]'s password in the protected storage (and forgets [previous]'s, if that was
-  /// a different server or user). Falls back to settings.json if that isn't possible.
-  Future<void> _storeServerPassword(ServerConfig config, {ServerConfig? previous}) async {
-    final store = secrets;
-    if (store == null) {
-      _passwordInSettings = true;
-      return;
-    }
-    final key = SecretStore.serverPasswordKey(config.url, config.username);
-    if (previous != null && previous.url.trim().isNotEmpty) {
-      final oldKey = SecretStore.serverPasswordKey(previous.url, previous.username);
-      if (oldKey != key) await store.delete(oldKey);
-    }
-    if (config.password.isEmpty) {
-      await store.delete(key);
-      _passwordInSettings = false;
-    } else {
-      _passwordInSettings = !await store.write(key, config.password);
-    }
-  }
-
+  // The server password: kept in the protected storage by ServerConnection (loadPassword /
+  // storePassword); settings.json holds it only when that isn't possible.
   /// Writes every setting to settings.json.
   Future<void> _saveSettings() => storage.write('settings.json', settings.toJson());
 
@@ -519,14 +479,7 @@ class LibraryModel extends ChangeNotifier {
       });
 
   /// Makes a fresh server connection from the current settings (or none).
-  /// Syncs check `identical(c, _client)` to notice the connection was replaced mid-sync.
-  void _rebuildClient() {
-    _client?.close();
-    _serverArt?.close();
-    final c = _client = serverEnabled && server.isComplete ? SubsonicClient(server) : null;
-    _serverArt = c == null ? null : ServerArtCache(_serverArtDir, c);
-  }
-
+  void _rebuildClient() => connection.reconnect();
   /// Works out everything the screens show from the raw songs, the edits and the settings.
   /// Called after anything changes. It's the slow part of a scan, so scans only call it a few
   /// times rather than once per batch of files.
@@ -1146,57 +1099,23 @@ class LibraryModel extends ChangeNotifier {
   /// Settings asks; calling again with [allowPlainHttp] (the user said yes) tries http and
   /// remembers the answer for that server. An address typed with http:// is the user's choice.
   Future<String?> connectServer(ServerConfig config, {bool allowPlainHttp = false}) async {
-    final typed = config.url.trim();
-    final hasScheme = typed.startsWith('http://') || typed.startsWith('https://');
-    final attempts = hasScheme
-        ? [config]
-        : [
-            ServerConfig(url: 'https://$typed', username: config.username, password: config.password),
-            ServerConfig(url: 'http://$typed', username: config.username, password: config.password),
-          ];
-    String? lastError;
-    ServerConfig? working;
-    for (final attempt in attempts) {
-      if (!hasScheme && attempt.url.startsWith('http://') && isPlainHttpToInternet(attempt.url)) {
-        final host = _hostOf(attempt.url);
-        if (!allowPlainHttp && host != httpAllowedHost) return httpConsentNeeded;
-      }
-      // Try the details with a throwaway connection first, so bad details never get saved.
-      final test = SubsonicClient(attempt);
-      try {
-        await test.ping();
-        working = attempt;
-        break;
-      } on SubsonicException catch (e) {
-        lastError = e.message;
-        // A real answer from the server (e.g. wrong password): no point trying http as well.
-        if (e.fromServer) break;
-      } catch (e) {
-        // e.g. an address that isn't a valid URL at all.
-        lastError = 'That server address doesn\'t look right (${hideSecrets('$e')})';
-      } finally {
-        test.close();
-      }
-    }
-    if (working == null) return lastError;
-    if (!hasScheme && working.url.startsWith('http://') && isPlainHttpToInternet(working.url)) {
-      httpAllowedHost = _hostOf(working.url);
+    final (:working, :error) = await connection.connectionTo(config, allowPlainHttp: allowPlainHttp);
+    if (working == null) return error;
+    if (ServerConnection.needsHttpAllowance(config.url, working)) {
+      httpAllowedHost = ServerConnection.hostOf(working.url);
     }
     final previous = server;
     server = working;
     serverEnabled = true;
-    await _storeServerPassword(working, previous: previous);
+    await connection.storePassword(working, previous: previous);
     _rebuildClient();
     await _saveSettings();
     await syncServer();
     return null;
   }
-
   /// What [connectServer] returns when the server only answered over plain http on the
   /// internet, and the user hasn't agreed to that yet.
-  static const httpConsentNeeded = 'HTTP_CONSENT_NEEDED';
-
-  static String _hostOf(String url) => Uri.tryParse(url)?.host.toLowerCase() ?? '';
+  static const httpConsentNeeded = ServerConnection.httpConsentNeeded;
 
   /// The server on/off switch. Turning it on syncs, if we don't have its songs yet.
   Future<void> setServerEnabled(bool on) async {
@@ -1210,15 +1129,13 @@ class LibraryModel extends ChangeNotifier {
   /// Removes the server's details and its songs.
   Future<void> forgetServer() async {
     // Its password is removed from the protected storage too.
-    if (server.url.trim().isNotEmpty) {
-      await secrets?.delete(SecretStore.serverPasswordKey(server.url, server.username));
-    }
+    await connection.forgetPassword();
     server = const ServerConfig(url: '', username: '', password: '');
     serverEnabled = false;
     httpAllowedHost = null;
     _remote = [];
     _rebuildClient();
-    await ServerArtCache.clear(_serverArtDir);
+    await connection.clearArtCache();
     await _saveSettings();
     await _saveLibrary();
     _rebuild();
@@ -1679,7 +1596,7 @@ class LibraryModel extends ChangeNotifier {
     if (_artIsFile(t)) return isInsideAny(art, coverFolders) ? Uri.file(art) : null;
     // 0.1.21 (security review #2): a server cover is handed over as a file downloaded by
     // ServerArtCache, never as the server address, which carries the login token.
-    final cache = _serverArt;
+    final cache = connection.art;
     if (cache == null) return null;
     final file = cache.cachedFile(art, size: size);
     if (file != null) return Uri.file(file);
