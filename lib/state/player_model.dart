@@ -12,7 +12,9 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:media_kit/media_kit.dart' show Media, NativePlayer, Player, Playlist, PlaylistMode;
+// The engine is an AudioEngine (refactor phase 4): media_kit in the app, a fake in tests.
+import '../services/engine/audio_engine.dart';
+import '../services/engine/media_kit_audio_engine.dart';
 
 import '../models/book.dart';
 import '../models/eq_preset.dart';
@@ -53,8 +55,8 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   /// The equaliser settings (null in tests that don't need them).
   final EqualizerModel? equalizer;
-  // The media_kit engine. There's only ever one.
-  final Player _player = Player();
+  // The audio engine (media_kit / libmpv in the app; there's only ever one). Tests pass a fake.
+  final AudioEngine _player;
   final PlayQueue queue = PlayQueue();
   // Our listeners on the engine's event streams, cancelled in dispose().
   final List<StreamSubscription> _subs = [];
@@ -132,7 +134,8 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   // Saves the book place every 10 seconds (see the constructor).
   Timer? _saveTimer;
 
-  PlayerModel(this.library, {this.listening, this.equalizer}) {
+  PlayerModel(this.library, {this.listening, this.equalizer, AudioEngine? engine})
+      : _player = engine ?? MediaKitAudioEngine() {
     library.addListener(_onLibraryChanged);
     equalizer?.addListener(_applyEqualizer);
     _applyEngineSettings();
@@ -145,7 +148,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     _watchdog = Timer.periodic(const Duration(seconds: 3), (_) => _checkProgress());
     // Listen to the engine's events and copy them into our own fields for the UI.
     _subs.addAll([
-      _player.stream.playing.listen((v) {
+      _player.playingStream.listen((v) {
         // Going from playing to paused is a good moment to save the book place.
         final paused = playing && !v;
         if (v != playing) {
@@ -157,17 +160,17 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         if (paused) saveBookPlace();
         notifyListeners();
       }),
-      _player.stream.buffering.listen((v) {
+      _player.bufferingStream.listen((v) {
         buffering = v;
         notifyListeners();
       }),
-      _player.stream.duration.listen((v) {
+      _player.durationStream.listen((v) {
         // The engine knows the real length once a file opens; remember it if the tags were wrong.
         duration = v;
         _learnDuration(v);
         notifyListeners();
       }),
-      _player.stream.completed.listen((done) {
+      _player.completedStream.listen((done) {
         // The engine reports "finished" at the end of every song, a moment
         // before it moves on to one loaded ahead (checked with
         // tool/bench/engine_test.dart). Only act when nothing was loaded
@@ -177,20 +180,19 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         // otherwise a queue of unplayable songs with repeat on could keep skipping for ever.
         if (done && _opening == 0 && _engineEdits == 0 && _engineIds.length == 1) _advance(auto: true);
       }),
-      _player.stream.playlist.listen((pl) {
+      _player.indexStream.listen((index) {
         // The engine moved on to the song loaded ahead, by itself.
-        if (_opening == 0 && _engineEdits == 0 && pl.index == 1 && _engineIds.length > 1) {
+        if (_opening == 0 && _engineEdits == 0 && index == 1 && _engineIds.length > 1) {
           _onEngineAdvanced();
         }
       }),
-      _player.stream.audioParams.listen((a) {
-        final r = a.sampleRate;
+      _player.sampleRateStream.listen((r) {
         if (r != null && r > 0 && r != _sampleRate) {
           _sampleRate = r;
           _applyEqualizer();
         }
       }),
-      _player.stream.error.listen((e) {
+      _player.errorStream.listen((e) {
         // Engine errors can quote the stream address, login token included: hide it (0.1.17).
         lastError = hideSecrets(e);
         notifyListeners();
@@ -237,9 +239,9 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
           _engineEdits == 0 &&
           _engineIds.isNotEmpty &&
           _engineIds.first == id &&
-          _player.state.playlist.index == 0;
+          _player.index == 0;
       if (!settled) return;
-      final length = _player.state.duration;
+      final length = _player.duration;
       if (length <= Duration.zero) return;
       // Ignore tiny differences (under 2 s) so we don't rewrite the library for nothing.
       if (!now.hasDuration || (length - now.duration).abs() > const Duration(seconds: 2)) {
@@ -253,9 +255,9 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   @override
   Track? get current => queue.current;
   // The seek bar listens to this directly, so position updates don't redraw everything.
-  Stream<Duration> get positionStream => _player.stream.position;
+  Stream<Duration> get positionStream => _player.positionStream;
   @override
-  Duration get position => _player.state.position;
+  Duration get position => _player.position;
   bool get shuffle => queue.shuffle;
   RepeatSetting get repeat => queue.repeat;
 
@@ -329,13 +331,10 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
       final ahead = _songToLoadAhead();
       _engineIds = [t.id, if (ahead != null) ahead.$1.id];
       // Replace the engine's whole list with [this song, next song] and start at the first.
-      await _player.open(
-        Playlist([Media(uri, start: start), if (ahead != null) Media(ahead.$2)], index: 0),
-        play: true,
-      );
+      await _player.openList([EngineMedia(uri, start: start), if (ahead != null) EngineMedia(ahead.$2)], play: true);
       // Make sure the new song actually starts, even if playback was paused
       // (e.g. pressing Next while paused, or after the previous song ended).
-      if (!_player.state.playing) await _player.play();
+      if (!_player.isPlaying) await _player.play();
     } finally {
       _opening--;
     }
@@ -388,7 +387,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     }
     // The engine briefly counts itself as stopped at the end of each song;
     // make sure it carries on.
-    if (!_player.state.playing) await _player.play();
+    if (!_player.isPlaying) await _player.play();
     notifyListeners();
     await _syncLoadedAhead();
   }
@@ -413,7 +412,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         _engineIds.removeLast();
       }
       if (want != null) {
-        await _player.add(Media(want.$2));
+        await _player.add(EngineMedia(want.$2));
         _engineIds.add(want.$1.id);
       }
     } catch (e) {
@@ -430,7 +429,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     if (_appliedLoopOne == loop) return;
     _appliedLoopOne = loop;
     try {
-      await _player.setPlaylistMode(loop ? PlaylistMode.single : PlaylistMode.none);
+      await _player.setLoopOne(loop);
     } catch (e) {
       debugPrint('HomeTunes: couldn\'t set repeat-one looping: $e');
     }
@@ -439,35 +438,34 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// Sends the gapless and ReplayGain settings to the audio engine.
   Future<void> _applyEngineSettings() async {
     // These are mpv settings, so they only exist on the native (libmpv) engine.
-    final engine = _player.platform;
-    if (engine is! NativePlayer) return;
+    if (!_player.hasOptions) return;
     try {
       // 0.1.40: the engine is now the video build (for music videos), but this player only ever
       // plays sound. vid=no stops it decoding the pictures in an .mp4 song for nothing; the
       // music video is drawn by a separate, muted player (ui/widgets/music_video_view.dart).
       if (!_videoOff) {
         _videoOff = true;
-        await engine.setProperty('vid', 'no');
+        await _player.setOption('vid', 'no');
       }
       if (_appliedGapless != library.gaplessPlayback) {
         _appliedGapless = library.gaplessPlayback;
         // "yes": no gap even between files of different formats; the next
         // file is opened early so streams from a server are ready in time.
-        await engine.setProperty('gapless-audio', library.gaplessPlayback ? 'yes' : 'no');
-        await engine.setProperty('prefetch-playlist', library.gaplessPlayback ? 'yes' : 'no');
+        await _player.setOption('gapless-audio', library.gaplessPlayback ? 'yes' : 'no');
+        await _player.setOption('prefetch-playlist', library.gaplessPlayback ? 'yes' : 'no');
         await _syncLoadedAhead();
       }
       final rg = library.replayGain.name; // off / track / album
       if (_appliedReplayGain != rg) {
         _appliedReplayGain = rg;
-        await engine.setProperty('replaygain', rg == 'off' ? 'no' : rg);
+        await _player.setOption('replaygain', rg == 'off' ? 'no' : rg);
       }
       // Volume boost (0.1.61 / 0.1.62): let the engine's volume go above 100 (it stops at 130
       // unless told); when the boost's top is lowered (or it's turned off), bring a louder
       // volume down to it.
       if (!_volumeMaxRaised) {
         _volumeMaxRaised = true;
-        await engine.setProperty('volume-max', '$engineVolumeMax');
+        await _player.setOption('volume-max', '$engineVolumeMax');
       }
       if (volume > library.maxVolume) await setVolume(library.maxVolume);
     } catch (e) {
@@ -514,7 +512,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// The play/pause button.
   Future<void> togglePlay() async {
     if (queue.current == null) return;
-    pausedOnPurpose = _player.state.playing;
+    pausedOnPurpose = _player.isPlaying;
     await _player.playOrPause();
   }
 
@@ -541,14 +539,14 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     final stuck = _stall.check(
       playing: playing,
       busy: buffering || _opening > 0 || queue.current == null,
-      position: _player.state.position,
+      position: _player.position,
       now: DateTime.now(),
     );
     if (stuck) await _recoverStall();
   }
 
   Future<void> _recoverStall() async {
-    final at = _player.state.position;
+    final at = _player.position;
     final now = DateTime.now();
     final again = _lastRestart != null && now.difference(_lastRestart!) < const Duration(minutes: 1);
     if (again) {
@@ -569,9 +567,9 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// stopped while the app was asleep).
   Future<void> checkAfterResume() async {
     if (!playing) return;
-    final before = _player.state.position;
+    final before = _player.position;
     await Future<void>.delayed(const Duration(seconds: 3));
-    if (playing && !buffering && _opening == 0 && queue.current != null && _player.state.position == before) {
+    if (playing && !buffering && _opening == 0 && queue.current != null && _player.position == before) {
       PlaybackLog.add('Back on screen, but playback isn\'t moving');
       await _recoverStall();
     }
@@ -675,11 +673,10 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     }
     final filter = eqFilter(preset, sampleRate: _sampleRate);
     if (filter == _appliedEq) return;
-    final engine = _player.platform;
-    if (engine is! NativePlayer) return;
+    if (!_player.hasOptions) return;
     _appliedEq = filter;
     try {
-      await engine.setProperty('af', filter);
+      await _player.setOption('af', filter);
       debugPrint('HomeTunes: equaliser ${filter.isEmpty ? 'off' : 'on: $filter'}');
       equalizer?.reportUnavailable(false);
     } catch (e) {
@@ -782,7 +779,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         queue.tracks,
         queue.originalTracks,
         queue.position,
-        _player.state.position,
+        _player.position,
         queue.shuffle,
         queue.repeat,
         queue.contextLabel,
@@ -827,7 +824,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     final t = queue.current;
     // Not while a file is opening: the engine's position would still belong to the old file.
     if (b == null || t == null || _opening > 0) return;
-    listening?.record(b, t.id, _player.state.position);
+    listening?.record(b, t.id, _player.position);
   }
 
   /// Stops being in book mode (music was chosen). The waiting music queue is
