@@ -492,3 +492,37 @@ List<(String?, List<Book>)> sortSeries(
     if (loose.isNotEmpty) (noSeries, loose..sort((a, b) => naturalCompare(a.title, b.title))),
   ];
 }
+
+// ---------------------------------------------------------------- series (0.1.75)
+
+/// One audiobook series: its name and its books in reading order. Series have no file of their
+/// own; they're the books that share a series name.
+class BookSeries {
+  final String name;
+  final List<Book> books;
+  const BookSeries(this.name, this.books);
+
+  /// The authors, most books first ("A. Writer" or "A. Writer, B. Other").
+  List<String> get authors {
+    final counts = <String, int>{};
+    for (final b in books) {
+      if (b.author.isNotEmpty) counts[b.author] = (counts[b.author] ?? 0) + 1;
+    }
+    return counts.keys.toList()..sort((a, b) => counts[b]!.compareTo(counts[a]!));
+  }
+
+  /// The first book with a cover, for the series' picture.
+  Book get coverBook => books.firstWhere((b) => b.artTrack != null, orElse: () => books.first);
+}
+
+/// The series [name]'s books in reading order, or null when no book has that series.
+BookSeries? seriesNamed(Iterable<Book> books, String name) {
+  final list = [for (final b in books) if (b.series == name) b];
+  return list.isEmpty ? null : BookSeries(name, list..sort(compareBySeries));
+}
+
+/// [groups] from [sortSeries] as series (the "Not in a series" group left out).
+List<BookSeries> seriesOf(List<(String?, List<Book>)> groups) => [
+      for (final (h, g) in groups)
+        if (h != null && h != noSeries) BookSeries(h, g)
+    ];

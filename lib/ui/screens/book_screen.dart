@@ -19,6 +19,7 @@ import '../../state/library_model.dart';
 import '../../state/listening_model.dart';
 import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
+import '../nav.dart';
 import '../theme.dart';
 import '../widgets/book_card.dart';
 import '../widgets/bookmark_widgets.dart';
@@ -106,6 +107,14 @@ class BookScreen extends StatelessWidget {
         Text(book.author, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
         Text(details, textAlign: wide ? TextAlign.start : TextAlign.center, style: TextStyle(color: AppColors.textDim)),
+        // The series' page (0.1.75): all its books in order.
+        if (book.series != null)
+          TextButton.icon(
+            key: const ValueKey('book-open-series'),
+            icon: const Icon(Icons.collections_bookmark_outlined, size: 18),
+            label: Text('See the ${book.series} series'),
+            onPressed: () => context.read<AppNav>().openSeries(book.series!),
+          ),
         const SizedBox(height: 10),
         if (state == BookState.inProgress)
           SizedBox(
