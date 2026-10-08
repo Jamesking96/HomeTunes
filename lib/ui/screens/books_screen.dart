@@ -19,6 +19,7 @@ import '../widgets/book_card.dart';
 import '../widgets/cards.dart';
 import '../widgets/music_access_banner.dart';
 import '../widgets/music_filter_sheet.dart' show SortMenu, SortWords, reverseGroupsIf;
+import '../widgets/rescan_button.dart';
 import '../widgets/search_choice_field.dart';
 
 /// The quick "state" chips along the top of the Books tab.
@@ -134,7 +135,10 @@ class _BooksScreenState extends State<BooksScreen> {
     // No books at all yet: a helpful message and a button straight to Settings > Audiobooks.
     if (lib.books.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Audiobooks', style: TextStyle(fontWeight: FontWeight.w800))),
+        appBar: AppBar(
+          title: const Text('Audiobooks', style: TextStyle(fontWeight: FontWeight.w800)),
+          actions: const [RescanButton(tooltip: 'Rescan audiobook and music folders')],
+        ),
         body: Column(children: [
           const MusicAccessBanner(),
           Expanded(
@@ -199,6 +203,7 @@ class _BooksScreenState extends State<BooksScreen> {
               )
             : const Text('Audiobooks', style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [
+          const RescanButton(tooltip: 'Rescan audiobook and music folders'),
           IconButton(
             tooltip: _searching ? 'Close search' : 'Search audiobooks',
             icon: Icon(_searching ? Icons.close : Icons.search),

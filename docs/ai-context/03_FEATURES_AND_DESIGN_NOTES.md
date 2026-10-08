@@ -186,6 +186,17 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Rescan buttons on Your Library and Audiobooks (8 Oct 2026, 0.1.73, branch `feature/rescan-buttons`)
+- **The user asked (8 Oct):** the Videos tab has a rescan button; add one for Audiobooks and
+  Music too, as an easy, fast "rescan all".
+- **Done:** `lib/ui/widgets/rescan_button.dart` (`RescanButton`, key `rescan-library`) in the top
+  bar of Your Library and of Audiobooks (also on its empty page). It calls
+  `LibraryModel.scanLocal`, the same rescan as Settings › Folders & scanning (music and
+  audiobook folders together, since books can sit in music folders). Greyed out with "Add
+  folders in Settings first" when there are none; a small spinner while scanning. Servers
+  aren't rescanned by it (they have their own refresh in Settings › Servers).
+- **Tests:** `test/rescan_button_test.dart`. Full suite 597, analyze clean.
+
 ## Now Playing in a small window, and a smallest window size (8 Oct 2026, 0.1.72, branch `feature/now-playing-small-window`)
 - **The user asked (8 Oct):** when the window is made smaller while music plays: with a video
   showing, the play buttons move onto the video as an overlay (like the normal video player);
