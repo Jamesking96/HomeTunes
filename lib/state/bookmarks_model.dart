@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/book.dart';
 import '../services/storage.dart';
+import 'song_id_follower.dart';
 
 /// A saved spot in an audiobook, with an optional note.
 class Bookmark {
@@ -57,7 +58,7 @@ class Bookmark {
 
 /// Bookmarks in audiobooks (bookmarks.json). They point at a file and a
 /// position, so they follow a book when it's renamed or its files move.
-class BookmarksModel extends ChangeNotifier {
+class BookmarksModel extends ChangeNotifier implements SongIdFollower {
   final Storage storage;
   BookmarksModel(this.storage);
 
@@ -141,9 +142,11 @@ class BookmarksModel extends ChangeNotifier {
   }
 
   /// Files bookmarks point at (kept by the "songs not on this device" check).
+  @override
   Set<String> get referencedIds => {for (final b in _all) b.partId};
 
   /// Files that moved (old id → new id): bookmarks follow them.
+  @override
   void remapIds(Map<String, String> moved) {
     var changed = false;
     _all = [
@@ -165,6 +168,7 @@ class BookmarksModel extends ChangeNotifier {
   }
 
   /// Drops bookmarks in files that were forgotten.
+  @override
   void removeIds(Set<String> ids) {
     final before = _all.length;
     _all.removeWhere((b) => ids.contains(b.partId));

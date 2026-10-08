@@ -18,6 +18,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/video_item.dart';
 import '../../state/range_select.dart';
+import '../../state/mixed_value.dart';
 import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
@@ -1127,12 +1128,17 @@ class _EditSeveralCollectionsState extends State<_EditSeveralCollections> {
   String? _yearError;
   bool _saving = false;
 
-  String? _common(String? Function(VideoCollection) get) {
-    final values = {for (final c in _list) get(c)};
-    return values.length == 1 ? values.single : null;
-  }
+  /// The value all the collections share, or null when they differ (or all have none).
+  String? _common(String? Function(VideoCollection) get) => _shared(get).value;
 
-  String? _hint(String? Function(VideoCollection) get) => _common(get) == null ? '--:--' : null;
+  // Blank counts as "none", so collections that are all blank share it (8 Oct: like the song and
+  // book editors, the box is then plain, not --:--).
+  ({bool differ, String? value}) _shared(String? Function(VideoCollection) get) => sharedValue<String?>([
+        for (final c in _list)
+          if (get(c) case final s? when s.isNotEmpty) s else null,
+      ]);
+
+  String? _hint(String? Function(VideoCollection) get) => _shared(get).differ ? differentMarker : null;
 
   @override
   void dispose() {

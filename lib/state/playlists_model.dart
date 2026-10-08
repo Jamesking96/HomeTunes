@@ -21,9 +21,10 @@ import '../models/book.dart';
 import '../models/playlist.dart';
 import '../models/track.dart';
 import '../services/storage.dart';
+import 'song_id_follower.dart';
 
 /// User playlists plus the special "Liked Songs" list.
-class PlaylistsModel extends ChangeNotifier {
+class PlaylistsModel extends ChangeNotifier implements SongIdFollower {
   final Storage storage;
   PlaylistsModel(this.storage);
 
@@ -277,10 +278,12 @@ class PlaylistsModel extends ChangeNotifier {
   }
 
   /// Every track id used by a playlist, Liked Songs or a favourite album or book.
+  @override
   Set<String> get referencedIds =>
       {..._likedSet, ..._favAlbums, ..._favBooks, for (final p in playlists) ...p.trackIds};
 
   /// Songs that moved (old id → new id) keep their places in playlists and likes.
+  @override
   void remapIds(Map<String, String> moved) {
     if (moved.isEmpty) return;
     var changed = false;
@@ -311,6 +314,7 @@ class PlaylistsModel extends ChangeNotifier {
   }
 
   /// Removes songs from every playlist and from Liked Songs.
+  @override
   void removeIds(Set<String> ids) {
     if (ids.isEmpty) return;
     for (final p in playlists) {
