@@ -451,6 +451,7 @@ class AppBackup {
       'liked': liked,
       'favouriteAlbums': both('favouriteAlbums'),
       'favouriteBooks': both('favouriteBooks'),
+      'favouriteSeries': both('favouriteSeries'),
     };
   }
 

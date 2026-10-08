@@ -24,6 +24,7 @@ import '../widgets/cards.dart';
 import '../widgets/music_access_banner.dart';
 import '../widgets/music_filter_sheet.dart';
 import '../widgets/rescan_button.dart';
+import '../widgets/series_card.dart';
 
 /// The sub-tabs along the top of the Audiobooks tab, in the order shown.
 enum BookTab { series, all, inProgress, notStarted, finished, favourites }
@@ -33,7 +34,13 @@ final List<FilterField<Book>> bookFields = [
   FilterField('Author', (b) => [if (b.author.isNotEmpty) b.author]),
   FilterField('Narrator', (b) => [?b.narrator]),
   FilterField('Series', (b) => [?b.series]),
-  FilterField('Genre', (b) => {for (final t in b.parts) if (t.genre?.trim().isNotEmpty ?? false) t.genre!.trim()}),
+  FilterField(
+    'Genre',
+    (b) => {
+      for (final t in b.parts)
+        if (t.genre?.trim().isNotEmpty ?? false) t.genre!.trim(),
+    },
+  ),
   FilterField('Decade', (b) => [?decadeOf(b.year)]),
 ];
 
@@ -58,13 +65,13 @@ class _BooksScreenState extends State<BooksScreen> with SingleTickerProviderStat
   }
 
   static String _label(BookTab t) => switch (t) {
-        BookTab.series => 'Series',
-        BookTab.all => 'All',
-        BookTab.inProgress => 'In progress',
-        BookTab.notStarted => 'Not started',
-        BookTab.finished => 'Finished',
-        BookTab.favourites => 'Favourites',
-      };
+    BookTab.series => 'Series',
+    BookTab.all => 'All',
+    BookTab.inProgress => 'In progress',
+    BookTab.notStarted => 'Not started',
+    BookTab.finished => 'Finished',
+    BookTab.favourites => 'Favourites',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -85,26 +92,28 @@ class _BooksScreenState extends State<BooksScreen> with SingleTickerProviderStat
     if (lib.books.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: title, actions: const [rescan]),
-        body: Column(children: [
-          const MusicAccessBanner(),
-          Expanded(
-            child: EmptyState(
-              icon: Icons.menu_book_outlined,
-              title: lib.busy ? 'Looking for audiobooks…' : 'No audiobooks yet',
-              message: lib.busy
-                  ? 'Progress is shown at the bottom of the screen.'
-                  : 'Add the folder your audiobooks are in under Settings › Audiobooks. '
-                      '.m4b files and files with the genre "Audiobook" in your music folders show up here too.',
-              action: lib.busy
-                  ? null
-                  : FilledButton.icon(
-                      icon: const Icon(Icons.create_new_folder_outlined),
-                      label: const Text('Add audiobooks'),
-                      onPressed: () => context.read<AppNav>().openSettings('audiobooks', setting: 'book-folders'),
-                    ),
+        body: Column(
+          children: [
+            const MusicAccessBanner(),
+            Expanded(
+              child: EmptyState(
+                icon: Icons.menu_book_outlined,
+                title: lib.busy ? 'Looking for audiobooks…' : 'No audiobooks yet',
+                message: lib.busy
+                    ? 'Progress is shown at the bottom of the screen.'
+                    : 'Add the folder your audiobooks are in under Settings › Audiobooks. '
+                          '.m4b files and files with the genre "Audiobook" in your music folders show up here too.',
+                action: lib.busy
+                    ? null
+                    : FilledButton.icon(
+                        icon: const Icon(Icons.create_new_folder_outlined),
+                        label: const Text('Add audiobooks'),
+                        onPressed: () => context.read<AppNav>().openSettings('audiobooks', setting: 'book-folders'),
+                      ),
+              ),
             ),
-          ),
-        ]),
+          ],
+        ),
       );
     }
 
@@ -169,60 +178,60 @@ class _BookTabState extends State<_BookTab> with AutomaticKeepAliveClientMixin {
 
   /// Forgets the typed words, the picked filters and the Favourites chip.
   void clearAll() => setState(() {
-        _search.clear();
-        _query = '';
-        _filters = MusicFilters.none;
-        _favouritesOnly = false;
-      });
+    _search.clear();
+    _query = '';
+    _filters = MusicFilters.none;
+    _favouritesOnly = false;
+  });
 
   bool get _narrowed => _query.trim().isNotEmpty || !_filters.isEmpty || _favouritesOnly;
 
   static String _sortLabel(BookSort s) => switch (s) {
-        BookSort.recentlyListened => 'Recently listened',
-        BookSort.title => 'Title',
-        BookSort.author => 'Author',
-        BookSort.narrator => 'Narrator',
-        BookSort.series => 'Series (in order)',
-        BookSort.recentlyAdded => 'Recently added',
-      };
+    BookSort.recentlyListened => 'Recently listened',
+    BookSort.title => 'Title',
+    BookSort.author => 'Author',
+    BookSort.narrator => 'Narrator',
+    BookSort.series => 'Series (in order)',
+    BookSort.recentlyAdded => 'Recently added',
+  };
 
   static SortWords _words(BookSort s) => switch (s) {
-        BookSort.recentlyListened || BookSort.recentlyAdded => SortWords.date,
-        BookSort.title || BookSort.author || BookSort.narrator => SortWords.text,
-        BookSort.series => SortWords.order,
-      };
+    BookSort.recentlyListened || BookSort.recentlyAdded => SortWords.date,
+    BookSort.title || BookSort.author || BookSort.narrator => SortWords.text,
+    BookSort.series => SortWords.order,
+  };
 
   static String _seriesLabel(SeriesSort s) => switch (s) {
-        SeriesSort.name => 'Series name',
-        SeriesSort.author => 'Author',
-        SeriesSort.recentlyListened => 'Recently listened',
-        SeriesSort.recentlyAdded => 'Recently added',
-        SeriesSort.mostBooks => 'Most books',
-      };
+    SeriesSort.name => 'Series name',
+    SeriesSort.author => 'Author',
+    SeriesSort.recentlyListened => 'Recently listened',
+    SeriesSort.recentlyAdded => 'Recently added',
+    SeriesSort.mostBooks => 'Most books',
+  };
 
   static SortWords _seriesWords(SeriesSort s) => switch (s) {
-        SeriesSort.name || SeriesSort.author => SortWords.text,
-        SeriesSort.recentlyListened || SeriesSort.recentlyAdded => SortWords.date,
-        SeriesSort.mostBooks => SortWords.number,
-      };
+    SeriesSort.name || SeriesSort.author => SortWords.text,
+    SeriesSort.recentlyListened || SeriesSort.recentlyAdded => SortWords.date,
+    SeriesSort.mostBooks => SortWords.number,
+  };
 
   /// Whether book [b] belongs on this tab at all.
   bool _onTab(Book b, ListeningModel l, PlaylistsModel p) => switch (_tab) {
-        BookTab.series || BookTab.all => true,
-        BookTab.favourites => p.isFavouriteBook(b),
-        BookTab.inProgress => l.stateOf(b) == BookState.inProgress,
-        BookTab.notStarted => l.stateOf(b) == BookState.notStarted,
-        BookTab.finished => l.stateOf(b) == BookState.finished,
-      };
+    BookTab.series || BookTab.all => true,
+    BookTab.favourites => p.isFavouriteBook(b),
+    BookTab.inProgress => l.stateOf(b) == BookState.inProgress,
+    BookTab.notStarted => l.stateOf(b) == BookState.notStarted,
+    BookTab.finished => l.stateOf(b) == BookState.finished,
+  };
 
   /// What the tab says when it has no books at all (before any filtering).
   String get _emptyText => switch (_tab) {
-        BookTab.series || BookTab.all => 'No audiobooks yet.',
-        BookTab.inProgress => 'No books in progress.',
-        BookTab.notStarted => 'No books waiting to be started.',
-        BookTab.finished => 'No finished books yet.',
-        BookTab.favourites => 'No favourite books yet. Tap the heart on a book to add it here.',
-      };
+    BookTab.series || BookTab.all => 'No audiobooks yet.',
+    BookTab.inProgress => 'No books in progress.',
+    BookTab.notStarted => 'No books waiting to be started.',
+    BookTab.finished => 'No finished books yet.',
+    BookTab.favourites => 'No favourites yet. Tap the heart on a book or a series to add it here.',
+  };
 
   Future<void> _chooseFilters(List<Book> books) async {
     final picked = await showMusicFilterSheet<Book>(
@@ -285,48 +294,92 @@ class _BookTabState extends State<_BookTab> with AutomaticKeepAliveClientMixin {
     final playlists = context.watch<PlaylistsModel>();
     final ratio = bookCoverRatio(context);
 
-    // 1. The tab's books, then the typed words (title, author, narrator or series) and the
-    //    picked filters; the Favourites chip narrows that to favourites.
-    final onTab = [for (final b in lib.books) if (_onTab(b, listening, playlists)) b];
-    final found = _query.trim().isEmpty ? null : {for (final b in searchBookList(onTab, _query)) b.id};
-    final passing = [
-      for (final b in onTab)
-        if ((found == null || found.contains(b.id)) && _filters.matches(b, bookFields)) b
+    // 1. The books passing the typed words (title, author, narrator or series) and the picked
+    //    filters; then the tab's own books among them.
+    final found = _query.trim().isEmpty ? null : {for (final b in searchBookList(lib.books, _query)) b.id};
+    final matching = [
+      for (final b in lib.books)
+        if ((found == null || found.contains(b.id)) && _filters.matches(b, bookFields)) b,
     ];
-    final favourites = passing.where(playlists.isFavouriteBook).toList();
-    final shown = _favouritesOnly ? favourites : passing;
-
-    // 2. Sorted into headed groups: one per series on the Series tab; for the other tabs, the
-    //    author / narrator / series sorts give headings and the rest one plain list.
+    final passing = [
+      for (final b in matching)
+        if (_onTab(b, listening, playlists)) b,
+    ];
     final series = _tab == BookTab.series;
-    final groups = series
-        ? sortSeries(shown, _seriesSort, lastListened: listening.lastListened, reverse: _reversed)
-        : reverseGroupsIf(_reversed, sortBooks(shown, _sort, lastListened: listening.lastListened));
-    // Everything shown, in the order shown: what "Select all" ticks.
-    final shownIds = [for (final (_, g) in groups) for (final b in g) b.id];
+
+    // 2. What to show: series cards and headed groups of book cards.
+    //  * Series tab (0.1.75): a card per series in the chosen order, then the books that aren't
+    //    in a series. Its chips count series, and Favourites shows favourite series.
+    //  * Favourites tab: favourite series' cards first, then favourite books.
+    //  * The others: books, with headings for the author / narrator / series sorts.
+    var seriesCards = <BookSeries>[];
+    List<(String?, List<Book>)> groups;
+    int allCount, favouriteCount;
+    if (series) {
+      final sorted = sortSeries(passing, _seriesSort, lastListened: listening.lastListened, reverse: _reversed);
+      final allSeries = seriesOf(sorted);
+      final favSeries = [
+        for (final s in allSeries)
+          if (playlists.isFavouriteSeries(s.name)) s,
+      ];
+      seriesCards = _favouritesOnly ? favSeries : allSeries;
+      final loose = _favouritesOnly
+          ? <Book>[]
+          : [
+              for (final (h, g) in sorted)
+                if (h == noSeries) ...g,
+            ];
+      groups = [if (loose.isNotEmpty) (seriesCards.isEmpty ? null : noSeries, loose)];
+      allCount = allSeries.length;
+      favouriteCount = favSeries.length;
+    } else {
+      final favourites = passing.where(playlists.isFavouriteBook).toList();
+      final shown = _favouritesOnly ? favourites : passing;
+      groups = reverseGroupsIf(_reversed, sortBooks(shown, _sort, lastListened: listening.lastListened));
+      allCount = passing.length;
+      favouriteCount = favourites.length;
+      if (_tab == BookTab.favourites) {
+        seriesCards = [
+          for (final s in seriesOf(sortSeries(matching, SeriesSort.name)))
+            if (playlists.isFavouriteSeries(s.name)) s,
+        ];
+        // With favourite series above, the books get a heading of their own.
+        if (seriesCards.isNotEmpty && groups.length == 1 && groups.first.$1 == null && groups.first.$2.isNotEmpty) {
+          groups = [('Books', groups.first.$2)];
+        }
+      }
+    }
+    // Every book shown, in the order shown: what "Select all" ticks.
+    final shownIds = [
+      for (final (_, g) in groups)
+        for (final b in g) b.id,
+    ];
     void edit() => _chooseFilters(lib.books);
 
     final Widget body;
-    if (shownIds.isEmpty) {
+    if (shownIds.isEmpty && seriesCards.isEmpty) {
       body = SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(32),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(
-              _narrowed ? 'No books match.' : _emptyText,
-              key: ValueKey('books-empty-${_tab.name}'),
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textDim),
-            ),
-            if (_narrowed) ...[
-              const SizedBox(height: 8),
-              TextButton(onPressed: clearAll, child: const Text('Clear filters')),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _narrowed ? 'No books match.' : _emptyText,
+                key: ValueKey('books-empty-${_tab.name}'),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textDim),
+              ),
+              if (_narrowed) ...[
+                const SizedBox(height: 8),
+                TextButton(onPressed: clearAll, child: const Text('Clear filters')),
+              ],
             ],
-          ]),
+          ),
         ),
       );
     } else {
-      body = _grid(groups, shownIds, ratio, series: series);
+      body = _grid(seriesCards, groups, shownIds, ratio);
     }
 
     final filterBar = series
@@ -365,54 +418,67 @@ class _BookTabState extends State<_BookTab> with AutomaticKeepAliveClientMixin {
             onReversed: (r) => setState(() => _reversed = r),
           );
 
-    return Column(children: [
-      filterBar,
-      _chipRow(all: passing.length, favourites: favourites.length, onEditFilters: edit),
-      Expanded(child: body),
-    ]);
+    return Column(
+      children: [
+        filterBar,
+        _chipRow(all: allCount, favourites: favouriteCount, onEditFilters: edit),
+        Expanded(child: body),
+      ],
+    );
   }
 
-  /// The covers, one optional heading + grid per group. On the Series tab each heading also
-  /// says how many books the series has here.
-  Widget _grid(List<(String?, List<Book>)> groups, List<String> shownIds, double ratio, {required bool series}) {
-    return LayoutBuilder(builder: (context, c) {
-      final cols = gridColumns(c.maxWidth);
-      // 16 = the 8 px padding on each side of the grid.
-      final itemWidth = (c.maxWidth - 16) / cols;
-      final grid = SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: cols,
-        mainAxisExtent: bookCardHeight(itemWidth, ratio),
-      );
-      return CustomScrollView(key: PageStorageKey('books-${_tab.name}'), slivers: [
-        for (final (header, books) in groups) ...[
-          if (header != null)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: Text.rich(
-                  key: series ? ValueKey('series-heading:$header') : null,
-                  TextSpan(children: [
-                    TextSpan(text: header, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                    if (series && header != noSeries)
-                      TextSpan(
-                        text: '  ${books.length} book${books.length == 1 ? '' : 's'}',
-                        style: TextStyle(fontSize: 13, color: AppColors.textDim),
-                      ),
-                  ]),
+  /// The covers: series cards first (under a "Series" heading on the Favourites tab), then one
+  /// optional heading + grid of book cards per group. Series and book cards are the same size.
+  Widget _grid(List<BookSeries> seriesCards, List<(String?, List<Book>)> groups, List<String> shownIds, double ratio) {
+    Widget heading(String text) => SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: Text(
+          text,
+          key: ValueKey('books-heading:$text'),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+    return LayoutBuilder(
+      builder: (context, c) {
+        final cols = gridColumns(c.maxWidth);
+        // 16 = the 8 px padding on each side of the grid.
+        final itemWidth = (c.maxWidth - 16) / cols;
+        final grid = SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: cols,
+          mainAxisExtent: bookCardHeight(itemWidth, ratio),
+        );
+        return CustomScrollView(
+          key: PageStorageKey('books-${_tab.name}'),
+          slivers: [
+            if (seriesCards.isNotEmpty) ...[
+              if (_tab == BookTab.favourites) heading('Series'),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                sliver: SliverGrid.builder(
+                  gridDelegate: grid,
+                  itemCount: seriesCards.length,
+                  itemBuilder: (_, i) => SeriesCard(series: seriesCards[i]),
                 ),
               ),
-            ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            sliver: SliverGrid.builder(
-              gridDelegate: grid,
-              itemCount: books.length,
-              itemBuilder: (_, i) => BookCard(book: books[i], scope: shownIds),
-            ),
-          ),
-        ],
-        const SliverToBoxAdapter(child: SizedBox(height: 24)),
-      ]);
-    });
+            ],
+            for (final (header, books) in groups)
+              if (books.isNotEmpty) ...[
+                if (header != null) heading(header),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  sliver: SliverGrid.builder(
+                    gridDelegate: grid,
+                    itemCount: books.length,
+                    itemBuilder: (_, i) => BookCard(book: books[i], scope: shownIds),
+                  ),
+                ),
+              ],
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          ],
+        );
+      },
+    );
   }
 }
