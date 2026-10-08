@@ -111,12 +111,20 @@ class MusicVideoView extends StatefulWidget {
   final bool enlarged;
   final VoidCallback? onToggleEnlarge;
 
+  /// A small window (0.1.72): Now Playing is just the video, so the song's controls (title,
+  /// progress bar, skips, previous / play / next, volume) go over the picture, as in full
+  /// screen, with [onClose] (close Now Playing) at the top instead of "Leave full screen".
+  final bool overlayControls;
+  final VoidCallback? onClose;
+
   const MusicVideoView({
     super.key,
     required this.file,
     required this.fallback,
     this.enlarged = false,
     this.onToggleEnlarge,
+    this.overlayControls = false,
+    this.onClose,
   });
 
   @override
@@ -337,6 +345,8 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
                   controls: (state) => MusicVideoControls(
                     enlarged: widget.enlarged,
                     onToggleEnlarge: widget.onToggleEnlarge,
+                    overlay: widget.overlayControls,
+                    onClose: widget.onClose,
                   ),
                   fill: Colors.black,
                   // The video plays and pauses with the song; see didChangeAppLifecycleState.
@@ -362,7 +372,13 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
 class MusicVideoControls extends StatefulWidget {
   final bool enlarged;
   final VoidCallback? onToggleEnlarge;
-  const MusicVideoControls({super.key, this.enlarged = false, this.onToggleEnlarge});
+
+  /// The song's controls over the picture inside the page (a small window, 0.1.72), as in full
+  /// screen; [onClose] closes Now Playing.
+  final bool overlay;
+  final VoidCallback? onClose;
+  const MusicVideoControls(
+      {super.key, this.enlarged = false, this.onToggleEnlarge, this.overlay = false, this.onClose});
 
   @override
   State<MusicVideoControls> createState() => _MusicVideoControlsState();
@@ -442,7 +458,11 @@ class _MusicVideoControlsState extends State<MusicVideoControls> {
                   child: Listener(
                     onPointerDown: (_) => _poke(),
                     onPointerMove: (_) => _poke(),
-                    child: full ? const _FullScreenBar() : _cornerButtons(context),
+                    child: full
+                        ? const _FullScreenBar()
+                        : widget.overlay
+                            ? _FullScreenBar(inPage: true, onClose: widget.onClose)
+                            : _cornerButtons(context),
                   ),
                 ),
               ),
@@ -471,9 +491,13 @@ class _MusicVideoControlsState extends State<MusicVideoControls> {
       );
 }
 
-/// Full screen: the song's title and controls along the bottom, and a way out.
+/// Full screen: the song's title and controls along the bottom, and a way out. [inPage] (0.1.72):
+/// the same over the video on Now Playing in a small window, with Close (Now Playing) at the top
+/// and Full screen in the corner.
 class _FullScreenBar extends StatelessWidget {
-  const _FullScreenBar();
+  const _FullScreenBar({this.inPage = false, this.onClose});
+  final bool inPage;
+  final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
@@ -483,7 +507,14 @@ class _FullScreenBar extends StatelessWidget {
       Positioned(
         left: 16,
         top: 16,
-        child: _RoundButton(icon: Icons.fullscreen_exit, tooltip: 'Leave full screen (Esc)', onPressed: () => exitFullscreen(context)),
+        child: inPage
+            ? _RoundButton(
+                key: const ValueKey('music-video-close'),
+                icon: Icons.keyboard_arrow_down,
+                tooltip: 'Close',
+                onPressed: onClose ?? () => Navigator.of(context).maybePop())
+            : _RoundButton(
+                icon: Icons.fullscreen_exit, tooltip: 'Leave full screen (Esc)', onPressed: () => exitFullscreen(context)),
       ),
       // The "Always on top" pin (0.1.60, the PC only).
       const Positioned(right: 16, top: 16, child: AlwaysOnTopButton(round: true)),
@@ -531,8 +562,10 @@ class _FullScreenBar extends StatelessWidget {
                 ),
                 if (wide) const VolumeControl(key: ValueKey('music-video-volume'), sliderWidth: 110),
                 const SizedBox(width: 8),
-                _RoundButton(
-                    icon: Icons.fullscreen_exit, tooltip: 'Leave full screen', onPressed: () => exitFullscreen(context)),
+                inPage
+                    ? _RoundButton(icon: Icons.fullscreen, tooltip: 'Full screen', onPressed: () => enterFullscreen(context))
+                    : _RoundButton(
+                        icon: Icons.fullscreen_exit, tooltip: 'Leave full screen', onPressed: () => exitFullscreen(context)),
               ]),
             ]);
           }),
@@ -546,7 +579,7 @@ class _RoundButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
-  const _RoundButton({required this.icon, required this.tooltip, required this.onPressed});
+  const _RoundButton({super.key, required this.icon, required this.tooltip, required this.onPressed});
 
   @override
   Widget build(BuildContext context) => Material(
