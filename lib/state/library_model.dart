@@ -37,56 +37,9 @@ import '../services/window_pin.dart';
 import 'book_index.dart';
 import 'library_index.dart' as index;
 import 'media_folders.dart';
+import 'settings/settings_groups.dart';
 
-/// Evening out loudness between songs with ReplayGain information in the files.
-enum ReplayGainMode { off, track, album }
-
-/// Reads values out of a JSON map (settings.json), falling back to the default for any value
-/// that's missing or has the wrong type. Wrong types are noted in [damaged] so a copy of the
-/// file can be kept; missing values are normal (a setting newer than the file) and aren't.
-class _Fields {
-  final Map<String, dynamic> m;
-  bool damaged = false;
-  _Fields(this.m);
-
-  T get<T>(String key, T fallback) {
-    final v = m[key];
-    if (v == null) return fallback;
-    if (v is T) return v;
-    damaged = true;
-    return fallback;
-  }
-
-  /// A whole number (a hand-typed 15.0 is accepted as 15).
-  int integer(String key, int fallback) {
-    final v = m[key];
-    if (v == null) return fallback;
-    if (v is num && v.isFinite) return v.toInt();
-    damaged = true;
-    return fallback;
-  }
-
-  double number(String key, double fallback) {
-    final v = m[key];
-    if (v == null) return fallback;
-    if (v is num && v.isFinite) return v.toDouble();
-    damaged = true;
-    return fallback;
-  }
-
-  /// A list of text values; anything else in the list is dropped (and noted).
-  List<String>? strings(String key) {
-    final v = m[key];
-    if (v == null) return null;
-    if (v is! List) {
-      damaged = true;
-      return null;
-    }
-    final out = [for (final x in v) if (x is String) x];
-    if (out.length != v.length) damaged = true;
-    return out;
-  }
-}
+export 'settings/settings_groups.dart' show ReplayGainMode;
 
 /// Holds the music library: local tracks, server tracks, settings, and the
 /// derived album/artist lists.
@@ -106,178 +59,148 @@ class LibraryModel extends ChangeNotifier {
   }
 
   // ---- settings ----
-  // (Every setting here is saved in settings.json by _saveSettings, and read back in load.)
-  /// The music folders the user picked.
-  List<String> folders = [];
-  /// The Subsonic server's address and login.
-  ServerConfig server = const ServerConfig(url: '', username: '', password: '');
-  /// The server switch in Settings → Servers. Its songs are kept while off, just hidden.
-  bool serverEnabled = false;
+  // Every setting lives in [settings] (state/settings/settings_groups.dart: one group per part of
+  // Settings, each setting described once), and is saved in settings.json by _saveSettings and
+  // read back in load. Refactor phase 3 (8 Oct 2026): the names below are kept and pass straight
+  // through, so screens and tests didn't have to change.
+  final AppSettings settings = AppSettings();
 
-  /// Offer to look up missing cover art online (MusicBrainz / Cover Art Archive).
-  bool onlineCovers = true;
+  // Folders (FolderSettings).
+  List<String> get folders => settings.folders.folders;
+  set folders(List<String> v) => settings.folders.folders = v;
+  List<String> get audiobookFolders => settings.folders.audiobookFolders;
+  set audiobookFolders(List<String> v) => settings.folders.audiobookFolders = v;
+  List<String> get videoFolders => settings.folders.videoFolders;
+  set videoFolders(List<String> v) => settings.folders.videoFolders = v;
+  List<String> get bookGenres => settings.folders.bookGenres;
+  set bookGenres(List<String> v) => settings.folders.bookGenres = v;
+  Map<String, List<String>> get hiddenFormats => settings.folders.hiddenFormats;
+  set hiddenFormats(Map<String, List<String>> v) => settings.folders.hiddenFormats = v;
+  Map<String, bool> get _kindOverrides => settings.folders.bookOverrides;
 
-  /// Offer to look up missing song details (year, artist, genre…) on MusicBrainz.
-  bool onlineDetails = true;
+  // The server (ServerSettings).
+  ServerConfig get server => settings.server.server;
+  set server(ServerConfig v) => settings.server.server = v;
+  bool get serverEnabled => settings.server.serverEnabled;
+  set serverEnabled(bool v) => settings.server.serverEnabled = v;
+  /// The server address (host, lower case) the user agreed may be reached over plain http even
+  /// though it's on the internet (0.1.21, security review #4). Null when they haven't.
+  String? get httpAllowedHost => settings.server.httpAllowedHost;
+  set httpAllowedHost(String? v) => settings.server.httpAllowedHost = v;
+  bool get serverBooks => settings.server.serverBooks;
+  set serverBooks(bool v) => settings.server.serverBooks = v;
+  set _passwordInSettings(bool v) => settings.server.passwordInSettings = v;
 
-  /// Look up lyrics on LRCLIB when a song has none of its own.
-  bool onlineLyrics = true;
+  // Online lookups (OnlineSettings).
+  bool get onlineCovers => settings.online.onlineCovers;
+  set onlineCovers(bool v) => settings.online.onlineCovers = v;
+  bool get onlineDetails => settings.online.onlineDetails;
+  set onlineDetails(bool v) => settings.online.onlineDetails = v;
+  bool get onlineLyrics => settings.online.onlineLyrics;
+  set onlineLyrics(bool v) => settings.online.onlineLyrics = v;
+  bool get onlineVideoArt => settings.online.onlineVideoArt;
+  set onlineVideoArt(bool v) => settings.online.onlineVideoArt = v;
 
-  /// Offer "Search online" for video pictures and collection posters (TVmaze, AniList,
-  /// Wikipedia; 0.1.40).
-  bool onlineVideoArt = true;
-
-  /// Audiobooks on the music server show in the Books tab (Settings › Servers).
-  bool serverBooks = true;
-
-  // ---- playback settings ----
-
-  /// Load the next song ahead so it follows with no gap.
-  bool gaplessPlayback = true;
-
-  /// Even out volume using ReplayGain info in the files (off / by song / by album).
-  ReplayGainMode replayGain = ReplayGainMode.off;
-
-  /// Swipe the player left or right (touch screens) to go to the next or previous song, or to
-  /// skip forward or back in an audiobook (0.1.17).
-  bool swipeToSkip = true;
-
-  /// PC: the window stays on top of other windows (0.1.60, the pin button; see
-  /// services/window_pin.dart). Remembered, and put back when the app opens.
-  bool alwaysOnTop = false;
-
-  /// Volume boost (0.1.61, Settings › Playback): louder than normal, up to 500 %, for music,
-  /// audiobooks and videos. Off and 100 % by default (models/volume_boost.dart). Since 0.1.62
-  /// the percentage is how far the volume sliders go ([maxVolume]), not a fixed boost.
-  bool volumeBoost = false;
-  int volumeBoostPercent = 100;
+  // Playback (PlaybackSettings).
+  bool get gaplessPlayback => settings.playback.gaplessPlayback;
+  set gaplessPlayback(bool v) => settings.playback.gaplessPlayback = v;
+  ReplayGainMode get replayGain => settings.playback.replayGain;
+  set replayGain(ReplayGainMode v) => settings.playback.replayGain = v;
+  bool get swipeToSkip => settings.playback.swipeToSkip;
+  set swipeToSkip(bool v) => settings.playback.swipeToSkip = v;
+  bool get alwaysOnTop => settings.playback.alwaysOnTop;
+  set alwaysOnTop(bool v) => settings.playback.alwaysOnTop = v;
+  bool get volumeBoost => settings.playback.volumeBoost;
+  set volumeBoost(bool v) => settings.playback.volumeBoost = v;
+  int get volumeBoostPercent => settings.playback.volumeBoostPercent;
+  set volumeBoostPercent(int v) => settings.playback.volumeBoostPercent = v;
+  bool get showVolumePercent => settings.playback.showVolumePercent;
+  set showVolumePercent(bool v) => settings.playback.showVolumePercent = v;
+  bool get showMusicVideos => settings.playback.showMusicVideos;
+  set showMusicVideos(bool v) => settings.playback.showMusicVideos = v;
+  bool get autoPlayMusicVideos => settings.playback.autoPlayMusicVideos;
+  set autoPlayMusicVideos(bool v) => settings.playback.autoPlayMusicVideos = v;
 
   /// The top of every volume slider: 100, or the boost's percentage while it's on.
   double get maxVolume => maxVolumeFor(on: volumeBoost, percent: volumeBoostPercent);
 
-  /// A small "65%" bubble above a volume slider while it's being changed (0.1.65, Settings ›
-  /// Playback). On by default.
-  bool showVolumePercent = true;
-
-  /// Now Playing can show a song's music video in place of its cover, when it has one (0.1.40).
-  /// Off: no videos and no video button (Settings › Music).
-  bool showMusicVideos = true;
-
-  /// Your Library › Artists shows round pictures in a grid instead of a list (0.1.52).
-  bool artistsGrid = false;
-
-  /// Pictures chosen for artists (0.1.53), by artist name: a copied image in art/custom, or
-  /// "album:" plus an album key for one of their album covers. Artists not here use their first
-  /// album's cover. Kept in settings.json (so in backups).
-  Map<String, String> artistPictures = {};
-  static const artistAlbumPrefix = 'album:';
-
-  /// Audiobook series' own details (0.1.76, Edit series), by series name: 'description', and
-  /// 'picture' (an image file in art/custom, or "book:" plus a book id to use that book's
-  /// cover). Series not here use their first book's cover. Kept in settings.json.
-  Map<String, Map<String, String>> seriesInfo = {};
-  static const seriesBookPrefix = 'book:';
-
-  /// The sidebar's quick links (0.1.64, models/quick_link.dart), in the order added.
-  List<QuickLink> quickLinks = [];
-
-  /// The music video starts by itself when a song with one plays. Off: the cover shows until
-  /// the video button on Now Playing is pressed (for that song).
-  bool autoPlayMusicVideos = true;
-
-  /// The computer's left-hand sidebar (1 Oct): how wide it's been dragged, and whether it's
-  /// folded down to its icons.
-  double sidebarWidth = 250;
-  bool sidebarFolded = false;
-  static const sidebarMinWidth = 180.0, sidebarMaxWidth = 420.0;
-
-  /// Settings › Appearance › Shrink to fit small windows (0.1.41): on a computer, buttons and text
-  /// get a little smaller when the window is made small (ui/widgets/window_scale.dart).
-  bool scaleWithWindow = true;
-
-  /// Settings › Appearance: the colour theme, and "Your own" colours ("#RRGGBB"). See setTheme.
-  String themeId = 'default';
-  String? customAccent;
-  String? customBackground;
-
-  /// Settings › Appearance › Advanced (0.1.25): the user's saved themes, as saved (each a map of
-  /// id, name and "#RRGGBB" colours; ui/theme.dart AppPalette.fromJson reads them), the text size
-  /// (a multiple of the system size) and how rounded corners are (0 = square, 1 = as designed).
-  List<Map<String, dynamic>> savedThemes = [];
-  double textSize = 1.0;
-  double cornerRoundness = 1.0;
-
-  // ---- audiobook settings ----
-
-  /// Folders where everything is an audiobook (scanned as well as [folders]).
-  List<String> audiobookFolders = [];
-
-  /// Folders for the Videos tab (0.1.40). Scanned by VideoLibraryModel, not by the music scan.
-  /// An .mp4 inside one is a video, not a song (unless it's the music video beside a song).
-  List<String> videoFolders = [];
-
-  /// Genres that mark a file as an audiobook.
-  List<String> bookGenres = List.of(defaultBookGenres);
-
-  /// Titles offered when marking a video season as special (0.1.66, Settings › Videos ›
-  /// Special season titles): the user's own list, starting with these.
-  static const defaultSpecialSeasonTitles = ['Specials', 'OVA', 'Movies', 'Bonus episodes'];
-  List<String> specialSeasonTitles = List.of(defaultSpecialSeasonTitles);
-
-  /// Show book covers tall like a book, rather than square like music.
-  bool bookCoversTall = false;
-
-  /// Skip buttons while a book plays (seconds).
-  int skipBackSeconds = 15;
-  int skipForwardSeconds = 30;
-
-  /// Go back a few seconds when resuming a book.
-  bool rewindOnResume = true;
-
-  /// Speed for books that haven't had one chosen.
-  double defaultBookSpeed = 1.0;
-
-  // ---- video settings (Settings › Videos, 0.1.40) ----
-
-  /// Skip buttons (and ← → keys) while a video plays (seconds).
-  int videoSkipBackSeconds = 10;
-  int videoSkipForwardSeconds = 10;
-
-  /// Speed for collections that haven't had one chosen (each remembers its own).
-  double defaultVideoSpeed = 1.0;
-
-  /// Go back a few seconds when carrying on with a video.
-  bool videoRewindOnResume = true;
-
-  /// Phone: videos and music videos are drawn straight from the video chip (0.1.57,
-  /// services/video_drawing.dart). Off: the older way (the chip's pictures are copied first).
-  bool videoDirectDrawing = true;
-
-  /// The usual picture shape for videos and for collections (each can have its own).
-  PictureShape videoPictureShape = PictureShape.wide;
-  PictureShape collectionPictureShape = PictureShape.wide;
-
-  /// How the video player's buttons look (Settings › Appearance › Video player).
-  VideoPlayerLook videoPlayerLook = VideoPlayerLook.standard;
-
-  /// Show the sleep timer button beside play/pause.
-  bool sleepButtonShown = true;
-
-  /// Sleep timer length in minutes; [sleepAtEnd] means "end of chapter" (books)
-  /// or "end of song" (music).
-  int sleepBookMinutes = 30;
-  int sleepMusicMinutes = 30;
-
-  /// The same for videos (0.1.63, VideoSleepTimer); [sleepAtEnd] means "end of the video".
-  int sleepVideoMinutes = 30;
+  // Audiobooks and the sleep timer (ListeningSettings).
+  bool get bookCoversTall => settings.listening.bookCoversTall;
+  set bookCoversTall(bool v) => settings.listening.bookCoversTall = v;
+  int get skipBackSeconds => settings.listening.skipBackSeconds;
+  set skipBackSeconds(int v) => settings.listening.skipBackSeconds = v;
+  int get skipForwardSeconds => settings.listening.skipForwardSeconds;
+  set skipForwardSeconds(int v) => settings.listening.skipForwardSeconds = v;
+  bool get rewindOnResume => settings.listening.rewindOnResume;
+  set rewindOnResume(bool v) => settings.listening.rewindOnResume = v;
+  double get defaultBookSpeed => settings.listening.defaultBookSpeed;
+  set defaultBookSpeed(double v) => settings.listening.defaultBookSpeed = v;
+  bool get sleepButtonShown => settings.listening.sleepButtonShown;
+  set sleepButtonShown(bool v) => settings.listening.sleepButtonShown = v;
+  int get sleepBookMinutes => settings.listening.sleepBookMinutes;
+  set sleepBookMinutes(int v) => settings.listening.sleepBookMinutes = v;
+  int get sleepMusicMinutes => settings.listening.sleepMusicMinutes;
+  set sleepMusicMinutes(int v) => settings.listening.sleepMusicMinutes = v;
+  int get sleepVideoMinutes => settings.listening.sleepVideoMinutes;
+  set sleepVideoMinutes(int v) => settings.listening.sleepVideoMinutes = v;
+  int get sleepFadeSeconds => settings.listening.sleepFadeSeconds;
+  set sleepFadeSeconds(int v) => settings.listening.sleepFadeSeconds = v;
   // (The sleep timer treats any length of 0 or less the same way.)
   static const sleepAtEnd = -1;
 
-  /// Fade the volume out over this many seconds before the timer pauses (0 = off).
-  int sleepFadeSeconds = 10;
+  // Videos (VideoSettings).
+  static const defaultSpecialSeasonTitles = VideoSettings.defaultSpecialSeasonTitles;
+  List<String> get specialSeasonTitles => settings.video.specialSeasonTitles;
+  set specialSeasonTitles(List<String> v) => settings.video.specialSeasonTitles = v;
+  int get videoSkipBackSeconds => settings.video.videoSkipBackSeconds;
+  set videoSkipBackSeconds(int v) => settings.video.videoSkipBackSeconds = v;
+  int get videoSkipForwardSeconds => settings.video.videoSkipForwardSeconds;
+  set videoSkipForwardSeconds(int v) => settings.video.videoSkipForwardSeconds = v;
+  double get defaultVideoSpeed => settings.video.defaultVideoSpeed;
+  set defaultVideoSpeed(double v) => settings.video.defaultVideoSpeed = v;
+  bool get videoRewindOnResume => settings.video.videoRewindOnResume;
+  set videoRewindOnResume(bool v) => settings.video.videoRewindOnResume = v;
+  bool get videoDirectDrawing => settings.video.videoDirectDrawing;
+  set videoDirectDrawing(bool v) => settings.video.videoDirectDrawing = v;
+  PictureShape get videoPictureShape => settings.video.videoPictureShape;
+  set videoPictureShape(PictureShape v) => settings.video.videoPictureShape = v;
+  PictureShape get collectionPictureShape => settings.video.collectionPictureShape;
+  set collectionPictureShape(PictureShape v) => settings.video.collectionPictureShape = v;
 
-  /// "Move to Books" (true) / "Move to Music" (false), by track id.
-  Map<String, bool> _kindOverrides = {};
+  // Appearance (AppearanceSettings).
+  String get themeId => settings.appearance.themeId;
+  set themeId(String v) => settings.appearance.themeId = v;
+  String? get customAccent => settings.appearance.customAccent;
+  set customAccent(String? v) => settings.appearance.customAccent = v;
+  String? get customBackground => settings.appearance.customBackground;
+  set customBackground(String? v) => settings.appearance.customBackground = v;
+  List<Map<String, dynamic>> get savedThemes => settings.appearance.savedThemes;
+  set savedThemes(List<Map<String, dynamic>> v) => settings.appearance.savedThemes = v;
+  double get textSize => settings.appearance.textSize;
+  set textSize(double v) => settings.appearance.textSize = v;
+  double get cornerRoundness => settings.appearance.cornerRoundness;
+  set cornerRoundness(double v) => settings.appearance.cornerRoundness = v;
+  VideoPlayerLook get videoPlayerLook => settings.appearance.videoPlayerLook;
+  set videoPlayerLook(VideoPlayerLook v) => settings.appearance.videoPlayerLook = v;
+  bool get scaleWithWindow => settings.appearance.scaleWithWindow;
+  set scaleWithWindow(bool v) => settings.appearance.scaleWithWindow = v;
+
+  // Layout (LayoutSettings).
+  bool get artistsGrid => settings.layout.artistsGrid;
+  set artistsGrid(bool v) => settings.layout.artistsGrid = v;
+  static const sidebarMinWidth = LayoutSettings.sidebarMinWidth, sidebarMaxWidth = LayoutSettings.sidebarMaxWidth;
+  double get sidebarWidth => settings.layout.sidebarWidth;
+  set sidebarWidth(double v) => settings.layout.sidebarWidth = v;
+  bool get sidebarFolded => settings.layout.sidebarFolded;
+  set sidebarFolded(bool v) => settings.layout.sidebarFolded = v;
+  List<QuickLink> get quickLinks => settings.layout.quickLinks;
+  set quickLinks(List<QuickLink> v) => settings.layout.quickLinks = v;
+  Map<String, String> get artistPictures => settings.layout.artistPictures;
+  set artistPictures(Map<String, String> v) => settings.layout.artistPictures = v;
+  static const artistAlbumPrefix = 'album:';
+  Map<String, Map<String, String>> get seriesInfo => settings.layout.seriesInfo;
+  set seriesInfo(Map<String, Map<String, String>> v) => settings.layout.seriesInfo = v;
+  static const seriesBookPrefix = 'book:';
   // The connection to the server, or null when there's no server or it's switched off.
   SubsonicClient? _client;
   SubsonicClient? get client => _client;
@@ -285,10 +208,6 @@ class LibraryModel extends ChangeNotifier {
   /// Downloaded server covers for the system media controls (0.1.21, security review #2).
   ServerArtCache? _serverArt;
   String get _serverArtDir => p.join(storage.artDir, 'server');
-
-  /// The server address (host, lower case) the user agreed may be reached over plain http even
-  /// though it's on the internet (0.1.21, security review #4). Null when they haven't.
-  String? httpAllowedHost;
 
   // ---- data ----
   // Songs from the scanned folders and from the server, as read (edits not applied yet).
@@ -423,61 +342,7 @@ class LibraryModel extends ChangeNotifier {
   /// Called at start-up and again after a backup is restored.
   Future<void> load() async {
     // Start from defaults, so re-loading after a restore doesn't keep old values.
-    folders = [];
-    server = const ServerConfig(url: '', username: '', password: '');
-    serverEnabled = false;
-    httpAllowedHost = null;
-    onlineCovers = true;
-    onlineDetails = true;
-    onlineLyrics = true;
-    onlineVideoArt = true;
-    serverBooks = true;
-    gaplessPlayback = true;
-    replayGain = ReplayGainMode.off;
-    swipeToSkip = true;
-    alwaysOnTop = false;
-    volumeBoost = false;
-    volumeBoostPercent = 100;
-    showVolumePercent = true;
-    showMusicVideos = true;
-    autoPlayMusicVideos = true;
-    artistsGrid = false;
-    artistPictures = {};
-    seriesInfo = {};
-    quickLinks = [];
-    sidebarWidth = 250;
-    sidebarFolded = false;
-    scaleWithWindow = true;
-    audiobookFolders = [];
-    videoFolders = [];
-    bookGenres = List.of(defaultBookGenres);
-    specialSeasonTitles = List.of(defaultSpecialSeasonTitles);
-    bookCoversTall = false;
-    skipBackSeconds = 15;
-    skipForwardSeconds = 30;
-    rewindOnResume = true;
-    defaultBookSpeed = 1.0;
-    videoSkipBackSeconds = 10;
-    videoSkipForwardSeconds = 10;
-    defaultVideoSpeed = 1.0;
-    videoRewindOnResume = true;
-    videoDirectDrawing = true;
-    videoPictureShape = PictureShape.wide;
-    collectionPictureShape = PictureShape.wide;
-    videoPlayerLook = VideoPlayerLook.standard;
-    sleepButtonShown = true;
-    sleepBookMinutes = 30;
-    sleepMusicMinutes = 30;
-    sleepVideoMinutes = 30;
-    sleepFadeSeconds = 10;
-    themeId = 'default';
-    customAccent = null;
-    customBackground = null;
-    savedThemes = [];
-    textSize = 1.0;
-    cornerRoundness = 1.0;
-    hiddenFormats = {};
-    _kindOverrides = {};
+    settings.reset();
     _edits = {};
     _local = [];
     _remote = [];
@@ -486,108 +351,10 @@ class LibraryModel extends ChangeNotifier {
     //    in a newer version than the one that wrote the file) or has the wrong type.
     //    HomeTunes: a wrong type used to throw here, before the first screen, so the app
     //    wouldn't start. Now that one value falls back, and a copy of the file is kept.
+    //    (Refactor phase 3: each setting's key, default and checks are in settings_groups.dart.)
     final raw = await storage.read('settings.json');
     var settingsDamaged = raw != null && raw is! Map<String, dynamic>;
-    if (raw is Map<String, dynamic>) {
-      final s = _Fields(raw);
-      folders = s.strings('folders') ?? [];
-      final sv = raw['server'];
-      if (sv is Map<String, dynamic>) {
-        try {
-          server = ServerConfig.fromJson(sv);
-        } catch (_) {
-          s.damaged = true;
-        }
-      }
-      serverEnabled = s.get('serverEnabled', false);
-      final allowed = raw['httpAllowedHost'];
-      httpAllowedHost = allowed is String && allowed.isNotEmpty ? allowed : null;
-      onlineCovers = s.get('onlineCovers', true);
-      onlineDetails = s.get('onlineDetails', true);
-      onlineLyrics = s.get('onlineLyrics', true);
-      onlineVideoArt = s.get('onlineVideoArt', true);
-      serverBooks = s.get('serverBooks', true);
-      gaplessPlayback = s.get('gaplessPlayback', true);
-      replayGain = ReplayGainMode.values.asNameMap()[raw['replayGain']] ?? ReplayGainMode.off;
-      swipeToSkip = s.get('swipeToSkip', true);
-      alwaysOnTop = s.get('alwaysOnTop', false);
-      volumeBoost = s.get('volumeBoost', false);
-      volumeBoostPercent = s.integer('volumeBoostPercent', 100).clamp(volumeBoostMin, volumeBoostMax).toInt();
-      showVolumePercent = s.get('showVolumePercent', true);
-      showMusicVideos = s.get('showMusicVideos', true);
-      autoPlayMusicVideos = s.get('autoPlayMusicVideos', true);
-      artistsGrid = s.get('artistsGrid', false);
-      final links = raw['quickLinks'];
-      if (links is List) quickLinks = [for (final j in links) ?QuickLink.fromJson(j)];
-      final pics = raw['artistPictures'];
-      if (pics is Map) {
-        artistPictures = {
-          for (final e in pics.entries)
-            if (e.key is String && e.value is String) e.key as String: e.value as String
-        };
-      }
-      final series = raw['seriesInfo'];
-      if (series is Map) {
-        seriesInfo = {
-          for (final e in series.entries)
-            if (e.key is String && e.value is Map)
-              e.key as String: {
-                for (final f in (e.value as Map).entries)
-                  if (f.key is String && f.value is String) f.key as String: f.value as String
-              }
-        };
-      }
-      sidebarWidth = s.number('sidebarWidth', 250).clamp(sidebarMinWidth, sidebarMaxWidth).toDouble();
-      sidebarFolded = s.get('sidebarFolded', false);
-      scaleWithWindow = s.get('scaleWithWindow', true);
-      audiobookFolders = s.strings('audiobookFolders') ?? [];
-      videoFolders = s.strings('videoFolders') ?? [];
-      bookGenres = s.strings('bookGenres') ?? List.of(defaultBookGenres);
-      specialSeasonTitles = s.strings('specialSeasonTitles') ?? List.of(defaultSpecialSeasonTitles);
-      bookCoversTall = s.get('bookCoversTall', false);
-      skipBackSeconds = s.integer('skipBackSeconds', 15);
-      skipForwardSeconds = s.integer('skipForwardSeconds', 30);
-      rewindOnResume = s.get('rewindOnResume', true);
-      defaultBookSpeed = s.number('defaultBookSpeed', 1.0);
-      videoSkipBackSeconds = s.integer('videoSkipBackSeconds', 10);
-      videoSkipForwardSeconds = s.integer('videoSkipForwardSeconds', 10);
-      defaultVideoSpeed = s.number('defaultVideoSpeed', 1.0);
-      videoRewindOnResume = s.get('videoRewindOnResume', true);
-      videoDirectDrawing = s.get('videoDirectDrawing', true);
-      videoPictureShape = PictureShape.byName(raw['videoPictureShape']) ?? PictureShape.wide;
-      collectionPictureShape = PictureShape.byName(raw['collectionPictureShape']) ?? PictureShape.wide;
-      videoPlayerLook = VideoPlayerLook.fromJson(raw['videoPlayerLook']);
-      sleepButtonShown = s.get('sleepButtonShown', true);
-      sleepBookMinutes = s.integer('sleepBookMinutes', 30);
-      sleepMusicMinutes = s.integer('sleepMusicMinutes', 30);
-      sleepVideoMinutes = s.integer('sleepVideoMinutes', 30);
-      sleepFadeSeconds = s.integer('sleepFadeSeconds', 10);
-      final theme = raw['theme'];
-      if (theme is String && theme.isNotEmpty) themeId = theme;
-      final accent = raw['customAccent'], background = raw['customBackground'];
-      customAccent = accent is String && _hexColour.hasMatch(accent) ? accent.toUpperCase() : null;
-      customBackground = background is String && _hexColour.hasMatch(background) ? background.toUpperCase() : null;
-      final saved = raw['savedThemes'];
-      if (saved is List) {
-        savedThemes = [
-          for (final t in saved)
-            if (t is Map && t['id'] is String) Map<String, dynamic>.from(t),
-        ];
-      }
-      textSize = s.number('textSize', 1.0).clamp(0.8, 1.5).toDouble();
-      cornerRoundness = s.number('cornerRoundness', 1.0).clamp(0.0, 2.0).toDouble();
-      final hidden = raw['hiddenFormats'];
-      if (hidden is Map) {
-        hiddenFormats = {
-          for (final e in hidden.entries)
-            if (e.value is List)
-              '${e.key}': [for (final f in e.value as List) if (f is String && f.isNotEmpty) f.toLowerCase()],
-        }..removeWhere((_, v) => v.isEmpty);
-      }
-      final o = raw['bookOverrides'];
-      if (o is Map) _kindOverrides = {for (final e in o.entries) '${e.key}': e.value == true};
-      settingsDamaged = s.damaged;
-    }
+    if (raw is Map<String, dynamic>) settingsDamaged = settings.load(raw);
     if (settingsDamaged) await storage.keepCopy('settings.json');
     // The pin (0.1.60): put the window back on top if it was left that way.
     unawaited(WindowPin.set(alwaysOnTop));
@@ -641,9 +408,8 @@ class LibraryModel extends ChangeNotifier {
     if (movedPassword) await _saveSettings();
   }
 
-  /// True while the password has to stay in settings.json (no protected storage on this device,
-  /// or saving it there failed), so it isn't lost.
-  bool _passwordInSettings = false;
+  // While the password has to stay in settings.json (no protected storage on this device, or
+  // saving it there failed): _passwordInSettings, kept in ServerSettings.passwordInSettings.
 
   /// Fills in [server]'s password from the protected storage, or moves a plain-text one from
   /// settings.json into it. Returns true when settings.json should be saved again without it.
@@ -684,64 +450,7 @@ class LibraryModel extends ChangeNotifier {
   }
 
   /// Writes every setting to settings.json.
-  Future<void> _saveSettings() => storage.write('settings.json', {
-        'folders': folders,
-        // The password only goes in here when it can't be kept in protected storage (0.1.17).
-        'server': _passwordInSettings ? server.toJson() : server.toJsonWithoutPassword(),
-        'serverEnabled': serverEnabled,
-        if (httpAllowedHost != null) 'httpAllowedHost': httpAllowedHost,
-        'onlineCovers': onlineCovers,
-        'onlineDetails': onlineDetails,
-        'onlineLyrics': onlineLyrics,
-        'onlineVideoArt': onlineVideoArt,
-        'serverBooks': serverBooks,
-        'gaplessPlayback': gaplessPlayback,
-        'replayGain': replayGain.name,
-        'swipeToSkip': swipeToSkip,
-        'alwaysOnTop': alwaysOnTop,
-        'volumeBoost': volumeBoost,
-        'volumeBoostPercent': volumeBoostPercent,
-        'showVolumePercent': showVolumePercent,
-        'showMusicVideos': showMusicVideos,
-        'autoPlayMusicVideos': autoPlayMusicVideos,
-        'artistsGrid': artistsGrid,
-        if (artistPictures.isNotEmpty) 'artistPictures': artistPictures,
-        if (seriesInfo.isNotEmpty) 'seriesInfo': seriesInfo,
-        if (quickLinks.isNotEmpty) 'quickLinks': [for (final l in quickLinks) l.toJson()],
-        'sidebarWidth': sidebarWidth,
-        'sidebarFolded': sidebarFolded,
-        'scaleWithWindow': scaleWithWindow,
-        'audiobookFolders': audiobookFolders,
-        'videoFolders': videoFolders,
-        'bookGenres': bookGenres,
-        'specialSeasonTitles': specialSeasonTitles,
-        'bookCoversTall': bookCoversTall,
-        'skipBackSeconds': skipBackSeconds,
-        'skipForwardSeconds': skipForwardSeconds,
-        'rewindOnResume': rewindOnResume,
-        'defaultBookSpeed': defaultBookSpeed,
-        'videoSkipBackSeconds': videoSkipBackSeconds,
-        'videoSkipForwardSeconds': videoSkipForwardSeconds,
-        'defaultVideoSpeed': defaultVideoSpeed,
-        'videoRewindOnResume': videoRewindOnResume,
-        'videoDirectDrawing': videoDirectDrawing,
-        'videoPictureShape': videoPictureShape.name,
-        'collectionPictureShape': collectionPictureShape.name,
-        'videoPlayerLook': videoPlayerLook.toJson(),
-        'sleepButtonShown': sleepButtonShown,
-        'sleepBookMinutes': sleepBookMinutes,
-        'sleepMusicMinutes': sleepMusicMinutes,
-        'sleepVideoMinutes': sleepVideoMinutes,
-        'sleepFadeSeconds': sleepFadeSeconds,
-        'theme': themeId,
-        if (customAccent != null) 'customAccent': customAccent,
-        if (customBackground != null) 'customBackground': customBackground,
-        if (savedThemes.isNotEmpty) 'savedThemes': savedThemes,
-        'textSize': textSize,
-        'cornerRoundness': cornerRoundness,
-        if (hiddenFormats.isNotEmpty) 'hiddenFormats': hiddenFormats,
-        'bookOverrides': _kindOverrides,
-      });
+  Future<void> _saveSettings() => storage.write('settings.json', settings.toJson());
 
   /// Adds a saved theme, or replaces the one with the same id (Settings › Appearance ›
   /// Advanced). [use] switches to it.
@@ -795,16 +504,14 @@ class LibraryModel extends ChangeNotifier {
     await _saveSettings();
   }
 
-  /// "#RRGGBB".
-  static final _hexColour = RegExp(r'^#[0-9A-Fa-f]{6}$');
 
   /// Settings › Appearance (0.1.24): which colour theme ('default', 'midnight', 'forest' or
   /// 'custom'), and the two colours of "Your own" as "#RRGGBB" (null = not chosen yet). Kept as
   /// text here; ui/theme.dart turns them into colours.
   Future<void> setTheme({String? id, String? accent, String? background}) async {
     themeId = id ?? themeId;
-    if (accent != null && _hexColour.hasMatch(accent)) customAccent = accent.toUpperCase();
-    if (background != null && _hexColour.hasMatch(background)) customBackground = background.toUpperCase();
+    if (accent != null && AppearanceSettings.hexColour.hasMatch(accent)) customAccent = accent.toUpperCase();
+    if (background != null && AppearanceSettings.hexColour.hasMatch(background)) customBackground = background.toUpperCase();
     notifyListeners();
     await _saveSettings();
   }
@@ -1347,9 +1054,9 @@ class LibraryModel extends ChangeNotifier {
 
   // ---- one folder's options (Settings › Folders & scanning, 0.1.27) ----
 
-  /// File types switched off per folder: folder path → extensions, lower case without the dot
-  /// ("wav"). Anything not listed shows, so a type that turns up later shows until switched off.
-  Map<String, List<String>> hiddenFormats = {};
+  // File types switched off per folder (folder path → extensions, lower case without the dot,
+  // "wav"): [hiddenFormats], with the folders above. Anything not listed shows, so a type that
+  // turns up later shows until switched off.
 
   /// "flac" for ".../song.FLAC"; "" when there's no extension.
   static String formatOf(String path) => fileFormatOf(path);
