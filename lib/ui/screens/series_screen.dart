@@ -21,8 +21,9 @@ import '../widgets/cards.dart';
 import '../widgets/quick_links.dart';
 import '../widgets/selectable_title.dart';
 import '../widgets/series_card.dart';
+import 'edit_series.dart';
 
-class SeriesScreen extends StatelessWidget {
+class SeriesScreen extends StatefulWidget {
   final String name;
   const SeriesScreen({super.key, required this.name});
 
@@ -31,6 +32,19 @@ class SeriesScreen extends StatelessWidget {
     final i = b.seriesIndex;
     if (i == null) return null;
     return 'Book ${i == i.roundToDouble() ? i.round() : i}';
+  }
+
+  @override
+  State<SeriesScreen> createState() => _SeriesScreenState();
+}
+
+class _SeriesScreenState extends State<SeriesScreen> {
+  /// The series' name now: Edit series can rename it while the page is open (0.1.76).
+  late String name = widget.name;
+
+  Future<void> _edit(BookSeries series) async {
+    final renamed = await showEditSeries(context, series);
+    if (renamed != null && mounted) setState(() => name = renamed);
   }
 
   @override
@@ -126,8 +140,22 @@ class SeriesScreen extends StatelessWidget {
           label: Text(progress.allFinished ? 'Mark all as not finished' : 'Mark all as finished'),
           onPressed: () => markSeriesFinished(listening, series, !progress.allFinished),
         ),
+        // Like a collection's Edit collection and Change poster (0.1.76).
+        OutlinedButton.icon(
+          key: const ValueKey('series-edit'),
+          icon: const Icon(Icons.edit_outlined),
+          label: const Text('Edit series'),
+          onPressed: () => _edit(series),
+        ),
+        OutlinedButton.icon(
+          key: const ValueKey('series-change-picture'),
+          icon: const Icon(Icons.image_outlined),
+          label: const Text('Change picture'),
+          onPressed: () => showSeriesPictureOptions(context, series),
+        ),
       ],
     );
+    final description = lib.seriesDescription(name);
 
     final coverWidth = wide ? 200.0 : 180.0;
     final header = Container(
@@ -146,7 +174,7 @@ class SeriesScreen extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    BookCover(book: series.coverBook, width: coverWidth),
+                    SeriesCover(series: series, width: coverWidth),
                     const SizedBox(width: 24),
                     Expanded(child: info),
                   ],
@@ -157,7 +185,7 @@ class SeriesScreen extends StatelessWidget {
             )
           : Column(
               children: [
-                BookCover(book: series.coverBook, width: coverWidth),
+                SeriesCover(series: series, width: coverWidth),
                 const SizedBox(height: 16),
                 info,
                 const SizedBox(height: 12),
@@ -175,7 +203,13 @@ class SeriesScreen extends StatelessWidget {
               icon: const Icon(Icons.more_vert),
               onPressed: () {
                 final box = button.findRenderObject() as RenderBox;
-                showSeriesMenu(button, series, box.localToGlobal(box.size.bottomCenter(Offset.zero)), onPage: true);
+                showSeriesMenu(
+                  button,
+                  series,
+                  box.localToGlobal(box.size.bottomCenter(Offset.zero)),
+                  onPage: true,
+                  onEdit: () => _edit(series),
+                );
               },
             ),
           ),
@@ -184,6 +218,14 @@ class SeriesScreen extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: header),
+          // The series' own description (Edit series, 0.1.76).
+          if (description != null)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                child: SelectableText(description, key: const ValueKey('series-description')),
+              ),
+            ),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),

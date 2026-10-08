@@ -171,6 +171,12 @@ class LibraryModel extends ChangeNotifier {
   Map<String, String> artistPictures = {};
   static const artistAlbumPrefix = 'album:';
 
+  /// Audiobook series' own details (0.1.76, Edit series), by series name: 'description', and
+  /// 'picture' (an image file in art/custom, or "book:" plus a book id to use that book's
+  /// cover). Series not here use their first book's cover. Kept in settings.json.
+  Map<String, Map<String, String>> seriesInfo = {};
+  static const seriesBookPrefix = 'book:';
+
   /// The sidebar's quick links (0.1.64, models/quick_link.dart), in the order added.
   List<QuickLink> quickLinks = [];
 
@@ -436,6 +442,7 @@ class LibraryModel extends ChangeNotifier {
     autoPlayMusicVideos = true;
     artistsGrid = false;
     artistPictures = {};
+    seriesInfo = {};
     quickLinks = [];
     sidebarWidth = 250;
     sidebarFolded = false;
@@ -516,6 +523,17 @@ class LibraryModel extends ChangeNotifier {
         artistPictures = {
           for (final e in pics.entries)
             if (e.key is String && e.value is String) e.key as String: e.value as String
+        };
+      }
+      final series = raw['seriesInfo'];
+      if (series is Map) {
+        seriesInfo = {
+          for (final e in series.entries)
+            if (e.key is String && e.value is Map)
+              e.key as String: {
+                for (final f in (e.value as Map).entries)
+                  if (f.key is String && f.value is String) f.key as String: f.value as String
+              }
         };
       }
       sidebarWidth = s.number('sidebarWidth', 250).clamp(sidebarMinWidth, sidebarMaxWidth).toDouble();
@@ -687,6 +705,7 @@ class LibraryModel extends ChangeNotifier {
         'autoPlayMusicVideos': autoPlayMusicVideos,
         'artistsGrid': artistsGrid,
         if (artistPictures.isNotEmpty) 'artistPictures': artistPictures,
+        if (seriesInfo.isNotEmpty) 'seriesInfo': seriesInfo,
         if (quickLinks.isNotEmpty) 'quickLinks': [for (final l in quickLinks) l.toJson()],
         'sidebarWidth': sidebarWidth,
         'sidebarFolded': sidebarFolded,
@@ -1057,6 +1076,136 @@ class LibraryModel extends ChangeNotifier {
     notifyListeners();
     await _saveSettings();
     await _removeUnusedCustomArt();
+  }
+
+  // ---- audiobook series (0.1.76, Edit series) ----
+
+  /// The series' own description, if one was written.
+  String? seriesDescription(String name) => seriesInfo[name]?['description'];
+
+  /// Whether a picture was chosen for the series.
+  bool hasSeriesPicture(String name) => seriesInfo[name]?['picture'] != null;
+
+  /// The series' own picture file (Choose an image file…), if it's still in HomeTunes' art
+  /// folder; else null.
+  String? seriesPictureFile(String name) {
+    final pick = seriesInfo[name]?['picture'];
+    if (pick == null || pick.startsWith(seriesBookPrefix)) return null;
+    return isInsideAny(pick, [storage.artDir]) ? pick : null;
+  }
+
+  /// The book whose cover the series shows: the one picked, else its first book with a cover.
+  Book seriesCoverBook(BookSeries s) {
+    final pick = seriesInfo[s.name]?['picture'];
+    if (pick != null && pick.startsWith(seriesBookPrefix)) {
+      final id = pick.substring(seriesBookPrefix.length);
+      final b = s.books.where((b) => b.id == id).firstOrNull;
+      if (b != null) return b;
+    }
+    return s.coverBook;
+  }
+
+  void _setSeriesField(String name, String key, String? value) {
+    final m = {...?seriesInfo[name]};
+    if (value == null || value.isEmpty) {
+      m.remove(key);
+    } else {
+      m[key] = value;
+    }
+    if (m.isEmpty) {
+      seriesInfo.remove(name);
+    } else {
+      seriesInfo[name] = m;
+    }
+  }
+
+  /// Sets a series' picture: [file] (already copied in with [importCover]), or [book] (one of
+  /// its books' covers), or neither to go back to the first book's cover.
+  Future<void> setSeriesPicture(String name, {String? file, Book? book}) async {
+    _setSeriesField(name, 'picture', file ?? (book == null ? null : '$seriesBookPrefix${book.id}'));
+    PaintingBinding.instance.imageCache.clear();
+    notifyListeners();
+    await _saveSettings();
+    await _removeUnusedCustomArt();
+  }
+
+  /// Sets (or with null or "", removes) a series' description.
+  Future<void> setSeriesDescription(String name, String? text) async {
+    _setSeriesField(name, 'description', text?.trim());
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Changes a whole series at once, saved as edits on its books' files (the files themselves
+  /// aren't changed, like Edit book / Edit collection):
+  ///  * [name]: renames the series on every book; its description, picture and sidebar link
+  ///    follow (its favourite is PlaylistsModel.renameFavouriteSeries);
+  ///  * [author]: the author of every book;
+  ///  * [order]: the books in a new order, numbered 1, 2, 3…;
+  ///  * [add]: books to put in the series, numbered after the last one;
+  ///  * [remove]: books to take out (no series and no number).
+  Future<void> editSeries(
+    BookSeries s, {
+    String? name,
+    String? author,
+    List<Book>? order,
+    List<Book> add = const [],
+    List<Book> remove = const [],
+  }) async {
+    final to = (name == null || name.trim().isEmpty) ? s.name : name.trim();
+    final who = (author == null || author.trim().isEmpty) ? null : author.trim();
+    final out = {for (final b in remove) b.id};
+    final kept = [for (final b in order ?? s.books) if (!out.contains(b.id)) b];
+    final keptIds = {for (final b in kept) b.id};
+    final adding = [for (final b in add) if (!out.contains(b.id) && keptIds.add(b.id)) b];
+
+    // 1. Each book's new series, number and author (only what changes).
+    final changes = <String, TrackEdit>{};
+    void change(Book b, {double? number}) {
+      final e = TrackEdit(
+        series: b.series != to ? to : null,
+        seriesIndex: number != null && number != b.seriesIndex ? number : null,
+        artist: who != null && who != b.author ? who : null,
+        albumArtist: who != null && who != b.author ? who : null,
+      );
+      if (e.isEmpty) return;
+      for (final t in b.parts) {
+        changes[t.id] = e;
+      }
+    }
+
+    for (final (i, b) in kept.indexed) {
+      change(b, number: order == null ? null : (i + 1).toDouble());
+    }
+    var last = order != null
+        ? kept.length.toDouble()
+        : kept.fold<double>(0, (m, b) => (b.seriesIndex ?? 0) > m ? b.seriesIndex! : m);
+    for (final b in adding) {
+      change(b, number: ++last);
+    }
+    for (final b in remove) {
+      for (final t in b.parts) {
+        changes[t.id] = const TrackEdit(series: '', cleared: {'seriesIndex'});
+      }
+    }
+
+    // 2. A new name: the series' details and its sidebar link come along.
+    if (to != s.name) {
+      final info = seriesInfo.remove(s.name);
+      if (info != null) seriesInfo[to] = {...?seriesInfo[to], ...info};
+      final had = isQuickLink(QuickLinkKind.series, s.name);
+      quickLinks = [
+        for (final l in quickLinks)
+          if (!l.sameAs(QuickLinkKind.series, s.name) && !(had && l.sameAs(QuickLinkKind.series, to))) l
+          else if (l.sameAs(QuickLinkKind.series, s.name)) QuickLink(QuickLinkKind.series, to, to)
+      ];
+      await _saveSettings();
+    }
+    if (changes.isNotEmpty) {
+      await editTracks(changes);
+    } else {
+      notifyListeners();
+    }
   }
 
   /// Settings › Appearance › Shrink to fit small windows.
@@ -1792,8 +1941,10 @@ class LibraryModel extends ChangeNotifier {
     final now = DateTime.now();
     final inEdits = {
       for (final e in _edits.values) if (e.art != null) p.normalize(e.art!),
-      // Artists' own pictures live here too (0.1.53).
+      // Artists' own pictures live here too (0.1.53), and series' (0.1.76).
       for (final v in artistPictures.values) if (!v.startsWith(artistAlbumPrefix)) p.normalize(v),
+      for (final i in seriesInfo.values)
+        if (i['picture'] case final v? when !v.startsWith(seriesBookPrefix)) p.normalize(v),
     };
     // Protection ends once an edit uses the cover (from then on the normal rule applies), or
     // after [_importGrace] if it's never used.

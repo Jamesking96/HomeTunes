@@ -502,6 +502,17 @@ class AppBackup {
       if (m is Map) {
         m.removeWhere((_, v) => v is! String || (!v.startsWith('album:') && !p.isWithin(artDir, p.normalize(v))));
       }
+      // So must a series' own picture (0.1.76), or it names one of its books.
+      final series = json['seriesInfo'];
+      if (series is Map) {
+        for (final info in series.values) {
+          if (info is! Map) continue;
+          final pic = info['picture'];
+          if (pic is String && !pic.startsWith('book:') && !p.isWithin(artDir, p.normalize(pic))) {
+            info.remove('picture');
+          }
+        }
+      }
     } else if (name == 'videos.json') {
       // A video's thumbnail must be in the app's art folder (they're made there); anything else
       // is dropped and made again.
