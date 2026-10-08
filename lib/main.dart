@@ -38,6 +38,7 @@ import 'state/update_model.dart';
 import 'state/video_library_model.dart';
 import 'state/video_sleep_timer.dart';
 import 'state/song_id_follower.dart';
+import 'state/custom_art_store.dart' show picturesChanged;
 import 'ui/nav.dart';
 import 'ui/screens/settings/appearance_settings.dart';
 import 'ui/screens/settings/update_ui.dart';
@@ -52,6 +53,9 @@ import 'ui/widgets/window_scale.dart';
 Future<void> main() async {
   // Both of these must run before any plugin or media_kit Player is used.
   WidgetsFlutterBinding.ensureInitialized();
+  // A picture file may have changed (a new cover, artist or series picture, playlist picture):
+  // drop Flutter's cached copies so the new one shows (refactor phase 3: the models only say so).
+  picturesChanged = () => PaintingBinding.instance.imageCache.clear();
   MediaKit.ensureInitialized();
   // The audio engine's LGPL notice for Settings › About › Licences (0.1.31).
   registerAppLicences();
@@ -236,6 +240,16 @@ class HomeTunesApp extends StatelessWidget {
       providers: [
         // Models made in main() are passed in with `.value`, so Provider won't dispose them.
         ChangeNotifierProvider.value(value: library),
+        // Each part of Settings on its own (refactor phase 3): a screen can watch just the part it
+        // uses. LibraryModel still redraws for every settings change too.
+        ChangeNotifierProvider.value(value: library.settings.folders),
+        ChangeNotifierProvider.value(value: library.settings.server),
+        ChangeNotifierProvider.value(value: library.settings.online),
+        ChangeNotifierProvider.value(value: library.settings.playback),
+        ChangeNotifierProvider.value(value: library.settings.listening),
+        ChangeNotifierProvider.value(value: library.settings.video),
+        ChangeNotifierProvider.value(value: library.settings.appearance),
+        ChangeNotifierProvider.value(value: library.settings.layout),
         ChangeNotifierProvider.value(value: playlists),
         ChangeNotifierProvider.value(value: listening),
         ChangeNotifierProvider.value(value: bookmarks),

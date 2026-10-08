@@ -10,7 +10,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
@@ -25,6 +24,7 @@ import '../services/video_thumbnails.dart';
 import 'book_index.dart' show isInside;
 import 'library_model.dart';
 import 'media_folders.dart';
+import 'custom_art_store.dart';
 import 'video_filters.dart';
 
 class VideoLibraryModel extends ChangeNotifier {
@@ -541,29 +541,18 @@ class VideoLibraryModel extends ChangeNotifier {
 
   /// Saves a chosen picture under a name made from its contents (so the same one is kept once,
   /// and a changed picture never shows an old cached copy).
-  Future<String> _keep(List<int> bytes) async {
+  Future<String> _keep(List<int> bytes) {
     final png = bytes.length > 4 && bytes[0] == 0x89 && bytes[1] == 0x50;
-    final dir = Directory(customPictureDir);
-    await dir.create(recursive: true);
-    final file = File(p.join(dir.path, '${md5.convert(bytes)}${png ? '.png' : '.jpg'}'));
-    if (!await file.exists()) await file.writeAsBytes(bytes, flush: true);
-    return file.path;
+    return _pictureStore.store(bytes, png ? '.png' : '.jpg');
   }
+
+  late final CustomArtStore _pictureStore = CustomArtStore(customPictureDir);
 
   Future<void> _afterPictureChange() async {
     notifyListeners();
     await _save();
     // Pictures no longer used by anything go.
-    final dir = Directory(customPictureDir);
-    if (!await dir.exists()) return;
-    final used = {for (final f in [..._pictures.values, ..._posters.values]) p.normalize(f)};
-    await for (final e in dir.list()) {
-      if (e is File && !used.contains(p.normalize(e.path))) {
-        try {
-          await e.delete();
-        } catch (_) {}
-      }
-    }
+    await _pictureStore.removeUnused({..._pictures.values, ..._posters.values});
   }
 
   // ---- loading and saving ----

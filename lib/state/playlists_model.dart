@@ -14,7 +14,6 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/painting.dart' show PaintingBinding;
 import 'package:path/path.dart' as p;
 
 import '../models/book.dart';
@@ -22,6 +21,7 @@ import '../models/playlist.dart';
 import '../models/track.dart';
 import '../services/storage.dart';
 import 'song_id_follower.dart';
+import 'custom_art_store.dart' show picturesChanged;
 
 /// User playlists plus the special "Liked Songs" list.
 class PlaylistsModel extends ChangeNotifier implements SongIdFollower {
@@ -221,7 +221,7 @@ class PlaylistsModel extends ChangeNotifier implements SongIdFollower {
     pl.iconName = null;
     pl.iconColour = null;
     // Show the new picture even if an old one with the same path was cached.
-    PaintingBinding.instance.imageCache.clear();
+    picturesChanged();
     _changed();
     await _tidyPictures();
   }
