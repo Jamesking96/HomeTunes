@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/book.dart';
 import '../services/storage.dart';
+import 'song_id_follower.dart';
 
 /// Where the listener is in one book.
 class BookProgress {
@@ -68,7 +69,7 @@ class BookProgress {
 enum BookState { notStarted, inProgress, finished }
 
 /// Remembers the listener's place in every audiobook (listening.json).
-class ListeningModel extends ChangeNotifier {
+class ListeningModel extends ChangeNotifier implements SongIdFollower {
   final Storage storage;
   ListeningModel(this.storage);
 
@@ -281,9 +282,11 @@ class ListeningModel extends ChangeNotifier {
   int lastListened(Book b) => progressFor(b)?.updatedMs ?? 0;
 
   /// Files the progress points at (kept by the "songs not on this device" check).
+  @override
   Set<String> get referencedIds => {for (final p in _byBook.values) p.partId};
 
   /// Files that moved (old id → new id) keep the listener's place.
+  @override
   void remapIds(Map<String, String> moved) {
     var changed = false;
     // Rebuild the map, swapping in the new file id wherever a file moved. The little inline
@@ -304,6 +307,7 @@ class ListeningModel extends ChangeNotifier {
   }
 
   /// Forgets the place in books whose files were forgotten.
+  @override
   void removeIds(Set<String> ids) {
     final before = _byBook.length;
     _byBook.removeWhere((_, p) => ids.contains(p.partId));

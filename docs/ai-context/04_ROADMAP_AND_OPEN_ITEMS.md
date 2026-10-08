@@ -70,7 +70,7 @@ while commenting".
 | Audiobooks sub-tabs (Series first, then All / In progress / Not started / Finished / Favourites), each with Your Library's filter bar, chips and sorting (0.1.74) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. See `03_`, Audiobooks sub-tabs |
 | Audiobook series: a page per series, series cards, favourite series, series in the sidebar (0.1.75) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 1 of 2 (the user: "Go with your suggestions"). See `03_`, Audiobook series |
 | Edit series: name, author, description, order, add / take out books, picture (0.1.76) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 2 of 2. See `03_`, Edit series |
-| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phase 0 (safety nets) merged 8 Oct. Phase 1 (four small fixes) built 8 Oct on `refactor/p1-fixes`, not merged yet. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
+| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0 (safety nets) and 1 (four small fixes) merged 8 Oct; the user tried a Phase 1 test build. Phase 2 (shared pieces) built 8 Oct on `refactor/p2-shared`, not merged yet. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
 | L: Linux build, incl. Steam Deck (0.2.0, the start of the next level) | On hold (6 Oct, the user's choice): WSL2 can't be installed on the current PC, so L1 (the Linux build) moves to another PC. Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (the 0.2.x after L) | After L |
 | T: Android TV (the 0.2.x after A) | After A |
@@ -114,7 +114,7 @@ phases, each on its own branch (`refactor/p<n>-<name>`), merged with `--no-ff` o
     44.1 and 22.05 kHz, speed) and `player_gapless_test` 1/1 (in order, nothing skipped, Play next, repeat-one,
     a missing file skipped) passed. Logs: `C:\Temp\ht\bench-engine.log`, `bench-gapless.log`. The video player's
     equaliser has no bench yet; Phase 1 starts by checking it at 22.05 / 24 kHz.
-- **Phase 1 (built 8 Oct, `refactor/p1-fixes`):** tests in `test/refactor_fixes_test.dart`, each checked to fail
+- **Phase 1 (merged into `main` 8 Oct, after a test build):** tests in `test/refactor_fixes_test.dart`, each checked to fail
   on the old code.
   - Video equaliser: confirmed on the real engine first. At 22.05 kHz the video player sent the 16 kHz band, ffmpeg
     said "Parsed_equalizer_9: Invalid frequency and/or width!" and the equaliser stopped while the sound played on
@@ -130,6 +130,28 @@ phases, each on its own branch (`refactor/p<n>-<name>`), merged with `--no-ff` o
     added to `onIdsForgotten` in `main.dart`).
   - `VideoLibraryModel.ownerFolder` picks the deepest folder by folder count (`splitPath`), like
     `LibraryModel.ownerFolder`; it compared text length, which a path ending in several separators could fool.
+- **Phase 2 (built 8 Oct, `refactor/p2-shared`):** four shared pieces, every existing test passing unchanged; new
+  tests in `test/refactor_shared_test.dart`. All in `lib/state/` (the folder rules use `isInside` / `splitPath`
+  from `book_index.dart`, so `services/` would have broken the layer rules; the plan said `services/`).
+  - `sleep_countdown.dart`: `SleepCountdown<M>` holds the ticking (4 a second), the fade, pausing and putting the
+    volume back. `SleepTimer` and `VideoSleepTimer` keep their names, constructors and public members; each only
+    gives its stopping point (`computeRemaining`), how to pause (`stopPlayback`) and the volume it fades. The
+    video one also stops when its page closes (`beforeTick`, `canRestoreVolume`). `now` is no longer marked
+    test-only (the timers read it).
+  - `media_folders.dart`: `fileFormatOf`, `owningFolder`, `formatCounts`, `folderCheckTimeout`, `canListFolder`,
+    `checkFolders` (reachable / offline). `LibraryModel` and `VideoLibraryModel` call them; `LibraryModel.formatOf`,
+    `ownerFolder`, `formatsIn` and `folderReachable` stay as they were for callers and tests.
+  - `mixed_value.dart`: `differentMarker` and `sharedValue` (the value every item shares, or `differ`), used by
+    the song / album, book, video and collection editors. `edit_details.dart` re-exports `differentMarker`.
+    Kept on purpose: the two video editors show `--:--` when every item is blank too (their old `_common`
+    returns null for "all blank" as well as "different"); the music and book editors don't. Changing it would
+    change what the user sees, so it's left for the user to decide.
+  - `song_id_follower.dart`: `SongIdFollower` (`referencedIds`, `remapIds`, `removeIds`), implemented by
+    playlists, listening places, bookmarks and lyrics (lyrics return no `referencedIds`: they don't keep a
+    missing song), and `connectSongIdFollowers` in `main.dart` instead of the three hand-written lists.
+  - Also: `test/video_pictures_test.dart` waits 100 ms before deleting its folder (as other Storage tests do). Its
+    poster test failed 2 times in 5 under load (the whole suite, or two runs at once: "being used by another
+    process" in tearDown); alone it passed 6 of 6 on both `main` and the branch, so it was a test race, not the code.
 
 ### Platforms plan: Linux, Android Auto, Android TV (agreed 1 Oct)
 (Versions, corrected 7 Oct by the user: **0.2.0 is only for the next level of development**. Fixes and features on the app as it is stay on 0.1.x (the Next-video fix is 0.1.71). The 6 Oct note said the next release would be 0.2.0 whatever it held; that was wrong, and a 0.2.0 test build of the fix was renumbered 0.1.71. The platform phases start the 0.2.x line: Linux **0.2.0**, Android Auto **0.2.1** and Android TV **0.2.2**; 0.1.x work in between doesn't move them. The build number after `+` keeps counting up from 72, so phones still accept each update. The plan doc matches this. Before 6 Oct the phases were renumbered each time other 0.1.x work went first, ending at 0.1.71–0.1.73.)

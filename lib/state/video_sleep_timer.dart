@@ -7,16 +7,17 @@
 // Settings › Sleep timer › "Timer length for videos" (LibraryModel.sleepVideoMinutes; "End of
 // video" is LibraryModel.sleepAtEnd); the fade and the "Show sleep timer button" switch are
 // shared with music. The moon button is VideoSleepTimerButton (widgets/video_sleep_button.dart).
+// The ticking, the fade and putting the volume back are shared with the music timer
+// (SleepCountdown, refactor phase 2).
 //
 // "End of video" pauses just before the end (in the last half second), so the next episode's
 // "Up next" countdown never starts. If the video changes anyway (the next one was opened), it
 // pauses that one. When the video page closes, the timer stops and the volume is put back.
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 
 import 'library_model.dart';
 import 'now_watching.dart';
+import 'sleep_countdown.dart';
 
 /// What the timer needs from the video (NowWatching in the app; tests use a fake).
 abstract class VideoSleepTarget {
@@ -55,7 +56,7 @@ class WatchingSleepTarget implements VideoSleepTarget {
 enum VideoSleepMode { minutes, endOfVideo }
 
 /// Pauses the video after Settings › Sleep timer's length for videos.
-class VideoSleepTimer extends ChangeNotifier {
+class VideoSleepTimer extends SleepCountdown<VideoSleepMode> {
   VideoSleepTimer(this.video, this.settings, {Listenable? changes}) : _changes = changes {
     _changes?.addListener(_onVideoChanged);
   }
@@ -69,56 +70,37 @@ class VideoSleepTimer extends ChangeNotifier {
   /// would start the next episode's countdown).
   static const endMargin = Duration(milliseconds: 500);
 
-  VideoSleepMode? _mode;
   DateTime? _until;
   String? _videoId;
-  double? _volumeBefore;
-  Timer? _tick;
-  Duration? _remaining;
-
-  bool get active => _mode != null;
-  VideoSleepMode? get mode => _mode;
-
-  /// Time left before it pauses (null when off).
-  Duration? get remaining => _remaining;
-
-  @visibleForTesting
-  DateTime Function() now = DateTime.now;
-
-  /// The moon button: on if it's off, off if it's on.
-  void toggle() => active ? cancel() : start();
 
   /// Starts with the length for videos from Settings (needs a video to be on).
+  @override
   void start() {
     if (video.videoId == null) return;
     final minutes = settings.sleepVideoMinutes;
-    if (minutes > 0) {
-      _mode = VideoSleepMode.minutes;
-      _until = now().add(Duration(minutes: minutes));
-    } else {
-      _mode = VideoSleepMode.endOfVideo;
-    }
+    if (minutes > 0) _until = now().add(Duration(minutes: minutes));
     _videoId = video.videoId;
-    _tick?.cancel();
-    _tick = Timer.periodic(const Duration(milliseconds: 250), (_) => tick());
-    tick();
-    notifyListeners();
+    run(minutes > 0 ? VideoSleepMode.minutes : VideoSleepMode.endOfVideo);
   }
 
-  /// Turns it off (and puts the volume back if it was fading).
-  void cancel() {
-    _tick?.cancel();
-    _tick = null;
-    _restoreVolume();
-    _mode = null;
-    _until = null;
-    _remaining = null;
-    notifyListeners();
+  @override
+  void clearStop() => _until = null;
+
+  /// Not running: nothing to do. The video page closed: stop (and put the volume back).
+  @override
+  bool beforeTick() {
+    if (mode == null) return true;
+    if (video.videoId == null) {
+      cancel();
+      return true;
+    }
+    return false;
   }
 
   /// Time left; null once it's time to pause.
-  Duration? _computeRemaining() {
-    switch (_mode) {
+  @override
+  Duration? computeRemaining() {
+    switch (mode) {
       case null:
         return null;
       case VideoSleepMode.minutes:
@@ -132,41 +114,20 @@ class VideoSleepTimer extends ChangeNotifier {
     }
   }
 
-  /// Checks the time left (four times a second while on).
-  @visibleForTesting
-  void tick() {
-    if (_mode == null) return;
-    if (video.videoId == null) {
-      cancel(); // the video page closed
-      return;
-    }
-    final r = _computeRemaining();
-    if (r == null || r <= Duration.zero) {
-      _fire();
-      return;
-    }
-    final fade = settings.sleepFadeSeconds;
-    if (fade > 0 && video.playing && r.inMilliseconds <= fade * 1000) {
-      _volumeBefore ??= video.volume;
-      video.setVolume(_volumeBefore! * r.inMilliseconds / (fade * 1000));
-    }
-    final shownChanged = _remaining == null || _remaining!.inSeconds != r.inSeconds;
-    _remaining = r;
-    if (shownChanged) notifyListeners();
-  }
+  /// The video page saves the place when it pauses.
+  @override
+  Future<void> stopPlayback() => video.pause();
 
-  Future<void> _fire() async {
-    _tick?.cancel();
-    _tick = null;
-    await video.pause(); // the video page saves the place when it pauses
-    cancel();
-  }
-
-  void _restoreVolume() {
-    final v = _volumeBefore;
-    _volumeBefore = null;
-    if (v != null && video.videoId != null) video.setVolume(v);
-  }
+  @override
+  bool get targetPlaying => video.playing;
+  @override
+  double get targetVolume => video.volume;
+  @override
+  Future<void> setTargetVolume(double v) => video.setVolume(v);
+  @override
+  int get fadeSeconds => settings.sleepFadeSeconds;
+  @override
+  bool get canRestoreVolume => video.videoId != null;
 
   void _onVideoChanged() {
     if (active && video.videoId == null) cancel();
@@ -174,7 +135,6 @@ class VideoSleepTimer extends ChangeNotifier {
 
   @override
   void dispose() {
-    _tick?.cancel();
     _changes?.removeListener(_onVideoChanged);
     super.dispose();
   }

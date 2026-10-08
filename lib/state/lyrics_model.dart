@@ -13,6 +13,7 @@ import '../services/local_lyrics.dart';
 import '../services/lrclib_client.dart';
 import '../services/storage.dart';
 import 'library_model.dart';
+import 'song_id_follower.dart';
 
 /// Finds each song's lyrics and remembers the ones found online.
 ///
@@ -22,7 +23,7 @@ import 'library_model.dart';
 /// 3. lyrics found online before (saved in lyrics.json, so they work offline),
 /// 4. the server, for server songs,
 /// 5. LRCLIB, if Settings allows it.
-class LyricsModel extends ChangeNotifier {
+class LyricsModel extends ChangeNotifier implements SongIdFollower {
   final LibraryModel library;
   final Storage storage;
 
@@ -119,6 +120,7 @@ class LyricsModel extends ChangeNotifier {
 
   /// Files that moved (old id -> new id) keep the lyrics found for them online, and the
   /// "nothing found" time, so they aren't looked up again (0.1.16; wired up in main.dart).
+  @override
   void remapIds(Map<String, String> moved) {
     var changed = false;
     for (final e in moved.entries) {
@@ -136,9 +138,14 @@ class LyricsModel extends ChangeNotifier {
     if (changed) _save();
   }
 
+  /// Lyrics found online don't keep a missing song (see [SongIdFollower.referencedIds]).
+  @override
+  Set<String> get referencedIds => const {};
+
   /// Songs the user chose to forget (Settings › Folders & scanning › missing songs): their
   /// lyrics found online and "nothing found" times go too (refactor phase 1, 8 Oct 2026; wired
   /// up in main.dart next to playlists, listening places and bookmarks).
+  @override
   void removeIds(Set<String> ids) {
     final before = _found.length + _none.length;
     _found.removeWhere((id, _) => ids.contains(id));

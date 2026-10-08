@@ -18,14 +18,14 @@ import 'package:provider/provider.dart';
 import '../../models/track.dart';
 import '../../models/track_edit.dart';
 import '../../state/library_model.dart';
+import '../../state/mixed_value.dart';
 import '../theme.dart';
 import '../widgets/artwork.dart';
 import 'cover_search_dialog.dart';
 import 'info_lookup_dialog.dart';
 
-/// The marker shown in a box when the songs, albums or books being edited
-/// together have different values. Leaving it keeps each one's own value.
-const differentMarker = '--:--';
+// The --:-- marker lives in state/mixed_value.dart (refactor phase 2); still reachable from here.
+export '../../state/mixed_value.dart' show differentMarker;
 
 /// Opens the editor for one song, a whole album ([album] = true), several
 /// selected songs, or several albums ([albumCount] > 1, [tracks] = all their
@@ -125,9 +125,9 @@ class _EditDetailsState extends State<_EditDetails> {
                 : const [_Field.artist, _Field.album, _Field.albumArtist, _Field.year, _Field.genre];
     // Start each box with the value all the songs share, or blank if they differ.
     for (final f in _fields) {
-      final values = _tracks.map((t) => _valueOf(t, f)).toSet();
-      final common = values.length == 1 ? values.first : '';
-      if (values.length > 1) _mixed.add(f);
+      final (:differ, :value) = sharedValue(_tracks.map((t) => _valueOf(t, f)));
+      final common = value ?? '';
+      if (differ) _mixed.add(f);
       _initial[f] = common;
       _ctrl[f] = TextEditingController(text: common);
     }
