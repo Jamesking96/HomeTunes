@@ -186,6 +186,29 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Now Playing in a small window, and a smallest window size (8 Oct 2026, 0.1.72, branch `feature/now-playing-small-window`)
+- **The user asked (8 Oct):** when the window is made smaller while music plays: with a video
+  showing, the play buttons move onto the video as an overlay (like the normal video player);
+  with no video, the picture fades away and the buttons gradually get smaller. Also set a
+  smallest window size and say where it is so they can change it.
+- **Smallest window (PC):** `windows/runner/window_limits.h` (`kMinWindowWidth` 480,
+  `kMinWindowHeight` 420; the whole window with its title bar, at 100 % display scale).
+  `win32_window.cpp` answers `WM_GETMINMAXINFO` with those, scaled by the screen's DPI.
+  Changing them needs a rebuild.
+- **With a video** (`now_playing_screen.dart`): below `NowPlayingScreen.videoOnlyBelowHeight`
+  (600, the page's own units) the page becomes just the video on black
+  (`now-playing-video-only`). `MusicVideoView(overlayControls: true)` shows the full-screen
+  style bar in the page (`_FullScreenBar(inPage: true)`): a Close (down arrow, top left,
+  `music-video-close`) instead of nothing, and Full screen instead of Leave full screen. A
+  `GlobalKey` keeps the video's player when the layout switches, so it doesn't restart.
+- **Without a video:** the cover is the largest square that fits (`fittedCover`); below 156 it
+  fades out, and below `NowPlayingScreen.smallestCover` (96) it's gone
+  (`now-playing-no-cover`). The controls (`now-playing-controls`) are in a
+  `FittedBox(scaleDown)` capped at the space left, so they only shrink when they don't fit.
+- **Tests:** `test/now_playing_small_window_test.dart` (roomy: cover shown; 480 × 380: cover
+  gone, controls fit, no overflow; in between). The video layouts need the video engine, so
+  they aren't widget-tested. Full suite 595, analyze clean. Needs the user's eye on a PC.
+
 ## Fix: Next video sometimes replayed the same video (7 Oct 2026, 0.1.71, branch `fix/video-next-button`)
 - **The user reported (7 Oct):** in a collection, pressing Next sometimes replayed the same
   video instead of going on.
