@@ -36,6 +36,7 @@ import '../services/track_matching.dart';
 import '../services/window_pin.dart';
 import 'book_index.dart';
 import 'library_index.dart' as index;
+import 'media_folders.dart';
 
 /// Evening out loudness between songs with ReplayGain information in the files.
 enum ReplayGainMode { off, track, album }
@@ -1351,17 +1352,11 @@ class LibraryModel extends ChangeNotifier {
   Map<String, List<String>> hiddenFormats = {};
 
   /// "flac" for ".../song.FLAC"; "" when there's no extension.
-  static String formatOf(String path) => p.extension(path).replaceFirst('.', '').toLowerCase();
+  static String formatOf(String path) => fileFormatOf(path);
 
   /// The folder whose options apply to a file: the innermost music or audiobook folder that
   /// holds it (an audiobook folder inside a music folder has its own options).
-  String? ownerFolder(String path) {
-    String? best;
-    for (final f in _scanFolders) {
-      if (isInside(path, f) && (best == null || splitPath(f).length > splitPath(best).length)) best = f;
-    }
-    return best;
-  }
+  String? ownerFolder(String path) => owningFolder(path, _scanFolders);
 
   bool _formatHidden(Track t) {
     final path = t.path;
@@ -1372,17 +1367,8 @@ class LibraryModel extends ChangeNotifier {
 
   /// The file types found in [folder] at the last scan (switched off ones included), with how
   /// many files of each, A–Z.
-  Map<String, int> formatsIn(String folder) {
-    final counts = <String, int>{};
-    for (final t in _local) {
-      final path = t.path;
-      if (path != null && ownerFolder(path) == folder) {
-        final f = formatOf(path);
-        counts[f] = (counts[f] ?? 0) + 1;
-      }
-    }
-    return {for (final k in counts.keys.toList()..sort()) k: counts[k]!};
-  }
+  Map<String, int> formatsIn(String folder) =>
+      formatCounts([for (final t in _local) ?t.path], folder, _scanFolders);
 
   /// Whether files of [format] in [folder] are shown.
   bool formatShown(String folder, String format) => !(hiddenFormats[folder]?.contains(format) ?? false);
@@ -1502,7 +1488,7 @@ class LibraryModel extends ChangeNotifier {
   List<String> offlineFolders = [];
 
   /// How long to wait for a folder (e.g. a sleeping network share) before counting it offline.
-  static const folderCheckTimeout = Duration(seconds: 10);
+  static const folderCheckTimeout = Duration(seconds: 10); // the same as media_folders.dart's
 
   /// Scans the folders that can be reached. Songs in folders that can't be reached are kept
   /// exactly as they were in [previous], instead of counting as gone.
@@ -1511,17 +1497,9 @@ class LibraryModel extends ChangeNotifier {
   /// were dropped (all but those with edits or playlist places), their cached covers deleted,
   /// and everything read again from scratch when the drive came back.
   Future<List<Track>> _scanAvailable(Map<String, Track> previous, {void Function(int done, int total)? onProgress}) async {
-    final folders = _scanFolders;
-    final reachable = <String>[];
-    final unreachable = <String>[];
-    for (final f in folders) {
-      (await folderReachable(f) ? reachable : unreachable).add(f);
-    }
     // A missing folder inside one that can be reached has really gone (its drive is there).
-    offlineFolders = [
-      for (final f in unreachable)
-        if (!reachable.any((r) => isInside(f, r))) f,
-    ];
+    final (:reachable, :offline) = await checkFolders(_scanFolders, folderReachable);
+    offlineFolders = offline;
     final scanned = await _scanner.scan(reachable, previous: previous, onProgress: onProgress);
     if (offlineFolders.isEmpty) return scanned;
     final found = {for (final t in scanned) t.id};
@@ -1534,18 +1512,7 @@ class LibraryModel extends ChangeNotifier {
   }
 
   /// Whether [folder] exists and can be listed right now. For tests it can be replaced.
-  Future<bool> Function(String folder) folderReachable = _canList;
-
-  static Future<bool> _canList(String folder) async {
-    try {
-      final dir = Directory(folder);
-      if (!await dir.exists()) return false;
-      await dir.list(followLinks: false).take(1).toList().timeout(folderCheckTimeout);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
+  Future<bool> Function(String folder) folderReachable = canListFolder;
 
   String _offlineMessage() {
     final names = offlineFolders.join(', ');

@@ -31,6 +31,10 @@ void main() {
   });
   tearDown(() async {
     await model.settle();
+    // Saves finish in the background (see 02_ENVIRONMENT_AND_WORKFLOW.md): without this short
+    // wait, deleting the folder could fail on Windows ("being used by another process") when the
+    // whole suite ran at once (seen 8 Oct).
+    await Future<void>.delayed(const Duration(milliseconds: 100));
     dir.deleteSync(recursive: true);
   });
 

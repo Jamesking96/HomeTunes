@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/video_item.dart';
+import '../../state/mixed_value.dart';
 import '../../state/video_library_model.dart';
 import '../theme.dart';
 import '../widgets/save_nfo.dart';
@@ -52,13 +53,10 @@ class _EditVideosState extends State<_EditVideos> {
   bool _shapeChanged = false;
 
   /// The value all the videos share, or null when they differ.
-  String? _common(String? Function(VideoItem) get) {
-    final values = {for (final v in widget.videos) get(v)};
-    return values.length == 1 ? values.single : null;
-  }
+  String? _common(String? Function(VideoItem) get) => sharedValue([for (final v in widget.videos) get(v)]).value;
 
   /// "--:--" for a box whose value differs between the videos being edited.
-  String? _hint(String? Function(VideoItem) get) => _several && _common(get) == null ? '--:--' : null;
+  String? _hint(String? Function(VideoItem) get) => _several && _common(get) == null ? differentMarker : null;
 
   @override
   void dispose() {

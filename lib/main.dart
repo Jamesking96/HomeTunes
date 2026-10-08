@@ -37,6 +37,7 @@ import 'state/sleep_timer.dart';
 import 'state/update_model.dart';
 import 'state/video_library_model.dart';
 import 'state/video_sleep_timer.dart';
+import 'state/song_id_follower.dart';
 import 'ui/nav.dart';
 import 'ui/screens/settings/appearance_settings.dart';
 import 'ui/screens/settings/update_ui.dart';
@@ -90,23 +91,9 @@ Future<void> main() async {
   ]);
   // Songs in playlists / Liked Songs are kept track of even when their files
   // are missing, and follow them if they move.
-  library
-    // Asked during a scan: which song ids do other parts of the app still point at?
-    ..otherReferencedIds = (() => {...playlists.referencedIds, ...listening.referencedIds, ...bookmarks.referencedIds})
-    // A file moved: update the old id to the new one everywhere it's stored.
-    ..onIdsRemapped = ((moved) {
-      playlists.remapIds(moved);
-      listening.remapIds(moved);
-      bookmarks.remapIds(moved);
-      lyrics.remapIds(moved);
-    })
-    // The user chose to forget missing songs: drop them from everything else too.
-    ..onIdsForgotten = ((ids) {
-      playlists.removeIds(ids);
-      listening.removeIds(ids);
-      bookmarks.removeIds(ids);
-      lyrics.removeIds(ids);
-    });
+  // During a scan the library asks which song ids these still point at; when a file moves
+  // they follow it, and when missing songs are forgotten they drop them too.
+  connectSongIdFollowers(library, [playlists, listening, bookmarks, lyrics]);
 
   // The Videos tab (0.1.40). Made after the library has loaded, as it follows the library's
   // video folders from their saved state.

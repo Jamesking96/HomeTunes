@@ -18,6 +18,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/video_item.dart';
 import '../../state/range_select.dart';
+import '../../state/mixed_value.dart';
 import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
@@ -1127,12 +1128,10 @@ class _EditSeveralCollectionsState extends State<_EditSeveralCollections> {
   String? _yearError;
   bool _saving = false;
 
-  String? _common(String? Function(VideoCollection) get) {
-    final values = {for (final c in _list) get(c)};
-    return values.length == 1 ? values.single : null;
-  }
+  /// The value all the collections share, or null when they differ (or all have none).
+  String? _common(String? Function(VideoCollection) get) => sharedValue([for (final c in _list) get(c)]).value;
 
-  String? _hint(String? Function(VideoCollection) get) => _common(get) == null ? '--:--' : null;
+  String? _hint(String? Function(VideoCollection) get) => _common(get) == null ? differentMarker : null;
 
   @override
   void dispose() {
