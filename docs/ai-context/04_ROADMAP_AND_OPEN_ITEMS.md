@@ -70,7 +70,7 @@ while commenting".
 | Audiobooks sub-tabs (Series first, then All / In progress / Not started / Finished / Favourites), each with Your Library's filter bar, chips and sorting (0.1.74) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. See `03_`, Audiobooks sub-tabs |
 | Audiobook series: a page per series, series cards, favourite series, series in the sidebar (0.1.75) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 1 of 2 (the user: "Go with your suggestions"). See `03_`, Audiobook series |
 | Edit series: name, author, description, order, add / take out books, picture (0.1.76) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 2 of 2. See `03_`, Edit series |
-| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0 (safety nets) and 1 (four small fixes) merged 8 Oct; the user tried a Phase 1 test build. Phase 2 (shared pieces) merged 8 Oct. Phase 3 (settings out of `LibraryModel`) in progress on `refactor/p3-settings`. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
+| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0 (safety nets) and 1 (four small fixes) merged 8 Oct; the user tried a Phase 1 test build. Phase 2 (shared pieces) merged 8 Oct. Phase 3 (settings out of `LibraryModel`) built 8 Oct on `refactor/p3-settings`, not merged yet; with it, Phases 1–3 are ready to release as 0.1.77 once the user has tried a test build. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
 | L: Linux build, incl. Steam Deck (0.2.0, the start of the next level) | On hold (6 Oct, the user's choice): WSL2 can't be installed on the current PC, so L1 (the Linux build) moves to another PC. Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (the 0.2.x after L) | After L |
 | T: Android TV (the 0.2.x after A) | After A |
@@ -152,6 +152,32 @@ phases, each on its own branch (`refactor/p<n>-<name>`), merged with `--no-ff` o
   - Also: `test/video_pictures_test.dart` waits 100 ms before deleting its folder (as other Storage tests do). Its
     poster test failed 2 times in 5 under load (the whole suite, or two runs at once: "being used by another
     process" in tearDown); alone it passed 6 of 6 on both `main` and the branch, so it was a test race, not the code.
+- **Phase 3 (built 8 Oct, `refactor/p3-settings`):** `LibraryModel` 2,125 → about 1,590 lines. Every existing test
+  passes unchanged (641), including the Phase 0 settings / backup round trips, and the preview pictures match.
+  - 3a: `state/settings/setting.dart` (`Setting`: key, default, read, write; `SettingsReader`, LibraryModel's old
+    `_Fields`) and `state/settings/settings_groups.dart`: `FolderSettings`, `ServerSettings`, `OnlineSettings`,
+    `PlaybackSettings`, `ListeningSettings`, `VideoSettings`, `AppearanceSettings`, `LayoutSettings`, and
+    `AppSettings` (reset / load / toJson). `LibraryModel.settings` holds them; its old setting names pass straight
+    through (getters and setters), so screens and tests didn't change. `ReplayGainMode` moved there (still
+    exported from `library_model.dart`). Keys in settings.json may now be in a different order (group by group);
+    the values are the same, and nothing depends on the order.
+  - 3b: the simple setters (themes, look, online lookups, playback, listening, video, sidebar, artists grid, quick
+    links) live in their group (`commit()`: redraw then save, as before; `setBookCoversTall` saves first, as
+    before); `LibraryModel`'s methods keep their names and pass through. Setters that change the library itself
+    (folders, file types, book genres, Move to Books, server books, video folders, artist / series pictures,
+    Edit series) stay in `LibraryModel`. `state/server_connection.dart` (`ServerConnection`: the password in
+    protected storage, the Subsonic client and its cover cache, trying an address https-then-http with the
+    plain-http question); `state/custom_art_store.dart` (`CustomArtStore`: chosen pictures stored by md5 and
+    tidied, for covers / artist / series pictures with the 30-minute protection, and for video pictures without
+    it, as before; `picturesChanged`, set in `main.dart` to clear Flutter's image cache). `LibraryModel.coverSource`
+    / `artistSource` say where a picture comes from; `ui/widgets/library_images.dart` (`LibraryImages`) turns that
+    into images under the old names (`lib.artFor`, `lib.artistImage`). `state/` no longer imports Flutter's
+    painting library. The groups are also provided on their own in `main.dart`.
+  - Not done on purpose (the user to decide): every settings change still redraws whatever watches
+    `LibraryModel`, as before. Switching screens over to watch only their group, then stopping those redraws,
+    touches about 40 widgets and could leave one that no longer updates; the gain is small (settings change
+    rarely). The groups are ready for it. Also not reached: `LibraryModel` under 1,000 lines (library, edits,
+    scanning, server sync, backup, tag writing and artist / series pictures remain).
 
 ### Platforms plan: Linux, Android Auto, Android TV (agreed 1 Oct)
 (Versions, corrected 7 Oct by the user: **0.2.0 is only for the next level of development**. Fixes and features on the app as it is stay on 0.1.x (the Next-video fix is 0.1.71). The 6 Oct note said the next release would be 0.2.0 whatever it held; that was wrong, and a 0.2.0 test build of the fix was renumbered 0.1.71. The platform phases start the 0.2.x line: Linux **0.2.0**, Android Auto **0.2.1** and Android TV **0.2.2**; 0.1.x work in between doesn't move them. The build number after `+` keeps counting up from 72, so phones still accept each update. The plan doc matches this. Before 6 Oct the phases were renumbered each time other 0.1.x work went first, ending at 0.1.71–0.1.73.)

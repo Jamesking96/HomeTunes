@@ -68,7 +68,7 @@ docs/                    USER_GUIDE.md (user-facing), ai-context/ (these notes),
   overall level, `builtInEqPresets`, and `eqFilter(preset, sampleRate:)`, which builds the mpv `af` text.
 
 ## State (ChangeNotifiers)
-- **`LibraryModel`** is the core. It owns the settings (`settings.json`), the scanned library
+- **`LibraryModel`** is the core. It owns the settings (`settings.json`; since refactor phase 3 they're in groups in `state/settings/`, `LibraryModel.settings`, with the old names passing through), the scanned library
   (`library.json`: local, remote and missing lists), edits (`edits.json`), and the derived
   tracks/albums/artists/books.
   - `_rebuild()` applies edits, then decides music vs book (`BookRules.isBook`), then groups.
