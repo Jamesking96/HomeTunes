@@ -394,6 +394,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `video_settings_test.dart` | Settings › Videos: saving the settings, the videos' own equaliser preset, picture shapes and speeds (usual and own, kept on rename), the page, and Edit details' shape |
 | `video_tracks_test.dart` | Audio / subtitle labels and finding the remembered choice among a new video's tracks |
 | `refactor_safety_test.dart` | Safety nets for the modular refactor (8 Oct): `settings.json` saved back exactly as loaded (`test/fixtures/settings_full.json` changes every setting; a new setting must be added there), an older settings file loading to the same values, and a backup with every data file and cover restored into a new app folder unchanged |
+| `refactor_fixes_test.dart` | Refactor phase 1 (8 Oct): the video equaliser leaving out bands at or above half the sample rate (`videoEqualizerSettings`), songs' own lyrics read again only after a rebuild (not a settings change), forgotten songs losing their online lyrics, and the deepest video folder owning a file |
 
 ## Working with the code
 

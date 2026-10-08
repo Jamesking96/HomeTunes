@@ -22,7 +22,7 @@ import '../services/video_names.dart' show describeVideoPath, videoCategoryNames
 import '../services/video_nfo.dart';
 import '../services/video_scanner.dart';
 import '../services/video_thumbnails.dart';
-import 'book_index.dart' show isInside;
+import 'book_index.dart' show isInside, splitPath;
 import 'library_model.dart';
 import 'video_filters.dart';
 
@@ -726,11 +726,13 @@ class VideoLibraryModel extends ChangeNotifier {
 
   // ---- one folder's options (Settings › Folders & scanning › Folder options) ----
 
-  /// The video folder whose options apply to [path]: the innermost one holding it.
+  /// The video folder whose options apply to [path]: the innermost one holding it (the most
+  /// folders deep, counted the same way as LibraryModel.ownerFolder; refactor phase 1: it
+  /// compared the paths' text length before).
   String? ownerFolder(String path) {
     String? best;
     for (final f in library.videoFolders) {
-      if (isInside(path, f) && (best == null || f.length > best.length)) best = f;
+      if (isInside(path, f) && (best == null || splitPath(f).length > splitPath(best).length)) best = f;
     }
     return best;
   }
