@@ -10,9 +10,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/painting.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/book.dart';
@@ -34,12 +32,17 @@ import '../services/tag_writer.dart';
 import '../services/track_matching.dart';
 import '../services/window_pin.dart';
 import 'book_index.dart';
+import 'custom_art_store.dart';
 import 'library_index.dart' as index;
 import 'media_folders.dart';
 import 'server_connection.dart';
 import 'settings/settings_groups.dart';
 
 export 'settings/settings_groups.dart' show ReplayGainMode;
+
+/// Where a picture comes from: a file on disk, or (for the server's covers) its address. The
+/// screens turn it into an image (ui/widgets/library_images.dart, refactor phase 3).
+typedef PictureSource = ({String? file, String? url});
 
 /// Holds the music library: local tracks, server tracks, settings, and the
 /// derived album/artist lists.
@@ -626,14 +629,13 @@ class LibraryModel extends ChangeNotifier {
     return isInsideAny(pick, [storage.artDir]) ? pick : null;
   }
 
-  /// The picture to draw for an artist: their own file, the chosen album cover, or the first
-  /// album's cover.
-  ImageProvider? artistImage(Artist a, {int size = 512}) {
+  /// Where the picture to draw for an artist comes from: their own file, the chosen album cover,
+  /// or the first album's cover (the screens use LibraryImages.artistImage).
+  PictureSource? artistSource(Artist a, {int size = 512}) {
     final file = artistPictureFile(a);
-    if (file != null) return FileImage(File(file));
-    return artFor(artistAlbumArt(a), size: size);
+    if (file != null) return (file: file, url: null);
+    return coverSource(artistAlbumArt(a), size: size);
   }
-
   bool hasArtistPicture(Artist a) => artistPictures.containsKey(a.name);
 
   /// Sets an artist's picture (0.1.53): [file] (already copied in with [importCover] /
@@ -646,7 +648,7 @@ class LibraryModel extends ChangeNotifier {
     } else {
       artistPictures.remove(a.name);
     }
-    PaintingBinding.instance.imageCache.clear();
+    picturesChanged();
     notifyListeners();
     await _saveSettings();
     await _removeUnusedCustomArt();
@@ -697,7 +699,7 @@ class LibraryModel extends ChangeNotifier {
   /// its books' covers), or neither to go back to the first book's cover.
   Future<void> setSeriesPicture(String name, {String? file, Book? book}) async {
     _setSeriesField(name, 'picture', file ?? (book == null ? null : '$seriesBookPrefix${book.id}'));
-    PaintingBinding.instance.imageCache.clear();
+    picturesChanged();
     notifyListeners();
     await _saveSettings();
     await _removeUnusedCustomArt();
@@ -1394,6 +1396,7 @@ class LibraryModel extends ChangeNotifier {
 
   // Covers the user picked or downloaded live here, apart from the scanner's cached covers.
   String get _customArtDir => p.join(storage.artDir, 'custom');
+  late final CustomArtStore _customArt = CustomArtStore(_customArtDir, protectNew: true);
 
   /// Copies an image the user picked into the app's data folder (so moving or
   /// deleting the original doesn't break the cover) and returns the copy's path.
@@ -1407,51 +1410,24 @@ class LibraryModel extends ChangeNotifier {
       final mime = imageMimeType(bytes);
       ext = mime == 'image/png' ? '.png' : (mime == 'image/jpeg' ? '.jpg' : '.img');
     }
-    final dir = Directory(_customArtDir);
-    await dir.create(recursive: true);
-    // Name the file after a fingerprint (md5) of its contents: the same picture is stored once.
-    final dest = File(p.join(dir.path, '${md5.convert(bytes)}${ext.isEmpty ? '.img' : ext}'));
-    if (!await dest.exists()) await dest.writeAsBytes(bytes, flush: true);
-    // Not used by any edit yet (the editor saves it later): protect it from the tidy-up.
-    _justImported[p.normalize(dest.path)] = DateTime.now();
+    // Named after a fingerprint (md5) of its contents, so the same picture is stored once. Not
+    // used by any edit yet (the editor saves it later), so it's kept from the tidy-up for a while.
+    final path = await _customArt.store(bytes, ext);
     // Make sure images show the new picture even if an old one was cached.
-    PaintingBinding.instance.imageCache.clear();
-    return dest.path;
+    picturesChanged();
+    return path;
   }
 
-  /// Covers imported but not yet used by any edit, by path. HomeTunes (0.1.16): a cover is copied
-  /// in when it's picked but only saved into an edit when the editor's Save is pressed, so any
-  /// other edit saved in between used to delete it as unused. They're left alone until an edit
-  /// uses them, or for at most [_importGrace].
-  final Map<String, DateTime> _justImported = {};
-  static const _importGrace = Duration(minutes: 30);
-
+  // Covers imported but not yet used by any edit are kept from the tidy-up for a while
+  // (HomeTunes 0.1.16; CustomArtStore.protectNew).
   /// Deletes custom covers that no edit points at any more.
-  Future<void> _removeUnusedCustomArt() async {
-    final dir = Directory(_customArtDir);
-    if (!await dir.exists()) return;
-    final now = DateTime.now();
-    final inEdits = {
-      for (final e in _edits.values) if (e.art != null) p.normalize(e.art!),
-      // Artists' own pictures live here too (0.1.53), and series' (0.1.76).
-      for (final v in artistPictures.values) if (!v.startsWith(artistAlbumPrefix)) p.normalize(v),
-      for (final i in seriesInfo.values)
-        if (i['picture'] case final v? when !v.startsWith(seriesBookPrefix)) p.normalize(v),
-    };
-    // Protection ends once an edit uses the cover (from then on the normal rule applies), or
-    // after [_importGrace] if it's never used.
-    _justImported.removeWhere((path, at) => inEdits.contains(path) || now.difference(at) > _importGrace);
-    final used = {...inEdits, ..._justImported.keys};
-    await for (final f in dir.list()) {
-      if (f is File && !used.contains(p.normalize(f.path))) {
-        // A file that can't be deleted right now (e.g. in use) is left for next time.
-        try {
-          await f.delete();
-        } catch (_) {}
-      }
-    }
-  }
-
+  Future<void> _removeUnusedCustomArt() => _customArt.removeUnused({
+        for (final e in _edits.values) if (e.art != null) e.art!,
+        // Artists' own pictures live here too (0.1.53), and series' (0.1.76).
+        for (final v in artistPictures.values) if (!v.startsWith(artistAlbumPrefix)) v,
+        for (final i in seriesInfo.values)
+          if (i['picture'] case final v? when !v.startsWith(seriesBookPrefix)) v,
+      });
   // ---- backup & restore ----
 
   /// Everything HomeTunes keeps on this device, as one file (see [AppBackup]).
@@ -1606,12 +1582,12 @@ class LibraryModel extends ChangeNotifier {
     return null;
   }
 
-  /// The cover image to show in the app: a file on disk, or the server's cover picture.
-  ImageProvider? artFor(Track? t, {int size = 512}) {
+  /// Where the cover to show in the app comes from: a file on disk, or the server's cover picture
+  /// (the screens use LibraryImages.artFor).
+  PictureSource? coverSource(Track? t, {int size = 512}) {
     if (t == null || t.art == null) return null;
-    if (_artIsFile(t)) return isInsideAny(t.art!, coverFolders) ? FileImage(File(t.art!)) : null;
+    if (_artIsFile(t)) return isInsideAny(t.art!, coverFolders) ? (file: t.art!, url: null) : null;
     final c = _client;
     if (c == null) return null;
-    return NetworkImage(c.coverArtUrl(t.art!, size: size));
-  }
-}
+    return (file: null, url: c.coverArtUrl(t.art!, size: size));
+  }}
