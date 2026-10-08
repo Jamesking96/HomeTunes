@@ -1,5 +1,5 @@
 // Draws PosterPicture (a collection's picture) off-screen with a tall and a wide picture, into
-// C:\Temp\ht\preview\poster-*.png, to check the whole-picture-over-blur look.
+// C:\Temp\ht\preview\poster-*.png (or the folder in --dart-define=OUT=...), to check the whole-picture-over-blur look.
 //   flutter test tool/poster_preview_test.dart
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -12,8 +12,9 @@ import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
 void main() {
+  const out = String.fromEnvironment('OUT', defaultValue: r'C:\Temp\ht\preview');
   testWidgets('poster previews', (tester) async {
-    final dir = Directory.systemTemp.createTempSync('poster_preview');
+    final dir = freshPreviewFolder('poster_preview');
     addTearDown(() => dir.deleteSync(recursive: true));
     File make(String name, int w, int h) {
       final pic = img.Image(width: w, height: h);
@@ -43,8 +44,17 @@ void main() {
       await tester.runAsync(() async {
         final b = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
         final png = await (await b.toImage()).toByteData(format: ui.ImageByteFormat.png);
-        File('C:\\Temp\\ht\\preview\\poster-$name.png').writeAsBytesSync(png!.buffer.asUint8List());
+        Directory(out).createSync(recursive: true);
+        File('$out\\poster-$name.png').writeAsBytesSync(png!.buffer.asUint8List());
       });
     }
   });
+}
+
+// A fixed folder (emptied first), so the same path shows in the pictures every run and
+// tool\compare_previews.ps1 can compare them byte for byte (8 Oct 2026).
+Directory freshPreviewFolder(String name) {
+  final d = Directory('C:\\Temp\\ht\\preview-data\\$name');
+  if (d.existsSync()) d.deleteSync(recursive: true);
+  return d..createSync(recursive: true);
 }
