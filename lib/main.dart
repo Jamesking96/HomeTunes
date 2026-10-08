@@ -105,6 +105,7 @@ Future<void> main() async {
       playlists.removeIds(ids);
       listening.removeIds(ids);
       bookmarks.removeIds(ids);
+      lyrics.removeIds(ids);
     });
 
   // The Videos tab (0.1.40). Made after the library has loaded, as it follows the library's
