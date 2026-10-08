@@ -70,7 +70,7 @@ while commenting".
 | Audiobooks sub-tabs (Series first, then All / In progress / Not started / Finished / Favourites), each with Your Library's filter bar, chips and sorting (0.1.74) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. See `03_`, Audiobooks sub-tabs |
 | Audiobook series: a page per series, series cards, favourite series, series in the sidebar (0.1.75) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 1 of 2 (the user: "Go with your suggestions"). See `03_`, Audiobook series |
 | Edit series: name, author, description, order, add / take out books, picture (0.1.76) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 2 of 2. See `03_`, Edit series |
-| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phase 0 (safety-net tests) in progress on `refactor/p0-groundwork`. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
+| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phase 0 (safety nets) built 8 Oct on `refactor/p0-groundwork`, not merged yet. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
 | L: Linux build, incl. Steam Deck (0.2.0, the start of the next level) | On hold (6 Oct, the user's choice): WSL2 can't be installed on the current PC, so L1 (the Linux build) moves to another PC. Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (the 0.2.x after L) | After L |
 | T: Android TV (the 0.2.x after A) | After A |
@@ -100,6 +100,20 @@ phases, each on its own branch (`refactor/p<n>-<name>`), merged with `--no-ff` o
   - Screens may import read-only lookup services (cover search, MusicBrainz, LRCLIB, Open Library, the update
     check), never the engine, file-writing or storage services. The Phase 7 layer test enforces it.
   - The shared filter description (Phase 6, step 6) is skipped unless a new tab with filters is planned.
+- **Phase 0 (built 8 Oct, `refactor/p0-groundwork`):**
+  - `test/refactor_safety_test.dart`: `settings.json` saved back exactly as loaded (`test/fixtures/settings_full.json`
+    changes every setting, and the test fails if a setting is missing from it), a 0.1.20-era settings file loading to
+    the same values (its password moved to protected storage), and a backup holding every data file and cover
+    restored ("replace") into a new app folder unchanged, apart from app paths moving to the new folder.
+  - `tool\compare_previews.ps1`: 37 preview pictures compared byte for byte with `C:\Temp\ht\baseline` (made from
+    `main` at v0.1.76). To make that possible: the previews now draw from fixed data folders
+    (`C:\Temp\ht\preview-data\<name>`, the random temp folder's name showed in Settings and Videos), the Videos
+    preview saves its two places a moment apart (they swapped in Continue watching), `poster_preview_test` takes
+    `OUT`, and `theme_preview_test` (broken since 0.1.40: Settings needs `VideoLibraryModel`) draws again.
+  - Real engine on the v0.1.76 build (the "before" for Phase 4): `engine_test` 3/3 (equaliser presets play at
+    44.1 and 22.05 kHz, speed) and `player_gapless_test` 1/1 (in order, nothing skipped, Play next, repeat-one,
+    a missing file skipped) passed. Logs: `C:\Temp\ht\bench-engine.log`, `bench-gapless.log`. The video player's
+    equaliser has no bench yet; Phase 1 starts by checking it at 22.05 / 24 kHz.
 
 ### Platforms plan: Linux, Android Auto, Android TV (agreed 1 Oct)
 (Versions, corrected 7 Oct by the user: **0.2.0 is only for the next level of development**. Fixes and features on the app as it is stay on 0.1.x (the Next-video fix is 0.1.71). The 6 Oct note said the next release would be 0.2.0 whatever it held; that was wrong, and a 0.2.0 test build of the fix was renumbered 0.1.71. The platform phases start the 0.2.x line: Linux **0.2.0**, Android Auto **0.2.1** and Android TV **0.2.2**; 0.1.x work in between doesn't move them. The build number after `+` keeps counting up from 72, so phones still accept each update. The plan doc matches this. Before 6 Oct the phases were renumbered each time other 0.1.x work went first, ending at 0.1.71–0.1.73.)
