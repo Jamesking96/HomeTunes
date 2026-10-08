@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/track.dart';
 import '../../state/library_model.dart';
+import 'library_images.dart';
 import '../theme.dart';
 
 /// Square cover art with a placeholder when there's none.

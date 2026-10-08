@@ -23,6 +23,7 @@ import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/services/subsonic_client.dart';
 import 'package:hometunes/services/tag_writer.dart';
 import 'package:hometunes/state/library_model.dart';
+import 'package:hometunes/ui/widgets/library_images.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:path/path.dart' as p;
