@@ -13,6 +13,7 @@ import 'package:hometunes/state/video_filters.dart';
 import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/edit_video.dart';
+import 'package:hometunes/state/mixed_value.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -177,6 +178,32 @@ void main() {
       await tester.pumpAndSettle();
       expect(videos.byId(v.id)!.seasonLabel, '1.3');
       expect(videos.collectionNamed('Show')!.groups.map((g) => g.$1), contains('Season 1.3'));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+    });
+
+    // 8 Oct (refactor phase 2, the user's choice): like the song and book editors, --:-- only
+    // where the videos differ. Boxes they all leave blank are plain (they showed --:-- before).
+    testWidgets('editing several videos: --:-- only where they differ, not where all are blank', (tester) async {
+      await tester.runAsync(scanShow);
+      final c = videos.collectionNamed('Show')!;
+      final two = [c.groups[0].$2.first, c.groups[1].$2.first]; // Season 1 and Season 1.1
+      expect({for (final v in two) v.genre ?? ''}, {''}); // no genre on either
+      await tester.pumpWidget(MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: lib),
+          ChangeNotifierProvider.value(value: videos),
+          ChangeNotifierProvider(create: (_) => AppNav()),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(builder: (context) => TextButton(onPressed: () => showEditVideos(context, two), child: const Text('go'))),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('go'));
+      await tester.pumpAndSettle();
+      // Only the season differs (1 and 1.1); collection, year, genre and description don't.
+      expect(find.text(differentMarker), findsOneWidget);
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
     });
   });

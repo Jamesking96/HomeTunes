@@ -21,7 +21,7 @@ import '../../state/library_model.dart';
 import '../theme.dart';
 import '../widgets/book_card.dart';
 import 'book_lookup_dialog.dart';
-import 'edit_details.dart' show differentMarker;
+import '../../state/mixed_value.dart';
 
 /// Edits an audiobook's details and cover. Like album edits, the changes are
 /// kept by HomeTunes and applied to every file of the book. Returns true if
@@ -103,9 +103,9 @@ class _EditBookState extends State<_EditBook> {
     super.initState();
     for (final f in _F.values) {
       if (_many && (f == _F.title || f == _F.seriesIndex)) continue;
-      final values = {for (final b in widget.books) _valueOf(b, f)};
-      final common = values.length == 1 ? values.first : '';
-      if (values.length > 1) _mixed.add(f);
+      final (:differ, :value) = sharedValue([for (final b in widget.books) _valueOf(b, f)]);
+      final common = value ?? '';
+      if (differ) _mixed.add(f);
       _initial[f] = common;
       _ctrl[f] = TextEditingController(text: common);
     }

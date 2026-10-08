@@ -4,14 +4,12 @@
 // Settings → Sleep timer (LibraryModel holds the numbers), with separate lengths for books and
 // music; a length of 0 means "end of chapter" for books or "end of song" for music.
 // It talks to the player only through the small `SleepTarget` interface below, which
-// PlayerModel implements, so tests can drive it with a fake player. A quarter-second ticker
-// checks the time left, fades the volume down near the end, then pauses and saves the book place.
-import 'dart:async';
-
-import 'package:flutter/foundation.dart';
-
+// PlayerModel implements, so tests can drive it with a fake player. The ticking, the fade near
+// the end and putting the volume back are shared with the video timer (SleepCountdown, refactor
+// phase 2); this file says when the time is up and pauses and saves the book place.
 import '../models/track.dart';
 import 'library_model.dart';
+import 'sleep_countdown.dart';
 
 /// What the sleep timer needs from the player (the player implements it;
 /// tests use a fake).
@@ -41,79 +39,46 @@ enum SleepMode { minutes, endOfChapter, endOfSong }
 ///
 /// Kept apart from the player so the once-a-second countdown only redraws
 /// the timer button.
-class SleepTimer extends ChangeNotifier {
+class SleepTimer extends SleepCountdown<SleepMode> {
   final SleepTarget player;
   final LibraryModel settings;
   SleepTimer(this.player, this.settings);
 
-  // Which kind of timer is running (null = off).
-  SleepMode? _mode;
   // For SleepMode.minutes: the clock time at which to pause.
   DateTime? _until;
   // For SleepMode.endOfChapter: the chapter that was playing when the timer started.
   int _chapter = -1;
   // For SleepMode.endOfSong: the song that was playing when the timer started.
   String? _trackId;
-  // The volume just before the fade began, so it can be put back afterwards.
-  double? _volumeBefore;
-  // The quarter-second ticker that runs while the timer is on.
-  Timer? _tick;
-  // The last time-left value worked out by tick().
-  Duration? _remaining;
   // For SleepMode.endOfSong: time left in the song at the previous tick (spots repeat-one).
   Duration? _songLeft;
 
-  bool get active => _mode != null;
-  SleepMode? get mode => _mode;
-
-  /// Time left before it pauses (null when off).
-  Duration? get remaining => _remaining;
-
-  /// For tests.
-  @visibleForTesting
-  DateTime Function() now = DateTime.now;
-
-  /// What the moon button does: turn the timer on if it's off, or off if it's on.
-  void toggle() => active ? cancel() : start();
-
   /// Starts with the length from Settings for what's playing now.
+  @override
   void start() {
     // Books and music have separate lengths. A length of 0 means "stop at the end of the
     // current chapter" (books) or "end of the current song" (music).
     final minutes = player.inBook ? settings.sleepBookMinutes : settings.sleepMusicMinutes;
     if (minutes > 0) {
-      _mode = SleepMode.minutes;
       _until = now().add(Duration(minutes: minutes));
+      run(SleepMode.minutes);
     } else if (player.inBook) {
-      _mode = SleepMode.endOfChapter;
       _chapter = player.currentChapterIndex;
+      run(SleepMode.endOfChapter);
     } else {
-      _mode = SleepMode.endOfSong;
       _trackId = player.current?.id;
       _songLeft = null;
+      run(SleepMode.endOfSong);
     }
-    // Check four times a second so the fade is smooth; the button itself only redraws when
-    // the whole seconds shown change (see tick()).
-    _tick?.cancel();
-    _tick = Timer.periodic(const Duration(milliseconds: 250), (_) => tick());
-    tick();
-    notifyListeners();
   }
 
-  /// Turns it off (and puts the volume back if it was fading).
-  void cancel() {
-    _tick?.cancel();
-    _tick = null;
-    _restoreVolume();
-    _mode = null;
-    _until = null;
-    _remaining = null;
-    notifyListeners();
-  }
+  @override
+  void clearStop() => _until = null;
 
   /// Time left until the timer fires; null once its end has passed.
-  Duration? _computeRemaining() {
-    switch (_mode) {
+  @override
+  Duration? computeRemaining() {
+    switch (mode) {
       case null:
         return null;
       case SleepMode.minutes:
@@ -145,48 +110,19 @@ class SleepTimer extends ChangeNotifier {
     }
   }
 
-  /// Checks the time left (runs every quarter second while on).
-  @visibleForTesting
-  void tick() {
-    final r = _computeRemaining();
-    if (r == null || r <= Duration.zero) {
-      _fire();
-      return;
-    }
-    // Fade the volume down over the last few seconds.
-    final fade = settings.sleepFadeSeconds;
-    if (fade > 0 && player.playing && r.inMilliseconds <= fade * 1000) {
-      // Remember the starting volume once, then scale it down in proportion to the time left.
-      _volumeBefore ??= player.volume;
-      player.setVolume(_volumeBefore! * r.inMilliseconds / (fade * 1000));
-    }
-    // Only redraw the button when the whole seconds shown actually change, not every tick.
-    final shownChanged = _remaining == null || _remaining!.inSeconds != r.inSeconds;
-    _remaining = r;
-    if (shownChanged) notifyListeners();
-  }
-
-  /// Time's up: stop the ticker, pause, save the book place, then switch off
-  /// (which also puts the volume back for next time).
-  Future<void> _fire() async {
-    // Stop ticking first, so a tick during the await below can't fire a second time.
-    _tick?.cancel();
-    _tick = null;
+  /// Time's up: pause and save the book place.
+  @override
+  Future<void> stopPlayback() async {
     await player.pause();
     player.saveBookPlace();
-    cancel();
-  }
-
-  /// Puts the volume back to where it was before the fade (if a fade happened).
-  void _restoreVolume() {
-    final v = _volumeBefore;
-    if (v != null) player.setVolume(v);
-    _volumeBefore = null;
   }
 
   @override
-  void dispose() {
-    _tick?.cancel();
-    super.dispose();
-  }
+  bool get targetPlaying => player.playing;
+  @override
+  double get targetVolume => player.volume;
+  @override
+  Future<void> setTargetVolume(double v) => player.setVolume(v);
+  @override
+  int get fadeSeconds => settings.sleepFadeSeconds;
 }

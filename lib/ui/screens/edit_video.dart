@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/video_item.dart';
+import '../../state/mixed_value.dart';
 import '../../state/video_library_model.dart';
 import '../theme.dart';
 import '../widgets/save_nfo.dart';
@@ -52,13 +53,15 @@ class _EditVideosState extends State<_EditVideos> {
   bool _shapeChanged = false;
 
   /// The value all the videos share, or null when they differ.
-  String? _common(String? Function(VideoItem) get) {
-    final values = {for (final v in widget.videos) get(v)};
-    return values.length == 1 ? values.single : null;
-  }
+  String? _common(String? Function(VideoItem) get) => _shared(get).value;
 
-  /// "--:--" for a box whose value differs between the videos being edited.
-  String? _hint(String? Function(VideoItem) get) => _several && _common(get) == null ? '--:--' : null;
+  // Blank counts as "none", so videos that are all blank share it (8 Oct: like the song and book
+  // editors, the box is then plain, not --:--).
+  ({bool differ, String? value}) _shared(String? Function(VideoItem) get) =>
+      sharedValue<String?>([for (final v in widget.videos) _orNull(get(v))]);
+
+  /// "--:--" for a box whose value differs between the videos being edited (not when all are blank).
+  String? _hint(String? Function(VideoItem) get) => _several && _shared(get).differ ? differentMarker : null;
 
   @override
   void dispose() {
@@ -290,3 +293,5 @@ class _EditVideosState extends State<_EditVideos> {
     );
   }
 }
+
+String? _orNull(String? s) => s == null || s.isEmpty ? null : s;

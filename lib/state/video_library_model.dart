@@ -22,8 +22,9 @@ import '../services/video_names.dart' show describeVideoPath, videoCategoryNames
 import '../services/video_nfo.dart';
 import '../services/video_scanner.dart';
 import '../services/video_thumbnails.dart';
-import 'book_index.dart' show isInside, splitPath;
+import 'book_index.dart' show isInside;
 import 'library_model.dart';
+import 'media_folders.dart';
 import 'video_filters.dart';
 
 class VideoLibraryModel extends ChangeNotifier {
@@ -41,7 +42,7 @@ class VideoLibraryModel extends ChangeNotifier {
   Future<MusicAccess> Function() checkAccess = MusicPermission.checkVideos;
 
   /// Whether a folder can be listed right now. Replaceable for tests.
-  Future<bool> Function(String folder) folderReachable = _canList;
+  Future<bool> Function(String folder) folderReachable = canListFolder;
 
   final VideoScanner _scanner = VideoScanner();
 
@@ -729,13 +730,7 @@ class VideoLibraryModel extends ChangeNotifier {
   /// The video folder whose options apply to [path]: the innermost one holding it (the most
   /// folders deep, counted the same way as LibraryModel.ownerFolder; refactor phase 1: it
   /// compared the paths' text length before).
-  String? ownerFolder(String path) {
-    String? best;
-    for (final f in library.videoFolders) {
-      if (isInside(path, f) && (best == null || splitPath(f).length > splitPath(best).length)) best = f;
-    }
-    return best;
-  }
+  String? ownerFolder(String path) => owningFolder(path, library.videoFolders);
 
   /// Left out by its folder's File types (switched off types are kept in LibraryModel's
   /// hiddenFormats, the same setting the music and audiobook folders use).
@@ -746,16 +741,8 @@ class VideoLibraryModel extends ChangeNotifier {
 
   /// The file types found in [folder] at the last scan (switched off ones included), with how
   /// many videos of each, A–Z.
-  Map<String, int> formatsIn(String folder) {
-    final counts = <String, int>{};
-    for (final v in _scanned) {
-      if (ownerFolder(v.path) == folder) {
-        final f = LibraryModel.formatOf(v.path);
-        counts[f] = (counts[f] ?? 0) + 1;
-      }
-    }
-    return {for (final k in counts.keys.toList()..sort()) k: counts[k]!};
-  }
+  Map<String, int> formatsIn(String folder) =>
+      formatCounts([for (final v in _scanned) v.path], folder, library.videoFolders);
 
   /// The switched-off types of the video folders, to notice a change.
   String _hiddenKey() => [for (final f in library.videoFolders) '$f=${library.hiddenFormats[f]?.join(',')}'].join('|');
@@ -921,12 +908,8 @@ class VideoLibraryModel extends ChangeNotifier {
     status = 'Looking for videos…';
     notifyListeners();
     try {
-      final reachable = <String>[];
-      final unreachable = <String>[];
-      for (final f in folders) {
-        (await folderReachable(f) ? reachable : unreachable).add(f);
-      }
-      offlineFolders = [for (final f in unreachable) if (!reachable.any((r) => isInside(f, r))) f];
+      final (:reachable, :offline) = await checkFolders(folders, folderReachable);
+      offlineFolders = offline;
       final previous = {for (final v in _scanned) v.id: v};
       final found = await _scanner.scan(reachable, previous: previous);
       final foundIds = {for (final v in found) v.id};
@@ -1088,16 +1071,6 @@ class VideoLibraryModel extends ChangeNotifier {
     super.dispose();
   }
 
-  static Future<bool> _canList(String folder) async {
-    try {
-      final dir = Directory(folder);
-      if (!await dir.exists()) return false;
-      await dir.list(followLinks: false).take(1).toList().timeout(const Duration(seconds: 10));
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
 }
 
 /// The value found most often (nulls skipped); null when there's none.
