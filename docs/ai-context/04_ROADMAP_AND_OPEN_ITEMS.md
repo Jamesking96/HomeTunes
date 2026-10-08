@@ -64,17 +64,42 @@ while commenting".
 | Small windows: a showing video keeps its size; text and controls shrink to a usable minimum (0.1.68) | Merged into `main` and pushed 6 Oct (the user: "Everything works great"); released in v0.1.70 (6 Oct). Needs the user's eye in a small window. See `03_`, A video in a small window |
 | Ascending / descending for every sort (0.1.69) | Merged into `main` and pushed 6 Oct (the user: "Everything works great"); released in v0.1.70 (6 Oct). See `03_`, Ascending / descending |
 | Fix: the video volume sliders follow the volume boost as soon as it's changed (0.1.70) | Merged into `main` and pushed 6 Oct (the user: "Everything works great"); released in v0.1.70 (6 Oct). See `03_`, Fix: video volume sliders |
-| Fix: Next video sometimes replayed the same video (0.1.71) | Built 7 Oct on `fix/video-next-button`, not merged yet. Needs the user's check (in full screen). See `03_`, Fix: Next video sometimes replayed |
-| Now Playing in a small window (buttons over the video; the cover fades, the buttons shrink) and a smallest window size (0.1.72) | Built 8 Oct on `feature/now-playing-small-window` (off the 0.1.71 branch), not merged yet. Smallest size: `windows/runner/window_limits.h`. Needs the user's eye on a PC. See `03_`, Now Playing in a small window |
-| Rescan buttons on Your Library and Audiobooks, like the Videos tab's (0.1.73) | Built 8 Oct on `feature/rescan-buttons` (off the 0.1.72 branch), not merged yet. See `03_`, Rescan buttons |
-| Audiobooks sub-tabs (Series first, then All / In progress / Not started / Finished / Favourites), each with Your Library's filter bar, chips and sorting (0.1.74) | Built 8 Oct on `feature/audiobook-tabs` (off the 0.1.73 branch), not merged yet. See `03_`, Audiobooks sub-tabs |
-| Audiobook series: a page per series, series cards, favourite series, series in the sidebar (0.1.75) | Built 8 Oct on `feature/book-series` (off the 0.1.74 branch), not merged yet. Step 1 of 2 (the user: "Go with your suggestions"). See `03_`, Audiobook series |
-| Edit series: name, author, description, order, add / take out books, picture (0.1.76) | Built 8 Oct on `feature/edit-series` (off the 0.1.75 branch), not merged yet. Step 2 of 2. See `03_`, Edit series |
+| Fix: Next video sometimes replayed the same video (0.1.71) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. See `03_`, Fix: Next video sometimes replayed |
+| Now Playing in a small window (buttons over the video; the cover fades, the buttons shrink) and a smallest window size (0.1.72) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Smallest size: `windows/runner/window_limits.h`. See `03_`, Now Playing in a small window |
+| Rescan buttons on Your Library and Audiobooks, like the Videos tab's (0.1.73) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. See `03_`, Rescan buttons |
+| Audiobooks sub-tabs (Series first, then All / In progress / Not started / Finished / Favourites), each with Your Library's filter bar, chips and sorting (0.1.74) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. See `03_`, Audiobooks sub-tabs |
+| Audiobook series: a page per series, series cards, favourite series, series in the sidebar (0.1.75) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 1 of 2 (the user: "Go with your suggestions"). See `03_`, Audiobook series |
+| Edit series: name, author, description, order, add / take out books, picture (0.1.76) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 2 of 2. See `03_`, Edit series |
+| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phase 0 (safety-net tests) in progress on `refactor/p0-groundwork`. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
 | L: Linux build, incl. Steam Deck (0.2.0, the start of the next level) | On hold (6 Oct, the user's choice): WSL2 can't be installed on the current PC, so L1 (the Linux build) moves to another PC. Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (the 0.2.x after L) | After L |
 | T: Android TV (the 0.2.x after A) | After A |
 | D: offline copies of server songs (was phase 4) | After the server review |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to D isn't decided |
+
+### Modular refactor (agreed 8 Oct)
+A code review of 0.1.76 (8 Oct; about 40,300 lines in `lib/`) found systems that would be better split into modules. The
+plan is the artifact "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD), in eight
+phases, each on its own branch (`refactor/p<n>-<name>`), merged with `--no-ff` once the user has checked it.
+- **The rule (the user, 8 Oct):** nothing about how the user uses the app changes: same screens, menus, wording,
+  gestures and settings search. `settings.json`, the other data files and `.htbackup` backups stay compatible. The
+  only intended visible change is the Phase 1 video equaliser fix.
+- **Phases:** 0 safety nets (settings and backup round-trip tests, a preview-picture baseline in `C:\Temp\ht\baseline`,
+  player behaviour notes from the engine benches); 1 small fixes (video equaliser ignores the sample rate, the lyrics
+  cache is emptied on every `LibraryModel` change, lyrics not dropped when missing songs are forgotten, the two
+  `ownerFolder`s differ); 2 shared pieces (one sleep-timer core, `media_folders.dart`, a mixed-value helper for
+  `--:--`, one interface for following moved / forgotten ids); 3 settings out of `LibraryModel` (one `Setting`
+  description per value, settings groups as their own notifiers, the old names kept working, `ServerConnection`,
+  `CustomArtStore`); 4 audio engine layer (`AudioEngine` interface + fake for tests, one shared audio chain, one
+  engine factory); 5 `VideoSession` out of the video page; 6 screen-file splits and shared widgets; 7 docs and a
+  layer-import test.
+- **Decisions (the user, 8 Oct):**
+  - Merge and release 0.1.71–0.1.76 first. Done: v0.1.76.
+  - No release until Phase 3 is done. Phases 1–3 go out together as 0.1.77; each later phase is its own release.
+    New features wait until Phase 3 is done.
+  - Screens may import read-only lookup services (cover search, MusicBrainz, LRCLIB, Open Library, the update
+    check), never the engine, file-writing or storage services. The Phase 7 layer test enforces it.
+  - The shared filter description (Phase 6, step 6) is skipped unless a new tab with filters is planned.
 
 ### Platforms plan: Linux, Android Auto, Android TV (agreed 1 Oct)
 (Versions, corrected 7 Oct by the user: **0.2.0 is only for the next level of development**. Fixes and features on the app as it is stay on 0.1.x (the Next-video fix is 0.1.71). The 6 Oct note said the next release would be 0.2.0 whatever it held; that was wrong, and a 0.2.0 test build of the fix was renumbered 0.1.71. The platform phases start the 0.2.x line: Linux **0.2.0**, Android Auto **0.2.1** and Android TV **0.2.2**; 0.1.x work in between doesn't move them. The build number after `+` keeps counting up from 72, so phones still accept each update. The plan doc matches this. Before 6 Oct the phases were renumbered each time other 0.1.x work went first, ending at 0.1.71–0.1.73.)
@@ -190,14 +215,10 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
   - Chosen pictures / posters (same branch): the Pick a frame dialog's engine steps were checked with `tool/bench/frame_picker_engine_test.dart`, but the dialog itself (the moving picture in it) not yet in a real window. Search online was checked live (`tool/probe_video_art.dart`: Silo, Mickey 17, Claymore). Ideas: TMDB / fanart.tv as extra sources if the user adds their own free API key; writing a chosen poster as `poster.jpg` into the collection's folder (alongside the .nfo option) so other apps see it.
 
 ## Source control
-`main` is **0.1.70+72** and the latest release is **v0.1.70** (6 Oct). Work on the app as
-it is stays 0.1.x (0.1.71 next); 0.2.0 is kept for the next level of development (the user, 7 Oct;
-see the Platforms plan above). Open branches: `fix/video-next-button` (0.1.71) and
-`feature/now-playing-small-window` (0.1.72, built on top of it), `feature/rescan-buttons`
-(0.1.73, on top of that), `feature/audiobook-tabs` (0.1.74, on top of that) and
-`feature/book-series` (0.1.75, on top of that) and `feature/edit-series` (0.1.76, on top of
-that); the 11 merged ones
-were deleted on 6 Oct. Each feature gets its own branch, merged into `main` with
+`main` is **0.1.76+78** and the latest release is **v0.1.76** (8 Oct, covering 0.1.71–0.1.76). Work on the
+app as it is stays 0.1.x (0.1.77 next, the refactor's Phases 1–3); 0.2.0 is kept for the next level of development
+(the user, 7 Oct; see the Platforms plan above). No feature branches are open: the six merged on 8 Oct were deleted.
+Refactor branches are `refactor/p<n>-<name>` (see "Modular refactor" above). Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
 repo copy of these notes (`docs/ai-context/`) is kept the same as the project copy.
