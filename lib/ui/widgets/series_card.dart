@@ -5,6 +5,8 @@
 // A series is the books that share a series name (BookSeries in state/book_index.dart).
 // Favourite series are kept by name in playlists.json (PlaylistsModel.favouriteSeries); a series
 // in the sidebar is a QuickLink of kind series.
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -15,6 +17,7 @@ import '../../state/listening_model.dart';
 import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
 import '../nav.dart';
+import '../screens/edit_series.dart';
 import '../theme.dart';
 import 'book_card.dart';
 import 'quick_links.dart';
@@ -49,7 +52,14 @@ Future<void> markSeriesFinished(ListeningModel l, BookSeries s, bool finished) a
 
 /// The series menu at [at]: Open, Play / Continue, favourites, sidebar, Mark all as finished.
 /// [onPage] leaves out "Open series page" (it's already open).
-Future<void> showSeriesMenu(BuildContext context, BookSeries s, Offset at, {bool onPage = false}) async {
+/// [onEdit] replaces the plain Edit series (the page uses it to follow a rename).
+Future<void> showSeriesMenu(
+  BuildContext context,
+  BookSeries s,
+  Offset at, {
+  bool onPage = false,
+  VoidCallback? onEdit,
+}) async {
   final playlists = context.read<PlaylistsModel>();
   final lib = context.read<LibraryModel>();
   final listening = context.read<ListeningModel>();
@@ -92,6 +102,9 @@ Future<void> showSeriesMenu(BuildContext context, BookSeries s, Offset at, {bool
         progress.allFinished ? 'Mark all as not finished' : 'Mark all as finished',
         () => markSeriesFinished(listening, s, !progress.allFinished),
       ),
+      // 0.1.76.
+      item('edit', Icons.edit_outlined, 'Edit series…', onEdit ?? () => showEditSeries(context, s)),
+      item('picture', Icons.image_outlined, 'Change picture…', () => showSeriesPictureOptions(context, s)),
     ],
   );
   run?.call();
@@ -132,7 +145,7 @@ class SeriesCard extends StatelessWidget {
                 children: [
                   Stack(
                     children: [
-                      BookCover(book: series.coverBook, width: c.maxWidth),
+                      SeriesCover(series: series, width: c.maxWidth),
                       // How many books, bottom left, like a stack of them.
                       Positioned(
                         left: 6,
@@ -205,6 +218,38 @@ class SeriesCard extends StatelessWidget {
               );
             },
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A series' picture (0.1.76): the image chosen for it, or the chosen book's cover, or its first
+/// book's cover, at the books' cover shape.
+class SeriesCover extends StatelessWidget {
+  final BookSeries series;
+  final double width;
+  final double radius;
+  const SeriesCover({super.key, required this.series, required this.width, this.radius = 6});
+
+  @override
+  Widget build(BuildContext context) {
+    final lib = context.watch<LibraryModel>();
+    final file = lib.seriesPictureFile(series.name);
+    if (file == null) return BookCover(book: lib.seriesCoverBook(series), width: width, radius: radius);
+    final ratio = bookCoverRatio(context);
+    final px = (width * 2).clamp(64, 800).round();
+    return ClipRRect(
+      borderRadius: AppShape.circular(radius),
+      child: SizedBox(
+        width: width,
+        height: width * ratio,
+        child: Image(
+          key: const ValueKey('series-own-picture'),
+          image: ResizeImage.resizeIfNeeded(px, null, FileImage(File(file))),
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (_, _, _) => BookCover(book: lib.seriesCoverBook(series), width: width, radius: radius),
         ),
       ),
     );
