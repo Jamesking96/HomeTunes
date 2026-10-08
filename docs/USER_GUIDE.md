@@ -117,12 +117,19 @@ Audiobooks appear in the **Books** tab (called **Audiobooks** on a PC). HomeTune
 count as books, go to **Settings › Folders & scanning** (or **Settings › Audiobooks**) and use **Add audiobook folder**. Books remember where
 you got to, and **Continue listening** on the Home screen picks up where you left off.
 
-The tab has sub-tabs like the Library and Videos: **Series** (each series under its own
-heading, its books in order, with "Not in a series" at the end), **All**, **In progress**,
+The tab has sub-tabs like the Library and Videos: **Series** (a card for each series, then the
+books that aren't in one), **All**, **In progress**,
 **Not started**, **Finished** and **Favourites**. Each one has its own box to filter by title,
 author, narrator or series, a **Filter** button (author, narrator, series, genre or decade), a
 sort menu, and **All** / **Favourites** chips with counts, just like the Library's tabs. Each
 sub-tab remembers its own choices while you look at the others.
+
+Click a series card (or **See the … series** on a book's page) to open the series: its books in
+order, how many you've finished, and **Continue** to carry on with the next one. The heart makes
+it a favourite (favourite series show at the top of **Favourites**, which **Favourite
+audiobooks** in the sidebar opens), and the bookmark button adds the series to the sidebar.
+**Mark all as finished** does the whole series at once. Right-click a series card (press and
+hold on a phone) for the same choices.
 
 If something lands in the wrong place, a song's menu has **Move to Books**, and a book's page has
 **Move to Music…**. While a book plays, Now Playing has skip back and forward buttons, a speed

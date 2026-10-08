@@ -3,6 +3,7 @@
 // Filter, Sort), All / Favourites chips with counts, and remembers its own choices.
 import 'dart:io';
 
+import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/book.dart';
@@ -15,6 +16,7 @@ import 'package:hometunes/state/playlists_model.dart';
 import 'package:hometunes/state/selection_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/books_screen.dart';
+import 'package:hometunes/ui/widgets/quick_links.dart';
 import 'package:provider/provider.dart';
 
 Book book(String title, {String? series, double? index, String author = 'A. Writer'}) => Book(
@@ -126,17 +128,19 @@ void main() {
       for (final label in labels) {
         expect(tabLabel(label), findsOneWidget);
       }
-      // Series is first and open to start with: a heading per series, Not in a series last.
+      // Series is first and open to start with (0.1.75): a card per series, then the books that
+      // aren't in a series under their own heading.
       final bar = tester.widget<TabBar>(find.byKey(const ValueKey('book-tabs')));
       expect(bar.controller!.index, 0);
-      expect(find.byKey(const ValueKey('series-heading:Lantern Saga')), findsOneWidget);
-      expect(find.textContaining('2 books'), findsOneWidget);
-      expect(find.byKey(const ValueKey('series-heading:$noSeries')), findsOneWidget);
+      expect(find.byKey(const ValueKey('series-card:Lantern Saga')), findsOneWidget);
+      expect(find.text('2 books · 1 finished'), findsOneWidget);
+      expect(find.byKey(const ValueKey('books-heading:$noSeries')), findsOneWidget);
       expect(
-        tester.getTopLeft(find.byKey(const ValueKey('series-heading:Lantern Saga'))).dy,
-        lessThan(tester.getTopLeft(find.byKey(const ValueKey('series-heading:$noSeries'))).dy),
+        tester.getTopLeft(find.byKey(const ValueKey('series-card:Lantern Saga'))).dy,
+        lessThan(tester.getTopLeft(find.byKey(const ValueKey('books-heading:$noSeries'))).dy),
       );
-      expect(showing(), {started, finished, fresh});
+      expect(showing(), {fresh}); // the series' books are inside its card
+      expect(find.text('All (1)'), findsOneWidget); // the chips count series here
 
       await openTab(tester, 'All');
       expect(showing(), {started, finished, fresh});
@@ -174,7 +178,8 @@ void main() {
 
       // Another tab has its own, empty box.
       await openTab(tester, 'Series');
-      expect(showing(), {started, finished, fresh});
+      expect(find.byKey(const ValueKey('series-card:Lantern Saga')), findsOneWidget);
+      expect(showing(), {fresh});
       expect(tester.widget<TextField>(find.byKey(const ValueKey('library-title-filter'))).controller!.text, '');
 
       // Back on All, it's still narrowed; Clear filters puts everything back.
@@ -190,7 +195,38 @@ void main() {
       await pump(tester);
       await openTab(tester, 'Favourites');
       expect(find.byKey(const ValueKey('books-empty-favourites')), findsOneWidget);
-      expect(find.textContaining('No favourite books yet'), findsOneWidget);
+      expect(find.textContaining('No favourites yet'), findsOneWidget);
+    });
+
+    testWidgets('favourite series: on the Series tab\'s Favourites chip and the Favourites tab', (tester) async {
+      playlists.setFavouriteSeries(['Lantern Saga'], true);
+      await pump(tester);
+      expect(find.text('Favourites (1)'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('books-favourites-chip')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('series-card:Lantern Saga')), findsOneWidget);
+      expect(showing(), isEmpty); // the books outside a series aren't favourites
+
+      await openTab(tester, 'Favourites');
+      expect(find.byKey(const ValueKey('books-heading:Series')), findsOneWidget);
+      expect(find.byKey(const ValueKey('series-card:Lantern Saga')), findsOneWidget);
+      expect(find.byKey(const ValueKey('books-heading:Books')), findsOneWidget);
+      expect(showing(), {started});
+    });
+
+    testWidgets('a series card\'s menu: favourite and add to the sidebar', (tester) async {
+      await pump(tester);
+      await tester.tap(find.byKey(const ValueKey('series-card:Lantern Saga')), buttons: kSecondaryButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('series-menu-favourite')));
+      await tester.pumpAndSettle();
+      expect(playlists.isFavouriteSeries('Lantern Saga'), isTrue);
+
+      await tester.tap(find.byKey(const ValueKey('series-card:Lantern Saga')), buttons: kSecondaryButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('series-menu-sidebar')));
+      await tester.pumpAndSettle();
+      expect(lib.isQuickLink(QuickLinkKind.series, 'Lantern Saga'), isTrue);
     });
 
     testWidgets("the sidebar's Favourite audiobooks opens the Favourites tab", (tester) async {

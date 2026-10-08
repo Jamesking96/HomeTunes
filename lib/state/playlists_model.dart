@@ -39,12 +39,16 @@ class PlaylistsModel extends ChangeNotifier {
   Set<String> _favAlbums = {};
   Set<String> _favBooks = {};
 
+  /// Names of favourite audiobook series (0.1.75).
+  Set<String> _favSeries = {};
+
   /// Reads playlists.json (at start-up and after a backup is restored).
   Future<void> load() async {
     playlists = [];
     liked = [];
     _favAlbums = {};
     _favBooks = {};
+    _favSeries = {};
     // HomeTunes: read piece by piece, so one damaged playlist (or a wrong type anywhere) skips
     // just that piece instead of stopping the app from starting. If anything was skipped, a
     // copy of the file is kept before the next save replaces it.
@@ -74,6 +78,7 @@ class PlaylistsModel extends ChangeNotifier {
       liked = ids(j['liked']);
       _favAlbums = ids(j['favouriteAlbums']).toSet();
       _favBooks = ids(j['favouriteBooks']).toSet();
+      _favSeries = ids(j['favouriteSeries']).toSet();
     }
     if (damaged) await storage.keepCopy('playlists.json');
     _likedSet = liked.toSet();
@@ -85,6 +90,7 @@ class PlaylistsModel extends ChangeNotifier {
         'liked': liked,
         'favouriteAlbums': _favAlbums.toList(),
         'favouriteBooks': _favBooks.toList(),
+        'favouriteSeries': _favSeries.toList(),
       });
 
   /// Redraws listeners and saves. Called after every change. The save isn't awaited: the
@@ -129,6 +135,28 @@ class PlaylistsModel extends ChangeNotifier {
         favourite ? _favBooks.add(t.id) : _favBooks.remove(t.id);
       }
     }
+    _changed();
+  }
+
+  // ---- favourite audiobook series (0.1.75), kept by series name ----
+
+  bool isFavouriteSeries(String name) => _favSeries.contains(name);
+
+  /// The favourite series' names.
+  Set<String> get favouriteSeries => {..._favSeries};
+
+  /// Makes the series [names] favourites, or not.
+  void setFavouriteSeries(Iterable<String> names, bool favourite) {
+    for (final n in names) {
+      favourite ? _favSeries.add(n) : _favSeries.remove(n);
+    }
+    _changed();
+  }
+
+  /// A series was renamed (Edit series): its favourite follows it.
+  void renameFavouriteSeries(String from, String to) {
+    if (from == to || !_favSeries.remove(from)) return;
+    _favSeries.add(to);
     _changed();
   }
 

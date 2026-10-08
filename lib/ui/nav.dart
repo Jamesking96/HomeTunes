@@ -15,6 +15,7 @@ import 'screens/album_screen.dart';
 import 'screens/artist_screen.dart';
 import 'screens/book_screen.dart';
 import 'screens/playlist_screen.dart';
+import 'screens/series_screen.dart';
 import 'screens/video_collection_screen.dart';
 import 'screens/video_player_screen.dart';
 
@@ -112,6 +113,15 @@ class AppNav extends ChangeNotifier {
     }
     // The Books tab's navigator may not exist until the tab is shown.
     WidgetsBinding.instance.addPostFrameCallback((_) => push(BookScreen(bookId: b.id)));
+  }
+
+  /// Opens an audiobook series' page on the Books tab (0.1.75).
+  void openSeries(String name) {
+    if (tab != booksTab) {
+      tab = booksTab;
+      notifyListeners();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => push(SeriesScreen(name: name)));
   }
 
   /// Opens a video collection's page on the Videos tab (0.1.40).
