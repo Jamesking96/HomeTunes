@@ -99,7 +99,9 @@ opens the download page instead.
    scanning**, then tap **Add folder** under **Music folders**.
 2. Choose the folder where your music is kept. HomeTunes reads the details (artist, album, cover
    art…) from your files. The progress shows at the bottom of the screen.
-3. Add more folders the same way. After adding new music to a folder, press **Rescan**.
+3. Add more folders the same way. After adding new music to a folder, press **Rescan**. There is
+   also a quick rescan button (the circling arrow) at the top of **Your Library** and
+   **Audiobooks**; it checks all your music and audiobook folders at once.
 4. Each folder has an options button (sliders icon). It opens **Folder options**, where you can
    **Rescan this folder** on its own, and under **File types** untick any kind of file you don't
    want from that folder (say, WAV copies). Unticked types disappear from your library at once;

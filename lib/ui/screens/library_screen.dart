@@ -25,6 +25,7 @@ import '../widgets/cards.dart';
 import '../widgets/music_filter_sheet.dart';
 import '../widgets/playlist_art.dart';
 import '../widgets/quick_links.dart';
+import '../widgets/rescan_button.dart';
 import '../widgets/track_tile.dart';
 
 /// Tabs: Playlists · Artists · Albums · Songs.
@@ -40,6 +41,7 @@ class LibraryScreen extends StatelessWidget {
         appBar: AppBar(
           title: const Text('Your Library', style: TextStyle(fontWeight: FontWeight.w800)),
           actions: [
+            const RescanButton(tooltip: 'Rescan music and audiobook folders'),
             IconButton(
               tooltip: 'New playlist',
               icon: const Icon(Icons.add),
