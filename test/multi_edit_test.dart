@@ -112,6 +112,12 @@ void main() {
         await tester.tap(find.text('Save'));
         await Future<void>.delayed(const Duration(milliseconds: 200));
       });
+      // Until the editor has saved and closed (up to 5 s). A fixed 200 ms wasn't always enough
+      // when the whole suite ran at once (8 Oct): the dialog then closed after the test ended.
+      for (var i = 0; i < 50 && find.text('Save').evaluate().isNotEmpty; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+        await tester.pump();
+      }
       await tester.pumpAndSettle();
     }
 
