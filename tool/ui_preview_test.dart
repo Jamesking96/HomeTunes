@@ -63,7 +63,7 @@ void main() {
     PackageInfo.setMockInitialValues(
         appName: 'HomeTunes', packageName: 'x', version: '0.1.26', buildNumber: '26', buildSignature: '');
     Directory(out).createSync(recursive: true);
-    final dir = Directory.systemTemp.createTempSync('hometunes_ui_preview');
+    final dir = freshPreviewFolder('hometunes_ui_preview');
     final songs = [
       _t('Paper Lanterns', 'First Light', 1, 2001),
       _t('Harbour Wall', 'First Light', 2, 2001),
@@ -173,4 +173,12 @@ void main() {
     await tester.pumpAndSettle();
     await shoot('ui-folder-options');
   });
+}
+
+// A fixed folder (emptied first), so the same path shows in the pictures every run and
+// tool\compare_previews.ps1 can compare them byte for byte (8 Oct 2026).
+Directory freshPreviewFolder(String name) {
+  final d = Directory('C:\\Temp\\ht\\preview-data\\$name');
+  if (d.existsSync()) d.deleteSync(recursive: true);
+  return d..createSync(recursive: true);
 }
