@@ -9,6 +9,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../models/eq_preset.dart' show EqPreset;
 import '../models/video_item.dart';
 import '../models/volume_boost.dart';
 import '../services/engine/audio_chain.dart';
@@ -23,6 +24,14 @@ import 'player_model.dart';
 import 'video_filters.dart';
 import 'video_library_model.dart';
 import 'video_tracks.dart';
+
+/// What the video player sends the engine for [preset]: the equaliser filter (bands at or above
+/// half of [sampleRate] left out, as for music) and the overall level in dB (mpv's
+/// `replaygain-fallback`). Refactor phase 1, 8 Oct 2026; since phase 4 worked out by the
+/// shared [AudioChain]; since phase 7 here (it was in video_player_screen.dart, which still
+/// exports it).
+({String filter, String level}) videoEqualizerSettings(EqPreset? preset, {int? sampleRate}) =>
+    AudioChain.settingsFor(preset, sampleRate: sampleRate);
 
 class VideoSession extends ChangeNotifier {
   VideoSession({

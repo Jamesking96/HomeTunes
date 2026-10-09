@@ -39,6 +39,9 @@ import 'server_connection.dart';
 import 'settings/settings_groups.dart';
 
 export 'settings/settings_groups.dart' show ReplayGainMode;
+// What writing edits into files reports, for Settings › Your edits (refactor phase 7: screens don't
+// import the tag writer itself).
+export '../services/tag_writer.dart' show TagWriteResult;
 
 /// Where a picture comes from: a file on disk, or (for the server's covers) its address. The
 /// screens turn it into an image (ui/widgets/library_images.dart, refactor phase 3).
