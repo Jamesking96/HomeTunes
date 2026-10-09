@@ -13,11 +13,11 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 // The engine is an AudioEngine (refactor phase 4): media_kit in the app, a fake in tests.
+import '../services/engine/audio_chain.dart';
 import '../services/engine/audio_engine.dart';
 import '../services/engine/media_kit_audio_engine.dart';
 
 import '../models/book.dart';
-import '../models/eq_preset.dart';
 import '../models/track.dart';
 import '../models/volume_boost.dart';
 import '../services/playback_log.dart';
@@ -70,11 +70,17 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   Duration duration = Duration.zero;
   @override
   double volume = 100; // 0–100, as the listener set it (before the equaliser's overall level)
-  // The equaliser filter last sent to the engine, and the volume scale for its overall level.
-  String? _appliedEq;
-  double _eqLevel = 1.0;
-  // The playing file's sample rate: equaliser bands above half of it are left out.
-  int? _sampleRate;
+  // The equaliser: its filter goes to the engine, its overall level turns the volume down
+  // (services/engine/audio_chain.dart, shared with the video page).
+  late final AudioChain _eq = AudioChain(
+    preset: () => equalizer?.activeFor(book: book != null),
+    hasOptions: () => _player.hasOptions,
+    setOption: _player.setOption,
+    level: EqLevel.volumeFactor,
+    onLevelFactor: (_) => _sendVolume(),
+    onResult: (refused) => equalizer?.reportUnavailable(refused),
+    logChanges: true,
+  );
   // A message about the last thing that went wrong (a skipped song, an engine error), or null.
   String? lastError;
 
@@ -186,12 +192,8 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
           _onEngineAdvanced();
         }
       }),
-      _player.sampleRateStream.listen((r) {
-        if (r != null && r > 0 && r != _sampleRate) {
-          _sampleRate = r;
-          _applyEqualizer();
-        }
-      }),
+      // Equaliser bands above half the file's sample rate are left out.
+      _player.sampleRateStream.listen(_eq.sampleRateChanged),
       _player.errorStream.listen((e) {
         // Engine errors can quote the stream address, login token included: hide it (0.1.17).
         lastError = hideSecrets(e);
@@ -611,7 +613,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// The engine's volume: the listener's (0–100, or up to the volume boost's top, 0.1.62),
   /// turned down a little by the equaliser's overall level. Above 100 it's amplified
   /// (models/volume_boost.dart).
-  double get _engineVolume => engineVolume(volume) * _eqLevel;
+  double get _engineVolume => engineVolume(volume) * _eq.levelFactor;
 
   Future<void> _sendVolume() async {
     try {
@@ -643,48 +645,9 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   /// Sends the equaliser preset for what's playing (music or a book) to the
   /// engine. Only talks to the engine when something actually changed.
-  Future<void> _applyEqualizer() async {
-    // Dragging a slider sends many changes a second: finish one before starting the next,
-    // then catch up with the latest.
-    if (_eqBusy) {
-      _eqAgain = true;
-      return;
-    }
-    _eqBusy = true;
-    try {
-      do {
-        _eqAgain = false;
-        await _sendEqualizer();
-      } while (_eqAgain);
-    } finally {
-      _eqBusy = false;
-    }
-  }
-
-  bool _eqBusy = false;
-  bool _eqAgain = false;
-
-  Future<void> _sendEqualizer() async {
-    final preset = equalizer?.activeFor(book: book != null);
-    final level = eqLevelFactor(preset);
-    if (level != _eqLevel) {
-      _eqLevel = level;
-      await _sendVolume();
-    }
-    final filter = eqFilter(preset, sampleRate: _sampleRate);
-    if (filter == _appliedEq) return;
-    if (!_player.hasOptions) return;
-    _appliedEq = filter;
-    try {
-      await _player.setOption('af', filter);
-      debugPrint('HomeTunes: equaliser ${filter.isEmpty ? 'off' : 'on: $filter'}');
-      equalizer?.reportUnavailable(false);
-    } catch (e) {
-      // e.g. a device whose audio engine lacks the filter: the Equaliser screen says so.
-      debugPrint('HomeTunes: the audio engine refused the equaliser: $e');
-      equalizer?.reportUnavailable(true);
-    }
-  }
+  /// (A slider being dragged sends many changes a second; the chain takes one at a time and
+  /// then catches up with the latest. A refused filter is shown on the Equaliser screen.)
+  Future<void> _applyEqualizer() => _eq.update();
 
   void toggleShuffle() {
     if (book != null) return; // books always play in order
@@ -1036,6 +999,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     saveBookPlace();
     library.removeListener(_onLibraryChanged);
     equalizer?.removeListener(_applyEqualizer);
+    _eq.close();
     for (final s in _subs) {
       s.cancel();
     }

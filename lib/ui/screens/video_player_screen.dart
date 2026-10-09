@@ -25,10 +25,11 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
-import '../../models/eq_preset.dart' show EqPreset, eqFilter;
+import '../../models/eq_preset.dart' show EqPreset;
 import '../../models/video_item.dart';
 import '../../models/video_player_look.dart';
 import '../../models/volume_boost.dart';
+import '../../services/engine/audio_chain.dart';
 import '../../services/path_safety.dart';
 import '../../services/video_drawing.dart';
 import '../../services/video_names.dart';
@@ -56,9 +57,10 @@ import '../widgets/window_scale.dart';
 
 /// What the video player sends the engine for [preset]: the equaliser filter (bands at or above
 /// half of [sampleRate] left out, as for music) and the overall level in dB (mpv's
-/// `replaygain-fallback`). Refactor phase 1, 8 Oct 2026.
+/// `replaygain-fallback`). Refactor phase 1, 8 Oct 2026; since phase 4 worked out by the
+/// shared [AudioChain].
 ({String filter, String level}) videoEqualizerSettings(EqPreset? preset, {int? sampleRate}) =>
-    (filter: eqFilter(preset, sampleRate: sampleRate), level: (preset?.level ?? 0).toStringAsFixed(1));
+    AudioChain.settingsFor(preset, sampleRate: sampleRate);
 
 /// Language codes the engine reports, as words.
 const _languages = {
@@ -303,11 +305,19 @@ class _VideoPageState extends State<_VideoPage> {
   late final LibraryModel _settings;
   // The equaliser (Settings › Videos can give videos their own preset). Null in tests without one.
   EqualizerModel? _eq;
-  String? _appliedEq;
-  // The video's sound's sample rate: equaliser bands at or above half of it are left out, or the
-  // engine rejects the whole equaliser (refactor phase 1: before, the 16 kHz band was always sent,
-  // so a video with 22 kHz sound had no equaliser at all). Same rule as the music player.
-  int? _sampleRate;
+  // Sends the videos' preset to this player (services/engine/audio_chain.dart, shared with the
+  // music player): the bands as a filter, with those at or above half the sound's sample rate
+  // left out (refactor phase 1), and the overall level as mpv's `replaygain-fallback` (the gain
+  // used for files without ReplayGain tags, as videos are), so the volume slider stays the
+  // listener's. A volume filter in the lavfi graph stalled playback on this engine
+  // (tool/bench/frame_picker_engine_test.dart).
+  late final AudioChain _chain = AudioChain(
+    preset: () => _eq?.activeForVideos,
+    hasOptions: () => _engine != null,
+    setOption: (name, value) async => _engine?.setProperty(name, value),
+    level: EqLevel.replayGainFallback,
+    name: 'video player',
+  );
   // What the bottom bar and media keys use to reach this player. Null in tests without one.
   NowWatching? _watching;
   late final VideoTransport _transport = MediaKitTransport(_player, maxVolume: () => _settings.maxVolume);
@@ -398,13 +408,7 @@ class _VideoPageState extends State<_VideoPage> {
         _stats?.playing(playing);
       }),
       _player.stream.buffering.listen((b) => _stats?.buffering(b)),
-      _player.stream.audioParams.listen((a) {
-        final r = a.sampleRate;
-        if (r != null && r > 0 && r != _sampleRate) {
-          _sampleRate = r;
-          _applyEqualizer();
-        }
-      }),
+      _player.stream.audioParams.listen((a) => _chain.sampleRateChanged(a.sampleRate)),
       _player.stream.tracks.listen((_) => _setUpTracks()),
       _player.stream.track.listen((_) => _readCurrentTracks()),
     ]);
@@ -610,42 +614,8 @@ class _VideoPageState extends State<_VideoPage> {
     if (sliderVolume(_player.state.volume) > max + 0.01) _player.setVolume(engineVolume(max));
   }
 
-  /// Sends the videos' equaliser preset to this player: the bands as a filter, and the overall
-  /// level as mpv's `replaygain-fallback` (the gain used for files without ReplayGain tags, as
-  /// videos are), so the volume slider stays the listener's. A volume filter in the lavfi graph
-  /// stalled playback on this engine (tool/bench/frame_picker_engine_test.dart).
-  Future<void> _applyEqualizer() async {
-    if (_eqBusy) {
-      _eqAgain = true;
-      return;
-    }
-    _eqBusy = true;
-    try {
-      do {
-        _eqAgain = false;
-        await _sendEqualizer();
-      } while (_eqAgain && mounted);
-    } finally {
-      _eqBusy = false;
-    }
-  }
-
-  bool _eqBusy = false;
-  bool _eqAgain = false;
-
-  Future<void> _sendEqualizer() async {
-    final (:filter, :level) = videoEqualizerSettings(_eq?.activeForVideos, sampleRate: _sampleRate);
-    if ('$filter|$level' == _appliedEq) return;
-    final engine = _engine;
-    if (engine == null) return;
-    _appliedEq = '$filter|$level';
-    try {
-      await engine.setProperty('af', filter);
-      await engine.setProperty('replaygain-fallback', level);
-    } catch (e) {
-      debugPrint('HomeTunes: the video player refused the equaliser: $e');
-    }
-  }
+  /// Sends the videos' equaliser preset to this player, if it changed (see [_chain]).
+  Future<void> _applyEqualizer() => _chain.update();
 
   /// The frame on screen now becomes the video's picture.
   Future<void> _useThisFrame(VideoItem v) async {
@@ -789,6 +759,7 @@ class _VideoPageState extends State<_VideoPage> {
     _music.removeListener(_onMusicChanged);
     _watching?.detach(_transport);
     _eq?.removeListener(_applyEqualizer);
+    _chain.close();
     _settings.removeListener(_followVolumeTop);
     for (final s in _subs) {
       s.cancel();
