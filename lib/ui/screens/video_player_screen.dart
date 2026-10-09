@@ -30,6 +30,7 @@ import '../../models/video_item.dart';
 import '../../models/video_player_look.dart';
 import '../../models/volume_boost.dart';
 import '../../services/engine/audio_chain.dart';
+import '../../services/engine/engines.dart';
 import '../../services/path_safety.dart';
 import '../../services/video_drawing.dart';
 import '../../services/video_names.dart';
@@ -289,8 +290,7 @@ class _VideoPage extends StatefulWidget {
 
 class _VideoPageState extends State<_VideoPage> {
   // Windows: the engine draws subtitles (libass), so styled and picture subtitles work.
-  final Player _player =
-      Player(configuration: PlayerConfiguration(title: 'HomeTunes video', libass: !Platform.isAndroid));
+  final Player _player = createEngine(EngineUse.videoPage);
   // 0.1.57: on a phone, drawn straight from the video chip unless Settings › Videos says not
   // (services/video_drawing.dart). First used in initState, after _settings is set.
   late final VideoController _controller =
@@ -313,8 +313,8 @@ class _VideoPageState extends State<_VideoPage> {
   // (tool/bench/frame_picker_engine_test.dart).
   late final AudioChain _chain = AudioChain(
     preset: () => _eq?.activeForVideos,
-    hasOptions: () => _engine != null,
-    setOption: (name, value) async => _engine?.setProperty(name, value),
+    hasOptions: () => _mpv != null,
+    setOption: (name, value) async => _mpv?.set(name, value),
     level: EqLevel.replayGainFallback,
     name: 'video player',
   );
@@ -384,7 +384,7 @@ class _VideoPageState extends State<_VideoPage> {
     _eq?.addListener(_applyEqualizer);
     // Volume boost (0.1.62): the volume can go above 100 up to Settings › Playback's top.
     _settings.addListener(_followVolumeTop);
-    _engine?.setProperty('volume-max', '$engineVolumeMax');
+    _mpv?.set('volume-max', '$engineVolumeMax');
     _subs.addAll([
       _player.stream.completed.listen((done) {
         if (done) _finished();
@@ -495,7 +495,8 @@ class _VideoPageState extends State<_VideoPage> {
 
   // ---- audio and subtitles ----
 
-  NativePlayer? get _engine => _player.platform is NativePlayer ? _player.platform as NativePlayer : null;
+  /// mpv's own properties and commands (null when the engine isn't mpv).
+  Mpv? get _mpv => Mpv.of(_player);
 
   /// When the file's tracks are known: add the subtitle files beside it, then pick the audio and
   /// subtitles last chosen in this collection.
@@ -506,7 +507,7 @@ class _VideoPageState extends State<_VideoPage> {
     _tracksSetUp = true;
     final v = _videos.byId(_id);
     if (v == null) return;
-    final engine = _engine;
+    final engine = _mpv;
     if (engine != null) {
       for (final s in v.subtitles) {
         // Only files inside the video folders (a restored backup could name any path).
@@ -534,11 +535,11 @@ class _VideoPageState extends State<_VideoPage> {
 
   /// Which audio and subtitle track the engine is really using ("auto" resolves to one).
   Future<void> _readCurrentTracks() async {
-    final engine = _engine;
+    final engine = _mpv;
     if (engine == null) return;
     try {
-      final aid = await engine.getProperty('aid');
-      final sid = await engine.getProperty('sid');
+      final aid = await engine.get('aid');
+      final sid = await engine.get('sid');
       if (mounted) {
         setState(() {
           _aid = aid;

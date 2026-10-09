@@ -13,6 +13,8 @@ import 'dart:convert';
 
 import 'package:media_kit/media_kit.dart';
 
+import 'engine/engines.dart';
+
 /// One track in a video file.
 class ProbeTrack {
   /// 'video', 'audio' or 'sub'.
@@ -124,24 +126,23 @@ VideoProbe parseVideoProbe({String? format, String? duration, String? trackList,
 Future<VideoProbe?> probeVideo(String path, {Duration timeout = const Duration(seconds: 10)}) async {
   Player? player;
   try {
-    player = Player(configuration: const PlayerConfiguration(title: 'HomeTunes details'));
-    final engine = player.platform;
-    if (engine is! NativePlayer) return null;
+    player = createEngine(EngineUse.probe);
+    final engine = Mpv.of(player);
+    if (engine == null) return null;
     // No sound device and no subtitles; no picture is decoded without a video view (vid=no).
-    await engine.setProperty('ao', 'null');
-    await engine.setProperty('sid', 'no');
+    await prepareEngine(player, EngineUse.probe);
     await player.setVolume(0);
     await player.open(Media(path), play: false);
     final end = DateTime.now().add(timeout);
-    while ((int.tryParse(await engine.getProperty('track-list/count')) ?? 0) == 0) {
+    while ((int.tryParse(await engine.get('track-list/count')) ?? 0) == 0) {
       if (DateTime.now().isAfter(end)) return null;
       await Future<void>.delayed(const Duration(milliseconds: 50));
     }
     return parseVideoProbe(
-      format: await engine.getProperty('file-format'),
-      duration: await engine.getProperty('duration'),
-      trackList: await engine.getProperty('track-list'),
-      chapters: await engine.getProperty('chapter-list/count'),
+      format: await engine.get('file-format'),
+      duration: await engine.get('duration'),
+      trackList: await engine.get('track-list'),
+      chapters: await engine.get('chapter-list/count'),
     );
   } catch (_) {
     return null;
