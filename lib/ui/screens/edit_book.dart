@@ -22,6 +22,7 @@ import '../theme.dart';
 import '../widgets/book_card.dart';
 import 'book_lookup_dialog.dart';
 import '../../state/mixed_value.dart';
+import '../widgets/mixed_value_field.dart';
 
 /// Edits an audiobook's details and cover. Like album edits, the changes are
 /// kept by HomeTunes and applied to every file of the book. Returns true if
@@ -288,36 +289,25 @@ class _EditBookState extends State<_EditBook> {
             inputFormatters: number ? [FilteringTextInputFormatter.allow(RegExp(decimal ? r'[0-9.,]' : r'[0-9]'))] : null,
             textCapitalization: number ? TextCapitalization.none : TextCapitalization.words,
             onChanged: _mixed.contains(f) ? (_) => setState(() {}) : null,
-            decoration: InputDecoration(
-              labelText: _label(f),
-              // Where the books differ: --:--, kept unless something is typed.
-              floatingLabelBehavior: _mixed.contains(f) ? FloatingLabelBehavior.always : null,
-              hintText: _mixed.contains(f) ? differentMarker : null,
-              hintStyle: _mixed.contains(f)
-                  ? TextStyle(color: AppColors.textDim, letterSpacing: 2, fontWeight: FontWeight.w600)
-                  : null,
-              helperText: _mixed.contains(f)
-                  ? (_text(f).isEmpty
-                      ? 'Different for each book – leave as $differentMarker to keep them'
-                      : 'Every book gets this ${_label(f).toLowerCase()}')
-                  : switch (f) {
-                      _F.narrator => 'Leave empty for none',
-                      _F.series => 'Leave empty if it isn\'t part of a series',
-                      _ => null,
-                    },
-              suffixIcon: _mixed.contains(f) && _text(f).isNotEmpty
+            // Where the books differ: --:--, kept unless something is typed.
+            decoration: mixedValueDecoration(
+              label: _label(f),
+              mixed: _mixed.contains(f),
+              typed: _text(f).isNotEmpty,
+              noun: 'book',
+              onKeepEach: _saving ? null : () => setState(() => _ctrl[f]!.clear()),
+              helper: switch (f) {
+                _F.narrator => 'Leave empty for none',
+                _F.series => 'Leave empty if it isn\'t part of a series',
+                _ => null,
+              },
+              suffix: online && !_many && lib.onlineDetails
                   ? IconButton(
-                      tooltip: 'Keep each book\'s own ${_label(f).toLowerCase()}',
-                      icon: const Icon(Icons.undo, size: 20),
-                      onPressed: _saving ? null : () => setState(() => _ctrl[f]!.clear()),
+                      tooltip: 'Find ${_label(f).toLowerCase()} online',
+                      icon: const Icon(Icons.travel_explore, size: 20),
+                      onPressed: _saving ? null : () => _lookUp(f),
                     )
-                  : online && !_many && lib.onlineDetails
-                      ? IconButton(
-                          tooltip: 'Find ${_label(f).toLowerCase()} online',
-                          icon: const Icon(Icons.travel_explore, size: 20),
-                          onPressed: _saving ? null : () => _lookUp(f),
-                        )
-                      : null,
+                  : null,
             ),
           ),
         );

@@ -25,6 +25,7 @@ import '../../state/library_model.dart';
 import '../../state/video_library_model.dart';
 import '../theme.dart';
 import '../widgets/offline_warning.dart';
+import '../widgets/picture_choice.dart';
 
 /// Chosen pictures are kept at most this wide.
 const pictureWidth = 1280;
@@ -101,35 +102,16 @@ Future<void> showCollectionPosterOptions(BuildContext context, VideoCollection c
 }
 
 Future<String?> _askHow(BuildContext context,
-    {required String title, required String? frameLabel, required bool online, required bool canReset}) {
-  Widget option(BuildContext ctx, String value, IconData icon, String label, String detail, {bool enabled = true}) =>
-      SimpleDialogOption(
-        key: ValueKey('picture-$value'),
-        onPressed: enabled ? () => Navigator.of(ctx).pop(value) : null,
-        child: ListTile(
-          enabled: enabled,
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(icon),
-          title: Text(label),
-          subtitle: Text(detail, style: TextStyle(color: AppColors.textDim, fontSize: 12)),
-        ),
-      );
-  return showDialog<String>(
-    context: context,
-    builder: (ctx) => SimpleDialog(
-      title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
-      children: [
-        option(ctx, 'file', Icons.image_outlined, 'Choose an image file…', 'A picture you already have'),
-        if (frameLabel != null)
-          option(ctx, 'frame', Icons.movie_filter_outlined, frameLabel, 'Scrub to the moment you want, frame by frame if you like'),
-        option(ctx, 'online', Icons.travel_explore, 'Search online…',
-            online ? 'Posters and stills from TVmaze, AniList and Wikipedia' : 'Switched off in Settings › Online lookups',
-            enabled: online),
-        if (canReset) option(ctx, 'auto', Icons.restore, 'Use the automatic picture', 'Go back to what HomeTunes chose'),
-      ],
-    ),
-  );
-}
+        {required String title, required String? frameLabel, required bool online, required bool canReset}) =>
+    showPictureChoices(context, title: title, keyPrefix: 'picture', choices: [
+      const PictureChoice('file', Icons.image_outlined, 'Choose an image file…', 'A picture you already have'),
+      if (frameLabel != null)
+        PictureChoice('frame', Icons.movie_filter_outlined, frameLabel, 'Scrub to the moment you want, frame by frame if you like'),
+      PictureChoice('online', Icons.travel_explore, 'Search online…',
+          online ? 'Posters and stills from TVmaze, AniList and Wikipedia' : 'Switched off in Settings › Online lookups',
+          enabled: online),
+      if (canReset) const PictureChoice('auto', Icons.restore, 'Use the automatic picture', 'Go back to what HomeTunes chose'),
+    ]);
 
 /// Gets the picture the chosen way; null if cancelled. Problems are shown, not thrown.
 Future<List<int>?> _getPicture(

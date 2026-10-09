@@ -23,6 +23,7 @@ import '../theme.dart';
 import '../widgets/artwork.dart';
 import 'cover_search_dialog.dart';
 import 'info_lookup_dialog.dart';
+import '../widgets/mixed_value_field.dart';
 
 // The --:-- marker lives in state/mixed_value.dart (refactor phase 2); still reachable from here.
 export '../../state/mixed_value.dart' show differentMarker;
@@ -474,16 +475,15 @@ class _EditDetailsState extends State<_EditDetails> {
             textCapitalization: _isNumber(f) ? TextCapitalization.none : TextCapitalization.words,
             // Refresh the "In file: …" hint, or the undo button, as you type.
             onChanged: _single || _mixed.contains(f) ? (_) => setState(() {}) : null,
-            decoration: InputDecoration(
-              suffixIcon: _suffixFor(f),
-              labelText: _label(f),
-              // Boxes where they differ show --:--; leaving it keeps each one's own value.
-              floatingLabelBehavior: _mixed.contains(f) ? FloatingLabelBehavior.always : null,
-              hintText: _mixed.contains(f) ? differentMarker : null,
-              hintStyle: _mixed.contains(f)
-                  ? TextStyle(color: AppColors.textDim, letterSpacing: 2, fontWeight: FontWeight.w600)
-                  : null,
-              helperText: _helperFor(f, lib),
+            // Boxes where they differ show --:--; leaving it keeps each one's own value.
+            decoration: mixedValueDecoration(
+              label: _label(f),
+              mixed: _mixed.contains(f),
+              typed: _ctrl[f]!.text.isNotEmpty,
+              noun: _things,
+              onKeepEach: _saving ? null : () => setState(() => _ctrl[f]!.clear()),
+              helper: _helperFor(f, lib),
+              suffix: _suffixFor(f),
             ),
           ),
           const SizedBox(height: 10),
@@ -590,16 +590,10 @@ class _EditDetailsState extends State<_EditDetails> {
   /// What these are called in messages: albums or songs.
   String get _things => _manyAlbums ? 'album' : 'song';
 
-  /// The button at the end of a box: "keep each one's own" once a --:-- box has
-  /// been typed in, otherwise "find online" (not for several albums at once).
+  /// The button at the end of a box: "find online" (not for several albums at once). A --:-- box
+  /// that's been typed in shows "keep each one's own" instead (mixedValueDecoration).
   Widget? _suffixFor(_Field f) {
-    if (_mixed.contains(f) && _ctrl[f]!.text.isNotEmpty) {
-      return IconButton(
-        tooltip: 'Keep each $_things\'s own ${_label(f).toLowerCase()}',
-        icon: const Icon(Icons.undo, size: 20),
-        onPressed: _saving ? null : () => setState(() => _ctrl[f]!.clear()),
-      );
-    }
+    if (_mixed.contains(f) && _ctrl[f]!.text.isNotEmpty) return null;
     if (_manyAlbums || !context.watch<LibraryModel>().onlineDetails) return null;
     return IconButton(
       tooltip: 'Find ${_label(f).toLowerCase()} online',
@@ -608,14 +602,10 @@ class _EditDetailsState extends State<_EditDetails> {
     );
   }
 
-  /// Under a single song's field, show the file's value when it's been changed.
-  /// Under a --:-- box, say what leaving it does.
+  /// Under a single song's field, show the file's value when it's been changed. (Under a --:--
+  /// box, mixedValueDecoration says what leaving it does.)
   String? _helperFor(_Field f, LibraryModel lib) {
-    if (_mixed.contains(f)) {
-      return _ctrl[f]!.text.isEmpty
-          ? 'Different for each $_things – leave as $differentMarker to keep them'
-          : 'Every $_things gets this ${_label(f).toLowerCase()}';
-    }
+    if (_mixed.contains(f)) return null;
     if (!_single) return null;
     final original = lib.originalById(_tracks.first.id);
     if (original == null) return null;
