@@ -16,6 +16,8 @@ import 'package:image/image.dart' as img;
 import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as p;
 
+import 'engine/engines.dart';
+
 /// What was learned about one video.
 class VideoFacts {
   /// The saved picture, or null if none could be taken.
@@ -43,14 +45,9 @@ class VideoThumbnailer {
   Future<Player> _open() async {
     final existing = _player;
     if (existing != null) return existing;
-    final player = Player(configuration: const PlayerConfiguration(title: 'HomeTunes thumbnails'));
-    final engine = player.platform;
-    if (engine is NativePlayer) {
-      // Pictures only: no sound, no subtitles. media_kit starts every player with vid=no.
-      await engine.setProperty('vid', 'auto');
-      await engine.setProperty('aid', 'no');
-      await engine.setProperty('sid', 'no');
-    }
+    final player = createEngine(EngineUse.thumbnails);
+    // Pictures only: no sound, no subtitles. media_kit starts every player with vid=no.
+    await prepareEngine(player, EngineUse.thumbnails);
     await player.setVolume(0);
     return _player = player;
   }

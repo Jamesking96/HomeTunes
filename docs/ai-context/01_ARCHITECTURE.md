@@ -85,7 +85,10 @@ docs/                    USER_GUIDE.md (user-facing), ai-context/ (these notes),
   - The server password lives in `SecretStore`, not `settings.json` (an old plain-text one is
     moved over on load). Server covers for the media controls go through `ServerArtCache`.
     Paths from scans or backups are checked with `path_safety.dart` before they're acted on.
-- **`PlayerModel`** wraps media_kit. It holds the play queue (`play_queue.dart`: shuffle, repeat,
+- **`PlayerModel`** drives an `AudioEngine` (`services/engine/audio_engine.dart`; `MediaKitAudioEngine` in the
+  app, a fake in tests; refactor phase 4), with the equaliser through the shared `AudioChain`
+  (`services/engine/audio_chain.dart`). Every other player (video page, music video, frame picker, probe,
+  thumbnails) is made by `services/engine/engines.dart`, so screens never reach into mpv themselves. It holds the play queue (`play_queue.dart`: shuffle, repeat,
   play next, reorder), **gapless** preloading, book mode (`playBook`, parts and chapters,
   `skipBy` across files, speed per book, saving the place) and the waiting music queue while a
   book plays (`resumeMusic`), and the volume (0–100). It implements `SleepTarget`. It uses

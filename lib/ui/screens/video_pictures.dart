@@ -18,6 +18,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/video_item.dart';
+import '../../services/engine/engines.dart';
 import '../../services/video_art_search.dart';
 import '../../services/video_thumbnails.dart' show shrinkToJpeg;
 import '../../state/library_model.dart';
@@ -186,7 +187,7 @@ class _FramePicker extends StatefulWidget {
 }
 
 class _FramePickerState extends State<_FramePicker> {
-  final Player _player = Player(configuration: const PlayerConfiguration(title: 'HomeTunes frame picker'));
+  final Player _player = createEngine(EngineUse.framePicker);
   late final VideoController _controller = VideoController(_player);
   final List<StreamSubscription> _subs = [];
   Duration _length = Duration.zero;
@@ -205,13 +206,8 @@ class _FramePickerState extends State<_FramePicker> {
 
   Future<void> _open() async {
     try {
-      final engine = _player.platform;
-      if (engine is NativePlayer) {
-        await engine.setProperty('vid', 'auto'); // media_kit starts players with pictures off
-        await engine.setProperty('aid', 'no'); // silent
-        await engine.setProperty('sid', 'no');
-        await engine.setProperty('hr-seek', 'yes'); // land on the exact frame
-      }
+      // Pictures on, silent, no subtitles, and seeks land on the exact frame.
+      await prepareEngine(_player, EngineUse.framePicker);
       await _player.setVolume(0);
       _subs.add(_player.stream.position.listen((pos) {
         if (!_dragging && mounted) setState(() => _at = pos);
@@ -250,8 +246,7 @@ class _FramePickerState extends State<_FramePicker> {
   }
 
   Future<void> _step(bool forward) async {
-    final engine = _player.platform;
-    if (engine is NativePlayer) await engine.command([forward ? 'frame-step' : 'frame-back-step']);
+    await Mpv.of(_player)?.command([forward ? 'frame-step' : 'frame-back-step']);
   }
 
   Future<void> _use() async {

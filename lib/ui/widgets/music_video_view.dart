@@ -30,6 +30,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
+import '../../services/engine/engines.dart';
 import '../../services/video_drawing.dart';
 import '../../services/video_stats.dart';
 import '../../state/library_model.dart';
@@ -133,7 +134,7 @@ class MusicVideoView extends StatefulWidget {
 
 class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObserver {
   // The video's own player: muted, no sound decoded, no subtitles.
-  final Player _video = Player(configuration: const PlayerConfiguration(title: 'HomeTunes music video'));
+  final Player _video = createEngine(EngineUse.musicVideo);
   // Always media_kit's own drawing (0.1.58). 0.1.57 drew music videos straight from the video
   // chip too, but this player has no sound, and without sound to keep time by that way of
   // drawing let the video freeze and then race ahead (the Playback log showed it 18.7 s behind,
@@ -168,14 +169,10 @@ class _MusicVideoViewState extends State<MusicVideoView> with WidgetsBindingObse
   }
 
   Future<void> _setUp() async {
-    final engine = _video.platform;
-    if (engine is NativePlayer) {
-      try {
-        // The song plays in the main player; this one never makes a sound.
-        await engine.setProperty('aid', 'no');
-        await engine.setProperty('sid', 'no');
-      } catch (_) {}
-    }
+    try {
+      // The song plays in the main player; this one never makes a sound.
+      await prepareEngine(_video, EngineUse.musicVideo);
+    } catch (_) {}
     await _video.setVolume(0);
     _subs.addAll([
       _video.stream.width.listen((w) {
