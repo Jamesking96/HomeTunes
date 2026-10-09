@@ -27,15 +27,16 @@ import '../theme.dart';
 import '../widgets/cards.dart' show EmptyState;
 import '../widgets/escape_cancels.dart';
 import '../widgets/music_filter_sheet.dart' show MusicFilterBar, showMusicFilterSheet, reverseGroupsIf;
-import 'edit_video.dart';
 import 'video_collection_screen.dart';
 import 'video_pictures.dart';
 
 import '../widgets/video_card.dart';
 export '../widgets/video_card.dart' show videoCardHeight, sliverCardRows, videoLength, VideoCard, showVideoMenu;
 import '../widgets/video_group_menu.dart';
-import '../widgets/selection_bar.dart';
 export '../widgets/video_group_menu.dart' show showVideoGroupMenu;
+
+import '../widgets/video_selection_bar.dart';
+export '../widgets/video_selection_bar.dart' show VideoSelectionBar;
 
 class VideosScreen extends StatelessWidget {
   const VideosScreen({super.key});
@@ -573,58 +574,5 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
         }),
       ),
     ]);
-  }
-}
-
-/// The bar shown instead of the search while videos are ticked (All videos, a collection's page
-/// and its in-place contents): how many, Select all, Edit details (one or several), and mark
-/// them watched or not watched.
-class VideoSelectionBar extends StatelessWidget {
-  const VideoSelectionBar({
-    super.key,
-    required this.selected,
-    required this.onClear,
-    required this.onSelectAll,
-  });
-
-  final Set<String> selected;
-  final VoidCallback onClear, onSelectAll;
-
-  @override
-  Widget build(BuildContext context) {
-    final model = context.read<VideoLibraryModel>();
-    List<VideoItem> picked() => [for (final id in selected) model.byId(id)].whereType<VideoItem>().toList();
-    // Esc cancels the selection, like the ✕ (0.1.48).
-    return EscapeCancels(onCancel: onClear, child: SelectionBar(
-      key: const ValueKey('video-selection-bar'),
-      label: '${selected.length} selected',
-      onClear: onClear,
-      safeArea: false,
-      actions: [
-          TextButton(onPressed: onSelectAll, child: const Text('Select all')),
-          IconButton(
-            key: const ValueKey('selection-edit'),
-            tooltip: selected.length == 1 ? 'Edit details' : 'Edit ${selected.length} videos',
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () => showEditVideos(context, picked()),
-          ),
-          IconButton(
-            tooltip: 'Mark as watched',
-            icon: const Icon(Icons.check_circle_outline),
-            onPressed: () async {
-              await model.setWatched(selected.toList(), true);
-              onClear();
-            },
-          ),
-          IconButton(
-            tooltip: 'Mark as not watched',
-            icon: const Icon(Icons.remove_done),
-            onPressed: () async {
-              await model.setWatched(selected.toList(), false);
-              onClear();
-            },
-          ),
-      ],
-    ));
   }
 }
