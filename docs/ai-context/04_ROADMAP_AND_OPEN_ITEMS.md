@@ -258,6 +258,16 @@ phases, each on its own branch (`refactor/p<n>-<name>`), merged with `--no-ff` o
     song / album and book editors; the video and collection editors only show a plain `--:--` hint, so moving them
     over would change how they look).
   - Not done, as agreed: one way of describing filters (step 6).
+  - **Fix on the same branch (9 Oct, the user found it while testing):** Find cover online found nothing for Black
+    Eyed Peas' "THE E.N.D.". Two causes, neither from the refactor. (1) MusicBrainz titles it "The E•N•D", and a
+    quoted search for "E.N.D." never matches; now, when the exact search finds nothing, `CoverSearch` searches again
+    without punctuation (`CoverSearch.loosen`: letters, digits and spaces in any alphabet), only if that changes
+    the names. (2) The Cover Art Archive (archive.org) took 16.5 s for that cover's preview, past the 15 s limit,
+    and late previews were silently dropped, so a slow day looked like "no covers found" for every album. Now
+    45 s for a preview (`previewWait`) and 60 s for the full picture, and when MusicBrainz finds albums but no
+    picture arrives (timeouts or errors, not a 404 "no cover") the dialog says the cover website didn't answer
+    in time (`CoverSiteUnavailable`). A busy MusicBrainz (503) is asked again twice, not once. Checked live: the
+    album is found with its cover in about 12 s. Tests: `test/cover_search_test.dart`.
 
 ### Platforms plan: Linux, Android Auto, Android TV (agreed 1 Oct)
 (Versions, corrected 7 Oct by the user: **0.2.0 is only for the next level of development**. Fixes and features on the app as it is stay on 0.1.x (the Next-video fix is 0.1.71). The 6 Oct note said the next release would be 0.2.0 whatever it held; that was wrong, and a 0.2.0 test build of the fix was renumbered 0.1.71. The platform phases start the 0.2.x line: Linux **0.2.0**, Android Auto **0.2.1** and Android TV **0.2.2**; 0.1.x work in between doesn't move them. The build number after `+` keeps counting up from 72, so phones still accept each update. The plan doc matches this. Before 6 Oct the phases were renumbered each time other 0.1.x work went first, ending at 0.1.71–0.1.73.)
