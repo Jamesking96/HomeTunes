@@ -15,6 +15,8 @@
 // every few seconds, counts the end as watched, and then plays the next video in the collection
 // after a short countdown (the same page and player, so full screen carries on). Starting a
 // video pauses the music; starting music pauses the video.
+// Since refactor phase 5 (9 Oct 2026) the playing itself is a VideoSession
+// (state/video_session.dart): this page draws it and turns taps into calls on it.
 import 'dart:async';
 import 'dart:io';
 
@@ -30,17 +32,16 @@ import '../../models/video_item.dart';
 import '../../models/video_player_look.dart';
 import '../../models/volume_boost.dart';
 import '../../services/engine/audio_chain.dart';
-import '../../services/engine/engines.dart';
-import '../../services/path_safety.dart';
+import '../../services/engine/video_engine.dart';
 import '../../services/video_drawing.dart';
-import '../../services/video_names.dart';
 import '../../services/video_stats.dart';
 import '../../state/equalizer_model.dart';
 import '../../state/library_model.dart';
 import '../../state/now_watching.dart';
 import '../../state/player_model.dart';
-import '../../state/video_filters.dart';
 import '../../state/video_library_model.dart';
+import '../../state/video_session.dart';
+import '../../state/video_tracks.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/always_on_top_button.dart';
@@ -56,77 +57,15 @@ import '../widgets/selectable_title.dart';
 import '../widgets/volume_slider.dart';
 import '../widgets/window_scale.dart';
 
+// The track helpers moved to state/video_tracks.dart (refactor phase 5); still available here.
+export '../../state/video_tracks.dart' show languageName, trackLabel, matchTrack;
+
 /// What the video player sends the engine for [preset]: the equaliser filter (bands at or above
 /// half of [sampleRate] left out, as for music) and the overall level in dB (mpv's
 /// `replaygain-fallback`). Refactor phase 1, 8 Oct 2026; since phase 4 worked out by the
 /// shared [AudioChain].
 ({String filter, String level}) videoEqualizerSettings(EqPreset? preset, {int? sampleRate}) =>
     AudioChain.settingsFor(preset, sampleRate: sampleRate);
-
-/// Language codes the engine reports, as words.
-const _languages = {
-  'eng': 'English', 'en': 'English', 'jpn': 'Japanese', 'ja': 'Japanese', 'spa': 'Spanish', 'es': 'Spanish',
-  'fre': 'French', 'fra': 'French', 'fr': 'French', 'ger': 'German', 'deu': 'German', 'de': 'German',
-  'ita': 'Italian', 'it': 'Italian', 'por': 'Portuguese', 'pt': 'Portuguese', 'rus': 'Russian', 'ru': 'Russian',
-  'chi': 'Chinese', 'zho': 'Chinese', 'zh': 'Chinese', 'kor': 'Korean', 'ko': 'Korean', 'ara': 'Arabic',
-  'hin': 'Hindi', 'dut': 'Dutch', 'nld': 'Dutch', 'swe': 'Swedish', 'nor': 'Norwegian', 'dan': 'Danish',
-  'fin': 'Finnish', 'pol': 'Polish', 'tur': 'Turkish', 'gre': 'Greek', 'ell': 'Greek', 'heb': 'Hebrew',
-  'tha': 'Thai', 'vie': 'Vietnamese', 'ind': 'Indonesian', 'hun': 'Hungarian', 'cze': 'Czech', 'ces': 'Czech',
-};
-
-String? languageName(String? code) => code == null ? null : _languages[code.toLowerCase()];
-
-/// A language code for a subtitle file's label ("English" → "eng"), or null.
-String? _codeFor(String label) {
-  final l = label.toLowerCase();
-  for (final e in _languages.entries) {
-    if (e.key.length == 3 && l.contains(e.value.toLowerCase())) return e.key;
-  }
-  return null;
-}
-
-/// "English · 5.1 · AC3", "Full Subtitles [MK-Baal] · English".
-String trackLabel(String kind, dynamic t, int n) {
-  final String? title = t.title;
-  final lang = languageName(t.language) ?? t.language;
-  final parts = <String>[
-    ?title,
-    if (lang != null && lang != title) lang,
-  ];
-  if (kind == 'audio') {
-    final ch = (t.channels ?? '') as String;
-    final channels = switch (ch) {
-      'unknown2' || 'stereo' => 'Stereo',
-      'unknown1' || 'mono' => 'Mono',
-      'unknown6' || '5.1' || '5.1(side)' => '5.1',
-      'unknown8' || '7.1' => '7.1',
-      _ => ch.isEmpty ? null : ch,
-    };
-    if (channels != null) parts.add(channels);
-  }
-  final String? codec = t.codec;
-  if (codec != null) parts.add(codec.toUpperCase());
-  if (parts.isEmpty) parts.add('${kind == 'audio' ? 'Audio' : 'Subtitles'} $n');
-  return parts.join(' · ');
-}
-
-/// The audio or subtitle track in [tracks] that best matches [pick] (a choice remembered for the
-/// collection): same language and name, else same language, else same name. Null when none does
-/// (the file's own default is kept). [tracks] are media_kit AudioTracks or SubtitleTracks.
-T? matchTrack<T>(List<T> tracks, TrackPick pick) {
-  final real = [for (final t in tracks) if ((t as dynamic).id != 'auto' && (t as dynamic).id != 'no') t];
-  for (final t in real) {
-    final d = t as dynamic;
-    if (d.language == pick.language && d.title == pick.title) return t;
-  }
-  for (final t in real) {
-    if ((t as dynamic).language == pick.language && pick.language != null) return t;
-  }
-  for (final t in real) {
-    if ((t as dynamic).title == pick.title && pick.title != null) return t;
-  }
-  return null;
-}
 
 /// A video's page (0.1.42): a loading page shows straight away, with the video's picture and
 /// "Opening …", while the real page (and its player) starts behind it; it fades away once the
@@ -290,275 +229,57 @@ class _VideoPage extends StatefulWidget {
 
 class _VideoPageState extends State<_VideoPage> {
   // Windows: the engine draws subtitles (libass), so styled and picture subtitles work.
-  final Player _player = createEngine(EngineUse.videoPage);
+  final MediaKitVideoEngine _engine = MediaKitVideoEngine();
   // 0.1.57: on a phone, drawn straight from the video chip unless Settings › Videos says not
-  // (services/video_drawing.dart). First used in initState, after _settings is set.
+  // (services/video_drawing.dart). Made in initState, after _settings is set.
   late final VideoController _controller =
-      VideoController(_player, configuration: videoDrawing(direct: _settings.videoDirectDrawing));
-  // Playback stats in the Playback log (0.1.55): decoding, dropped pictures, waits. Null in tests.
-  late final VideoStats? _stats = VideoStats.forPlayer(_player, 'Video');
+      VideoController(_engine.player, configuration: videoDrawing(direct: _settings.videoDirectDrawing));
   // Keeps the same Video widget (and its picture) when switching between normal and enlarged,
   // and reaches it to go full screen.
   final GlobalKey<VideoState> _videoKey = GlobalKey<VideoState>();
-  late final VideoLibraryModel _videos;
-  late final PlayerModel _music;
   late final LibraryModel _settings;
-  // The equaliser (Settings › Videos can give videos their own preset). Null in tests without one.
-  EqualizerModel? _eq;
-  // Sends the videos' preset to this player (services/engine/audio_chain.dart, shared with the
-  // music player): the bands as a filter, with those at or above half the sound's sample rate
-  // left out (refactor phase 1), and the overall level as mpv's `replaygain-fallback` (the gain
-  // used for files without ReplayGain tags, as videos are), so the volume slider stays the
-  // listener's. A volume filter in the lavfi graph stalled playback on this engine
-  // (tool/bench/frame_picker_engine_test.dart).
-  late final AudioChain _chain = AudioChain(
-    preset: () => _eq?.activeForVideos,
-    hasOptions: () => _mpv != null,
-    setOption: (name, value) async => _mpv?.set(name, value),
-    level: EqLevel.replayGainFallback,
-    name: 'video player',
-  );
-  // What the bottom bar and media keys use to reach this player. Null in tests without one.
-  NowWatching? _watching;
-  late final VideoTransport _transport = MediaKitTransport(_player, maxVolume: () => _settings.maxVolume);
 
-  /// The speed now (starts at the collection's own, else Settings › Videos' usual one).
-  double _speed = 1.0;
-  final List<StreamSubscription> _subs = [];
-  Timer? _saveTimer;
-
-  /// The video playing now (the page moves on to the next one in its collection).
-  late String _id = widget.videoId;
-
-  /// The video on screen, for the previous / next buttons (0.1.71). They listen to this rather
-  /// than being built with a fixed target: full screen keeps the controls it was opened with, so
-  /// a target worked out then went stale after one press, and the next press replayed the video
-  /// now playing.
-  late final ValueNotifier<String> _shownId = ValueNotifier(widget.videoId);
+  /// Everything about playing (refactor phase 5): opening, previous / next, Up next, tracks,
+  /// speed, places, the equaliser, the music and the bottom bar. This page only draws it.
+  late final VideoSession _session;
 
   /// The video fills the whole page (the details are hidden).
   bool _enlarged = false;
 
-  /// The file couldn't be found or opened.
-  String? _problem;
-
-  // Tracks: set up once per file, when the engine first lists them.
-  bool _tracksSetUp = false;
-  String _aid = 'auto', _sid = 'auto';
-
-  // Playing on: the next video and the seconds left before it starts.
-  VideoItem? _upNext;
-  int _countdown = 0;
-  Timer? _upNextTimer;
-
-  // Opening (0.1.42): a video is being opened and isn't showing yet. The first time, the loading
-  // page covers the whole page; for the next / previous video a spinner shows on the picture.
-  bool _opening = false;
-  Timer? _openingTimer;
-  bool _toldReady = false;
-
-  /// The video is showing (or can't be played): stop the spinner and lift the loading page.
-  void _shown() {
-    _openingTimer?.cancel();
-    if (!mounted) return;
-    if (_opening) setState(() => _opening = false);
-    if (!_toldReady) {
-      _toldReady = true;
-      // Not straight away: this can happen while the page is first being built.
-      final onReady = widget.onReady;
-      if (onReady != null) Future.microtask(onReady);
-    }
-  }
-
   @override
   void initState() {
     super.initState();
-    _videos = context.read<VideoLibraryModel>();
-    _music = context.read<PlayerModel>();
-    _music.addListener(_onMusicChanged);
-    // The bottom bar and the system media controls show and control this video (30 Sep).
-    _watching = Provider.of<NowWatching?>(context, listen: false);
-    _watching?.attach(_transport, onOpen: _bringBack);
-    _settings = _videos.library;
-    _eq = Provider.of<EqualizerModel?>(context, listen: false);
-    _eq?.addListener(_applyEqualizer);
-    // Volume boost (0.1.62): the volume can go above 100 up to Settings › Playback's top.
-    _settings.addListener(_followVolumeTop);
-    _mpv?.set('volume-max', '$engineVolumeMax');
-    _subs.addAll([
-      _player.stream.completed.listen((done) {
-        if (done) _finished();
-      }),
-      _player.stream.error.listen((e) {
-        if (mounted && _player.state.duration == Duration.zero) {
-          setState(() => _problem = 'Can\'t play this video: $e');
-          _shown();
-        }
-      }),
-      // Playing and moving on: it's showing (some files never report a first picture).
-      _player.stream.position.listen((at) {
-        _stats?.moved(at); // 0.1.58: skips are noted in the Playback log
-        if (_opening && at > Duration.zero && _player.state.playing) _shown();
-      }),
-      _player.stream.playing.listen((playing) {
-        // One thing at a time: whenever the video starts (or carries on), the music or
-        // audiobook pauses (30 Sep: before, only when the page first opened).
-        if (playing && _music.playing) _music.pause();
-        if (!playing) _savePlace();
-        _stats?.playing(playing);
-      }),
-      _player.stream.buffering.listen((b) => _stats?.buffering(b)),
-      _player.stream.audioParams.listen((a) => _chain.sampleRateChanged(a.sampleRate)),
-      _player.stream.tracks.listen((_) => _setUpTracks()),
-      _player.stream.track.listen((_) => _readCurrentTracks()),
-    ]);
-    _saveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (_player.state.playing) _savePlace();
-    });
+    final videos = context.read<VideoLibraryModel>();
+    _settings = videos.library;
+    _controller; // made before the first video opens, as before
+    _session = VideoSession(
+      engine: _engine,
+      videos: videos,
+      music: context.read<PlayerModel>(),
+      videoId: widget.videoId,
+      watching: Provider.of<NowWatching?>(context, listen: false),
+      equalizer: Provider.of<EqualizerModel?>(context, listen: false),
+      // Playback stats in the Playback log (0.1.55). Null in tests.
+      stats: VideoStats.forPlayer(_engine.player, 'Video'),
+      onReady: widget.onReady,
+      onCarryOn: _carryOn,
+      onOpenPage: _bringBack,
+    )..addListener(_redraw);
     // The first video's first picture is on screen (this only happens once per player).
-    _controller.waitUntilFirstFrameRendered.then((_) => _shown());
-    _open(_id);
+    _controller.waitUntilFirstFrameRendered.then((_) => _session.shown());
   }
 
-  /// The previous / next video buttons: keep this one's place, then open that one.
-  void _goTo(String id) {
-    if (!mounted || id == _id) return;
-    _savePlace();
-    _open(id);
+  void _redraw() {
+    if (mounted) setState(() {});
   }
 
-  /// The video before / after [id] in its collection, or null at either end.
-  VideoItem? _neighbour(String id, {required bool forward}) {
-    final v = _videos.byId(id);
-    if (v == null) return null;
-    return forward ? _videos.after(v) : _videos.before(v);
-  }
-
-  /// Previous / next video, worked out when pressed from the video playing now (0.1.71).
-  void _jump({required bool forward}) {
-    final target = _neighbour(_id, forward: forward);
-    if (target != null) _goTo(target.id);
-  }
-
-  Future<void> _open(String id) async {
-    final v = _videos.byId(id);
-    final file = v == null ? null : _videos.playableFile(v);
-    _shownId.value = id;
-    setState(() {
-      _id = id;
-      _problem = null;
-      _tracksSetUp = false;
-      _upNext = null;
-      _aid = 'auto';
-      _sid = 'auto';
-      _opening = true;
-    });
-    _upNextTimer?.cancel();
-    // At the latest after 12 s: don't keep a spinner up for ever.
-    _openingTimer?.cancel();
-    _openingTimer = Timer(const Duration(seconds: 12), _shown);
-    if (v == null || file == null) {
-      setState(() => _problem = 'This video isn\'t there any more. Rescan your video folders to tidy the list.');
-      _shown();
-      return;
-    }
-    final next = _videos.after(v), previous = _videos.before(v);
-    _watching?.showing(v,
-        picture: _videos.thumbFile(v),
-        skipBack: _settings.videoSkipBackSeconds,
-        skipForward: _settings.videoSkipForwardSeconds,
-        onNext: next == null ? null : () => _jump(forward: true),
-        onPrevious: previous == null ? null : () => _jump(forward: false),
-        transport: _transport);
-    // One thing at a time: the music pauses while a video plays.
-    if (_music.playing) await _music.pause();
-    final place = _videos.placeOf(v.id);
-    var start = resumeAt(place, v.duration);
-    // Settings › Videos: go back a little, more after a long break (like audiobooks).
-    if (start > Duration.zero && place != null && _settings.videoRewindOnResume) {
-      final since = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(place.updatedMs));
-      start -= PlayerModel.resumeRewind(since);
-      if (start < Duration.zero) start = Duration.zero;
-    }
-    await _applyEqualizer();
-    _stats?.started(v.episodeLabel == null ? v.title : '${v.collection} ${v.episodeLabel}');
-    await _player.open(Media(file, start: start > Duration.zero ? start : null));
-    _speed = _videos.speedFor(v.collection);
-    await _player.setRate(_speed);
-    if (start > Duration.zero && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Carrying on from ${videoLength(start)}'),
-        action: SnackBarAction(label: 'Start over', onPressed: () => _player.seek(Duration.zero)),
-      ));
-    }
-  }
-
-  // ---- audio and subtitles ----
-
-  /// mpv's own properties and commands (null when the engine isn't mpv).
-  Mpv? get _mpv => Mpv.of(_player);
-
-  /// When the file's tracks are known: add the subtitle files beside it, then pick the audio and
-  /// subtitles last chosen in this collection.
-  Future<void> _setUpTracks() async {
-    if (_tracksSetUp) return;
-    final real = _player.state.tracks.audio.where((t) => t.id != 'auto' && t.id != 'no');
-    if (real.isEmpty && _player.state.duration == Duration.zero) return; // not loaded yet
-    _tracksSetUp = true;
-    final v = _videos.byId(_id);
-    if (v == null) return;
-    final engine = _mpv;
-    if (engine != null) {
-      for (final s in v.subtitles) {
-        // Only files inside the video folders (a restored backup could name any path).
-        if (!isUsableLocalFile(s, roots: _videos.library.videoFolders, extensions: subtitleExtensions)) continue;
-        final label = subtitleLabel(s, v.path);
-        try {
-          await engine.command(['sub-add', s, 'auto', '$label (file)', _codeFor(label) ?? '']);
-        } catch (_) {}
-      }
-    }
-    final choice = _videos.trackChoiceFor(v.collection);
-    await Future<void>.delayed(const Duration(milliseconds: 200)); // let the added files show up
-    if (choice.audio != null) {
-      final t = choice.audio!.off ? AudioTrack.no() : _match(_player.state.tracks.audio, choice.audio!);
-      if (t != null) await _player.setAudioTrack(t);
-    }
-    if (choice.subtitles != null) {
-      final t = choice.subtitles!.off ? SubtitleTrack.no() : _match(_player.state.tracks.subtitle, choice.subtitles!);
-      if (t != null) await _player.setSubtitleTrack(t);
-    }
-    await _readCurrentTracks();
-  }
-
-  T? _match<T>(List<T> tracks, TrackPick pick) => matchTrack(tracks, pick);
-
-  /// Which audio and subtitle track the engine is really using ("auto" resolves to one).
-  Future<void> _readCurrentTracks() async {
-    final engine = _mpv;
-    if (engine == null) return;
-    try {
-      final aid = await engine.get('aid');
-      final sid = await engine.get('sid');
-      if (mounted) {
-        setState(() {
-          _aid = aid;
-          _sid = sid;
-        });
-      }
-    } catch (_) {}
-  }
-
-  // ---- skipping, speed and the equaliser (Settings › Videos) ----
-
-  /// Back ([forward] false) or forward by the seconds set in Settings › Videos.
-  void _skip({required bool forward}) {
-    final by = Duration(seconds: forward ? _settings.videoSkipForwardSeconds : _settings.videoSkipBackSeconds);
-    var to = forward ? _player.state.position + by : _player.state.position - by;
-    if (to < Duration.zero) to = Duration.zero;
-    final length = _player.state.duration;
-    if (length > Duration.zero && to > length) to = length;
-    _player.seek(to);
+  /// The video opened part-way through: say so, with Start over.
+  void _carryOn(Duration start) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('Carrying on from ${videoLength(start)}'),
+      action: SnackBarAction(label: 'Start over', onPressed: _session.startOver),
+    ));
   }
 
   static IconData skipIcon({required bool forward, required int seconds}) => switch ((forward, seconds)) {
@@ -572,15 +293,9 @@ class _VideoPageState extends State<_VideoPage> {
         (true, _) => Icons.fast_forward,
       };
 
-  Future<void> _setSpeed(double speed) async {
-    await _player.setRate(speed);
-    if (mounted) setState(() => _speed = speed);
-    final v = _videos.byId(_id);
-    if (v != null) _videos.rememberSpeed(v.collection, speed);
-  }
-
   Future<void> _chooseSpeed(BuildContext from) async {
-    final collection = _videos.byId(_id)?.collection;
+    final collection = context.read<VideoLibraryModel>().byId(_session.id)?.collection;
+    final speed = _session.speed;
     final picked = await showDialog<double>(
       context: from,
       useRootNavigator: true,
@@ -592,8 +307,8 @@ class _VideoPageState extends State<_VideoPage> {
               key: ValueKey('speed-$s'),
               onPressed: () => Navigator.of(context).pop(s),
               child: Row(children: [
-                Icon(s == _speed ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                    size: 20, color: s == _speed ? Theme.of(context).colorScheme.primary : null),
+                Icon(s == speed ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                    size: 20, color: s == speed ? Theme.of(context).colorScheme.primary : null),
                 const SizedBox(width: 12),
                 Text(SpeedButton.label(s)),
               ]),
@@ -606,25 +321,17 @@ class _VideoPageState extends State<_VideoPage> {
         ],
       ),
     );
-    if (picked != null) await _setSpeed(picked);
+    if (picked != null) await _session.setSpeed(picked);
   }
-
-  /// The volume boost's top was lowered (or the boost turned off): bring a louder volume down.
-  void _followVolumeTop() {
-    final max = _settings.maxVolume;
-    if (sliderVolume(_player.state.volume) > max + 0.01) _player.setVolume(engineVolume(max));
-  }
-
-  /// Sends the videos' equaliser preset to this player, if it changed (see [_chain]).
-  Future<void> _applyEqualizer() => _chain.update();
 
   /// The frame on screen now becomes the video's picture.
   Future<void> _useThisFrame(VideoItem v) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
+    final videos = context.read<VideoLibraryModel>();
     try {
-      final shot = await _player.screenshot(format: 'image/jpeg');
+      final shot = await _engine.screenshot();
       if (shot == null) throw const FormatException('No picture came from the video yet');
-      await _videos.setPicture(v, await preparePicture(shot));
+      await videos.setPicture(v, await preparePicture(shot));
       messenger?.showSnackBar(const SnackBar(content: Text('This frame is now its picture')));
     } catch (e) {
       messenger?.showSnackBar(SnackBar(content: Text('Couldn\'t use this frame: ${e is FormatException ? e.message : e}')));
@@ -636,26 +343,16 @@ class _VideoPageState extends State<_VideoPage> {
       context: from,
       useRootNavigator: true,
       builder: (_) => StatefulBuilder(builder: (context, setDialog) {
-        final audio = [for (final t in _player.state.tracks.audio) if (t.id != 'auto' && t.id != 'no') t];
-        final subs = [for (final t in _player.state.tracks.subtitle) if (t.id != 'auto' && t.id != 'no') t];
-        final collection = _videos.byId(_id)?.collection;
-        Future<void> pickAudio(AudioTrack? t) async {
-          await _player.setAudioTrack(t ?? AudioTrack.no());
-          if (collection != null) {
-            _videos.rememberTrackChoice(collection,
-                audio: t == null ? TrackPick.none : TrackPick(language: t.language, title: t.title));
-          }
-          await _readCurrentTracks();
+        final audio = [for (final t in _session.audioTracks) if (t.isReal) t];
+        final subs = [for (final t in _session.subtitleTracks) if (t.isReal) t];
+        final collection = context.read<VideoLibraryModel>().byId(_session.id)?.collection;
+        Future<void> pickAudio(MediaTrack? t) async {
+          await _session.chooseAudio(t);
           setDialog(() {});
         }
 
-        Future<void> pickSub(SubtitleTrack? t) async {
-          await _player.setSubtitleTrack(t ?? SubtitleTrack.no());
-          if (collection != null) {
-            _videos.rememberTrackChoice(collection,
-                subtitles: t == null ? TrackPick.none : TrackPick(language: t.language, title: t.title));
-          }
-          await _readCurrentTracks();
+        Future<void> pickSub(MediaTrack? t) async {
+          await _session.chooseSubtitles(t);
           setDialog(() {});
         }
 
@@ -668,6 +365,7 @@ class _VideoPageState extends State<_VideoPage> {
               onTap: onTap,
             );
 
+        final aid = _session.aid, sid = _session.sid;
         return AlertDialog(
           title: const Text('Audio and subtitles'),
           content: SizedBox(
@@ -676,14 +374,14 @@ class _VideoPageState extends State<_VideoPage> {
               child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const Text('Audio', style: TextStyle(fontWeight: FontWeight.w700)),
                 for (var i = 0; i < audio.length; i++)
-                  option(trackLabel('audio', audio[i], i + 1), _aid == audio[i].id, () => pickAudio(audio[i]),
+                  option(trackLabel('audio', audio[i], i + 1), aid == audio[i].id, () => pickAudio(audio[i]),
                       key: ValueKey('audio-${audio[i].id}')),
-                option('Off (no sound)', _aid == 'no', () => pickAudio(null), key: const ValueKey('audio-off')),
+                option('Off (no sound)', aid == 'no', () => pickAudio(null), key: const ValueKey('audio-off')),
                 const SizedBox(height: 12),
                 const Text('Subtitles', style: TextStyle(fontWeight: FontWeight.w700)),
-                option('Off', _sid == 'no', () => pickSub(null), key: const ValueKey('subtitles-off')),
+                option('Off', sid == 'no', () => pickSub(null), key: const ValueKey('subtitles-off')),
                 for (var i = 0; i < subs.length; i++)
-                  option(trackLabel('subtitles', subs[i], i + 1), _sid == subs[i].id, () => pickSub(subs[i]),
+                  option(trackLabel('subtitles', subs[i], i + 1), sid == subs[i].id, () => pickSub(subs[i]),
                       key: ValueKey('subtitles-${subs[i].id}')),
                 if (subs.isEmpty)
                   Padding(
@@ -705,69 +403,10 @@ class _VideoPageState extends State<_VideoPage> {
     );
   }
 
-  // ---- places and playing on ----
-
-  /// Music started while the video plays: pause the video.
-  void _onMusicChanged() {
-    if (_music.playing && _player.state.playing) _player.pause();
-  }
-
-  void _savePlace({bool end = false}) {
-    final length = _player.state.duration;
-    if (length <= Duration.zero) return;
-    final at = end ? length : _player.state.position;
-    if (at <= Duration.zero) return;
-    _videos.savePlace(_id, at, length);
-  }
-
-  /// The end: counts as watched, then the next video in the collection starts after a countdown.
-  void _finished() {
-    _savePlace(end: true);
-    final v = _videos.byId(_id);
-    final next = v == null ? null : _videos.after(v);
-    if (next == null || !mounted) return;
-    setState(() {
-      _upNext = next;
-      _countdown = 10;
-    });
-    _upNextTimer?.cancel();
-    _upNextTimer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (!mounted) return t.cancel();
-      if (_countdown <= 1) {
-        t.cancel();
-        _open(next.id);
-      } else {
-        setState(() => _countdown--);
-      }
-    });
-  }
-
-  void _cancelUpNext() {
-    _upNextTimer?.cancel();
-    setState(() => _upNext = null);
-  }
-
   @override
   void dispose() {
-    // Save the place once this frame is done (telling the Videos tab during dispose would redraw
-    // it while the widget tree is locked).
-    final length = _player.state.duration, at = _player.state.position;
-    final id = _id, videos = _videos;
-    if (length > Duration.zero && at > Duration.zero) Future.microtask(() => videos.savePlace(id, at, length));
-    _saveTimer?.cancel();
-    _upNextTimer?.cancel();
-    _openingTimer?.cancel();
-    _music.removeListener(_onMusicChanged);
-    _watching?.detach(_transport);
-    _eq?.removeListener(_applyEqualizer);
-    _chain.close();
-    _settings.removeListener(_followVolumeTop);
-    for (final s in _subs) {
-      s.cancel();
-    }
-    _stats?.dispose();
-    _player.dispose();
-    _shownId.dispose();
+    _session.removeListener(_redraw);
+    _session.dispose(); // saves the place, lets the bottom bar go, closes the player
     super.dispose();
   }
 
@@ -790,6 +429,7 @@ class _VideoPageState extends State<_VideoPage> {
 
   /// The video with its controls, plus the Audio and subtitles button (in full screen too).
   Widget _videoWidget() {
+    final player = _engine.player;
     final tracksButton = Builder(
       builder: (context) => MaterialDesktopCustomButton(
         icon: const Icon(Icons.subtitles_outlined),
@@ -808,9 +448,9 @@ class _VideoPageState extends State<_VideoPage> {
     // these controls from when it opened, so nothing here may hold on to one video.
     final buttonColour = look.buttons(accent);
     Widget jump({required bool forward, required double size}) => ValueListenableBuilder<String>(
-          valueListenable: _shownId,
+          valueListenable: _session.shownId,
           builder: (context, id, _) {
-            final target = _neighbour(id, forward: forward);
+            final target = _session.neighbour(id, forward: forward);
             return IconButton(
               key: ValueKey(forward ? 'video-next' : 'video-previous'),
               tooltip: target == null
@@ -820,7 +460,7 @@ class _VideoPageState extends State<_VideoPage> {
               color: buttonColour,
               disabledColor: buttonColour.withValues(alpha: 0.3),
               icon: Icon(forward ? Icons.skip_next_rounded : Icons.skip_previous_rounded),
-              onPressed: target == null ? null : () => _jump(forward: forward),
+              onPressed: target == null ? null : () => _session.jump(forward: forward),
             );
           },
         );
@@ -828,13 +468,13 @@ class _VideoPageState extends State<_VideoPage> {
     final desktopBar = [
       jump(forward: false, size: look.size.desktop),
       MaterialDesktopCustomButton(
-          icon: Icon(skipIcon(forward: false, seconds: back)), onPressed: () => _skip(forward: false)),
+          icon: Icon(skipIcon(forward: false, seconds: back)), onPressed: () => _session.skip(forward: false)),
       const MaterialDesktopPlayOrPauseButton(),
       MaterialDesktopCustomButton(
-          icon: Icon(skipIcon(forward: true, seconds: ahead)), onPressed: () => _skip(forward: true)),
+          icon: Icon(skipIcon(forward: true, seconds: ahead)), onPressed: () => _session.skip(forward: true)),
       jump(forward: true, size: look.size.desktop),
       // 0.1.62: our own volume (media_kit's stops at 100), up to the volume boost's top.
-      _VideoBarVolume(player: _player, maxVolume: () => _settings.maxVolume, look: look, accent: accent),
+      _VideoBarVolume(player: player, maxVolume: () => _settings.maxVolume, look: look, accent: accent),
       paddedTime(MaterialDesktopPositionIndicator(style: timeTextStyle(look, accent))),
       const Spacer(),
       // The sleep timer (0.1.63).
@@ -845,25 +485,23 @@ class _VideoPageState extends State<_VideoPage> {
     ];
     // Keys: as media_kit's, but ← → and J / L skip by the chosen amounts.
     final keys = <ShortcutActivator, VoidCallback>{
-      const SingleActivator(LogicalKeyboardKey.mediaPlay): _player.play,
-      const SingleActivator(LogicalKeyboardKey.mediaPause): _player.pause,
-      const SingleActivator(LogicalKeyboardKey.mediaPlayPause): _player.playOrPause,
-      const SingleActivator(LogicalKeyboardKey.space): _player.playOrPause,
-      const SingleActivator(LogicalKeyboardKey.keyK): _player.playOrPause,
-      const SingleActivator(LogicalKeyboardKey.arrowLeft): () => _skip(forward: false),
-      const SingleActivator(LogicalKeyboardKey.arrowRight): () => _skip(forward: true),
-      const SingleActivator(LogicalKeyboardKey.keyJ): () => _skip(forward: false),
-      const SingleActivator(LogicalKeyboardKey.keyL): () => _skip(forward: true),
-      const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
-          _player.setVolume(stepEngineVolume(_player.state.volume, 5, _settings.maxVolume)),
-      const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
-          _player.setVolume(stepEngineVolume(_player.state.volume, -5, _settings.maxVolume)),
+      const SingleActivator(LogicalKeyboardKey.mediaPlay): _engine.play,
+      const SingleActivator(LogicalKeyboardKey.mediaPause): _engine.pause,
+      const SingleActivator(LogicalKeyboardKey.mediaPlayPause): _engine.playOrPause,
+      const SingleActivator(LogicalKeyboardKey.space): _engine.playOrPause,
+      const SingleActivator(LogicalKeyboardKey.keyK): _engine.playOrPause,
+      const SingleActivator(LogicalKeyboardKey.arrowLeft): () => _session.skip(forward: false),
+      const SingleActivator(LogicalKeyboardKey.arrowRight): () => _session.skip(forward: true),
+      const SingleActivator(LogicalKeyboardKey.keyJ): () => _session.skip(forward: false),
+      const SingleActivator(LogicalKeyboardKey.keyL): () => _session.skip(forward: true),
+      const SingleActivator(LogicalKeyboardKey.arrowUp): () => _session.stepVolume(5),
+      const SingleActivator(LogicalKeyboardKey.arrowDown): () => _session.stepVolume(-5),
       // Shift+N / Shift+P: next / previous video (as on YouTube).
       // (Worked out when pressed, 0.1.71: full screen keeps these keys from when it opened.)
-      const SingleActivator(LogicalKeyboardKey.keyN, shift: true): () => _jump(forward: true),
-      const SingleActivator(LogicalKeyboardKey.keyP, shift: true): () => _jump(forward: false),
-      const SingleActivator(LogicalKeyboardKey.mediaTrackNext): () => _jump(forward: true),
-      const SingleActivator(LogicalKeyboardKey.mediaTrackPrevious): () => _jump(forward: false),
+      const SingleActivator(LogicalKeyboardKey.keyN, shift: true): () => _session.jump(forward: true),
+      const SingleActivator(LogicalKeyboardKey.keyP, shift: true): () => _session.jump(forward: false),
+      const SingleActivator(LogicalKeyboardKey.mediaTrackNext): () => _session.jump(forward: true),
+      const SingleActivator(LogicalKeyboardKey.mediaTrackPrevious): () => _session.jump(forward: false),
       const SingleActivator(LogicalKeyboardKey.keyF): () => _videoKey.currentState?.toggleFullscreen(),
       const SingleActivator(LogicalKeyboardKey.escape): () => _videoKey.currentState?.exitFullscreen(),
     };
@@ -878,8 +516,10 @@ class _VideoPageState extends State<_VideoPage> {
     );
     final phoneBar = [
       jump(forward: false, size: look.size.phone),
-      MaterialCustomButton(icon: Icon(skipIcon(forward: false, seconds: back)), onPressed: () => _skip(forward: false)),
-      MaterialCustomButton(icon: Icon(skipIcon(forward: true, seconds: ahead)), onPressed: () => _skip(forward: true)),
+      MaterialCustomButton(
+          icon: Icon(skipIcon(forward: false, seconds: back)), onPressed: () => _session.skip(forward: false)),
+      MaterialCustomButton(
+          icon: Icon(skipIcon(forward: true, seconds: ahead)), onPressed: () => _session.skip(forward: true)),
       jump(forward: true, size: look.size.phone),
       paddedTime(MaterialPositionIndicator(style: timeTextStyle(look, accent, phone: true))),
       const Spacer(),
@@ -924,7 +564,7 @@ class _VideoPageState extends State<_VideoPage> {
           fill: Colors.black,
           // The mouse wheel: 5 s skips over the progress bar, volume elsewhere (30 Sep).
           controls: (state) => VideoWheel(
-              player: _player,
+              player: player,
               look: look,
               maxVolume: () => _settings.maxVolume,
               child: AdaptiveVideoControls(state)),
@@ -938,27 +578,30 @@ class _VideoPageState extends State<_VideoPage> {
 
   @override
   Widget build(BuildContext context) {
-    final v = context.select<VideoLibraryModel, VideoItem?>((m) => m.byId(_id));
-    final watched = context.select<VideoLibraryModel, bool>((m) => m.placeOf(_id)?.watched ?? false);
+    final s = _session;
+    final id = s.id;
+    final v = context.select<VideoLibraryModel, VideoItem?>((m) => m.byId(id));
+    final watched = context.select<VideoLibraryModel, bool>((m) => m.placeOf(id)?.watched ?? false);
     // Settings › Appearance › Shrink to fit small windows (for the small-window layout, 0.1.68).
     final scaleWithWindow = context.select<LibraryModel, bool>((l) => l.scaleWithWindow);
     if (v == null) {
       return Scaffold(appBar: AppBar(), body: const Center(child: Text('This video isn\'t in your library any more.')));
     }
+    final problem = s.problem, upNext = s.upNext;
 
     final video = Stack(children: [
       Positioned.fill(
-        child: _problem != null
+        child: problem != null
             ? Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
-                  child: Text(_problem!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
+                  child: Text(problem, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
                 ),
               )
             : _videoWidget(),
       ),
       // The next / previous video is opening: a spinner over the picture until it shows.
-      if (_opening && _problem == null && _toldReady)
+      if (s.opening && problem == null && s.toldReady)
         const Positioned.fill(
           child: IgnorePointer(
             child: ColoredBox(
@@ -968,7 +611,7 @@ class _VideoPageState extends State<_VideoPage> {
             ),
           ),
         ),
-      if (_upNext != null)
+      if (upNext != null)
         Positioned(
           right: 16,
           bottom: 80,
@@ -978,19 +621,19 @@ class _VideoPageState extends State<_VideoPage> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
               child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Up next in $_countdown s', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                Text('Up next in ${s.countdown} s', style: const TextStyle(color: Colors.white70, fontSize: 12)),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 320),
                   child: Text(
-                    [?_upNext!.episodeLabel, _upNext!.title].join(' · '),
+                    [?upNext.episodeLabel, upNext.title].join(' · '),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
                   ),
                 ),
                 Row(mainAxisSize: MainAxisSize.min, children: [
-                  TextButton(onPressed: _cancelUpNext, child: const Text('Cancel')),
-                  FilledButton(onPressed: () => _open(_upNext!.id), child: const Text('Play now')),
+                  TextButton(onPressed: s.cancelUpNext, child: const Text('Cancel')),
+                  FilledButton(onPressed: s.playUpNextNow, child: const Text('Play now')),
                 ]),
               ]),
             ),
@@ -1027,11 +670,11 @@ class _VideoPageState extends State<_VideoPage> {
       if (v.resolution != null) v.resolution!,
       v.format,
     ].join(' · ');
-    final currentAudio = _player.state.tracks.audio.where((t) => t.id == _aid).firstOrNull;
-    final currentSubs = _player.state.tracks.subtitle.where((t) => t.id == _sid).firstOrNull;
+    final currentAudio = s.audioTracks.where((t) => t.id == s.aid).firstOrNull;
+    final currentSubs = s.subtitleTracks.where((t) => t.id == s.sid).firstOrNull;
     final tracksSummary = [
-      'Audio: ${_aid == 'no' ? 'off' : currentAudio == null ? 'normal' : trackLabel('audio', currentAudio, 1)}',
-      'Subtitles: ${_sid == 'no' || currentSubs == null ? 'off' : trackLabel('subtitles', currentSubs, 1)}',
+      'Audio: ${s.aid == 'no' ? 'off' : currentAudio == null ? 'normal' : trackLabel('audio', currentAudio, 1)}',
+      'Subtitles: ${s.sid == 'no' || currentSubs == null ? 'off' : trackLabel('subtitles', currentSubs, 1)}',
     ].join('   ');
 
     return Scaffold(
@@ -1094,7 +737,7 @@ class _VideoPageState extends State<_VideoPage> {
               ),
               const SizedBox(height: 4),
               Text(facts, style: TextStyle(color: AppColors.textDim)),
-              if (_tracksSetUp) Text(tracksSummary, style: TextStyle(color: AppColors.textDim, fontSize: 12)),
+              if (s.tracksSetUp) Text(tracksSummary, style: TextStyle(color: AppColors.textDim, fontSize: 12)),
               const SizedBox(height: 12),
               // Main buttons first (watching); the others on a row below.
               Wrap(key: const ValueKey('main-buttons'), spacing: 8, runSpacing: 8, children: [
@@ -1106,19 +749,19 @@ class _VideoPageState extends State<_VideoPage> {
                 FilledButton.tonalIcon(
                   icon: const Icon(Icons.fullscreen),
                   label: const Text('Full screen'),
-                  onPressed: _problem == null ? _fullScreen : null,
+                  onPressed: problem == null ? _fullScreen : null,
                 ),
                 FilledButton.tonalIcon(
                   key: const ValueKey('audio-and-subtitles'),
                   icon: const Icon(Icons.subtitles_outlined),
                   label: const Text('Audio and subtitles'),
-                  onPressed: _problem == null ? () => _chooseTracks(context) : null,
+                  onPressed: problem == null ? () => _chooseTracks(context) : null,
                 ),
                 FilledButton.tonalIcon(
                   key: const ValueKey('video-speed'),
                   icon: const Icon(Icons.speed),
-                  label: Text('Speed ${SpeedButton.label(_speed)}'),
-                  onPressed: _problem == null ? () => _chooseSpeed(context) : null,
+                  label: Text('Speed ${SpeedButton.label(s.speed)}'),
+                  onPressed: problem == null ? () => _chooseSpeed(context) : null,
                 ),
               ]),
               // The less-used ones on their own row, under the main ones.
@@ -1138,7 +781,7 @@ class _VideoPageState extends State<_VideoPage> {
                   key: const ValueKey('use-this-frame'),
                   icon: const Icon(Icons.photo_camera_outlined),
                   label: const Text('Use this frame as its picture'),
-                  onPressed: _problem == null ? () => _useThisFrame(v) : null,
+                  onPressed: problem == null ? () => _useThisFrame(v) : null,
                 ),
                 OutlinedButton.icon(
                   icon: const Icon(Icons.image_outlined),
@@ -1155,14 +798,14 @@ class _VideoPageState extends State<_VideoPage> {
                 OutlinedButton.icon(
                   icon: Icon(watched ? Icons.remove_done : Icons.check_circle_outline),
                   label: Text(watched ? 'Mark as not watched' : 'Mark as watched'),
-                  onPressed: () => _videos.setWatched([v.id], !watched),
+                  onPressed: () => context.read<VideoLibraryModel>().setWatched([v.id], !watched),
                 ),
                 if (Platform.isWindows)
                   OutlinedButton.icon(
                     icon: const Icon(Icons.folder_open),
                     label: const Text('Show in folder'),
                     onPressed: () {
-                      final file = _videos.playableFile(v);
+                      final file = context.read<VideoLibraryModel>().playableFile(v);
                       if (file != null) Process.run('explorer', ['/select,', p.normalize(file)]);
                     },
                   ),
@@ -1269,43 +912,4 @@ class _VideoBarVolumeState extends State<_VideoBarVolume> {
       },
     );
   }
-}
-
-/// A media_kit player as seen by [NowWatching] (the bottom bar and the system media controls).
-/// The volume here is on the sliders' scale (0–100, or up to the volume boost's top, 0.1.62);
-/// the engine's own number differs above 100 (models/volume_boost.dart).
-class MediaKitTransport implements VideoTransport, VolumeTop {
-  MediaKitTransport(this.player, {double Function()? maxVolume}) : _maxVolume = maxVolume ?? (() => 100);
-  final Player player;
-  final double Function() _maxVolume;
-
-  @override
-  double get maxVolume => _maxVolume();
-
-  @override
-  bool get playing => player.state.playing;
-  @override
-  Stream<bool> get playingStream => player.stream.playing;
-  @override
-  Duration get position => player.state.position;
-  @override
-  Stream<Duration> get positionStream => player.stream.position;
-  @override
-  Duration get duration => player.state.duration;
-  @override
-  Stream<Duration> get durationStream => player.stream.duration;
-  @override
-  double get volume => sliderVolume(player.state.volume);
-  @override
-  Stream<double> get volumeStream => player.stream.volume.map(sliderVolume);
-  @override
-  double get rate => player.state.rate;
-  @override
-  Future<void> play() => player.play();
-  @override
-  Future<void> pause() => player.pause();
-  @override
-  Future<void> seek(Duration to) => player.seek(to);
-  @override
-  Future<void> setVolume(double volume) => player.setVolume(engineVolume(volume.clamp(0.0, maxVolume)));
 }
