@@ -5,7 +5,7 @@
 // backing puts a soft halo or a disc behind every control in the opposite shade to
 // the buttons, so they stand out over any picture.
 
-import 'package:flutter/material.dart';
+import 'dart:ui' show Color; // plain colour values (refactor phase 7: models use no Flutter UI library)
 
 /// Button (and time text) size.
 enum VideoButtonSize {
@@ -35,12 +35,12 @@ enum VideoButtonBacking {
 }
 
 /// A colour choice: 'white', 'black', 'accent' (the app theme's), or '#RRGGBB'.
-Color resolveLookColour(String choice, Color accent, {Color fallback = Colors.white}) {
+Color resolveLookColour(String choice, Color accent, {Color fallback = const Color(0xFFFFFFFF)}) {
   switch (choice) {
     case 'white':
-      return Colors.white;
+      return const Color(0xFFFFFFFF);
     case 'black':
-      return Colors.black;
+      return const Color(0xFF000000);
     case 'red':
       return const Color(0xFFFF0000);
     case 'accent':
@@ -82,7 +82,7 @@ class VideoPlayerLook {
 
   /// The shade behind the buttons: dark behind light buttons, light behind dark ones.
   Color backingColour(Color accent) {
-    final base = isLightColour(buttons(accent)) ? Colors.black : Colors.white;
+    final base = isLightColour(buttons(accent)) ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
     return base.withValues(alpha: backingStrength.clamp(0.0, 1.0));
   }
 
