@@ -70,7 +70,7 @@ while commenting".
 | Audiobooks sub-tabs (Series first, then All / In progress / Not started / Finished / Favourites), each with Your Library's filter bar, chips and sorting (0.1.74) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. See `03_`, Audiobooks sub-tabs |
 | Audiobook series: a page per series, series cards, favourite series, series in the sidebar (0.1.75) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 1 of 2 (the user: "Go with your suggestions"). See `03_`, Audiobook series |
 | Edit series: name, author, description, order, add / take out books, picture (0.1.76) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 2 of 2. See `03_`, Edit series |
-| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0–3 merged into `main` (8–9 Oct, each after the user tried a test build) and Phases 1–3 released together as **v0.1.77** (9 Oct; the user: "Everything looks good"). Phase 4 (audio engine layer) merged into `main` and released on its own as **v0.1.78** (9 Oct; the user tried the test build: "All seems good"). Next: Phase 5 (`VideoSession` out of the video page), released as 0.1.79. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
+| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0–3 merged into `main` (8–9 Oct, each after the user tried a test build) and Phases 1–3 released together as **v0.1.77** (9 Oct; the user: "Everything looks good"). Phase 4 (audio engine layer) merged into `main` and released on its own as **v0.1.78** (9 Oct; the user tried the test build: "All seems good"). Phase 5 (`VideoSession` out of the video page) is done on `refactor/p5-video-session` (9 Oct), waiting for the user to try a test build; it will be released as 0.1.79. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
 | L: Linux build, incl. Steam Deck (0.2.0, the start of the next level) | On hold (6 Oct, the user's choice): WSL2 can't be installed on the current PC, so L1 (the Linux build) moves to another PC. Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (the 0.2.x after L) | After L |
 | T: Android TV (the 0.2.x after A) | After A |
@@ -207,6 +207,29 @@ phases, each on its own branch (`refactor/p<n>-<name>`), merged with `--no-ff` o
   - `tool/bench/frame_picker_engine_test.dart`'s frame step doesn't move on this PC with any video, on v0.1.77 as
     well as on the branch (the bench uses media_kit directly, none of the app's code). The video benches need
     `--dart-define=VIDEO=` a video over 60 s (they seek to 42.5 s and 60 s); `C:\Temp\ht\videobenches.cmd` runs them.
+- **Phase 5 (branch `refactor/p5-video-session`, 9 Oct; waiting for the user's test build):** nothing the user sees
+  changes. The video page (`ui/screens/video_player_screen.dart`, 1,311 → 915 lines; its page state about 530, all
+  layout and controls) only draws now.
+  - `services/engine/video_engine.dart`: `VideoEngine` (what a video page needs from its player: the streams, the
+    tracks as `MediaTrack`, open / play / seek / speed / volume / tracks, mpv options and commands, a screenshot) and
+    `MediaKitVideoEngine` (the media_kit player, made with `createEngine(EngineUse.videoPage)`; `player` is still
+    used by the page's `Video` widget, wheel and volume bar).
+  - `state/video_session.dart`: `VideoSession` (a `ChangeNotifier`, one per open page) runs everything the page's
+    state used to: opening (place, rewind after a break, the collection's speed, "Carrying on from" through
+    `onCarryOn`), previous / next and `shownId` (0.1.71), Up next, the remembered audio / subtitle choice (subtitle
+    files added with `sub-add`), saving the place (every 5 s, on pause, at the end, when the page closes), the
+    videos' equaliser (`AudioChain`), the volume boost's top, pausing / being paused by the music, `NowWatching`
+    and the playback stats. `VideoEngineTransport` there replaces `MediaKitTransport` (it implements `state/`'s
+    `VideoTransport`, so it lives in `state/`, not `services/engine/` as the plan said).
+  - `state/video_tracks.dart`: `languageName`, `languageCodeFor`, `trackLabel`, `matchTrack`, moved unchanged; the
+    page still exports the first three (and `videoEqualizerSettings`) for older callers and tests.
+  - Tests: `test/fake_video_engine.dart` and `test/video_session_test.dart` (10: speed, carrying on and Start over,
+    the end and Up next, Cancel and the last episode, previous / next across seasons and twice in a row (0.1.71),
+    places on pause and on close, remembered tracks, a file that can't be opened, music pausing the video, speed for
+    the collection). 673 tests in all.
+  - Found (not changed, as the phase changes no behaviour): two previous / next presses in the very same instant
+    can open in the wrong order (the second skips the equaliser wait and opens first). It was the same before;
+    a person can't press that fast.
 
 ### Platforms plan: Linux, Android Auto, Android TV (agreed 1 Oct)
 (Versions, corrected 7 Oct by the user: **0.2.0 is only for the next level of development**. Fixes and features on the app as it is stay on 0.1.x (the Next-video fix is 0.1.71). The 6 Oct note said the next release would be 0.2.0 whatever it held; that was wrong, and a 0.2.0 test build of the fix was renumbered 0.1.71. The platform phases start the 0.2.x line: Linux **0.2.0**, Android Auto **0.2.1** and Android TV **0.2.2**; 0.1.x work in between doesn't move them. The build number after `+` keeps counting up from 72, so phones still accept each update. The plan doc matches this. Before 6 Oct the phases were renumbered each time other 0.1.x work went first, ending at 0.1.71–0.1.73.)
@@ -326,7 +349,7 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
 no visible changes). Before it, **v0.1.77** (9 Oct: refactor Phases 1–3; the visible changes
 are the video equaliser at 22 kHz and `--:--` in the video / collection editors). Work on the app as it is stays
 0.1.x (0.1.79 next, refactor Phase 5); 0.2.0 is kept for the next level of development (the user, 7 Oct; see the
-Platforms plan above). No branches are open besides `main`. Refactor branches are `refactor/p<n>-<name>` (see
+Platforms plan above). Open besides `main`: `refactor/p5-video-session` (Phase 5, waiting for the user's check). Refactor branches are `refactor/p<n>-<name>` (see
 "Modular refactor" above). Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
