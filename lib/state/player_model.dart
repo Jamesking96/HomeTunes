@@ -281,7 +281,9 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   /// Opens the queue's current song in the engine (with the next one loaded ahead) and plays it.
   /// Songs that can't be played are skipped. [startAt] starts part-way in (used for books).
-  Future<void> _openCurrent({int? skipsLeft, Duration? startAt}) async {
+  /// [skipped]: the songs passed over on the way here, so the note about them stays up while the
+  /// song after them plays (before 0.1.81 it was cleared as that song opened, so it never showed).
+  Future<void> _openCurrent({int? skipsLeft, Duration? startAt, List<Track> skipped = const []}) async {
     // Skip at most once round the whole queue (all songs unavailable).
     skipsLeft ??= queue.tracks.length - 1;
     final t = queue.current;
@@ -299,11 +301,10 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     if (uri == null) {
       // A song whose file isn't on this device (any more), or a server song
       // while the server is switched off: skip it. Its details are kept.
-      lastError = t.isLocal
-          ? '"${t.title}" isn\'t on this device – skipped'
-          : 'Can\'t play "${t.title}" right now';
+      final passed = [...skipped, t];
+      lastError = _skipNote = _skippedNote(passed);
       if (skipsLeft > 0 && queue.next() != null) {
-        return _openCurrent(skipsLeft: skipsLeft - 1);
+        return _openCurrent(skipsLeft: skipsLeft - 1, skipped: passed);
       }
       // Nothing playable left. HomeTunes: stop the engine too; before 0.1.15 the previous song
       // kept playing while the screen showed the unplayable one.
@@ -317,7 +318,8 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
       notifyListeners();
       return;
     }
-    lastError = null;
+    // Any note about songs skipped on the way here stays; otherwise a new song starts clean.
+    lastError = _skipNote = skipped.isEmpty ? null : _skippedNote(skipped);
     PlaybackLog.add('Opening "${t.title}"${startAt != null && startAt > Duration.zero ? ' at ${startAt.inSeconds} s' : ''}');
     // Show the tagged length straight away; the engine's real length arrives a moment later.
     duration = t.duration;
@@ -341,6 +343,19 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
       _opening--;
     }
   }
+
+  /// What [lastError] says about songs that couldn't be played and were passed over: the first
+  /// one's name, and how many more.
+  static String _skippedNote(List<Track> passed) {
+    final t = passed.first;
+    final more = passed.length > 1 ? ' (and ${passed.length - 1} more)' : '';
+    return t.isLocal
+        ? '"${t.title}"$more ${passed.length > 1 ? 'aren\'t' : 'isn\'t'} on this device – skipped'
+        : 'Can\'t play "${t.title}"$more right now';
+  }
+
+  /// The skipped-songs note while it's showing, so the next song along can take it down.
+  String? _skipNote;
 
   /// The song to load ahead in the engine (and its file / stream), if any.
   (Track, String)? _songToLoadAhead() {
@@ -369,6 +384,9 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         next = null; // out of step (shouldn't happen): reopened below
       } else {
         duration = next.duration;
+        // The note about songs skipped before the previous one has had its song.
+        if (_skipNote != null && lastError == _skipNote) lastError = null;
+        _skipNote = null;
         // Drop the finished song from the engine, so the new one is at the front of its list.
         try {
           await _player.remove(0);
