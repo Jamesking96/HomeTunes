@@ -1,12 +1,12 @@
 # HomeTunes Code Guide
 
-26 Sep 2026 · James (checked against the code and updated for 0.1.31 on 30 Sep)
+26 Sep 2026 · James (checked against the code and updated for 0.1.31 on 30 Sep; the modular refactor's new files, layer rules and "How to add a setting" added 8–9 Oct)
 
 HomeTunes is one Flutter (Dart) codebase that runs on Windows and Android. Almost all of the app lives in `lib/`, split into four layers: **models** (plain data), **state** (the app's live brain), **services** (files, network, the OS) and **ui** (what you see). Every source file now opens with a comment saying what it does and why.
 
 ## The big picture
 
-The app is built in layers, and each layer only talks to the one below it. Screens never read files or call the internet themselves. They ask a model in `lib/state/`, and the model uses a service.
+The app is built in layers, and each layer only talks to the one below it. Screens never read files or call the internet themselves. They ask a model in `lib/state/`, and the model uses a service. (Read-only lookups such as cover search are the exception. `test/layer_rules_test.dart` checks the rules; see "Layer rules" under *Working with the code*.)
 
 | Layer | Folder | Its job | Knows about Flutter UI? |
 | --- | --- | --- | --- |
@@ -427,6 +427,8 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `player_model_test.dart` | Refactor phase 4 (9 Oct): `PlayerModel` with a fake engine (`fake_audio_engine.dart`, which records every call): gapless hand-over and the end of the queue, Play next, repeat-one, gapless off, a missing file skipped, a book skip across files, Back to music, the equaliser at 22.05 / 48 kHz and refused, the volume scale, a stuck song reopened, a learned length |
 | `audio_chain_test.dart` | Refactor phase 4: the shared equaliser chain (sent once, the level as a volume factor or `replaygain-fallback`, a new sample rate, catching up with the latest change, a refusal, no engine options, closed) |
 | `engines_test.dart` | Refactor phase 4: each player use keeps its title and its mpv settings |
+| `layer_rules_test.dart` | Refactor phase 7: the layer rules, from every import in `lib/` (see "Layer rules") |
+| `cover_search_test.dart` | Find cover online (9 Oct fix): searching again without punctuation, a busy MusicBrainz retried, and "the cover website didn't answer" told apart from "no cover" |
 | `video_session_test.dart` | Refactor phase 5: `VideoSession` with a fake engine (`fake_video_engine.dart`) over a real two-season series: the collection's speed, carrying on and Start over, the end and Up next (and Cancel, and none after the last episode), previous / next across seasons and twice in a row (0.1.71), places on pause and on close, remembered audio / subtitles, a file the engine can't open, music pausing the video |
 
 ## Working with the code
@@ -466,6 +468,55 @@ While `flutter run` is going, press `r` to hot reload (keeps the app's state) or
 | Add or change a built-in equaliser preset | `builtInEqPresets` in `lib/models/eq_preset.dart` | Test it with `tool/bench/engine_test.dart`: mpv can accept a filter and still fail to play it |
 | Add a quick action for albums or books | `albumActions` / `bookActions` in `lib/ui/widgets/quick_actions.dart` | They appear in tile menus and the selection bar's ⋮ |
 | Release a new version | `version:` in `pubspec.yaml` | Always raise the build number after `+`; Android refuses a lower one. Build with `build_release.ps1`, then publish with `publish_release.ps1 -NotesFile …` so installed copies can update themselves and show "What's new" |
+
+### How to add a setting
+
+A setting is described once, in its group, and the rest follows from that (refactor phase 3; this recipe, phase 7).
+Take "Rewind a little when carrying on" (Settings › Videos) as the pattern to copy:
+
+1. **The value, in its group** (`lib/state/settings/settings_groups.dart`). Pick the group by the page it's on
+   (`FolderSettings`, `ServerSettings`, `OnlineSettings`, `PlaybackSettings`, `ListeningSettings`, `VideoSettings`,
+   `AppearanceSettings`, `LayoutSettings`). Add the field with its default (`bool videoRewindOnResume = true;`) and
+   one line to the group's `settings` list, which is how it's saved to and read from settings.json:
+   `Setting.flag('videoRewindOnResume', true, () => videoRewindOnResume, (v) => videoRewindOnResume = v)`. There
+   are `Setting.flag` (on / off), `Setting.whole`, `Setting.decimal`, `Setting.texts` and the full `Setting<T>(…)`
+   with `read` / `write` for anything else (see `_shape` for an enum). The key is the name in settings.json, so
+   never rename it once released.
+2. **Changing it.** Add a named parameter to the group's `update(...)` (or a small setter) that sets the field and
+   ends with `commit()` (redraw, then save). Screens call it through `LibraryModel` (`lib.updateVideoSettings(
+   rewindOnResume: v)`); add the parameter there too. A plain getter on `LibraryModel`
+   (`bool get videoRewindOnResume => settings.video.videoRewindOnResume;`) is only needed if older code reads it
+   there; new code can read `lib.settings.video.…`.
+3. **The safety net.** Give it a value that isn't the default in `test/fixtures/settings_full.json`;
+   `refactor_safety_test.dart` fails until you do, so a setting can't be left out of saving or backups.
+4. **Search.** One line in `settingsCatalog` (`lib/ui/screens/settings/settings_catalog.dart`):
+   `SettingInfo('video-rewind', SettingsPage.videos, 'Rewind a little when carrying on', 'resume videos')` — an id,
+   the page, the title as the search shows it, and other words people might type.
+5. **The widget on its page** (`lib/ui/screens/settings/video_settings.dart`), wrapped in `SettingTarget` with the
+   same id, so search can scroll to it and make it glow:
+   `SettingTarget('video-rewind', child: SwitchListTile(title: …, value: lib.videoRewindOnResume, onChanged: (v) =>
+   lib.updateVideoSettings(rewindOnResume: v)))`.
+
+Then `flutter test test/refactor_safety_test.dart test/settings_test.dart` (saving, and the page in phone and wide
+layouts).
+
+### Layer rules (checked by a test)
+
+`test/layer_rules_test.dart` (refactor phase 7) reads every import in `lib/` and fails, naming the file and import,
+when a rule is broken:
+
+- `models/` imports no other layer and no Flutter library (use `dart:ui` for a `Color`).
+- `state/` never imports `ui/`, and from Flutter only `foundation`, `scheduler` and `services` (nothing that draws).
+- `services/` never imports `ui/`. A few reach into `state/` today (`media_session.dart`, `path_safety.dart`,
+  `server_probe.dart`); they're listed in the test, so no new ones creep in.
+- `ui/` may use read-only lookup services (cover search, MusicBrainz, LRCLIB, Open Library, the update check, Details)
+  but not the ones that write files or keep the app's data (`storage`, `tag_writer`, `app_backup`, `local_scanner`,
+  `secret_store`, `server_art_cache`, `media_session`): screens go through the models in `state/`. The one listed
+  exception is Backup reading a chosen backup's summary before restoring. From the engine layer, screens may only
+  use `engines.dart` and `video_engine.dart` (screens that show a video make their player there, agreed in phase 4).
+
+If a change needs to break a rule, move the code to the right layer rather than adding to the lists; the test also
+fails if a listed exception is no longer used.
 
 ## Things spotted while commenting
 

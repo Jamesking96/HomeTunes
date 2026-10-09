@@ -70,7 +70,7 @@ while commenting".
 | Audiobooks sub-tabs (Series first, then All / In progress / Not started / Finished / Favourites), each with Your Library's filter bar, chips and sorting (0.1.74) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. See `03_`, Audiobooks sub-tabs |
 | Audiobook series: a page per series, series cards, favourite series, series in the sidebar (0.1.75) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 1 of 2 (the user: "Go with your suggestions"). See `03_`, Audiobook series |
 | Edit series: name, author, description, order, add / take out books, picture (0.1.76) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 2 of 2. See `03_`, Edit series |
-| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0–3 merged into `main` (8–9 Oct, each after the user tried a test build) and Phases 1–3 released together as **v0.1.77** (9 Oct; the user: "Everything looks good"). Phase 4 (audio engine layer) merged into `main` and released on its own as **v0.1.78** (9 Oct; the user tried the test build: "All seems good"). Phase 5 (`VideoSession` out of the video page) merged into `main` and released as **v0.1.79** (9 Oct; the user tried the test build: "Things look good here"). Phase 6 (screen-file splits and shared widgets) is done on `refactor/p6-screens` (9 Oct), waiting for the user to try a test build; it will be released as 0.1.80. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
+| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0–3 merged into `main` (8–9 Oct, each after the user tried a test build) and Phases 1–3 released together as **v0.1.77** (9 Oct; the user: "Everything looks good"). Phase 4 (audio engine layer) merged into `main` and released on its own as **v0.1.78** (9 Oct; the user tried the test build: "All seems good"). Phase 5 (`VideoSession` out of the video page) merged into `main` and released as **v0.1.79** (9 Oct; the user tried the test build: "Things look good here"). Phase 6 (screen-file splits and shared widgets, plus the Find cover online fix) merged into `main` and released as **v0.1.80** (9 Oct; the user: "Looks good to me now"). Phase 7 (docs and the layer test) is done on `refactor/p7-docs-layers` (9 Oct): no visible change, so it's merged without a test build and goes out with the next release. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
 | L: Linux build, incl. Steam Deck (0.2.0, the start of the next level) | On hold (6 Oct, the user's choice): WSL2 can't be installed on the current PC, so L1 (the Linux build) moves to another PC. Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (the 0.2.x after L) | After L |
 | T: Android TV (the 0.2.x after A) | After A |
@@ -230,7 +230,7 @@ phases, each on its own branch (`refactor/p<n>-<name>`), merged with `--no-ff` o
   - Found (not changed, as the phase changes no behaviour): two previous / next presses in the very same instant
     can open in the wrong order (the second skips the equaliser wait and opens first). It was the same before;
     a person can't press that fast.
-- **Phase 6 (branch `refactor/p6-screens`, 9 Oct; waiting for the user's test build):** nothing the user sees
+- **Phase 6 (merged into `main` 9 Oct after the user's test build, released as v0.1.80):** nothing the user sees
   changes; every step kept the 37 preview pictures identical. No file in `lib/ui/` is over 600 lines now (the
   biggest is `widgets/music_video_view.dart`, 591; before: 7 files over 600, the biggest 1,401).
   - How files were split: code moved as it was. Pieces that stand alone became their own libraries, exported from
@@ -268,6 +268,15 @@ phases, each on its own branch (`refactor/p<n>-<name>`), merged with `--no-ff` o
     picture arrives (timeouts or errors, not a 404 "no cover") the dialog says the cover website didn't answer
     in time (`CoverSiteUnavailable`). A busy MusicBrainz (503) is asked again twice, not once. Checked live: the
     album is found with its cover in about 12 s. Tests: `test/cover_search_test.dart`.
+- **Phase 7 (branch `refactor/p7-docs-layers`, 9 Oct):** `test/layer_rules_test.dart` reads every import in `lib/`
+  and fails on a broken layer rule (the rules and the few listed exceptions are in `05_CODE_GUIDE.md` → "Layer
+  rules"); checked by adding a `state/` → `ui/` import, which it caught. To pass it, three small moves with no
+  visible change: `models/video_player_look.dart` uses `dart:ui`'s `Color` (white / black as the same values),
+  `videoEqualizerSettings` moved to `state/video_session.dart` (still exported by the video page), and
+  `LibraryModel` exports `TagWriteResult` so Settings › Your edits doesn't import the tag writer. Docs: `01_` (the
+  engine layer, settings groups, video session, layer rules), `05_` (layer rules, "How to add a setting", the new
+  tests). That ends the refactor plan; what it didn't do is listed under each phase (screens watching only their
+  settings group, `LibraryModel` under 1,000 lines, splitting `PlayerModel` further, the shared filter description).
 
 ### Platforms plan: Linux, Android Auto, Android TV (agreed 1 Oct)
 (Versions, corrected 7 Oct by the user: **0.2.0 is only for the next level of development**. Fixes and features on the app as it is stay on 0.1.x (the Next-video fix is 0.1.71). The 6 Oct note said the next release would be 0.2.0 whatever it held; that was wrong, and a 0.2.0 test build of the fix was renumbered 0.1.71. The platform phases start the 0.2.x line: Linux **0.2.0**, Android Auto **0.2.1** and Android TV **0.2.2**; 0.1.x work in between doesn't move them. The build number after `+` keeps counting up from 72, so phones still accept each update. The plan doc matches this. Before 6 Oct the phases were renumbered each time other 0.1.x work went first, ending at 0.1.71–0.1.73.)
@@ -383,11 +392,11 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
   - Chosen pictures / posters (same branch): the Pick a frame dialog's engine steps were checked with `tool/bench/frame_picker_engine_test.dart`, but the dialog itself (the moving picture in it) not yet in a real window. Search online was checked live (`tool/probe_video_art.dart`: Silo, Mickey 17, Claymore). Ideas: TMDB / fanart.tv as extra sources if the user adds their own free API key; writing a chosen poster as `poster.jpg` into the collection's folder (alongside the .nfo option) so other apps see it.
 
 ## Source control
-`main` is **0.1.79+81** and the latest release is **v0.1.79** (9 Oct: refactor Phase 5, the video session, with no
-visible changes). Before it, **v0.1.78** (9 Oct: refactor Phase 4, the audio engine layer) and **v0.1.77** (9 Oct: refactor Phases 1–3; the visible changes
+`main` is **0.1.80+82** and the latest release is **v0.1.80** (9 Oct: refactor Phase 6, and the Find cover online
+fix). Before it, **v0.1.79** (9 Oct: refactor Phase 5, the video session), **v0.1.78** (9 Oct: refactor Phase 4, the audio engine layer) and **v0.1.77** (9 Oct: refactor Phases 1–3; the visible changes
 are the video equaliser at 22 kHz and `--:--` in the video / collection editors). Work on the app as it is stays
-0.1.x (0.1.80 next, refactor Phase 6); 0.2.0 is kept for the next level of development (the user, 7 Oct; see the
-Platforms plan above). Open besides `main`: `refactor/p6-screens` (Phase 6, waiting for the user's check). Refactor branches are `refactor/p<n>-<name>` (see
+0.1.x (0.1.81 next); 0.2.0 is kept for the next level of development (the user, 7 Oct; see the
+Platforms plan above). No branches are open besides `main`. Refactor branches are `refactor/p<n>-<name>` (see
 "Modular refactor" above). Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The

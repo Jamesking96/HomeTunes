@@ -31,7 +31,12 @@ Provider `ChangeNotifier`s created in `main.dart`, and screens `watch`/`select`/
 lib/main.dart            creates Storage + models, wires them together, MultiProvider, MaterialApp(Shell)
 lib/models/              plain data: Track (+Chapter, Album, Artist), TrackEdit, Book (+BookChapter), Playlist, Lyrics, EqPreset
 lib/services/            no Flutter UI: files, network, platform
+lib/services/engine/     the playback engine layer (refactor phase 4): AudioEngine + MediaKitAudioEngine (music),
+                         VideoEngine + MediaKitVideoEngine (the video page), AudioChain (the shared equaliser),
+                         engines.dart (every other player, made and set up in one place; Mpv)
 lib/state/               ChangeNotifiers + pure helpers (library_index, book_index, play_queue, music_filters, playback_guard)
+lib/state/settings/      every setting described once (Setting) in groups (FolderSettings … LayoutSettings, AppSettings)
+lib/state/video_session.dart  one open video page's playback (refactor phase 5)
 lib/ui/shell.dart        wide: sidebar + DesktopPlayerBar; phone: MiniPlayer + bottom nav; per-tab Navigators (nav.dart AppNav)
 lib/ui/theme.dart        colour themes (AppColors), corner roundness (AppShape), buildTheme, time formatters
 lib/ui/screens/          pages & dialogs
@@ -46,6 +51,17 @@ installer/               hometunes.iss (the Windows installer)
 licenses/                LGPL-3.0 and GPL-3.0 texts for the audio engine (bundled as assets)
 docs/                    USER_GUIDE.md (user-facing), ai-context/ (these notes), images/
 ```
+
+## Layer rules (refactor phase 7, checked by `test/layer_rules_test.dart`)
+- `models/` import no other layer and no Flutter library (`dart:ui` for a `Color` is fine).
+- `state/` never imports `ui/`; from Flutter only `foundation`, `scheduler` and `services`.
+- `services/` never imports `ui/`; `media_session`, `path_safety` and `server_probe` reach into `state/` (listed).
+- `ui/` may use read-only lookup services, but not the ones that write files or keep the app's data (Backup reading
+  a backup's summary is the one listed exception), and from `services/engine/` only `engines.dart` and
+  `video_engine.dart` (screens that show a video make their player there).
+- Big screens are split into Dart `part` files (pieces tied to their private classes) and separate libraries
+  exported from the screen's file (pieces that stand alone); no file in `ui/` is over 600 lines (phase 6). See
+  `05_CODE_GUIDE.md` for the file list, the layer rules and "How to add a setting".
 
 ## Models
 - **`Track`**. The id is `local:<absolute path>` or `server:<subsonic id>`. It holds tags, duration,
