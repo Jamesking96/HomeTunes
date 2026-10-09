@@ -27,11 +27,9 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
-import '../../models/eq_preset.dart' show EqPreset;
 import '../../models/video_item.dart';
 import '../../models/video_player_look.dart';
 import '../../models/volume_boost.dart';
-import '../../services/engine/audio_chain.dart';
 import '../../services/engine/video_engine.dart';
 import '../../services/video_drawing.dart';
 import '../../services/video_stats.dart';
@@ -59,16 +57,11 @@ import '../widgets/window_scale.dart';
 
 // The track helpers moved to state/video_tracks.dart (refactor phase 5); still available here.
 export '../../state/video_tracks.dart' show languageName, trackLabel, matchTrack;
+// videoEqualizerSettings moved to state/video_session.dart (refactor phase 7); still available here.
+export '../../state/video_session.dart' show videoEqualizerSettings;
 
 part 'video_player/video_bar_volume.dart';
 part 'video_player/video_controls.dart';
-
-/// What the video player sends the engine for [preset]: the equaliser filter (bands at or above
-/// half of [sampleRate] left out, as for music) and the overall level in dB (mpv's
-/// `replaygain-fallback`). Refactor phase 1, 8 Oct 2026; since phase 4 worked out by the
-/// shared [AudioChain].
-({String filter, String level}) videoEqualizerSettings(EqPreset? preset, {int? sampleRate}) =>
-    AudioChain.settingsFor(preset, sampleRate: sampleRate);
 
 /// A video's page (0.1.42): a loading page shows straight away, with the video's picture and
 /// "Opening …", while the real page (and its player) starts behind it; it fades away once the
