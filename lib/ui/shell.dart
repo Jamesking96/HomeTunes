@@ -34,6 +34,7 @@ import 'widgets/player_controls.dart';
 import 'widgets/quick_actions.dart';
 import 'widgets/sidebar.dart';
 import 'widgets/track_tile.dart';
+import 'widgets/selection_bar.dart';
 
 /// Wide screens get a sidebar + bottom player bar; phones get a mini player
 /// above a bottom navigation bar.
@@ -255,23 +256,15 @@ class _SelectionBar extends StatelessWidget {
   Widget _bar(BuildContext context, SelectionModel sel) {
     if (sel.kind != SelectKind.songs) return _GroupSelectionBar(sel: sel);
     final lib = context.read<LibraryModel>();
-    final accent = Theme.of(context).colorScheme.primary;
     // The ticked songs as Track objects (ids that no longer exist are skipped). Worked out
     // fresh at each button press so it's never stale.
     List<Track> picked() => [for (final id in sel.ids) lib.byId(id)].whereType<Track>().toList();
 
-    return Material(
-      color: accent.withValues(alpha: 0.18),
-      child: SafeArea(
-        top: false,
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          child: Row(children: [
-            IconButton(tooltip: 'Clear selection', icon: const Icon(Icons.close), onPressed: sel.clear),
-            Expanded(
-              child: Text('${sel.count} selected', style: const TextStyle(fontWeight: FontWeight.w600)),
-            ),
+    return SelectionBar(
+      label: '${sel.count} selected',
+      onClear: sel.clear,
+      oneLine: false,
+      actions: [
             IconButton(
               tooltip: 'Edit details',
               icon: const Icon(Icons.edit_outlined),
@@ -316,9 +309,7 @@ class _SelectionBar extends StatelessWidget {
                 sel.clear();
               },
             ),
-          ]),
-        ),
-      ),
+      ],
     );
   }
 }
@@ -362,19 +353,11 @@ class _GroupSelectionBar extends StatelessWidget {
         : pickedBooks.isNotEmpty && pickedBooks.every(playlists.isFavouriteBook);
     final n = sel.count;
     final noun = albums ? (n == 1 ? 'album' : 'albums') : (n == 1 ? 'book' : 'books');
-    return Material(
-      color: accent.withValues(alpha: 0.18),
-      child: SafeArea(
-        top: false,
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(children: [
-            IconButton(tooltip: 'Clear selection', icon: const Icon(Icons.close), onPressed: sel.clear),
-            Expanded(
-              child: Text('$n $noun selected',
-                  maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
-            ),
+    return SelectionBar(
+      label: '$n $noun selected',
+      onClear: sel.clear,
+      verticalPadding: 4,
+      actions: [
             if (sel.canSelectAll) TextButton(onPressed: sel.selectScope, child: const Text('Select all')),
             IconButton(
               key: const ValueKey('favourite-selected'),
@@ -407,9 +390,7 @@ class _GroupSelectionBar extends StatelessWidget {
               label: Text('Edit $noun'),
               onPressed: () => _edit(context),
             ),
-          ]),
-        ),
-      ),
+      ],
     );
   }
 }

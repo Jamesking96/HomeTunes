@@ -119,6 +119,10 @@ void main() {
         await tester.pump();
       }
       await tester.pumpAndSettle();
+      // And let the saving's file writes finish inside the test (9 Oct): under the whole suite's
+      // load one finished after the test ended and used the torn-down focus manager.
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+      await tester.pumpAndSettle();
     }
 
     Album album(String title) => lib.albums.firstWhere((a) => a.title == title);

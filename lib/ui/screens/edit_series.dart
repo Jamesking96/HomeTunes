@@ -22,6 +22,7 @@ import '../../state/playlists_model.dart';
 import '../theme.dart';
 import '../widgets/book_card.dart';
 import 'series_screen.dart' show SeriesScreen;
+import '../widgets/picture_choice.dart';
 
 /// Opens Edit series. Returns the series' name after saving (new if it was renamed), or null if
 /// nothing was saved.
@@ -333,30 +334,17 @@ class _BookPickerState extends State<_BookPicker> {
 Future<void> showSeriesPictureOptions(BuildContext context, BookSeries series) async {
   final lib = context.read<LibraryModel>();
   final messenger = ScaffoldMessenger.maybeOf(context);
-  Widget option(BuildContext ctx, String value, IconData icon, String label, String detail) => SimpleDialogOption(
-        key: ValueKey('series-picture-$value'),
-        onPressed: () => Navigator.of(ctx).pop(value),
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(icon),
-          title: Text(label),
-          subtitle: Text(detail, style: TextStyle(color: AppColors.textDim, fontSize: 12)),
-        ),
-      );
   final n = series.books.length;
-  final choice = await showDialog<String>(
-    context: context,
-    builder: (ctx) => SimpleDialog(
-      title: Text('Picture for ${series.name}', maxLines: 2, overflow: TextOverflow.ellipsis),
-      children: [
-        option(ctx, 'file', Icons.image_outlined, 'Choose an image file…', 'A photo or picture you already have'),
-        option(ctx, 'book', Icons.menu_book_outlined, 'Use one of its book covers…',
+  final choice = await showPictureChoices(context,
+      title: 'Picture for ${series.name}',
+      keyPrefix: 'series-picture',
+      choices: [
+        const PictureChoice('file', Icons.image_outlined, 'Choose an image file…', 'A photo or picture you already have'),
+        PictureChoice('book', Icons.menu_book_outlined, 'Use one of its book covers…',
             '$n book${n == 1 ? '' : 's'} to pick from'),
         if (lib.hasSeriesPicture(series.name))
-          option(ctx, 'auto', Icons.restore, 'Use the automatic picture', 'The first book\'s cover'),
-      ],
-    ),
-  );
+          const PictureChoice('auto', Icons.restore, 'Use the automatic picture', 'The first book\'s cover'),
+      ]);
   if (choice == null || !context.mounted) return;
   switch (choice) {
     case 'auto':
