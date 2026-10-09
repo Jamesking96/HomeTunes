@@ -201,6 +201,15 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 - `video_player_look_settings.dart` (30 Sep): Appearance's "Video player" group (button colour, size, backing and strength, progress bar colour, the preview over a dark / bright / busy scene, Reset).
 - `theme_sharing.dart` (0.1.29): Share… (a theme code to copy, or a `.hometunes-theme` file) and Import a theme, used by Appearance. Only the theme's name and colours are shared, and anything read back is checked.
 
+**Split files (refactor phase 6, 9 Oct).** No file in `lib/ui/` is over 600 lines. Big screens keep their file and
+name (importers didn't change); pieces tied to their private classes are Dart `part` files in a folder named after the
+screen, and pieces that stand alone are their own libraries, exported from the screen's file:
+`video_collection/` (the card, contents panel and episode list as parts; `edit_collection.dart` and
+`season_title_dialog.dart`), `video_player/` (the controls and dialogs, and the bar's volume, as parts),
+`video_pictures/frame_picker.dart`, `edit_details/saving.dart` (part), `settings/appearance/` (`colour_picker.dart`,
+and `theme_editor.dart` as a part) and `settings/servers/server_dialog.dart` (part). Methods moved out of a big `State`
+class live in a private extension on it in the part file; only methods that don't call `setState` were moved.
+
 ### Widgets (`lib/ui/widgets/`)
 
 | File | What it is |
@@ -240,6 +249,10 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `notices.dart` | `NoticeMessenger` (1 Oct): the app's ScaffoldMessenger; every notice lives 15 s from when it's raised, on screen or waiting (so they can't pile up), and repeats of the same words aren't queued. |
 | `wheel_seek.dart` | Scroll to skip: `WheelSeek` wraps a progress bar so a wheel notch (or a two-finger touchpad swipe) skips 5 s; `wheelSeekTarget` (30 Sep). |
 | `music_access_banner.dart` | The amber "can't read your music" card on Android. |
+| `selection_bar.dart` | `SelectionBar` (refactor phase 6, 9 Oct): the bar shown while things are ticked (✕, "n selected", then the buttons). The songs bar and the albums / audiobooks bar in `shell.dart` and `VideoSelectionBar` pass their own buttons. |
+| `picture_choice.dart` | `showPictureChoices` / `PictureChoice` (refactor phase 6): the "Change picture…" list of ways to choose one, used for video pictures, collection posters, series and artist pictures, each with its own choices. |
+| `mixed_value_field.dart` | `mixedValueDecoration` (refactor phase 6): a box in an editor for several songs, albums or books where they differ: `--:--`, the line under it, and the ↶ "keep each one's own" button. Used by `edit_details.dart` and `edit_book.dart`. |
+| `video_card.dart`, `video_group_menu.dart`, `video_selection_bar.dart` | Moved out of `screens/videos_screen.dart` in refactor phase 6 (and exported from it): `VideoCard`, `showVideoMenu`, the card grid's sizes and `videoLength`; `showVideoGroupMenu`; `VideoSelectionBar`. |
 
 ## How things flow
 

@@ -18,6 +18,7 @@ import '../../state/library_model.dart';
 import '../theme.dart';
 import 'artwork.dart';
 import 'quick_actions.dart';
+import 'picture_choice.dart';
 
 /// The right-click / press-and-hold menu on an artist.
 Future<void> showArtistMenu(BuildContext context, Artist artist, Offset at) {
@@ -39,30 +40,17 @@ Future<void> _reset(BuildContext context, Artist artist) async {
 Future<void> showArtistPictureOptions(BuildContext context, Artist artist) async {
   final lib = context.read<LibraryModel>();
   final messenger = ScaffoldMessenger.maybeOf(context);
-  Widget option(BuildContext ctx, String value, IconData icon, String label, String detail) => SimpleDialogOption(
-        key: ValueKey('artist-picture-$value'),
-        onPressed: () => Navigator.of(ctx).pop(value),
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(icon),
-          title: Text(label),
-          subtitle: Text(detail, style: TextStyle(color: AppColors.textDim, fontSize: 12)),
-        ),
-      );
-  final choice = await showDialog<String>(
-    context: context,
-    builder: (ctx) => SimpleDialog(
-      title: Text('Picture for ${artist.name}', maxLines: 2, overflow: TextOverflow.ellipsis),
-      children: [
-        option(ctx, 'file', Icons.image_outlined, 'Choose an image file…', 'A photo or picture you already have'),
+  final choice = await showPictureChoices(context,
+      title: 'Picture for ${artist.name}',
+      keyPrefix: 'artist-picture',
+      choices: [
+        const PictureChoice('file', Icons.image_outlined, 'Choose an image file…', 'A photo or picture you already have'),
         if (artist.albums.isNotEmpty)
-          option(ctx, 'album', Icons.album_outlined, 'Use one of their album covers…',
+          PictureChoice('album', Icons.album_outlined, 'Use one of their album covers…',
               '${artist.albums.length} album${artist.albums.length == 1 ? '' : 's'} to pick from'),
         if (lib.hasArtistPicture(artist))
-          option(ctx, 'auto', Icons.restore, 'Use the automatic picture', 'Their first album\'s cover'),
-      ],
-    ),
-  );
+          const PictureChoice('auto', Icons.restore, 'Use the automatic picture', 'Their first album\'s cover'),
+      ]);
   if (choice == null || !context.mounted) return;
   switch (choice) {
     case 'auto':

@@ -70,7 +70,7 @@ while commenting".
 | Audiobooks sub-tabs (Series first, then All / In progress / Not started / Finished / Favourites), each with Your Library's filter bar, chips and sorting (0.1.74) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. See `03_`, Audiobooks sub-tabs |
 | Audiobook series: a page per series, series cards, favourite series, series in the sidebar (0.1.75) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 1 of 2 (the user: "Go with your suggestions"). See `03_`, Audiobook series |
 | Edit series: name, author, description, order, add / take out books, picture (0.1.76) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 2 of 2. See `03_`, Edit series |
-| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0–3 merged into `main` (8–9 Oct, each after the user tried a test build) and Phases 1–3 released together as **v0.1.77** (9 Oct; the user: "Everything looks good"). Phase 4 (audio engine layer) merged into `main` and released on its own as **v0.1.78** (9 Oct; the user tried the test build: "All seems good"). Phase 5 (`VideoSession` out of the video page) merged into `main` and released as **v0.1.79** (9 Oct; the user tried the test build: "Things look good here"). Next: Phase 6 (screen-file splits and shared widgets), released as 0.1.80. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
+| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0–3 merged into `main` (8–9 Oct, each after the user tried a test build) and Phases 1–3 released together as **v0.1.77** (9 Oct; the user: "Everything looks good"). Phase 4 (audio engine layer) merged into `main` and released on its own as **v0.1.78** (9 Oct; the user tried the test build: "All seems good"). Phase 5 (`VideoSession` out of the video page) merged into `main` and released as **v0.1.79** (9 Oct; the user tried the test build: "Things look good here"). Phase 6 (screen-file splits and shared widgets) is done on `refactor/p6-screens` (9 Oct), waiting for the user to try a test build; it will be released as 0.1.80. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
 | L: Linux build, incl. Steam Deck (0.2.0, the start of the next level) | On hold (6 Oct, the user's choice): WSL2 can't be installed on the current PC, so L1 (the Linux build) moves to another PC. Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (the 0.2.x after L) | After L |
 | T: Android TV (the 0.2.x after A) | After A |
@@ -230,6 +230,44 @@ phases, each on its own branch (`refactor/p<n>-<name>`), merged with `--no-ff` o
   - Found (not changed, as the phase changes no behaviour): two previous / next presses in the very same instant
     can open in the wrong order (the second skips the equaliser wait and opens first). It was the same before;
     a person can't press that fast.
+- **Phase 6 (branch `refactor/p6-screens`, 9 Oct; waiting for the user's test build):** nothing the user sees
+  changes; every step kept the 37 preview pictures identical. No file in `lib/ui/` is over 600 lines now (the
+  biggest is `widgets/music_video_view.dart`, 591; before: 7 files over 600, the biggest 1,401).
+  - How files were split: code moved as it was. Pieces that stand alone became their own libraries, exported from
+    the file they came from so no importer changed; pieces tied to a screen's private classes became Dart `part`
+    files (same library, so nothing was renamed). Where one big `State` class had to be cut, methods that don't
+    call `setState` moved to a part file as a private extension on that state.
+  - `video_collection_screen.dart` (1,401 → 334, the page): parts `video_collection/collection_card.dart`,
+    `contents_panel.dart`, `episode_list.dart` (rows, headings, the select-mode mixin); libraries
+    `video_collection/edit_collection.dart` and `season_title_dialog.dart`.
+  - `videos_screen.dart` (937 → 578): `widgets/video_card.dart` (`VideoCard`, `showVideoMenu`, card sizes,
+    `videoLength`), `widgets/video_group_menu.dart` (`showVideoGroupMenu`), `widgets/video_selection_bar.dart`.
+  - `video_player_screen.dart` (915 → 569): parts `video_player/video_controls.dart` (the controls, keys, Speed and
+    Audio and subtitles dialogs, Use this frame) and `video_player/video_bar_volume.dart`.
+  - `settings/appearance_settings.dart` (868 → 477): library `settings/appearance/colour_picker.dart`
+    (`showColourPicker`, `PickerMode`), part `settings/appearance/theme_editor.dart`.
+  - `settings/server_settings.dart` (741 → 392): part `settings/servers/server_dialog.dart`.
+  - `edit_details.dart` (702 → 550): part `edit_details/saving.dart` (`_saveChanges`, `_resetAll`).
+  - `video_pictures.dart` (645 → 428): library `video_pictures/frame_picker.dart` (`showFramePicker`).
+  - Shared widgets: `widgets/selection_bar.dart` (`SelectionBar`: the songs bar, the albums / audiobooks bar and
+    `VideoSelectionBar` each pass their own buttons; padding, side insets and one-line label kept per bar);
+    `widgets/picture_choice.dart` (`showPictureChoices`, `PictureChoice`: video picture, collection poster,
+    series and artist pictures, each with its own choices, wording and keys; the playlist icon picker and the two
+    cover grids do different jobs and stay as they were); `widgets/mixed_value_field.dart`
+    (`mixedValueDecoration`: the `--:--` box with its helper line and "keep each one's own" button, used by the
+    song / album and book editors; the video and collection editors only show a plain `--:--` hint, so moving them
+    over would change how they look).
+  - Not done, as agreed: one way of describing filters (step 6).
+  - **Fix on the same branch (9 Oct, the user found it while testing):** Find cover online found nothing for Black
+    Eyed Peas' "THE E.N.D.". Two causes, neither from the refactor. (1) MusicBrainz titles it "The E•N•D", and a
+    quoted search for "E.N.D." never matches; now, when the exact search finds nothing, `CoverSearch` searches again
+    without punctuation (`CoverSearch.loosen`: letters, digits and spaces in any alphabet), only if that changes
+    the names. (2) The Cover Art Archive (archive.org) took 16.5 s for that cover's preview, past the 15 s limit,
+    and late previews were silently dropped, so a slow day looked like "no covers found" for every album. Now
+    45 s for a preview (`previewWait`) and 60 s for the full picture, and when MusicBrainz finds albums but no
+    picture arrives (timeouts or errors, not a 404 "no cover") the dialog says the cover website didn't answer
+    in time (`CoverSiteUnavailable`). A busy MusicBrainz (503) is asked again twice, not once. Checked live: the
+    album is found with its cover in about 12 s. Tests: `test/cover_search_test.dart`.
 
 ### Platforms plan: Linux, Android Auto, Android TV (agreed 1 Oct)
 (Versions, corrected 7 Oct by the user: **0.2.0 is only for the next level of development**. Fixes and features on the app as it is stay on 0.1.x (the Next-video fix is 0.1.71). The 6 Oct note said the next release would be 0.2.0 whatever it held; that was wrong, and a 0.2.0 test build of the fix was renumbered 0.1.71. The platform phases start the 0.2.x line: Linux **0.2.0**, Android Auto **0.2.1** and Android TV **0.2.2**; 0.1.x work in between doesn't move them. The build number after `+` keeps counting up from 72, so phones still accept each update. The plan doc matches this. Before 6 Oct the phases were renumbered each time other 0.1.x work went first, ending at 0.1.71–0.1.73.)
@@ -349,7 +387,7 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
 visible changes). Before it, **v0.1.78** (9 Oct: refactor Phase 4, the audio engine layer) and **v0.1.77** (9 Oct: refactor Phases 1–3; the visible changes
 are the video equaliser at 22 kHz and `--:--` in the video / collection editors). Work on the app as it is stays
 0.1.x (0.1.80 next, refactor Phase 6); 0.2.0 is kept for the next level of development (the user, 7 Oct; see the
-Platforms plan above). No branches are open besides `main`. Refactor branches are `refactor/p<n>-<name>` (see
+Platforms plan above). Open besides `main`: `refactor/p6-screens` (Phase 6, waiting for the user's check). Refactor branches are `refactor/p<n>-<name>` (see
 "Modular refactor" above). Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
