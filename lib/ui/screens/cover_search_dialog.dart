@@ -84,6 +84,14 @@ class _CoverSearchDialogState extends State<_CoverSearchDialog> {
         _results = r;
         _loading = false;
       });
+    } on CoverSiteUnavailable {
+      // 9 Oct 2026: albums were found, but the cover website didn't send their pictures in time.
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Albums were found, but the cover website (Cover Art Archive) didn\'t send their '
+            'pictures in time. It\'s sometimes slow; try again in a moment.';
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
