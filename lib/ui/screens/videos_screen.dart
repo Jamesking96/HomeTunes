@@ -34,6 +34,7 @@ import 'video_pictures.dart';
 import '../widgets/video_card.dart';
 export '../widgets/video_card.dart' show videoCardHeight, sliverCardRows, videoLength, VideoCard, showVideoMenu;
 import '../widgets/video_group_menu.dart';
+import '../widgets/selection_bar.dart';
 export '../widgets/video_group_menu.dart' show showVideoGroupMenu;
 
 class VideosScreen extends StatelessWidget {
@@ -592,20 +593,14 @@ class VideoSelectionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final model = context.read<VideoLibraryModel>();
-    final accent = Theme.of(context).colorScheme.primary;
     List<VideoItem> picked() => [for (final id in selected) model.byId(id)].whereType<VideoItem>().toList();
     // Esc cancels the selection, like the ✕ (0.1.48).
-    return EscapeCancels(onCancel: onClear, child: Material(
+    return EscapeCancels(onCancel: onClear, child: SelectionBar(
       key: const ValueKey('video-selection-bar'),
-      color: accent.withValues(alpha: 0.18),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        child: Row(children: [
-          IconButton(tooltip: 'Clear selection', icon: const Icon(Icons.close), onPressed: onClear),
-          Expanded(
-            child: Text('${selected.length} selected',
-                maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
-          ),
+      label: '${selected.length} selected',
+      onClear: onClear,
+      safeArea: false,
+      actions: [
           TextButton(onPressed: onSelectAll, child: const Text('Select all')),
           IconButton(
             key: const ValueKey('selection-edit'),
@@ -629,8 +624,7 @@ class VideoSelectionBar extends StatelessWidget {
               onClear();
             },
           ),
-        ]),
-      ),
+      ],
     ));
   }
 }
