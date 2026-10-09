@@ -30,6 +30,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart' show AppLifecycleListener, AppLifecycleState;
 import 'package:media_kit/media_kit.dart';
 
+import 'engine/engines.dart';
 import 'playback_log.dart';
 
 /// Reads one libmpv property as text ('' when it has no value).
@@ -186,9 +187,9 @@ class VideoStats {
 
   static VideoStats? forPlayer(Player player, String label) {
     if (Platform.environment.containsKey('FLUTTER_TEST')) return null;
-    final engine = player.platform;
-    if (engine is! NativePlayer) return null;
-    return VideoStats(label, (name) => engine.getProperty(name, waitForInitialization: false));
+    final engine = Mpv.of(player);
+    if (engine == null) return null;
+    return VideoStats(label, (name) => engine.get(name, waitForInitialization: false));
   }
 
   String? _name;
