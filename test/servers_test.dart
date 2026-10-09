@@ -12,6 +12,7 @@ import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/servers_model.dart';
 import 'package:hometunes/ui/screens/settings/server_settings.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:path/path.dart' as p;
@@ -256,7 +257,7 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: lib),
+          ...libraryProviders(lib),
           ChangeNotifierProvider.value(value: servers),
         ],
         child: const MaterialApp(home: Scaffold(body: ServerSettings())),

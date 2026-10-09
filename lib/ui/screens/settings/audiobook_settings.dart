@@ -17,6 +17,7 @@ import '../../widgets/track_tile.dart' show askForName;
 import '../equalizer_screen.dart';
 import 'library_settings.dart' show AudiobookFoldersSection;
 import 'settings_widgets.dart';
+import '../../../state/settings/settings_groups.dart' as prefs;
 
 /// Settings › Audiobooks: where books come from and how they play.
 class AudiobookSettings extends StatelessWidget {
@@ -33,6 +34,7 @@ class AudiobookSettings extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
+    final listening = context.watch<prefs.ListeningSettings>();
     final eq = context.watch<EqualizerModel>();
     return SettingsPageList(
       intro: 'Audiobooks have their own tab and never show up with your music. Everything in an audiobook folder '
@@ -44,7 +46,7 @@ class AudiobookSettings extends StatelessWidget {
           'skip-back',
           child: ChoiceTile<int>(
             title: 'Skip back',
-            value: lib.skipBackSeconds,
+            value: listening.skipBackSeconds,
             options: const [5, 10, 15, 30, 45, 60],
             label: (v) => '$v seconds',
             onChanged: (v) => lib.updateListeningSettings(skipBackSeconds: v),
@@ -54,7 +56,7 @@ class AudiobookSettings extends StatelessWidget {
           'skip-forward',
           child: ChoiceTile<int>(
             title: 'Skip forward',
-            value: lib.skipForwardSeconds,
+            value: listening.skipForwardSeconds,
             options: const [5, 10, 15, 30, 45, 60],
             label: (v) => '$v seconds',
             onChanged: (v) => lib.updateListeningSettings(skipForwardSeconds: v),
@@ -65,7 +67,7 @@ class AudiobookSettings extends StatelessWidget {
           child: ChoiceTile<double>(
             title: 'Speed for new books',
             subtitle: 'Each book remembers its own speed once you change it',
-            value: lib.defaultBookSpeed,
+            value: listening.defaultBookSpeed,
             options: PlayerModel.speeds,
             label: SpeedButton.label,
             onChanged: (v) => lib.updateListeningSettings(defaultBookSpeed: v),
@@ -76,7 +78,7 @@ class AudiobookSettings extends StatelessWidget {
           child: SwitchListTile(
             title: const Text('Rewind a little when resuming'),
             subtitle: const Text('A few seconds after a short pause, up to 30 seconds after a long break'),
-            value: lib.rewindOnResume,
+            value: listening.rewindOnResume,
             onChanged: (v) => lib.updateListeningSettings(rewindOnResume: v),
           ),
         ),
@@ -146,7 +148,7 @@ class AudiobookSettings extends StatelessWidget {
                   ButtonSegment(value: false, icon: Icon(Icons.crop_square), label: Text('Match music (square)')),
                   ButtonSegment(value: true, icon: Icon(Icons.crop_portrait), label: Text('Book (tall)')),
                 ],
-                selected: {lib.bookCoversTall},
+                selected: {listening.bookCoversTall},
                 onSelectionChanged: (v) => lib.setBookCoversTall(v.first),
               ),
             ),

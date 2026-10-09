@@ -15,6 +15,7 @@ import '../../state/playlists_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import 'quick_links.dart';
+import '../../state/settings/settings_groups.dart' as prefs;
 
 class Sidebar extends StatefulWidget {
   const Sidebar({super.key});
@@ -34,12 +35,12 @@ class _SidebarState extends State<Sidebar> {
   double? _drag;
   double _pressedX = 0, _startWidth = 0;
 
-  void _toggle(LibraryModel lib) => lib.setSidebar(folded: !lib.sidebarFolded);
+  void _toggle(LibraryModel lib) => lib.setSidebar(folded: !lib.settings.layout.sidebarFolded);
 
   @override
   Widget build(BuildContext context) {
     final lib = context.read<LibraryModel>();
-    final (saved, folded) = context.select<LibraryModel, (double, bool)>((l) => (l.sidebarWidth, l.sidebarFolded));
+    final (saved, folded) = context.select<prefs.LayoutSettings, (double, bool)>((s) => (s.sidebarWidth, s.sidebarFolded));
     final width = _drag ?? (folded ? Sidebar.foldedWidth : saved);
     return Row(mainAxisSize: MainAxisSize.min, children: [
       // Material (not a plain coloured box) so the list's hover / tap highlights can paint on it.
@@ -106,7 +107,7 @@ class _SidebarContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final nav = context.watch<AppNav>();
     final pl = context.watch<PlaylistsModel>();
-    final links = context.watch<LibraryModel>().quickLinks;
+    final links = context.watch<prefs.LayoutSettings>().quickLinks;
     final accent = Theme.of(context).colorScheme.primary;
 
     // One entry: a list row when open, an icon with a tooltip when folded.

@@ -16,11 +16,12 @@ import '../nav.dart';
 import '../theme.dart';
 import 'cards.dart' show SelectableCard;
 import 'quick_actions.dart';
+import '../../state/settings/settings_groups.dart' as prefs;
 
 /// Height ÷ width of book covers: square like music, or tall like a book
 /// (Settings > Audiobooks).
 double bookCoverRatio(BuildContext context) =>
-    context.select<LibraryModel, bool>((l) => l.bookCoversTall) ? 1.5 : 1.0;
+    context.select<prefs.ListeningSettings, bool>((s) => s.bookCoversTall) ? 1.5 : 1.0;
 
 /// A book's cover, filling the given width at the chosen shape.
 class BookCover extends StatelessWidget {

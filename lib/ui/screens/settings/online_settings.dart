@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../../state/library_model.dart';
 import 'settings_widgets.dart';
+import '../../../state/settings/settings_groups.dart' as prefs;
 
 /// Settings › Online lookups: the switches for everything that looks things up online.
 class OnlineLookupSettings extends StatelessWidget {
@@ -13,7 +14,8 @@ class OnlineLookupSettings extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lib = context.watch<LibraryModel>();
+    final lib = context.read<LibraryModel>();
+    final online = context.watch<prefs.OnlineSettings>();
     return SettingsPageList(
       intro: 'HomeTunes only goes online for these when they\'re switched on. Nothing about your files is '
           'sent apart from the names shown below.',
@@ -24,7 +26,7 @@ class OnlineLookupSettings extends StatelessWidget {
           'Offer to look up album covers on MusicBrainz / Cover Art Archive when a song or album '
           'has an artist or album name. Only the artist, album and song names are sent.',
         ),
-        value: lib.onlineCovers,
+        value: online.onlineCovers,
         onChanged: lib.setOnlineCovers,
       )),
       SettingTarget('online-details', child: SwitchListTile(
@@ -33,7 +35,7 @@ class OnlineLookupSettings extends StatelessWidget {
           'Offer to look up year, artist, album, album artist, genre and track numbers on MusicBrainz, '
           'from the edit screen and on album pages with missing details.',
         ),
-        value: lib.onlineDetails,
+        value: online.onlineDetails,
         onChanged: lib.setOnlineDetails,
       )),
       SettingTarget('online-lyrics', child: SwitchListTile(
@@ -43,7 +45,7 @@ class OnlineLookupSettings extends StatelessWidget {
           '(lrclib.net). Only the title, artist, album and length are sent, and what\'s found is saved. '
           '"Find lyrics on LRCLIB" in a song\'s menu works either way.',
         ),
-        value: lib.onlineLyrics,
+        value: online.onlineLyrics,
         onChanged: lib.setOnlineLyrics,
       )),
       SettingTarget('online-video-art', child: SwitchListTile(
@@ -53,7 +55,7 @@ class OnlineLookupSettings extends StatelessWidget {
           'stills and banners from TVmaze, AniList and Wikipedia. Only the name you search for (and a '
           'season and episode number) is sent, and only when you search.',
         ),
-        value: lib.onlineVideoArt,
+        value: online.onlineVideoArt,
         onChanged: lib.setOnlineVideoArt,
       )),
       ],

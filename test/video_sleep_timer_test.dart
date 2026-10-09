@@ -44,8 +44,8 @@ void main() {
   tearDown(() => timer.dispose());
 
   test('after the length for videos: fades out, pauses, puts the volume back', () {
-    settings.sleepVideoMinutes = 20;
-    settings.sleepFadeSeconds = 10;
+    settings.settings.listening.sleepVideoMinutes = 20;
+    settings.settings.listening.sleepFadeSeconds = 10;
     timer.start();
     expect(timer.active, isTrue);
     expect(timer.mode, VideoSleepMode.minutes);
@@ -62,8 +62,8 @@ void main() {
   });
 
   test('end of video: pauses just before the end, so the next episode does not start', () async {
-    settings.sleepVideoMinutes = LibraryModel.sleepAtEnd;
-    settings.sleepFadeSeconds = 0;
+    settings.settings.listening.sleepVideoMinutes = LibraryModel.sleepAtEnd;
+    settings.settings.listening.sleepFadeSeconds = 0;
     video.position = const Duration(minutes: 20);
     timer.start();
     expect(timer.mode, VideoSleepMode.endOfVideo);
@@ -76,7 +76,7 @@ void main() {
   });
 
   test('end of video: if the next video starts anyway, that one is paused', () {
-    settings.sleepVideoMinutes = LibraryModel.sleepAtEnd;
+    settings.settings.listening.sleepVideoMinutes = LibraryModel.sleepAtEnd;
     timer.start();
     video.videoId = 'v2';
     video.position = Duration.zero;
@@ -85,7 +85,7 @@ void main() {
   });
 
   test('closing the video page stops the timer; tapping again turns it off', () {
-    settings.sleepVideoMinutes = 30;
+    settings.settings.listening.sleepVideoMinutes = 30;
     timer.toggle();
     expect(timer.active, isTrue);
     timer.toggle();

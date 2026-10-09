@@ -9,12 +9,12 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../state/library_model.dart';
 import '../../state/now_watching.dart';
 import '../theme.dart';
 import 'video_sleep_button.dart';
 import 'volume_slider.dart';
 import 'wheel_seek.dart';
+import '../../state/settings/settings_groups.dart' as prefs;
 
 String _time(Duration d) {
   final h = d.inHours, m = d.inMinutes % 60, s = d.inSeconds % 60;
@@ -224,7 +224,7 @@ class _VideoVolumeState extends State<_VideoVolume> {
     final w = context.watch<NowWatching>();
     // Up to 100, or the volume boost's top (0.1.62). Redrawn as soon as the boost is changed in
     // Settings (0.1.70; before, the slider kept its old top until the volume moved).
-    context.select<LibraryModel?, double?>((l) => l?.maxVolume);
+    context.select<prefs.PlaybackSettings?, double?>((s) => s?.maxVolume);
     final max = w.maxVolume;
     final volume = w.volume.clamp(0.0, max);
     return Listener(

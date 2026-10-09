@@ -13,6 +13,7 @@ import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/search_screen.dart';
 import 'package:hometunes/ui/widgets/selectable_title.dart';
 import 'package:hometunes/ui/widgets/window_scale.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -73,11 +74,11 @@ void main() {
       addTearDown(() => dir.deleteSync(recursive: true));
       final storage = Storage.at(dir);
       final lib = LibraryModel(storage);
-      expect(lib.scaleWithWindow, isTrue);
+      expect(lib.settings.appearance.scaleWithWindow, isTrue);
       await lib.setScaleWithWindow(false);
       final again = LibraryModel(storage);
       await again.load();
-      expect(again.scaleWithWindow, isFalse);
+      expect(again.settings.appearance.scaleWithWindow, isFalse);
     });
   });
 
@@ -157,7 +158,7 @@ void main() {
       final nav = AppNav();
       await tester.pumpWidget(MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: lib),
+          ...libraryProviders(lib),
           ChangeNotifierProvider.value(value: videos),
           ChangeNotifierProvider.value(value: nav),
         ],

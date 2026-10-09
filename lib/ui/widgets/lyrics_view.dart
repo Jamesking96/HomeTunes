@@ -16,6 +16,7 @@ import '../../state/lyrics_model.dart';
 import '../../state/player_model.dart';
 import '../screens/lyrics_dialogs.dart';
 import '../theme.dart';
+import '../../state/settings/settings_groups.dart' as prefs;
 
 /// A song's lyrics. When [track] is the song playing and the lyrics are
 /// timed, the current line is highlighted and kept in view, and tapping a
@@ -119,7 +120,7 @@ class _NoLyrics extends StatelessWidget {
         actions: [OutlinedButton(onPressed: () => model.removeYours(track), child: const Text('Show lyrics again'))],
       );
     }
-    final online = context.select<LibraryModel, bool>((l) => l.onlineLyrics);
+    final online = context.select<prefs.OnlineSettings, bool>((s) => s.onlineLyrics);
     return _Message(
       icon: Icons.lyrics_outlined,
       // For a local song with online lookups off, explain why nothing was searched.

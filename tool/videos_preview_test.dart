@@ -25,6 +25,7 @@ import 'package:hometunes/ui/screens/settings/settings_screen.dart';
 import 'package:hometunes/ui/screens/video_collection_screen.dart';
 import 'package:hometunes/ui/screens/videos_screen.dart';
 import 'package:hometunes/ui/theme.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:image/image.dart' as img;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
@@ -112,7 +113,7 @@ void main() {
     Future<void> show(Widget home) async {
       await tester.pumpWidget(MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: lib),
+          ...libraryProviders(lib),
           ChangeNotifierProvider.value(value: videos),
           ChangeNotifierProvider.value(value: nav),
           ChangeNotifierProvider(create: (_) => EqualizerModel(storage)),

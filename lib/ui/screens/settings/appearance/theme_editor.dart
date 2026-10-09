@@ -112,7 +112,7 @@ class _ThemeEditorState extends State<ThemeEditor> {
                   },
                 ),
               // Delete, for a theme that's already saved (not a new one that hasn't been yet).
-              if (context.select<LibraryModel, bool>((l) => l.savedThemes.any((t) => t['id'] == widget.start.id))) ...[
+              if (context.select<prefs.AppearanceSettings, bool>((s) => s.savedThemes.any((t) => t['id'] == widget.start.id))) ...[
                 const SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerLeft,

@@ -7,6 +7,7 @@ import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/ui/screens/settings/music_settings.dart';
 import 'package:hometunes/ui/screens/settings/settings_catalog.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -33,11 +34,11 @@ void main() {
   });
 
   test('auto-play is on unless turned off, and is saved', () async {
-    expect((lib.showMusicVideos, lib.autoPlayMusicVideos), (true, true));
+    expect((lib.settings.playback.showMusicVideos, lib.settings.playback.autoPlayMusicVideos), (true, true));
     await lib.updatePlaybackSettings(autoPlayMusicVideos: false);
     final again = LibraryModel(storage);
     await again.load();
-    expect((again.showMusicVideos, again.autoPlayMusicVideos), (true, false));
+    expect((again.settings.playback.showMusicVideos, again.settings.playback.autoPlayMusicVideos), (true, false));
   });
 
   test('the Music page is listed (in A–Z order) and holds the music video settings', () {
@@ -48,18 +49,18 @@ void main() {
   });
 
   testWidgets('the switches change the settings; auto-play waits while videos are off', (tester) async {
-    await tester.pumpWidget(ChangeNotifierProvider.value(
-      value: lib,
+    await tester.pumpWidget(MultiProvider(
+      providers: libraryProviders(lib),
       child: const MaterialApp(home: Scaffold(body: MusicSettings())),
     ));
     await tester.tap(find.byKey(const ValueKey('music-video-autoplay')));
     await tester.pumpAndSettle();
-    expect(lib.autoPlayMusicVideos, isFalse);
+    expect(lib.settings.playback.autoPlayMusicVideos, isFalse);
     expect(find.textContaining('press the video button'), findsOneWidget);
 
     await tester.tap(find.text('Show music videos'));
     await tester.pumpAndSettle();
-    expect(lib.showMusicVideos, isFalse);
+    expect(lib.settings.playback.showMusicVideos, isFalse);
     final autoplay = tester.widget<SwitchListTile>(find.byKey(const ValueKey('music-video-autoplay')));
     expect(autoplay.onChanged, isNull);
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));

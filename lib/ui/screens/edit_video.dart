@@ -266,7 +266,7 @@ class _EditVideosState extends State<_EditVideos> {
             PictureShapePicker(
               title: _several ? 'Picture shape (Look)${_shapeMixed ? ': these differ' : ''}' : 'Picture shape (Look)',
               value: _shape,
-              usual: model.library.videoPictureShape,
+              usual: model.library.settings.video.videoPictureShape,
               mixed: _shapeMixed,
               onChanged: (s) => setState(() {
                 _shape = s;

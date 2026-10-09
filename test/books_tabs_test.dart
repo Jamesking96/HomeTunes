@@ -17,6 +17,7 @@ import 'package:hometunes/state/selection_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/books_screen.dart';
 import 'package:hometunes/ui/widgets/quick_links.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:provider/provider.dart';
 
 Book book(String title, {String? series, double? index, String author = 'A. Writer'}) => Book(
@@ -97,7 +98,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: lib),
+          ...libraryProviders(lib),
           ChangeNotifierProvider.value(value: listening),
           ChangeNotifierProvider.value(value: playlists),
           ChangeNotifierProvider.value(value: nav),
