@@ -24,6 +24,7 @@ import 'listening_controls.dart';
 import 'video_now_playing.dart';
 import 'volume_slider.dart';
 import 'wheel_seek.dart';
+import '../../state/settings/settings_groups.dart' as prefs;
 
 /// Seek bar with elapsed / total times. Rebuilds from the position stream only.
 class SeekBar extends StatefulWidget {
@@ -140,7 +141,7 @@ class TransportControls extends StatelessWidget {
 
     // Book mode: chapter and skip buttons. The skip amounts come from Settings › Audiobooks.
     if (p.inBook) {
-      final lib = context.watch<LibraryModel>();
+      final listening = context.watch<prefs.ListeningSettings>();
       final skipSize = playSize * 0.5;
       return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
         IconButton(
@@ -149,14 +150,14 @@ class TransportControls extends StatelessWidget {
           onPressed: p.previousChapter,
         ),
         IconButton(
-          tooltip: 'Back ${lib.skipBackSeconds} seconds',
-          icon: SkipIcon(seconds: lib.skipBackSeconds, forward: false, size: skipSize),
+          tooltip: 'Back ${listening.skipBackSeconds} seconds',
+          icon: SkipIcon(seconds: listening.skipBackSeconds, forward: false, size: skipSize),
           onPressed: p.skipBack,
         ),
         _playButton(p),
         IconButton(
-          tooltip: 'Forward ${lib.skipForwardSeconds} seconds',
-          icon: SkipIcon(seconds: lib.skipForwardSeconds, forward: true, size: skipSize),
+          tooltip: 'Forward ${listening.skipForwardSeconds} seconds',
+          icon: SkipIcon(seconds: listening.skipForwardSeconds, forward: true, size: skipSize),
           onPressed: p.skipForward,
         ),
         IconButton(
@@ -297,14 +298,14 @@ class PlayerSwipe extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final enabled = context.select<LibraryModel, bool>((l) => l.swipeToSkip);
+    final enabled = context.select<prefs.PlaybackSettings, bool>((s) => s.swipeToSkip);
     void go(bool forward) {
       final p = context.read<PlayerModel>();
       final lib = context.read<LibraryModel>();
       final inBook = p.inBook;
       p.swipe(forward: forward);
       if (inBook) {
-        final seconds = forward ? lib.skipForwardSeconds : lib.skipBackSeconds;
+        final seconds = forward ? lib.settings.listening.skipForwardSeconds : lib.settings.listening.skipBackSeconds;
         ScaffoldMessenger.maybeOf(context)
           ?..hideCurrentSnackBar()
           ..showSnackBar(SnackBar(
@@ -490,7 +491,7 @@ class VolumeControl extends StatelessWidget {
     final p = context.watch<PlayerModel>();
     // 0 to 100, or up to the volume boost's top (Settings › Playback, 0.1.62): above 100 is
     // louder than normal.
-    final max = context.select<LibraryModel?, double>((l) => l?.maxVolume ?? 100);
+    final max = context.select<prefs.PlaybackSettings?, double>((s) => s?.maxVolume ?? 100);
     final volume = p.volume.clamp(0.0, max);
     return Listener(
       onPointerSignal: (event) {

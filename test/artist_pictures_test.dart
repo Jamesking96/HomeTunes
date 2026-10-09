@@ -16,6 +16,7 @@ import 'package:hometunes/state/selection_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/artist_screen.dart';
 import 'package:hometunes/ui/widgets/cards.dart' show ArtistCard;
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -129,7 +130,7 @@ void main() {
       final lib = model();
       await tester.pumpWidget(MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: lib),
+          ...libraryProviders(lib),
           ChangeNotifierProvider(create: (_) => PlaylistsModel(storage)),
           ChangeNotifierProvider<PlayerModel>.value(value: FakePlayer()),
           ChangeNotifierProvider(create: (_) => SelectionModel()),

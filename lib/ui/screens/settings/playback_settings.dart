@@ -14,6 +14,7 @@ import '../../../state/play_history.dart';
 import '../equalizer_screen.dart';
 import '../../theme.dart';
 import 'settings_widgets.dart';
+import '../../../state/settings/settings_groups.dart' as prefs;
 
 /// Settings › Playback: how songs sound and join up.
 class PlaybackSettings extends StatelessWidget {
@@ -21,7 +22,8 @@ class PlaybackSettings extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lib = context.watch<LibraryModel>();
+    final lib = context.read<LibraryModel>();
+    final playback = context.watch<prefs.PlaybackSettings>();
     final eq = context.watch<EqualizerModel>();
     final history = Provider.of<PlayHistory?>(context);
     final played = history?.items.length ?? 0;
@@ -52,7 +54,7 @@ class PlaybackSettings extends StatelessWidget {
               'Songs follow each other with no silence in between – live albums and mixes play '
               'straight through. Also joins up an audiobook\'s files.',
             ),
-            value: lib.gaplessPlayback,
+            value: playback.gaplessPlayback,
             onChanged: (v) => lib.updatePlaybackSettings(gaplessPlayback: v),
           ),
         ),
@@ -64,7 +66,7 @@ class PlaybackSettings extends StatelessWidget {
               'On a touch screen, swipe the player left or right to go to the next or previous song. '
               'In an audiobook it skips forward or back by the lengths set under Audiobooks.',
             ),
-            value: lib.swipeToSkip,
+            value: playback.swipeToSkip,
             onChanged: (v) => lib.updatePlaybackSettings(swipeToSkip: v),
           ),
         ),
@@ -78,7 +80,7 @@ class PlaybackSettings extends StatelessWidget {
                 title: 'Even out volume (ReplayGain)',
                 subtitle:
                     'Uses the loudness info many music files carry, so quiet and loud songs play at a similar level',
-                value: lib.replayGain,
+                value: playback.replayGain,
                 options: ReplayGainMode.values,
                 label: (m) => switch (m) {
                   ReplayGainMode.off => 'Off',
@@ -106,10 +108,10 @@ class PlaybackSettings extends StatelessWidget {
             SwitchListTile(
               key: const ValueKey('volume-boost-switch'),
               title: const Text('Volume boost'),
-              subtitle: Text(lib.volumeBoost
-                  ? 'Every volume slider now goes up to ${lib.volumeBoostPercent}%. Past 100% is louder than normal.'
+              subtitle: Text(playback.volumeBoost
+                  ? 'Every volume slider now goes up to ${playback.volumeBoostPercent}%. Past 100% is louder than normal.'
                   : 'Let the volume sliders go past 100%, up to 500% (like VLC). Off: they stop at 100%.'),
-              value: lib.volumeBoost,
+              value: playback.volumeBoost,
               onChanged: (v) => lib.setVolumeBoost(on: v),
             ),
             Padding(
@@ -119,12 +121,12 @@ class PlaybackSettings extends StatelessWidget {
                 Expanded(
                   child: Slider(
                     key: const ValueKey('volume-boost-amount'),
-                    value: lib.volumeBoostPercent.toDouble(),
+                    value: playback.volumeBoostPercent.toDouble(),
                     min: volumeBoostMin.toDouble(),
                     max: volumeBoostMax.toDouble(),
                     divisions: (volumeBoostMax - volumeBoostMin) ~/ volumeBoostStep,
-                    label: '${lib.volumeBoostPercent}%',
-                    onChanged: lib.volumeBoost ? (v) => lib.setVolumeBoost(percent: v.round()) : null,
+                    label: '${playback.volumeBoostPercent}%',
+                    onChanged: playback.volumeBoost ? (v) => lib.setVolumeBoost(percent: v.round()) : null,
                   ),
                 ),
                 Text('500%', style: TextStyle(color: AppColors.textDim, fontSize: 12)),
@@ -133,7 +135,7 @@ class PlaybackSettings extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Text(
-                'Loudest the sliders go: ${lib.volumeBoostPercent}%. You choose how loud with the volume '
+                'Loudest the sliders go: ${playback.volumeBoostPercent}%. You choose how loud with the volume '
                 'sliders as usual. Very high volumes can make loud parts crackle, as in VLC; turn it down if '
                 'they do. Mind your ears and speakers.',
                 style: TextStyle(color: AppColors.textDim, fontSize: 12),
@@ -149,7 +151,7 @@ class PlaybackSettings extends StatelessWidget {
             title: const Text('Show the volume percentage'),
             subtitle: const Text('While you change the volume, a small bubble above the slider shows how loud, '
                 'e.g. 65%.'),
-            value: lib.showVolumePercent,
+            value: playback.showVolumePercent,
             onChanged: lib.setShowVolumePercent,
           ),
         ),

@@ -265,14 +265,14 @@ void main() {
       );
       final b = LibraryModel(Storage.at(dir));
       await b.load();
-      expect(b.skipBackSeconds, 10);
-      expect(b.skipForwardSeconds, 45);
-      expect(b.rewindOnResume, isFalse);
-      expect(b.defaultBookSpeed, 1.25);
-      expect(b.sleepButtonShown, isFalse);
-      expect(b.sleepBookMinutes, LibraryModel.sleepAtEnd);
-      expect(b.sleepMusicMinutes, 15);
-      expect(b.sleepFadeSeconds, 30);
+      expect(b.settings.listening.skipBackSeconds, 10);
+      expect(b.settings.listening.skipForwardSeconds, 45);
+      expect(b.settings.listening.rewindOnResume, isFalse);
+      expect(b.settings.listening.defaultBookSpeed, 1.25);
+      expect(b.settings.listening.sleepButtonShown, isFalse);
+      expect(b.settings.listening.sleepBookMinutes, LibraryModel.sleepAtEnd);
+      expect(b.settings.listening.sleepMusicMinutes, 15);
+      expect(b.settings.listening.sleepFadeSeconds, 30);
     });
 
     test('playback settings survive a restart', () async {
@@ -280,8 +280,8 @@ void main() {
       await a.updatePlaybackSettings(gaplessPlayback: false, replayGain: ReplayGainMode.album);
       final b = LibraryModel(Storage.at(dir));
       await b.load();
-      expect(b.gaplessPlayback, isFalse);
-      expect(b.replayGain, ReplayGainMode.album);
+      expect(b.settings.playback.gaplessPlayback, isFalse);
+      expect(b.settings.playback.replayGain, ReplayGainMode.album);
     });
 
     test('a book keeps its speed as you listen', () async {

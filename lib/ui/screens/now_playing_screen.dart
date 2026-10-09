@@ -27,6 +27,7 @@ import '../widgets/music_video_view.dart';
 import '../widgets/player_controls.dart';
 import '../widgets/track_tile.dart';
 import '../widgets/selectable_title.dart';
+import '../../state/settings/settings_groups.dart' as prefs;
 
 /// Full-screen player. For songs, the lyrics can be shown in place of the
 /// cover (phones) or beside it (wide windows).
@@ -115,8 +116,8 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     final lyricsPanel = LyricsView(key: ValueKey(t.id), track: t);
     // Music video (0.1.40): songs only, and only while the setting / video button is on.
     final videoFile = book == null ? _videoOf(t) : null;
-    final videosOn = context.select<LibraryModel, bool>((l) => l.showMusicVideos);
-    final autoPlay = context.select<LibraryModel, bool>((l) => l.autoPlayMusicVideos);
+    final videosOn = context.select<prefs.PlaybackSettings, bool>((s) => s.showMusicVideos);
+    final autoPlay = context.select<prefs.PlaybackSettings, bool>((s) => s.autoPlayMusicVideos);
     // Settings › Music: play it straight away, or only when the video button is pressed. The
     // button's choice lasts for this song.
     final showVideo = videosOn && (_videoChoiceFor == t.id ? _videoChoice : autoPlay);

@@ -143,6 +143,9 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   PlayerModel(this.library, {this.listening, this.equalizer, AudioEngine? engine})
       : _player = engine ?? MediaKitAudioEngine() {
     library.addListener(_onLibraryChanged);
+    // Gapless, ReplayGain and the volume boost's top (Settings › Playback); LibraryModel doesn't
+    // pass these changes on since refactor phase 9.
+    library.settings.playback.addListener(_applyEngineSettings);
     equalizer?.addListener(_applyEqualizer);
     _applyEngineSettings();
     _applyEqualizer();
@@ -205,8 +208,6 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// Keeps the queue (and the now-playing display / system media controls)
   /// showing songs' latest details after they're edited or rescanned.
   void _onLibraryChanged() {
-    // Settings live in LibraryModel too, so a change there may be a gapless/ReplayGain change.
-    _applyEngineSettings();
     var changed = queue.refresh(library.byId);
     // Keep the playing book's details (and parts) current after a rescan.
     final b = book;
@@ -361,7 +362,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   (Track, String)? _songToLoadAhead() {
     // Repeat-one uses the engine's own "loop this file" instead (loading the
     // same song ahead of itself stalls the engine – see player_gapless_test).
-    if (!library.gaplessPlayback || queue.repeat == RepeatSetting.one) return null;
+    if (!library.settings.playback.gaplessPlayback || queue.repeat == RepeatSetting.one) return null;
     // Null when the queue ends here, or when shuffle + repeat-all will reshuffle at the end.
     final next = queue.peekNextAuto();
     if (next == null) return null;
@@ -467,15 +468,15 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         _videoOff = true;
         await _player.setOption('vid', 'no');
       }
-      if (_appliedGapless != library.gaplessPlayback) {
-        _appliedGapless = library.gaplessPlayback;
+      if (_appliedGapless != library.settings.playback.gaplessPlayback) {
+        _appliedGapless = library.settings.playback.gaplessPlayback;
         // "yes": no gap even between files of different formats; the next
         // file is opened early so streams from a server are ready in time.
-        await _player.setOption('gapless-audio', library.gaplessPlayback ? 'yes' : 'no');
-        await _player.setOption('prefetch-playlist', library.gaplessPlayback ? 'yes' : 'no');
+        await _player.setOption('gapless-audio', library.settings.playback.gaplessPlayback ? 'yes' : 'no');
+        await _player.setOption('prefetch-playlist', library.settings.playback.gaplessPlayback ? 'yes' : 'no');
         await _syncLoadedAhead();
       }
-      final rg = library.replayGain.name; // off / track / album
+      final rg = library.settings.playback.replayGain.name; // off / track / album
       if (_appliedReplayGain != rg) {
         _appliedReplayGain = rg;
         await _player.setOption('replaygain', rg == 'off' ? 'no' : rg);
@@ -487,7 +488,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
         _volumeMaxRaised = true;
         await _player.setOption('volume-max', '$engineVolumeMax');
       }
-      if (volume > library.maxVolume) await setVolume(library.maxVolume);
+      if (volume > library.settings.playback.maxVolume) await setVolume(library.settings.playback.maxVolume);
     } catch (e) {
       debugPrint('HomeTunes: couldn\'t apply playback settings: $e');
     }
@@ -623,7 +624,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   }
   @override
   Future<void> setVolume(double v) async {
-    volume = v.clamp(0.0, library.maxVolume);
+    volume = v.clamp(0.0, library.settings.playback.maxVolume);
     notifyListeners();
     await _sendVolume();
   }
@@ -781,7 +782,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
           index = i;
           // Go back a little when resuming (if that setting is on), more after a longer break.
           final since = Duration(milliseconds: DateTime.now().millisecondsSinceEpoch - saved.updatedMs);
-          position = library.rewindOnResume ? saved.position - resumeRewind(since) : saved.position;
+          position = library.settings.listening.rewindOnResume ? saved.position - resumeRewind(since) : saved.position;
           if (position.isNegative) position = Duration.zero;
         }
       }
@@ -793,7 +794,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     queue.repeat = RepeatSetting.off;
     // 4. Save the starting place, set the book's own speed, and start playing.
     await listening?.record(b, b.parts[index].id, position);
-    await _applySpeed(listening?.speedFor(b) ?? library.defaultBookSpeed);
+    await _applySpeed(listening?.speedFor(b) ?? library.settings.listening.defaultBookSpeed);
     await _openCurrent(startAt: position);
   }
 
@@ -960,8 +961,8 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   }
 
   // The skip amounts come from Settings → Audiobooks (15 s back and 30 s forward by default).
-  Future<void> skipBack() => skipBy(-Duration(seconds: library.skipBackSeconds));
-  Future<void> skipForward() => skipBy(Duration(seconds: library.skipForwardSeconds));
+  Future<void> skipBack() => skipBy(-Duration(seconds: library.settings.listening.skipBackSeconds));
+  Future<void> skipForward() => skipBy(Duration(seconds: library.settings.listening.skipForwardSeconds));
 
   /// Goes to [at] in file [part] of the playing book (e.g. a bookmark).
   Future<void> goToPart(int part, Duration at) => _goTo(part, at);
@@ -1016,6 +1017,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     _watchdog?.cancel();
     saveBookPlace();
     library.removeListener(_onLibraryChanged);
+    library.settings.playback.removeListener(_applyEngineSettings);
     equalizer?.removeListener(_applyEqualizer);
     _eq.close();
     for (final s in _subs) {

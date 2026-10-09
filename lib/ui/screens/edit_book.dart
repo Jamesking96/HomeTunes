@@ -23,6 +23,7 @@ import '../widgets/book_card.dart';
 import 'book_lookup_dialog.dart';
 import '../../state/mixed_value.dart';
 import '../widgets/mixed_value_field.dart';
+import '../../state/settings/settings_groups.dart' as prefs;
 
 /// Edits an audiobook's details and cover. Like album edits, the changes are
 /// kept by HomeTunes and applied to every file of the book. Returns true if
@@ -270,6 +271,7 @@ class _EditBookState extends State<_EditBook> {
   @override
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
+    final onlineSettings = context.watch<prefs.OnlineSettings>();
     // Used to decide whether to offer "Reset to file details" and "Use the files' own cover".
     final parts = [for (final b in widget.books) ...b.parts];
     final anyEdited = parts.any((t) => lib.isEdited(t.id));
@@ -301,7 +303,7 @@ class _EditBookState extends State<_EditBook> {
                 _F.series => 'Leave empty if it isn\'t part of a series',
                 _ => null,
               },
-              suffix: online && !_many && lib.onlineDetails
+              suffix: online && !_many && onlineSettings.onlineDetails
                   ? IconButton(
                       tooltip: 'Find ${_label(f).toLowerCase()} online',
                       icon: const Icon(Icons.travel_explore, size: 20),
@@ -349,7 +351,7 @@ class _EditBookState extends State<_EditBook> {
                   icon: const Icon(Icons.image_outlined),
                   label: const Text('Choose image…'),
                 ),
-                if (lib.onlineCovers && !_many)
+                if (onlineSettings.onlineCovers && !_many)
                   OutlinedButton.icon(
                     onPressed: _saving ? null : _findCover,
                     icon: const Icon(Icons.travel_explore),

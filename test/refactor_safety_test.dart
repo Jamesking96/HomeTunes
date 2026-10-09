@@ -35,7 +35,7 @@ void main() {
     if (settings != null) File(p.join(data.path, 'settings.json')).writeAsStringSync(jsonEncode(settings));
     final lib = LibraryModel(Storage.at(data));
     await lib.load();
-    await lib.setArtistsGrid(lib.artistsGrid); // saves settings.json without changing anything
+    await lib.setArtistsGrid(lib.settings.layout.artistsGrid); // saves settings.json without changing anything
     return (lib, readJson(p.join(data.path, 'settings.json')));
   }
 

@@ -21,6 +21,7 @@ import 'equalizer_model.dart';
 import 'library_model.dart';
 import 'now_watching.dart';
 import 'player_model.dart';
+import 'settings/settings_groups.dart' show PlaybackSettings, VideoSettings;
 import 'video_filters.dart';
 import 'video_library_model.dart';
 import 'video_tracks.dart';
@@ -50,13 +51,13 @@ class VideoSession extends ChangeNotifier {
     this.openingTimeout = const Duration(seconds: 12),
   })  : _id = videoId,
         shownId = ValueNotifier(videoId) {
-    transport = VideoEngineTransport(engine, maxVolume: () => settings.maxVolume);
+    transport = VideoEngineTransport(engine, maxVolume: () => _playback.maxVolume);
     music.addListener(_onMusicChanged);
     // The bottom bar and the system media controls show and control this video (30 Sep).
     watching?.attach(transport, onOpen: onOpenPage);
     equalizer?.addListener(_applyEqualizer);
     // Volume boost (0.1.62): the volume can go above 100 up to Settings › Playback's top.
-    settings.addListener(_followVolumeTop);
+    _playback.addListener(_followVolumeTop);
     if (engine.hasOptions) engine.setOption('volume-max', '$engineVolumeMax');
     _subs.addAll([
       engine.completedStream.listen((done) {
@@ -118,6 +119,8 @@ class VideoSession extends ChangeNotifier {
   late final VideoEngineTransport transport;
 
   LibraryModel get settings => videos.library;
+  PlaybackSettings get _playback => videos.library.settings.playback;
+  VideoSettings get _video => videos.library.settings.video;
 
   // Sends the videos' preset to this player (services/engine/audio_chain.dart, shared with the
   // music player): the bands as a filter, with those at or above half the sound's sample rate
@@ -230,8 +233,8 @@ class VideoSession extends ChangeNotifier {
     final next = videos.after(v), previous = videos.before(v);
     watching?.showing(v,
         picture: videos.thumbFile(v),
-        skipBack: settings.videoSkipBackSeconds,
-        skipForward: settings.videoSkipForwardSeconds,
+        skipBack: _video.videoSkipBackSeconds,
+        skipForward: _video.videoSkipForwardSeconds,
         onNext: next == null ? null : () => jump(forward: true),
         onPrevious: previous == null ? null : () => jump(forward: false),
         transport: transport);
@@ -240,7 +243,7 @@ class VideoSession extends ChangeNotifier {
     final place = videos.placeOf(v.id);
     var start = resumeAt(place, v.duration);
     // Settings › Videos: go back a little, more after a long break (like audiobooks).
-    if (start > Duration.zero && place != null && settings.videoRewindOnResume) {
+    if (start > Duration.zero && place != null && _video.videoRewindOnResume) {
       final since = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(place.updatedMs));
       start -= PlayerModel.resumeRewind(since);
       if (start < Duration.zero) start = Duration.zero;
@@ -343,7 +346,7 @@ class VideoSession extends ChangeNotifier {
 
   /// Back ([forward] false) or forward by the seconds set in Settings › Videos.
   void skip({required bool forward}) {
-    final by = Duration(seconds: forward ? settings.videoSkipForwardSeconds : settings.videoSkipBackSeconds);
+    final by = Duration(seconds: forward ? _video.videoSkipForwardSeconds : _video.videoSkipBackSeconds);
     var to = forward ? engine.position + by : engine.position - by;
     if (to < Duration.zero) to = Duration.zero;
     final length = engine.duration;
@@ -363,11 +366,11 @@ class VideoSession extends ChangeNotifier {
   }
 
   /// ↑ / ↓ on the video: the volume up or down by [step], up to the volume boost's top.
-  void stepVolume(double step) => engine.setVolume(stepEngineVolume(engine.volume, step, settings.maxVolume));
+  void stepVolume(double step) => engine.setVolume(stepEngineVolume(engine.volume, step, _playback.maxVolume));
 
   /// The volume boost's top was lowered (or the boost turned off): bring a louder volume down.
   void _followVolumeTop() {
-    final max = settings.maxVolume;
+    final max = _playback.maxVolume;
     if (sliderVolume(engine.volume) > max + 0.01) engine.setVolume(engineVolume(max));
   }
 
@@ -439,7 +442,7 @@ class VideoSession extends ChangeNotifier {
     watching?.detach(transport);
     equalizer?.removeListener(_applyEqualizer);
     _chain.close();
-    settings.removeListener(_followVolumeTop);
+    _playback.removeListener(_followVolumeTop);
     for (final s in _subs) {
       s.cancel();
     }

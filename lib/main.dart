@@ -48,6 +48,8 @@ import 'ui/theme.dart';
 import 'ui/widgets/notices.dart';
 import 'ui/widgets/offline_warning.dart';
 import 'ui/widgets/window_scale.dart';
+import 'ui/library_providers.dart';
+import 'state/settings/settings_groups.dart' as prefs;
 
 /// Starts HomeTunes: sets up storage and the models, then shows the app.
 Future<void> main() async {
@@ -239,17 +241,9 @@ class HomeTunesApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         // Models made in main() are passed in with `.value`, so Provider won't dispose them.
-        ChangeNotifierProvider.value(value: library),
-        // Each part of Settings on its own (refactor phase 3): a screen can watch just the part it
-        // uses. LibraryModel still redraws for every settings change too.
-        ChangeNotifierProvider.value(value: library.settings.folders),
-        ChangeNotifierProvider.value(value: library.settings.server),
-        ChangeNotifierProvider.value(value: library.settings.online),
-        ChangeNotifierProvider.value(value: library.settings.playback),
-        ChangeNotifierProvider.value(value: library.settings.listening),
-        ChangeNotifierProvider.value(value: library.settings.video),
-        ChangeNotifierProvider.value(value: library.settings.appearance),
-        ChangeNotifierProvider.value(value: library.settings.layout),
+        // LibraryModel and each part of Settings on its own: a screen watches just the part it
+        // uses (refactor phases 3 and 9).
+        ...libraryProviders(library),
         ChangeNotifierProvider.value(value: playlists),
         ChangeNotifierProvider.value(value: listening),
         ChangeNotifierProvider.value(value: bookmarks),
@@ -272,8 +266,8 @@ class HomeTunesApp extends StatelessWidget {
       // The look from Settings › Appearance: colour theme (0.1.24), text size and corner
       // roundness (0.1.25). Only a change to one of those rebuilds this; then every screen is
       // redrawn so colours and corners read from AppColors / AppShape change too.
-      child: Selector<LibraryModel, AppLook>(
-        selector: (_, lib) => lookOfSettings(lib),
+      child: Selector<prefs.AppearanceSettings, AppLook>(
+        selector: (_, appearance) => lookOfSettings(appearance),
         builder: (context, look, _) {
           AppColors.current = look.palette;
           AppShape.scale = look.corners;
@@ -294,7 +288,7 @@ class HomeTunesApp extends StatelessWidget {
                 key: appMessengerKey,
                 child: Builder(
                   builder: (context) => WindowScale(
-                    enabled: context.select<LibraryModel, bool>((l) => l.scaleWithWindow),
+                    enabled: context.select<prefs.AppearanceSettings, bool>((s) => s.scaleWithWindow),
                     child: Builder(builder: (context) => withTextSize(context, look.textSize, child!)),
                   ),
                 ),

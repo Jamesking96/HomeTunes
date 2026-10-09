@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../state/library_model.dart';
 import 'settings_widgets.dart';
+import '../../../state/settings/settings_groups.dart' as prefs;
 
 /// Settings › Sleep timer: for music, audiobooks and videos (0.1.63).
 class SleepTimerSettings extends StatelessWidget {
@@ -18,7 +19,8 @@ class SleepTimerSettings extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lib = context.watch<LibraryModel>();
+    final lib = context.read<LibraryModel>();
+    final listening = context.watch<prefs.ListeningSettings>();
     return SettingsPageList(
       intro: 'The sleep timer pauses playback after a while, fading the volume out first. '
           'Music, audiobooks and videos each have their own timer length.',
@@ -28,7 +30,7 @@ class SleepTimerSettings extends StatelessWidget {
           child: SwitchListTile(
             title: const Text('Show sleep timer button'),
             subtitle: const Text('The moon beside play/pause: tap once to start the timer, again to stop it'),
-            value: lib.sleepButtonShown,
+            value: listening.sleepButtonShown,
             onChanged: (v) => lib.updateListeningSettings(sleepButtonShown: v),
           ),
         ),
@@ -37,7 +39,7 @@ class SleepTimerSettings extends StatelessWidget {
           'sleep-music',
           child: ChoiceTile<int>(
             title: 'Timer length for music',
-            value: lib.sleepMusicMinutes,
+            value: listening.sleepMusicMinutes,
             options: _lengths,
             label: (v) => v == LibraryModel.sleepAtEnd ? 'End of song' : '$v minutes',
             onChanged: (v) => lib.updateListeningSettings(sleepMusicMinutes: v),
@@ -47,7 +49,7 @@ class SleepTimerSettings extends StatelessWidget {
           'sleep-books',
           child: ChoiceTile<int>(
             title: 'Timer length for books',
-            value: lib.sleepBookMinutes,
+            value: listening.sleepBookMinutes,
             options: _lengths,
             label: (v) => v == LibraryModel.sleepAtEnd ? 'End of chapter' : '$v minutes',
             onChanged: (v) => lib.updateListeningSettings(sleepBookMinutes: v),
@@ -58,7 +60,7 @@ class SleepTimerSettings extends StatelessWidget {
           'sleep-videos',
           child: ChoiceTile<int>(
             title: 'Timer length for videos',
-            value: lib.sleepVideoMinutes,
+            value: listening.sleepVideoMinutes,
             options: _lengths,
             label: (v) => v == LibraryModel.sleepAtEnd ? 'End of video' : '$v minutes',
             onChanged: (v) => lib.updateListeningSettings(sleepVideoMinutes: v),
@@ -69,7 +71,7 @@ class SleepTimerSettings extends StatelessWidget {
           'sleep-fade',
           child: ChoiceTile<int>(
             title: 'Fade out before pausing',
-            value: lib.sleepFadeSeconds,
+            value: listening.sleepFadeSeconds,
             options: const [0, 5, 10, 30],
             label: (v) => v == 0 ? 'Off' : '$v seconds',
             onChanged: (v) => lib.updateListeningSettings(sleepFadeSeconds: v),

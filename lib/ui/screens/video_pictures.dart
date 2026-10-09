@@ -18,13 +18,13 @@ import 'package:provider/provider.dart';
 import '../../models/video_item.dart';
 import '../../services/video_art_search.dart';
 import '../../services/video_thumbnails.dart' show shrinkToJpeg;
-import '../../state/library_model.dart';
 import '../../state/video_library_model.dart';
 import '../theme.dart';
 import '../widgets/offline_warning.dart';
 import '../widgets/picture_choice.dart';
 
 import 'video_pictures/frame_picker.dart';
+import '../../state/settings/settings_groups.dart' as prefs;
 export 'video_pictures/frame_picker.dart' show showFramePicker;
 
 /// Chosen pictures are kept at most this wide.
@@ -49,7 +49,7 @@ Future<List<int>> preparePicture(List<int> bytes) async {
 /// Change picture… for one video.
 Future<void> showVideoPictureOptions(BuildContext context, VideoItem v) async {
   final model = context.read<VideoLibraryModel>();
-  final online = context.read<LibraryModel>().onlineVideoArt;
+  final online = context.read<prefs.OnlineSettings>().onlineVideoArt;
   final messenger = ScaffoldMessenger.maybeOf(context);
   final choice = await _askHow(context,
       title: 'Picture for "${v.title}"',
@@ -78,7 +78,7 @@ Future<void> showVideoPictureOptions(BuildContext context, VideoItem v) async {
 /// Change poster… for a collection.
 Future<void> showCollectionPosterOptions(BuildContext context, VideoCollection c) async {
   final model = context.read<VideoLibraryModel>();
-  final online = context.read<LibraryModel>().onlineVideoArt;
+  final online = context.read<prefs.OnlineSettings>().onlineVideoArt;
   final messenger = ScaffoldMessenger.maybeOf(context);
   final frameOf = model.nextUp(c) ?? (c.main.isNotEmpty ? c.main.first : (c.videos.isNotEmpty ? c.videos.first : null));
   final choice = await _askHow(context,

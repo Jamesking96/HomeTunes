@@ -144,7 +144,7 @@ class _EditSeveralCollectionsState extends State<_EditSeveralCollections> {
             PictureShapePicker(
               title: 'Poster shape (Look)${_shapeMixed ? ': these differ' : ''}',
               value: _shape,
-              usual: _model.library.collectionPictureShape,
+              usual: _model.library.settings.video.collectionPictureShape,
               mixed: _shapeMixed,
               onChanged: (s) => setState(() {
                 _shape = s;
@@ -300,7 +300,7 @@ class _EditCollectionState extends State<_EditCollection> {
             PictureShapePicker(
               title: 'Poster shape (Look)',
               value: _shape,
-              usual: model.library.collectionPictureShape,
+              usual: model.library.settings.video.collectionPictureShape,
               onChanged: (s) => setState(() => _shape = s),
             ),
             const SizedBox(height: 8),

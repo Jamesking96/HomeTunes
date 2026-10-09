@@ -10,6 +10,7 @@ import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/screens/special_seasons.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -107,13 +108,13 @@ void main() {
     });
 
     test('the list of titles: no blanks or repeats, kept in settings.json', () async {
-      expect(lib.specialSeasonTitles, LibraryModel.defaultSpecialSeasonTitles);
+      expect(lib.settings.video.specialSeasonTitles, LibraryModel.defaultSpecialSeasonTitles);
       await lib.setSpecialSeasonTitles(['OVA', ' ', 'ova', 'Films']);
-      expect(lib.specialSeasonTitles, ['OVA', 'Films']);
+      expect(lib.settings.video.specialSeasonTitles, ['OVA', 'Films']);
       await lib.addSpecialSeasonTitle('Recaps');
       final again = LibraryModel(storage);
       await again.load();
-      expect(again.specialSeasonTitles, ['OVA', 'Films', 'Recaps']);
+      expect(again.settings.video.specialSeasonTitles, ['OVA', 'Films', 'Recaps']);
     });
 
     testWidgets('Mark as special…: pick a title, or type a new one (added to the list)', (tester) async {
@@ -121,7 +122,7 @@ void main() {
       await tester.runAsync(() async => c = await scanShow());
       await tester.pumpWidget(MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: lib),
+          ...libraryProviders(lib),
           ChangeNotifierProvider.value(value: videos),
         ],
         child: MaterialApp(
@@ -154,12 +155,12 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
       await tester.pumpAndSettle();
       expect(videos.specialTitleOf(c, 3), 'Recap');
-      expect(lib.specialSeasonTitles, contains('Recap'));
+      expect(lib.settings.video.specialSeasonTitles, contains('Recap'));
     });
 
     testWidgets('Settings: remove a title, then reset the list', (tester) async {
-      await tester.pumpWidget(ChangeNotifierProvider.value(
-        value: lib,
+      await tester.pumpWidget(MultiProvider(
+        providers: libraryProviders(lib),
         child: const MaterialApp(home: Scaffold(body: SpecialSeasonTitlesSection())),
       ));
       expect(find.text('OVA'), findsOneWidget);
@@ -167,11 +168,11 @@ void main() {
           of: find.byKey(const ValueKey('special-title-chip:OVA')), matching: find.byTooltip('Delete')));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
       await tester.pumpAndSettle();
-      expect(lib.specialSeasonTitles, isNot(contains('OVA')));
+      expect(lib.settings.video.specialSeasonTitles, isNot(contains('OVA')));
       await tester.tap(find.text('Reset'));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
       await tester.pumpAndSettle();
-      expect(lib.specialSeasonTitles, LibraryModel.defaultSpecialSeasonTitles);
+      expect(lib.settings.video.specialSeasonTitles, LibraryModel.defaultSpecialSeasonTitles);
     });
   });
 }

@@ -10,6 +10,7 @@ import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/playlists_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/widgets/sidebar.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -43,7 +44,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: lib),
+        ...libraryProviders(lib),
         ChangeNotifierProvider.value(value: nav),
         ChangeNotifierProvider(create: (_) => PlaylistsModel(storage)),
       ],
@@ -65,19 +66,19 @@ void main() {
     await tester.pumpAndSettle();
     await saved(tester);
     expect(width(tester), 330);
-    expect(lib.sidebarWidth, 330);
+    expect(lib.settings.layout.sidebarWidth, 330);
     await tester.drag(find.byKey(const ValueKey('sidebar-edge')), const Offset(300, 0));
     await tester.pumpAndSettle();
     await saved(tester);
-    expect((width(tester), lib.sidebarWidth), (420, 420));
+    expect((width(tester), lib.settings.layout.sidebarWidth), (420, 420));
   });
 
   test('the width and folding are kept in settings.json', () async {
     await lib.setSidebar(width: 999, folded: true);
-    expect(lib.sidebarWidth, LibraryModel.sidebarMaxWidth);
+    expect(lib.settings.layout.sidebarWidth, LibraryModel.sidebarMaxWidth);
     final again = LibraryModel(storage);
     await again.load();
-    expect((again.sidebarWidth, again.sidebarFolded), (LibraryModel.sidebarMaxWidth, true));
+    expect((again.settings.layout.sidebarWidth, again.settings.layout.sidebarFolded), (LibraryModel.sidebarMaxWidth, true));
   });
 
   testWidgets('fold to icons with the button, a double-click or a drag; open again', (tester) async {
@@ -88,7 +89,7 @@ void main() {
     await tester.pumpAndSettle();
     await saved(tester);
     expect(width(tester), Sidebar.foldedWidth);
-    expect(lib.sidebarFolded, isTrue);
+    expect(lib.settings.layout.sidebarFolded, isTrue);
     expect(find.text('Home'), findsNothing); // icons only
     expect(find.byTooltip('Home'), findsOneWidget);
     expect(find.byTooltip('Favourite videos'), findsOneWidget);
@@ -103,7 +104,7 @@ void main() {
     await tester.drag(find.byKey(const ValueKey('sidebar-edge')), const Offset(-200, 0));
     await tester.pumpAndSettle();
     await saved(tester);
-    expect(lib.sidebarFolded, isTrue);
+    expect(lib.settings.layout.sidebarFolded, isTrue);
     expect(width(tester), Sidebar.foldedWidth);
 
     // A tap on a tab's icon still goes there.

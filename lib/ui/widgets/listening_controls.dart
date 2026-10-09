@@ -11,6 +11,7 @@ import '../../state/library_model.dart';
 import '../../state/player_model.dart';
 import '../../state/sleep_timer.dart';
 import '../theme.dart';
+import '../../state/settings/settings_groups.dart' as prefs;
 
 /// The moon button beside play/pause: one tap starts the sleep timer with the
 /// length from Settings, another tap stops it. Shows the time left while on.
@@ -28,15 +29,15 @@ class SleepTimerButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // select: rebuild only when these particular values change, not on every position tick.
-    final shown = context.select<LibraryModel, bool>((l) => l.sleepButtonShown);
+    final shown = context.select<prefs.ListeningSettings, bool>((s) => s.sleepButtonShown);
     final hasTrack = context.select<PlayerModel, bool>((p) => p.current != null);
     final inBook = context.select<PlayerModel, bool>((p) => p.inBook);
+    final minutes = context.select<prefs.ListeningSettings, int>((s) => inBook ? s.sleepBookMinutes : s.sleepMusicMinutes);
     final timer = context.watch<SleepTimer>();
     // Even with the button hidden in Settings, a running timer stays visible so it can be stopped.
     if (!shown && !timer.active) return const SizedBox.shrink();
     final accent = Theme.of(context).colorScheme.primary;
-    final lib = context.read<LibraryModel>();
-    final length = describe(inBook ? lib.sleepBookMinutes : lib.sleepMusicMinutes, book: inBook);
+    final length = describe(minutes, book: inBook);
 
     // Off: a plain moon icon (disabled when nothing is loaded).
     if (!timer.active) {

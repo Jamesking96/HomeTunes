@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/window_pin.dart';
-import '../../state/library_model.dart';
+import '../../state/settings/settings_groups.dart' as prefs;
 
 class AlwaysOnTopButton extends StatelessWidget {
   /// A round, see-through button for over a video (white pin) instead of a plain icon button.
@@ -24,9 +24,9 @@ class AlwaysOnTopButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!WindowPin.available) return const SizedBox.shrink();
-    final lib = Provider.of<LibraryModel?>(context);
-    if (lib == null) return const SizedBox.shrink();
-    final on = lib.alwaysOnTop;
+    final playback = Provider.of<prefs.PlaybackSettings?>(context);
+    if (playback == null) return const SizedBox.shrink();
+    final on = playback.alwaysOnTop;
     final accent = Theme.of(context).colorScheme.primary;
     final button = IconButton(
       key: const ValueKey('always-on-top'),
@@ -34,7 +34,7 @@ class AlwaysOnTopButton extends StatelessWidget {
       isSelected: on,
       color: round ? (on ? accent : Colors.white) : (on ? accent : null),
       icon: Icon(on ? Icons.push_pin : Icons.push_pin_outlined),
-      onPressed: () => lib.setAlwaysOnTop(!on),
+      onPressed: () => playback.setAlwaysOnTop(!on),
     );
     if (!round) return button;
     return Material(color: Colors.black54, shape: const CircleBorder(), child: button);

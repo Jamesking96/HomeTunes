@@ -17,6 +17,7 @@ import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/home_screen.dart';
 import 'package:hometunes/ui/widgets/jump_back_in.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -146,7 +147,7 @@ void main() {
 
     Widget app() => MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: lib),
+        ...libraryProviders(lib),
         ChangeNotifierProvider.value(value: playlists),
         ChangeNotifierProvider.value(value: listening),
         ChangeNotifierProvider.value(value: history),

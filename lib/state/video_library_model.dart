@@ -50,6 +50,9 @@ class VideoLibraryModel extends ChangeNotifier {
     _knownFolders = List.of(library.videoFolders);
     _knownHidden = _hiddenKey();
     library.addListener(_onLibraryChanged);
+    // The usual picture shapes are in Settings › Videos, which LibraryModel doesn't pass on
+    // (refactor phase 9).
+    library.settings.video.addListener(_onLibraryChanged);
   }
 
   // What the scan found (the files' own details), the user's edits and places, by video id.
@@ -372,12 +375,12 @@ class VideoLibraryModel extends ChangeNotifier {
   Map<String, double> _speeds = {};
 
   /// The shape of [v]'s picture: its own, else the usual one.
-  PictureShape shapeOf(VideoItem v) => _shapes[v.id] ?? library.videoPictureShape;
+  PictureShape shapeOf(VideoItem v) => _shapes[v.id] ?? library.settings.video.videoPictureShape;
 
   /// [v]'s own shape, or null when it uses the usual one.
   PictureShape? ownShapeOf(VideoItem v) => _shapes[v.id];
 
-  PictureShape collectionShapeOf(VideoCollection c) => _collectionShapes[c.key] ?? library.collectionPictureShape;
+  PictureShape collectionShapeOf(VideoCollection c) => _collectionShapes[c.key] ?? library.settings.video.collectionPictureShape;
   PictureShape? ownCollectionShapeOf(VideoCollection c) => _collectionShapes[c.key];
 
   /// Gives videos [ids] their own picture shape, or with null the usual one.
@@ -491,7 +494,7 @@ class VideoLibraryModel extends ChangeNotifier {
   }
 
   /// The speed videos in [collection] play at: the last one chosen there, else the usual one.
-  double speedFor(String collection) => _speeds[VideoCollection.keyFor(collection)] ?? library.defaultVideoSpeed;
+  double speedFor(String collection) => _speeds[VideoCollection.keyFor(collection)] ?? library.settings.video.defaultVideoSpeed;
 
   void rememberSpeed(String collection, double speed) {
     final key = VideoCollection.keyFor(collection);
@@ -838,7 +841,7 @@ class VideoLibraryModel extends ChangeNotifier {
 
   void _onLibraryChanged() {
     // The usual picture shapes changed (Settings › Videos): the Videos tab redraws.
-    final shapes = (library.videoPictureShape, library.collectionPictureShape);
+    final shapes = (library.settings.video.videoPictureShape, library.settings.video.collectionPictureShape);
     if (shapes != _knownShapes) {
       _knownShapes = shapes;
       notifyListeners();
@@ -862,7 +865,7 @@ class VideoLibraryModel extends ChangeNotifier {
   }
 
   Future<void> _pendingSave = Future.value();
-  late (PictureShape, PictureShape) _knownShapes = (library.videoPictureShape, library.collectionPictureShape);
+  late (PictureShape, PictureShape) _knownShapes = (library.settings.video.videoPictureShape, library.settings.video.collectionPictureShape);
 
   /// Waits for any scan and save in progress (tests, and before a restore).
   Future<void> settle() async {
@@ -1056,6 +1059,7 @@ class VideoLibraryModel extends ChangeNotifier {
   @override
   void dispose() {
     library.removeListener(_onLibraryChanged);
+    library.settings.video.removeListener(_onLibraryChanged);
     _saveTimer?.cancel();
     super.dispose();
   }

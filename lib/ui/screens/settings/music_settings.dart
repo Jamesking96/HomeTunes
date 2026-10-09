@@ -10,6 +10,7 @@ import '../../../services/music_permission.dart';
 import '../../../state/library_model.dart';
 import '../../theme.dart';
 import 'settings_widgets.dart';
+import '../../../state/settings/settings_groups.dart' as prefs;
 
 /// Settings › Music.
 class MusicSettings extends StatelessWidget {
@@ -17,7 +18,8 @@ class MusicSettings extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lib = context.watch<LibraryModel>();
+    final lib = context.read<LibraryModel>();
+    final playback = context.watch<prefs.PlaybackSettings>();
     return SettingsPageList(children: [
       const SettingsGroupTitle('Music videos', 'A video beside a song with the same name (like Song.m4a and Song.mp4)'),
       // 0.1.40: a song with a video file of the same name beside it, or an .mp4 song with
@@ -28,7 +30,7 @@ class MusicSettings extends StatelessWidget {
           title: const Text('Show music videos'),
           subtitle: const Text('Play the video on Now Playing in place of the cover, in time with the song. '
               'Off: songs always show their cover, and there\'s no video button.'),
-          value: lib.showMusicVideos,
+          value: playback.showMusicVideos,
           onChanged: (v) => lib.updatePlaybackSettings(showMusicVideos: v),
         ),
       ),
@@ -37,14 +39,14 @@ class MusicSettings extends StatelessWidget {
         child: SwitchListTile(
           key: const ValueKey('music-video-autoplay'),
           title: const Text('Play music videos automatically'),
-          subtitle: Text(lib.autoPlayMusicVideos
+          subtitle: Text(playback.autoPlayMusicVideos
               ? 'The video starts as soon as a song that has one plays.'
               : 'The cover shows first; press the video button on Now Playing to watch the video.'),
-          value: lib.autoPlayMusicVideos,
-          onChanged: lib.showMusicVideos ? (v) => lib.updatePlaybackSettings(autoPlayMusicVideos: v) : null,
+          value: playback.autoPlayMusicVideos,
+          onChanged: playback.showMusicVideos ? (v) => lib.updatePlaybackSettings(autoPlayMusicVideos: v) : null,
         ),
       ),
-      if (Platform.isAndroid && lib.showMusicVideos) const VideoAccessNote(),
+      if (Platform.isAndroid && playback.showMusicVideos) const VideoAccessNote(),
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
         child: Text(

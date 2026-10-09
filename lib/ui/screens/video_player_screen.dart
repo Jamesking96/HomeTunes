@@ -34,7 +34,6 @@ import '../../services/engine/video_engine.dart';
 import '../../services/video_drawing.dart';
 import '../../services/video_stats.dart';
 import '../../state/equalizer_model.dart';
-import '../../state/library_model.dart';
 import '../../state/now_watching.dart';
 import '../../state/player_model.dart';
 import '../../state/video_library_model.dart';
@@ -54,6 +53,7 @@ import 'videos_screen.dart' show videoLength;
 import '../widgets/selectable_title.dart';
 import '../widgets/volume_slider.dart';
 import '../widgets/window_scale.dart';
+import '../../state/settings/settings_groups.dart' as prefs;
 
 // The track helpers moved to state/video_tracks.dart (refactor phase 5); still available here.
 export '../../state/video_tracks.dart' show languageName, trackLabel, matchTrack;
@@ -229,11 +229,11 @@ class _VideoPageState extends State<_VideoPage> {
   // 0.1.57: on a phone, drawn straight from the video chip unless Settings › Videos says not
   // (services/video_drawing.dart). Made in initState, after _settings is set.
   late final VideoController _controller =
-      VideoController(_engine.player, configuration: videoDrawing(direct: _settings.videoDirectDrawing));
+      VideoController(_engine.player, configuration: videoDrawing(direct: _settings.video.videoDirectDrawing));
   // Keeps the same Video widget (and its picture) when switching between normal and enlarged,
   // and reaches it to go full screen.
   final GlobalKey<VideoState> _videoKey = GlobalKey<VideoState>();
-  late final LibraryModel _settings;
+  late final prefs.AppSettings _settings;
 
   /// Everything about playing (refactor phase 5): opening, previous / next, Up next, tracks,
   /// speed, places, the equaliser, the music and the bottom bar. This page only draws it.
@@ -246,7 +246,7 @@ class _VideoPageState extends State<_VideoPage> {
   void initState() {
     super.initState();
     final videos = context.read<VideoLibraryModel>();
-    _settings = videos.library;
+    _settings = videos.library.settings;
     _controller; // made before the first video opens, as before
     _session = VideoSession(
       engine: _engine,
@@ -320,7 +320,7 @@ class _VideoPageState extends State<_VideoPage> {
     final v = context.select<VideoLibraryModel, VideoItem?>((m) => m.byId(id));
     final watched = context.select<VideoLibraryModel, bool>((m) => m.placeOf(id)?.watched ?? false);
     // Settings › Appearance › Shrink to fit small windows (for the small-window layout, 0.1.68).
-    final scaleWithWindow = context.select<LibraryModel, bool>((l) => l.scaleWithWindow);
+    final scaleWithWindow = context.select<prefs.AppearanceSettings, bool>((s) => s.scaleWithWindow);
     if (v == null) {
       return Scaffold(appBar: AppBar(), body: const Center(child: Text('This video isn\'t in your library any more.')));
     }

@@ -19,7 +19,6 @@ import '../models/track.dart';
 import '../models/track_edit.dart';
 import '../models/video_item.dart' show PictureShape;
 import '../models/video_player_look.dart';
-import '../models/volume_boost.dart';
 import '../services/app_backup.dart';
 import '../services/local_scanner.dart';
 import '../services/music_permission.dart';
@@ -62,12 +61,14 @@ class LibraryModel extends ChangeNotifier {
         secrets = secrets ?? SecretStore.forPlatform() {
     // Damaged files, recoveries and failed saves show in the status strip as they happen.
     storage.addListener(notifyListeners);
-    // Refactor phase 3: each settings group saves settings.json through here, and a change in a
-    // group redraws whatever watches LibraryModel, as when the settings lived here.
+    // Each settings group saves settings.json through here (refactor phase 3). Only the folders
+    // and the server change what's in the library, so only their changes are passed on to
+    // whatever watches LibraryModel; the other groups are watched on their own (refactor phase 9).
     for (final g in settings.groups) {
       g.save = _saveSettings;
-      g.addListener(_onSettingsChanged);
     }
+    settings.folders.addListener(_onSettingsChanged);
+    settings.server.addListener(_onSettingsChanged);
   }
 
   // Off while load() tells the groups' own watchers about the settings it read (LibraryModel
@@ -109,110 +110,19 @@ class LibraryModel extends ChangeNotifier {
   bool get serverBooks => settings.server.serverBooks;
   set serverBooks(bool v) => settings.server.serverBooks = v;
 
-  // Online lookups (OnlineSettings).
-  bool get onlineCovers => settings.online.onlineCovers;
-  set onlineCovers(bool v) => settings.online.onlineCovers = v;
-  bool get onlineDetails => settings.online.onlineDetails;
-  set onlineDetails(bool v) => settings.online.onlineDetails = v;
-  bool get onlineLyrics => settings.online.onlineLyrics;
-  set onlineLyrics(bool v) => settings.online.onlineLyrics = v;
-  bool get onlineVideoArt => settings.online.onlineVideoArt;
-  set onlineVideoArt(bool v) => settings.online.onlineVideoArt = v;
-
-  // Playback (PlaybackSettings).
-  bool get gaplessPlayback => settings.playback.gaplessPlayback;
-  set gaplessPlayback(bool v) => settings.playback.gaplessPlayback = v;
-  ReplayGainMode get replayGain => settings.playback.replayGain;
-  set replayGain(ReplayGainMode v) => settings.playback.replayGain = v;
-  bool get swipeToSkip => settings.playback.swipeToSkip;
-  set swipeToSkip(bool v) => settings.playback.swipeToSkip = v;
-  bool get alwaysOnTop => settings.playback.alwaysOnTop;
-  set alwaysOnTop(bool v) => settings.playback.alwaysOnTop = v;
-  bool get volumeBoost => settings.playback.volumeBoost;
-  set volumeBoost(bool v) => settings.playback.volumeBoost = v;
-  int get volumeBoostPercent => settings.playback.volumeBoostPercent;
-  set volumeBoostPercent(int v) => settings.playback.volumeBoostPercent = v;
-  bool get showVolumePercent => settings.playback.showVolumePercent;
-  set showVolumePercent(bool v) => settings.playback.showVolumePercent = v;
-  bool get showMusicVideos => settings.playback.showMusicVideos;
-  set showMusicVideos(bool v) => settings.playback.showMusicVideos = v;
-  bool get autoPlayMusicVideos => settings.playback.autoPlayMusicVideos;
-  set autoPlayMusicVideos(bool v) => settings.playback.autoPlayMusicVideos = v;
-
-  /// The top of every volume slider: 100, or the boost's percentage while it's on.
-  double get maxVolume => maxVolumeFor(on: volumeBoost, percent: volumeBoostPercent);
-
-  // Audiobooks and the sleep timer (ListeningSettings).
-  bool get bookCoversTall => settings.listening.bookCoversTall;
-  set bookCoversTall(bool v) => settings.listening.bookCoversTall = v;
-  int get skipBackSeconds => settings.listening.skipBackSeconds;
-  set skipBackSeconds(int v) => settings.listening.skipBackSeconds = v;
-  int get skipForwardSeconds => settings.listening.skipForwardSeconds;
-  set skipForwardSeconds(int v) => settings.listening.skipForwardSeconds = v;
-  bool get rewindOnResume => settings.listening.rewindOnResume;
-  set rewindOnResume(bool v) => settings.listening.rewindOnResume = v;
-  double get defaultBookSpeed => settings.listening.defaultBookSpeed;
-  set defaultBookSpeed(double v) => settings.listening.defaultBookSpeed = v;
-  bool get sleepButtonShown => settings.listening.sleepButtonShown;
-  set sleepButtonShown(bool v) => settings.listening.sleepButtonShown = v;
-  int get sleepBookMinutes => settings.listening.sleepBookMinutes;
-  set sleepBookMinutes(int v) => settings.listening.sleepBookMinutes = v;
-  int get sleepMusicMinutes => settings.listening.sleepMusicMinutes;
-  set sleepMusicMinutes(int v) => settings.listening.sleepMusicMinutes = v;
-  int get sleepVideoMinutes => settings.listening.sleepVideoMinutes;
-  set sleepVideoMinutes(int v) => settings.listening.sleepVideoMinutes = v;
-  int get sleepFadeSeconds => settings.listening.sleepFadeSeconds;
-  set sleepFadeSeconds(int v) => settings.listening.sleepFadeSeconds = v;
+  // Online lookups, playback, audiobooks and the sleep timer, videos, appearance and layout:
+  // read from their group (settings.online, .playback, .listening, .video, .appearance,
+  // .layout, each provided on its own in main.dart). Refactor phase 9 (9 Oct 2026): the names
+  // that passed through here are gone, so a change in those groups redraws only what watches that
+  // group, not everything that watches LibraryModel. Folders and the server stay below: they
+  // change what's in the library, so LibraryModel still passes their changes on.
   // (The sleep timer treats any length of 0 or less the same way.)
   static const sleepAtEnd = -1;
-
-  // Videos (VideoSettings).
   static const defaultSpecialSeasonTitles = VideoSettings.defaultSpecialSeasonTitles;
-  List<String> get specialSeasonTitles => settings.video.specialSeasonTitles;
-  set specialSeasonTitles(List<String> v) => settings.video.specialSeasonTitles = v;
-  int get videoSkipBackSeconds => settings.video.videoSkipBackSeconds;
-  set videoSkipBackSeconds(int v) => settings.video.videoSkipBackSeconds = v;
-  int get videoSkipForwardSeconds => settings.video.videoSkipForwardSeconds;
-  set videoSkipForwardSeconds(int v) => settings.video.videoSkipForwardSeconds = v;
-  double get defaultVideoSpeed => settings.video.defaultVideoSpeed;
-  set defaultVideoSpeed(double v) => settings.video.defaultVideoSpeed = v;
-  bool get videoRewindOnResume => settings.video.videoRewindOnResume;
-  set videoRewindOnResume(bool v) => settings.video.videoRewindOnResume = v;
-  bool get videoDirectDrawing => settings.video.videoDirectDrawing;
-  set videoDirectDrawing(bool v) => settings.video.videoDirectDrawing = v;
-  PictureShape get videoPictureShape => settings.video.videoPictureShape;
-  set videoPictureShape(PictureShape v) => settings.video.videoPictureShape = v;
-  PictureShape get collectionPictureShape => settings.video.collectionPictureShape;
-  set collectionPictureShape(PictureShape v) => settings.video.collectionPictureShape = v;
 
-  // Appearance (AppearanceSettings).
-  String get themeId => settings.appearance.themeId;
-  set themeId(String v) => settings.appearance.themeId = v;
-  String? get customAccent => settings.appearance.customAccent;
-  set customAccent(String? v) => settings.appearance.customAccent = v;
-  String? get customBackground => settings.appearance.customBackground;
-  set customBackground(String? v) => settings.appearance.customBackground = v;
-  List<Map<String, dynamic>> get savedThemes => settings.appearance.savedThemes;
-  set savedThemes(List<Map<String, dynamic>> v) => settings.appearance.savedThemes = v;
-  double get textSize => settings.appearance.textSize;
-  set textSize(double v) => settings.appearance.textSize = v;
-  double get cornerRoundness => settings.appearance.cornerRoundness;
-  set cornerRoundness(double v) => settings.appearance.cornerRoundness = v;
-  VideoPlayerLook get videoPlayerLook => settings.appearance.videoPlayerLook;
-  set videoPlayerLook(VideoPlayerLook v) => settings.appearance.videoPlayerLook = v;
-  bool get scaleWithWindow => settings.appearance.scaleWithWindow;
-  set scaleWithWindow(bool v) => settings.appearance.scaleWithWindow = v;
-
-  // Layout (LayoutSettings).
-  bool get artistsGrid => settings.layout.artistsGrid;
-  set artistsGrid(bool v) => settings.layout.artistsGrid = v;
+  // Layout (LayoutSettings): the sidebar's limits, and the artist and series pictures, which are
+  // the library's own details (LibraryModel tells its watchers when they change).
   static const sidebarMinWidth = LayoutSettings.sidebarMinWidth, sidebarMaxWidth = LayoutSettings.sidebarMaxWidth;
-  double get sidebarWidth => settings.layout.sidebarWidth;
-  set sidebarWidth(double v) => settings.layout.sidebarWidth = v;
-  bool get sidebarFolded => settings.layout.sidebarFolded;
-  set sidebarFolded(bool v) => settings.layout.sidebarFolded = v;
-  List<QuickLink> get quickLinks => settings.layout.quickLinks;
-  set quickLinks(List<QuickLink> v) => settings.layout.quickLinks = v;
   Map<String, String> get artistPictures => settings.layout.artistPictures;
   set artistPictures(Map<String, String> v) => settings.layout.artistPictures = v;
   static const artistAlbumPrefix = 'album:';
@@ -375,7 +285,7 @@ class LibraryModel extends ChangeNotifier {
     if (raw is Map<String, dynamic>) settingsDamaged = settings.load(raw);
     if (settingsDamaged) await storage.keepCopy('settings.json');
     // The pin (0.1.60): put the window back on top if it was left that way.
-    unawaited(WindowPin.set(alwaysOnTop));
+    unawaited(WindowPin.set(settings.playback.alwaysOnTop));
     // The server password lives in the system's protected storage (0.1.17). A plain-text one in
     // settings.json (an older version, or a restored backup that included it) is moved there,
     // and settings.json is saved again without it.
@@ -773,11 +683,14 @@ class LibraryModel extends ChangeNotifier {
       final info = seriesInfo.remove(s.name);
       if (info != null) seriesInfo[to] = {...?seriesInfo[to], ...info};
       final had = isQuickLink(QuickLinkKind.series, s.name);
-      quickLinks = [
-        for (final l in quickLinks)
+      final layout = settings.layout;
+      layout.quickLinks = [
+        for (final l in layout.quickLinks)
           if (!l.sameAs(QuickLinkKind.series, s.name) && !(had && l.sameAs(QuickLinkKind.series, to))) l
           else if (l.sameAs(QuickLinkKind.series, s.name)) QuickLink(QuickLinkKind.series, to, to)
       ];
+      // The sidebar watches the layout settings (refactor phase 9).
+      layout.changed();
       await _saveSettings();
     }
     if (changes.isNotEmpty) {

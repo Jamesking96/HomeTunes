@@ -27,6 +27,7 @@ import '../widgets/playlist_art.dart';
 import '../widgets/quick_links.dart';
 import '../widgets/rescan_button.dart';
 import '../widgets/track_tile.dart';
+import '../../state/settings/settings_groups.dart' as prefs;
 
 /// Tabs: Playlists · Artists · Albums · Songs.
 class LibraryScreen extends StatelessWidget {
@@ -239,6 +240,7 @@ class _ArtistsTabState extends _FilteredTabState<_ArtistsTab> {
   Widget build(BuildContext context) {
     super.build(context);
     final lib = context.watch<LibraryModel>();
+    final layout = context.watch<prefs.LayoutSettings>();
     final playlists = context.watch<PlaylistsModel>();
     final nav = context.read<AppNav>();
     if (lib.artists.isEmpty) return const EmptyState(icon: Icons.person_outline, title: 'No artists yet');
@@ -258,7 +260,7 @@ class _ArtistsTabState extends _FilteredTabState<_ArtistsTab> {
     }
 
     // List or grid (0.1.52), remembered in settings.json.
-    final grid = lib.artistsGrid;
+    final grid = layout.artistsGrid;
     final Widget body;
     if (shown.isEmpty) {
       body = SingleChildScrollView(child: noMatches('artists'));
