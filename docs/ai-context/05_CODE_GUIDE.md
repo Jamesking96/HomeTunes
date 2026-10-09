@@ -79,7 +79,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | File | What it does |
 | --- | --- |
 | `library_model.dart` | **The core.** Owns the scanned library and your edits, and `settings` (all the settings, in groups: see `settings/`; the old names such as `lib.skipBackSeconds` and `lib.setTheme` still work and pass through). Runs scans (all folders, or one with `scanFolder`) and server syncs one at a time, then rebuilds the song, album, artist and book lists. Also follows moved files, keeps "missing" songs, artist and series pictures, backup and restore, and writing edits into files. Says where pictures come from (`coverSource`, `artistSource`); `ui/widgets/library_images.dart` draws them. |
-| `player_model.dart` | Joins the play queue to the audio engine (media_kit / mpv). Handles gapless (the engine holds only the current song and the next one), book mode (saving your place, skipping across files, chapters, speed per book), the music queue that waits while a book plays, swipe to skip, mute, and the checks that keep background playback going on the phone. |
+| `player_model.dart` | Joins the play queue to the audio engine, an `AudioEngine` (`services/engine/`; media_kit / mpv in the app, `test/fake_audio_engine.dart` in tests, refactor phase 4). Handles gapless (the engine holds only the current song and the next one), book mode (saving your place, skipping across files, chapters, speed per book), the music queue that waits while a book plays, swipe to skip, mute, and the checks that keep background playback going on the phone. |
 | `play_queue.dart` | The play order with no audio in it: queue, current position, shuffle (keeping the original order), repeat, Play next, reordering, and a peek at what plays next. |
 | `library_index.dart` | Plain functions that group songs into albums and artists (ignoring a leading "The") and run the song, album and artist search. |
 | `music_filters.dart` | The Artists, Albums and Songs tabs' title box (`titleMatches`), filters (`MusicFilters` with one `FilterField` per artist / album / genre / decade) and sorting (`sortArtists`, `sortAlbums` with decade headings, `sortSongs`). No Flutter, so it's unit tested directly. |
@@ -147,6 +147,9 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `server_art_cache.dart` | Downloads server covers into `art/server/` so the system media controls get a `file://` path instead of a server address that carries the login token. |
 | `update_checker.dart` | Reads the latest GitHub release, compares versions, and on an installed Windows copy downloads the installer, checks it against the release's SHA256SUMS file and runs it silently; otherwise opens the download page in the browser (0.1.23). |
 | `app_licences.dart` | Adds the audio engine's LGPL notice and the LGPL and GPL texts (bundled from `licenses/`) to Flutter's licence page, Settings › About › Licences (0.1.31). Flutter lists the Dart packages and HomeTunes' own MIT licence by itself. |
+| `engine/audio_engine.dart`, `engine/media_kit_audio_engine.dart` | The music player's engine (refactor phase 4, 9 Oct): `AudioEngine` is what `PlayerModel` needs (playing, position, length, which item, sample rate, errors; open a list, add, remove, play, pause, seek, repeat-one, volume, speed, and `setOption` for mpv properties). `MediaKitAudioEngine` passes each straight to media_kit. |
+| `engine/audio_chain.dart` | The equaliser chain shared by the music player and the video page (refactor phase 4): `AudioChain` builds the filter for the sound's sample rate, sends it only when it changed, one send at a time then the latest; the overall level is a volume factor (`EqLevel.volumeFactor`, music) or mpv's `replaygain-fallback` (`EqLevel.replayGainFallback`, videos). |
+| `engine/engines.dart` | Every other player, made and set up in one place (refactor phase 4): `createEngine(EngineUse)` (video page, music video, frame picker, probe, thumbnails), `prepareEngine` (each use's fixed mpv settings, `engineSettings`) and `Mpv` (mpv properties and commands; null when the engine isn't mpv). Screens never use `NativePlayer` themselves. |
 
 ### UI frame (`lib/ui/`)
 
@@ -276,7 +279,7 @@ Everyday journeys through the code. Following one of these in the editor is the 
 **Changing the equaliser**
 
 1. The Equaliser screen (`equalizer_screen.dart`) changes `EqualizerModel`, which saves `equalizer.json`.
-2. `PlayerModel` listens. `_applyEqualizer` picks the preset for what's playing (music or book) and turns it into mpv filter text with `eqFilter` (in `eq_preset.dart`).
+2. `PlayerModel` listens. Its `AudioChain` (`services/engine/audio_chain.dart`, shared with the video page) picks the preset for what's playing (music or book) and turns it into mpv filter text with `eqFilter` (in `eq_preset.dart`).
 3. Changes are coalesced, so dragging a slider doesn't flood the engine. The filter is only re-sent when it actually changes.
 4. Bands at or above half the file's sample rate are left out, because the engine rejects the whole filter otherwise. A new sample rate (`audioParams`) re-sends it.
 5. The overall level isn't a filter. The player turns the engine volume down instead, and keeps your own volume setting separate.
@@ -405,6 +408,9 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `refactor_safety_test.dart` | Safety nets for the modular refactor (8 Oct): `settings.json` saved back exactly as loaded (`test/fixtures/settings_full.json` changes every setting; a new setting must be added there), an older settings file loading to the same values, and a backup with every data file and cover restored into a new app folder unchanged |
 | `refactor_fixes_test.dart` | Refactor phase 1 (8 Oct): the video equaliser leaving out bands at or above half the sample rate (`videoEqualizerSettings`), songs' own lyrics read again only after a rebuild (not a settings change), forgotten songs losing their online lyrics, and the deepest video folder owning a file |
 | `refactor_shared_test.dart` | Refactor phase 2 (8 Oct): the shared folder rules (`media_folders.dart`: file types, the deepest folder owning a file, offline folders), `sharedValue` for editing several items, and `connectSongIdFollowers` telling every follower about moved and forgotten songs |
+| `player_model_test.dart` | Refactor phase 4 (9 Oct): `PlayerModel` with a fake engine (`fake_audio_engine.dart`, which records every call): gapless hand-over and the end of the queue, Play next, repeat-one, gapless off, a missing file skipped, a book skip across files, Back to music, the equaliser at 22.05 / 48 kHz and refused, the volume scale, a stuck song reopened, a learned length |
+| `audio_chain_test.dart` | Refactor phase 4: the shared equaliser chain (sent once, the level as a volume factor or `replaygain-fallback`, a new sample rate, catching up with the latest change, a refusal, no engine options, closed) |
+| `engines_test.dart` | Refactor phase 4: each player use keeps its title and its mpv settings |
 
 ## Working with the code
 
@@ -435,7 +441,8 @@ While `flutter run` is going, press `r` to hot reload (keeps the app's state) or
 | Add a field to songs | `lib/models/track.dart` | Add it to `toJson`, `fromJson`, `copyWith` **and** `TrackEdit.applyTo`, which builds a Track by hand |
 | Change what counts as an audiobook | `BookRules.isBook` in `lib/state/book_index.dart` | Six rules, first match wins |
 | Change play order, shuffle or repeat | `lib/state/play_queue.dart` | Pure logic with no audio, well covered by `play_queue_test.dart` |
-| Change how songs play | `lib/state/player_model.dart` | Keep the gapless rule: the engine only ever holds the current song and the next |
+| Change how songs play | `lib/state/player_model.dart` | Keep the gapless rule: the engine only ever holds the current song and the next. Check it with `test/player_model_test.dart` (fake engine) and `tool/bench/player_gapless_test.dart` (real engine) |
+| Make or set up a video player | `createEngine` / `prepareEngine` in `lib/services/engine/engines.dart` | Screens don't use `NativePlayer` or `setProperty`; reach mpv through `Mpv.of(player)` |
 | Open a new page from somewhere | `AppNav` in `lib/ui/nav.dart` | Use `context.read<AppNav>().push(...)` so the page opens inside the current tab |
 | Add a new saved data file | `lib/services/storage.dart` (read/write) | Add it to `dataFiles` in `app_backup.dart` (unless it belongs to the device, like `updates.json`), and give it a plain name in `Storage.describe` for error messages |
 | Change a borrowed package | `packages/<name>/` | Mark the change `HomeTunes:` and log it in that package's `HOMETUNES_CHANGES.md` |

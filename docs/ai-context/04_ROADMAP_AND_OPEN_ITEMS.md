@@ -70,7 +70,7 @@ while commenting".
 | Audiobooks sub-tabs (Series first, then All / In progress / Not started / Finished / Favourites), each with Your Library's filter bar, chips and sorting (0.1.74) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. See `03_`, Audiobooks sub-tabs |
 | Audiobook series: a page per series, series cards, favourite series, series in the sidebar (0.1.75) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 1 of 2 (the user: "Go with your suggestions"). See `03_`, Audiobook series |
 | Edit series: name, author, description, order, add / take out books, picture (0.1.76) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 2 of 2. See `03_`, Edit series |
-| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0–3 merged into `main` (8–9 Oct, each after the user tried a test build) and Phases 1–3 released together as **v0.1.77** (9 Oct; the user: "Everything looks good"). Next: Phase 4 (audio engine layer), released on its own. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
+| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0–3 merged into `main` (8–9 Oct, each after the user tried a test build) and Phases 1–3 released together as **v0.1.77** (9 Oct; the user: "Everything looks good"). Phase 4 (audio engine layer) is done on `refactor/p4-engine` (9 Oct), waiting for the user to try a test build; it will be released on its own as 0.1.78. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
 | L: Linux build, incl. Steam Deck (0.2.0, the start of the next level) | On hold (6 Oct, the user's choice): WSL2 can't be installed on the current PC, so L1 (the Linux build) moves to another PC. Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (the 0.2.x after L) | After L |
 | T: Android TV (the 0.2.x after A) | After A |
@@ -178,6 +178,35 @@ phases, each on its own branch (`refactor/p<n>-<name>`), merged with `--no-ff` o
     touches about 40 widgets and could leave one that no longer updates; the gain is small (settings change
     rarely). The groups are ready for it. Also not reached: `LibraryModel` under 1,000 lines (library, edits,
     scanning, server sync, backup, tag writing and artist / series pictures remain).
+- **Phase 4 (branch `refactor/p4-engine`, 9 Oct; waiting for the user's test build):** nothing the user sees changes.
+  `flutter analyze` clean, 663 tests pass, real engine: `engine_test` 4/4, `player_gapless_test` 1/1,
+  `video_probe_engine_test`, `video_engine_test` and `video_bar_engine_test` pass.
+  - 4.1: `services/engine/audio_engine.dart` (`AudioEngine`: the streams, state and actions `PlayerModel` uses, plus
+    `hasOptions` / `setOption` for mpv properties, which throws when refused) and `media_kit_audio_engine.dart` (a
+    one-for-one pass-through to media_kit). `PlayerModel(..., engine:)` takes one; the app gives none (media_kit).
+  - 4.2: `test/fake_audio_engine.dart` (records every call; `finishCurrent`, `reportDuration`, `reportSampleRate`,
+    `reportError`) and `test/player_model_test.dart` (13 tests: gapless hand-over and end of queue, Play next,
+    repeat-one, gapless off, a missing file skipped, a book skip across files, Back to music, the equaliser at 22.05
+    and 48 kHz, a refused equaliser, the volume scale, a stuck song reopened, a learned length applied).
+  - 4.3: `services/engine/audio_chain.dart` (`AudioChain`): the equaliser steps the music player and the video page
+    each had their own copy of (filter for the sample rate, sent only when changed, one send at a time then the
+    latest). `EqLevel.volumeFactor` (music: the volume is turned down) or `replayGainFallback` (videos). The music
+    player still tells the Equaliser screen about a refusal (`onResult`); the video page only logs it, as before.
+    `videoEqualizerSettings` stays and calls `AudioChain.settingsFor`. Tests: `test/audio_chain_test.dart`.
+  - 4.4: `services/engine/engines.dart`: `createEngine(EngineUse)` (video page, music video, frame picker, probe,
+    thumbnails; each keeps its title, and the video page keeps libass off on Android), `prepareEngine` (each use's
+    fixed mpv settings, the same as before; `engineSettings` lists them) and `Mpv` (mpv properties and commands,
+    null when the engine isn't mpv). No file in `ui/` uses `NativePlayer`, `setProperty` or `PlayerConfiguration` any
+    more; `video_probe`, `video_thumbnails` and `video_stats` go through it too. **Deviation from the plan's Phase 7
+    rule, agreed in the plan:** the video page, music video and frame picker still create their player (through
+    `engines.dart`), because media_kit's `Video` widget needs it; Phase 5 (`VideoSession`) moves the video page's.
+  - 4.5: `PlayerModel` was not split further (optional in the plan): it stays one file, now without the equaliser code.
+  - Found while testing (not changed, as the phase changes no behaviour): a song whose file has gone is skipped, but
+    its "isn't on this device – skipped" message is cleared as soon as the next song opens, so it never shows.
+    `player_model_test` records today's behaviour; a small fix for a later release if the user wants it.
+  - `tool/bench/frame_picker_engine_test.dart`'s frame step doesn't move on this PC with any video, on v0.1.77 as
+    well as on the branch (the bench uses media_kit directly, none of the app's code). The video benches need
+    `--dart-define=VIDEO=` a video over 60 s (they seek to 42.5 s and 60 s); `C:\Temp\ht\videobenches.cmd` runs them.
 
 ### Platforms plan: Linux, Android Auto, Android TV (agreed 1 Oct)
 (Versions, corrected 7 Oct by the user: **0.2.0 is only for the next level of development**. Fixes and features on the app as it is stay on 0.1.x (the Next-video fix is 0.1.71). The 6 Oct note said the next release would be 0.2.0 whatever it held; that was wrong, and a 0.2.0 test build of the fix was renumbered 0.1.71. The platform phases start the 0.2.x line: Linux **0.2.0**, Android Auto **0.2.1** and Android TV **0.2.2**; 0.1.x work in between doesn't move them. The build number after `+` keeps counting up from 72, so phones still accept each update. The plan doc matches this. Before 6 Oct the phases were renumbered each time other 0.1.x work went first, ending at 0.1.71–0.1.73.)
@@ -296,7 +325,7 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
 `main` is **0.1.77+79** and the latest release is **v0.1.77** (9 Oct: refactor Phases 1–3; the visible changes
 are the video equaliser at 22 kHz and `--:--` in the video / collection editors). Work on the app as it is stays
 0.1.x (0.1.78 next, refactor Phase 4); 0.2.0 is kept for the next level of development (the user, 7 Oct; see the
-Platforms plan above). No branches are open besides `main`. Refactor branches are `refactor/p<n>-<name>` (see
+Platforms plan above). Open besides `main`: `refactor/p4-engine` (Phase 4, waiting for the user's check). Refactor branches are `refactor/p<n>-<name>` (see
 "Modular refactor" above). Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
