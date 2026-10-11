@@ -17,6 +17,13 @@ Future<void> _wait(bool Function() ok, {int seconds = 10}) async {
   }
 }
 
+Future<void> _waitAsync(Future<bool> Function() ok, {int seconds = 10}) async {
+  final end = DateTime.now().add(Duration(seconds: seconds));
+  while (!await ok() && DateTime.now().isBefore(end)) {
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const lib = String.fromEnvironment('LIBMPV');
@@ -38,7 +45,12 @@ void main() {
 
     const at = Duration(seconds: 42, milliseconds: 500);
     await player.seek(at);
-    await _wait(() => (player.state.position - at).abs() < const Duration(milliseconds: 100), seconds: 5);
+    // media_kit reports the asked-for position straight away, while mpv is still seeking; a frame
+    // step sent before the seek lands is dropped (why this bench failed until 9 Oct 2026). Wait
+    // for mpv itself: not seeking, and its own time at the frame.
+    await _waitAsync(() async =>
+        await engine.getProperty('seeking') == 'no' &&
+        ((double.tryParse(await engine.getProperty('time-pos')) ?? -1) - 42.5).abs() < 0.1);
     print('seeked to ${player.state.position} (asked $at)');
     expect((player.state.position - at).abs(), lessThan(const Duration(milliseconds: 100)));
 

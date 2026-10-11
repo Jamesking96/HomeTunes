@@ -145,11 +145,36 @@ void main() {
 
     test('a song whose file has gone is skipped', () async {
       File(songs[1].path!).deleteSync();
-      await player.playTracks(songs.sublist(0, 3), start: 1);
+      await player.playTracks(songs, start: 1);
       await settle();
       expect(player.current!.title, 'Three');
       expect(engine.currentName, 'Three');
-      // Today the "isn't on this device" note is cleared once the next song opens.
+      // The note stays up while the song after it plays (0.1.81; before, it was cleared at once).
+      expect(player.lastError, '"Two" isn\'t on this device – skipped');
+      // ...and comes down when that song hands over to the next.
+      engine.finishCurrent();
+      await settle();
+      expect(player.current!.title, 'Four');
+      expect(player.lastError, isNull);
+    });
+
+    test('several missing songs in a row: one note names the first and counts the rest', () async {
+      File(songs[1].path!).deleteSync();
+      File(songs[2].path!).deleteSync();
+      await player.playTracks(songs, start: 1);
+      await settle();
+      expect(player.current!.title, 'Four');
+      expect(player.lastError, '"Two" (and 1 more) aren\'t on this device – skipped');
+    });
+
+    test('a song opened afresh after a skip starts clean', () async {
+      File(songs[1].path!).deleteSync();
+      await player.playTracks(songs.sublist(0, 3), start: 1);
+      await settle();
+      expect(player.lastError, isNotNull);
+      await player.playTracks(songs, start: 0);
+      await settle();
+      expect(player.current!.title, 'One');
       expect(player.lastError, isNull);
     });
   });
