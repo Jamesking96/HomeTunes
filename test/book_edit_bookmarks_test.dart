@@ -15,6 +15,7 @@ import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/services/tag_writer.dart';
 import 'package:hometunes/state/book_index.dart';
 import 'package:hometunes/state/bookmarks_model.dart';
+import 'package:hometunes/state/filters.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:path/path.dart' as p;
 
@@ -280,11 +281,13 @@ void main() {
 
     // choices() lists the values offered in a filter menu, with how many books have each.
     test('filters by author, narrator and series, and lists choices with counts', () {
-      const f = BookFilters(author: 'J.K. Rowling', series: 'Harry Potter');
-      expect(titles([for (final b in books) if (f.matches(b)) b]), ['Chamber of Secrets', 'Philosopher\'s Stone']);
-      expect(f.copyWith(clearSeries: true).series, isNull);
-      expect(BookFilters.none.isEmpty, isTrue);
-      expect(BookFilters.choices(books, (b) => b.narrator), {'Andy Serkis': 1, 'Stephen Fry': 2, 'Tom Hollander': 1});
+      // The same Filters / FilterField as the music and video tabs (refactor phase 12).
+      final f = Filters.none.withValue('Author', 'J.K. Rowling').withValue('Series', 'Harry Potter');
+      expect(titles([for (final b in books) if (f.matches(b, bookFields)) b]), ['Chamber of Secrets', 'Philosopher\'s Stone']);
+      expect(f.withValue('Series', null).picked.containsKey('Series'), isFalse);
+      expect(Filters.none.isEmpty, isTrue);
+      final narrator = bookFields.firstWhere((x) => x.label == 'Narrator');
+      expect(Filters.none.choices(books, bookFields, narrator), {'Andy Serkis': 1, 'Stephen Fry': 2, 'Tom Hollander': 1});
     });
   });
 }

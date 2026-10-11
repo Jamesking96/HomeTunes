@@ -119,6 +119,9 @@ Future<void> main() async {
   // The player lives for the whole app, and the system media controls
   // (Android notification/lock screen, Windows media keys) are wired to it.
   final player = PlayerModel(library, listening: listening, equalizer: equalizer);
+  // Songs skipped because their file has gone (or the server is off): a notice at the bottom of
+  // the window, wherever you are (12 Oct; before, only the full Now Playing screen said so).
+  player.onSkipped = (note) => appMessengerKey.currentState?.showSnackBar(SnackBar(content: Text(note)));
   // Save the place in an audiobook whenever the app is put away.
   WidgetsBinding.instance.addObserver(_SaveOnBackground(player, videos));
   if (Platform.isWindows) {

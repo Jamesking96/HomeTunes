@@ -8,6 +8,7 @@
 // The bottom of the file has the sorting, grouping and filtering used by the Books tab.
 import '../models/book.dart';
 import '../models/track.dart';
+import 'filters.dart';
 
 /// Pure helpers for audiobooks (no Flutter, easy to test): deciding which
 /// files are books, and grouping them into [Book]s.
@@ -405,44 +406,21 @@ List<(String?, List<Book>)> sortBooks(
   }
 }
 
-/// Narrowing the Books tab to one author, narrator and/or series.
-class BookFilters {
-  final String? author;
-  final String? narrator;
-  final String? series;
-  const BookFilters({this.author, this.narrator, this.series});
-
-  /// No filters: every book shows.
-  static const none = BookFilters();
-
-  bool get isEmpty => author == null && narrator == null && series == null;
-
-  /// True if [b] passes every filter that is set (unset filters let everything through).
-  bool matches(Book b) =>
-      (author == null || b.author == author) &&
-      (narrator == null || b.narrator == narrator) &&
-      (series == null || b.series == series);
-
-  // null means "keep as is", so the clear… flags are how a filter gets removed.
-  BookFilters copyWith({String? author, String? narrator, String? series, bool clearAuthor = false,
-          bool clearNarrator = false, bool clearSeries = false}) =>
-      BookFilters(
-        author: clearAuthor ? null : (author ?? this.author),
-        narrator: clearNarrator ? null : (narrator ?? this.narrator),
-        series: clearSeries ? null : (series ?? this.series),
-      );
-
-  /// The authors / narrators / series to choose from, with how many books each has.
-  static Map<String, int> choices(Iterable<Book> books, String? Function(Book b) of) {
-    final counts = <String, int>{};
-    for (final b in books) {
-      final v = of(b);
-      if (v != null && v.isNotEmpty) counts[v] = (counts[v] ?? 0) + 1;
-    }
-    final keys = counts.keys.toList()..sort(naturalCompare);
-    return {for (final k in keys) k: counts[k]!};
-  }
-}
+/// What the Audiobooks filter sheet can narrow by (filters.dart; refactor phase 12 moved this here from
+/// books_screen.dart and dropped the old BookFilters, which the tab no longer used).
+final List<FilterField<Book>> bookFields = [
+  FilterField('Author', (b) => [if (b.author.isNotEmpty) b.author]),
+  FilterField('Narrator', (b) => [?b.narrator]),
+  FilterField('Series', (b) => [?b.series]),
+  FilterField(
+    'Genre',
+    (b) => {
+      for (final t in b.parts)
+        if (t.genre?.trim().isNotEmpty ?? false) t.genre!.trim(),
+    },
+  ),
+  FilterField('Decade', (b) => [?decadeOf(b.year)]),
+];
 
 // ---------------------------------------------------------------- the Series tab (0.1.74)
 
