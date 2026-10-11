@@ -144,6 +144,8 @@ void main() {
     });
 
     test('a song whose file has gone is skipped', () async {
+      final notices = <String>[];
+      player.onSkipped = notices.add;
       File(songs[1].path!).deleteSync();
       await player.playTracks(songs, start: 1);
       await settle();
@@ -151,6 +153,8 @@ void main() {
       expect(engine.currentName, 'Three');
       // The note stays up while the song after it plays (0.1.81; before, it was cleared at once).
       expect(player.lastError, '"Two" isn\'t on this device – skipped');
+      // ...and it's raised once as a notice, so it shows from any page (12 Oct).
+      expect(notices, ['"Two" isn\'t on this device – skipped']);
       // ...and comes down when that song hands over to the next.
       engine.finishCurrent();
       await settle();
