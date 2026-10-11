@@ -11,6 +11,7 @@ import 'package:hometunes/state/equalizer_model.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/ui/screens/settings/playback_settings.dart';
 import 'package:hometunes/ui/widgets/player_controls.dart' show VolumeControl;
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -49,19 +50,19 @@ void main() {
       } catch (_) {}
     });
     final lib = LibraryModel(Storage.at(dir));
-    expect(lib.volumeBoost, isFalse);
-    expect(lib.volumeBoostPercent, 100);
-    expect(lib.maxVolume, 100);
+    expect(lib.settings.playback.volumeBoost, isFalse);
+    expect(lib.settings.playback.volumeBoostPercent, 100);
+    expect(lib.settings.playback.maxVolume, 100);
     await lib.setVolumeBoost(on: true, percent: 350);
     final again = LibraryModel(Storage.at(dir));
     await again.load();
-    expect(again.volumeBoost, isTrue);
-    expect(again.volumeBoostPercent, 350);
-    expect(again.maxVolume, 350);
+    expect(again.settings.playback.volumeBoost, isTrue);
+    expect(again.settings.playback.volumeBoostPercent, 350);
+    expect(again.settings.playback.maxVolume, 350);
     await again.setVolumeBoost(percent: 9000);
-    expect(again.volumeBoostPercent, 500);
+    expect(again.settings.playback.volumeBoostPercent, 500);
     await again.setVolumeBoost(percent: 10);
-    expect(again.volumeBoostPercent, 100);
+    expect(again.settings.playback.volumeBoostPercent, 100);
   });
 
   testWidgets('Settings › Playback: the switch, and the amount only while it is on', (tester) async {
@@ -71,7 +72,7 @@ void main() {
     final lib = LibraryModel(Storage.at(Directory.systemTemp));
     await tester.pumpWidget(MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: lib),
+        ...libraryProviders(lib),
         ChangeNotifierProvider(create: (_) => EqualizerModel(Storage.at(Directory.systemTemp))),
       ],
       child: const MaterialApp(home: Scaffold(body: PlaybackSettings())),
@@ -84,11 +85,11 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('volume-boost-switch')));
     await tester.pump();
-    expect(lib.volumeBoost, isTrue);
+    expect(lib.settings.playback.volumeBoost, isTrue);
     expect(slider().onChanged, isNotNull);
     slider().onChanged!(300);
     await tester.pump();
-    expect(lib.volumeBoostPercent, 300);
+    expect(lib.settings.playback.volumeBoostPercent, 300);
     expect(find.textContaining('goes up to 300%'), findsOneWidget);
   });
 

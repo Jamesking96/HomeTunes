@@ -44,7 +44,7 @@ class _VideoBarVolumeState extends State<_VideoBarVolume> {
     final buttons = widget.look.buttons(widget.accent), track = widget.look.seekTrack(widget.accent);
     // Redrawn as soon as the volume boost is changed in Settings, not only when the volume
     // moves (0.1.70).
-    final top = context.select<LibraryModel?, double?>((l) => l?.maxVolume);
+    final top = context.select<prefs.PlaybackSettings?, double?>((s) => s?.maxVolume);
     return StreamBuilder<double>(
       stream: p.stream.volume,
       initialData: p.state.volume,

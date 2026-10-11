@@ -11,6 +11,7 @@ import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/now_watching.dart';
 import 'package:hometunes/state/player_model.dart';
 import 'package:hometunes/ui/widgets/player_controls.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -21,7 +22,7 @@ class _BoostVideo extends FakeVideo implements VolumeTop {
   _BoostVideo(this.lib);
   final LibraryModel lib;
   @override
-  double get maxVolume => lib.maxVolume;
+  double get maxVolume => lib.settings.playback.maxVolume;
 }
 
 const _episode = VideoItem(id: 'video:/v/a.mkv', path: '/v/a.mkv', title: 'Pilot', collection: 'Show');
@@ -63,7 +64,7 @@ void main() {
       providers: [
         ChangeNotifierProvider<PlayerModel>.value(value: music),
         ChangeNotifierProvider.value(value: w),
-        ChangeNotifierProvider.value(value: lib),
+        ...libraryProviders(lib),
       ],
       child: MaterialApp(
         theme: ThemeData(visualDensity: VisualDensity.compact),

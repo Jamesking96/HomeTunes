@@ -16,6 +16,7 @@ import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/edit_book.dart';
 import 'package:hometunes/ui/screens/edit_details.dart';
 import 'package:hometunes/ui/widgets/cards.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:provider/provider.dart';
 
 Track song(String id, String album, {String artist = 'Tidewater', int? year, String? genre, String ext = 'mp3'}) =>
@@ -91,7 +92,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: lib),
+          ...libraryProviders(lib),
           ChangeNotifierProvider(create: (_) => SelectionModel()),
           ChangeNotifierProvider(create: (_) => AppNav()),
         ],
@@ -239,7 +240,7 @@ void main() {
       final keys = [for (final a in albums) a.key];
       await tester.pumpWidget(MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: lib),
+          ...libraryProviders(lib),
           ChangeNotifierProvider.value(value: sel),
           ChangeNotifierProvider(create: (_) => AppNav()),
           ChangeNotifierProvider(create: (_) => PlaylistsModel(Storage.at(dir))),

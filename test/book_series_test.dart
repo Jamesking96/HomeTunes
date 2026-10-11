@@ -15,6 +15,7 @@ import 'package:hometunes/state/playlists_model.dart';
 import 'package:hometunes/state/selection_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/series_screen.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:provider/provider.dart';
 
 import 'books_tabs_test.dart' show book;
@@ -84,7 +85,7 @@ void main() {
       await tester.runAsync(() => listening.record(one, one.parts.first.id, const Duration(minutes: 5)));
       await tester.pumpWidget(MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: lib),
+          ...libraryProviders(lib),
           ChangeNotifierProvider.value(value: listening),
           ChangeNotifierProvider.value(value: playlists),
           ChangeNotifierProvider(create: (_) => AppNav()),

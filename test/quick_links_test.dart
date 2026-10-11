@@ -13,6 +13,7 @@ import 'package:hometunes/state/playlists_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/widgets/quick_links.dart' show QuickLinkButton;
 import 'package:hometunes/ui/widgets/sidebar.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -58,19 +59,19 @@ void main() {
     await lib.addQuickLink(album);
     await lib.addQuickLink(book);
     await lib.addQuickLink(album); // already there: not twice
-    expect([for (final l in lib.quickLinks) l.id], ['abba|gold', 'b1']);
+    expect([for (final l in lib.settings.layout.quickLinks) l.id], ['abba|gold', 'b1']);
     expect(lib.isQuickLink(QuickLinkKind.book, 'b1'), isTrue);
     expect(lib.isQuickLink(QuickLinkKind.album, 'b1'), isFalse); // the kind counts too
 
     final again = LibraryModel(storage);
     await again.load();
-    expect([for (final l in again.quickLinks) l.label], ['Gold', 'The Hobbit']);
+    expect([for (final l in again.settings.layout.quickLinks) l.label], ['Gold', 'The Hobbit']);
 
     await lib.toggleQuickLink(album);
-    expect([for (final l in lib.quickLinks) l.id], ['b1']);
+    expect([for (final l in lib.settings.layout.quickLinks) l.id], ['b1']);
     await lib.toggleQuickLink(album);
     await lib.removeQuickLink(QuickLinkKind.book, 'b1');
-    expect([for (final l in lib.quickLinks) l.id], ['abba|gold']);
+    expect([for (final l in lib.settings.layout.quickLinks) l.id], ['abba|gold']);
   });
 
   Future<void> pump(WidgetTester tester, Widget body) async {
@@ -79,7 +80,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: lib),
+        ...libraryProviders(lib),
         ChangeNotifierProvider.value(value: nav),
         ChangeNotifierProvider.value(value: playlists),
       ],
@@ -112,7 +113,7 @@ void main() {
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pumpAndSettle();
     expect(find.text('Gold'), findsNothing);
-    expect([for (final l in lib.quickLinks) l.id], ['b1']);
+    expect([for (final l in lib.settings.layout.quickLinks) l.id], ['b1']);
 
     // Something no longer in the library says so, and offers to take the link off.
     await tester.tap(find.text('The Hobbit'));
@@ -121,7 +122,7 @@ void main() {
     await tester.tap(find.text('Remove link'));
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pumpAndSettle();
-    expect(lib.quickLinks, isEmpty);
+    expect(lib.settings.layout.quickLinks, isEmpty);
   });
 
   testWidgets('a playlist: right-click it in the sidebar to add it; a rename follows', (tester) async {
@@ -177,6 +178,6 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('quick-link-button')));
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pumpAndSettle();
-    expect(lib.quickLinks, isEmpty);
+    expect(lib.settings.layout.quickLinks, isEmpty);
   });
 }

@@ -1,7 +1,7 @@
 // The sleep timer: pauses playback after a set time, or at the end of the current chapter/song.
 //
 // It's switched on and off by the moon button beside play/pause. The length comes from
-// Settings → Sleep timer (LibraryModel holds the numbers), with separate lengths for books and
+// Settings → Sleep timer (ListeningSettings holds the numbers), with separate lengths for books and
 // music; a length of 0 means "end of chapter" for books or "end of song" for music.
 // It talks to the player only through the small `SleepTarget` interface below, which
 // PlayerModel implements, so tests can drive it with a fake player. The ticking, the fade near
@@ -9,6 +9,7 @@
 // phase 2); this file says when the time is up and pauses and saves the book place.
 import '../models/track.dart';
 import 'library_model.dart';
+import 'settings/settings_groups.dart' show ListeningSettings;
 import 'sleep_countdown.dart';
 
 /// What the sleep timer needs from the player (the player implements it;
@@ -42,6 +43,7 @@ enum SleepMode { minutes, endOfChapter, endOfSong }
 class SleepTimer extends SleepCountdown<SleepMode> {
   final SleepTarget player;
   final LibraryModel settings;
+  ListeningSettings get _listening => settings.settings.listening;
   SleepTimer(this.player, this.settings);
 
   // For SleepMode.minutes: the clock time at which to pause.
@@ -58,7 +60,7 @@ class SleepTimer extends SleepCountdown<SleepMode> {
   void start() {
     // Books and music have separate lengths. A length of 0 means "stop at the end of the
     // current chapter" (books) or "end of the current song" (music).
-    final minutes = player.inBook ? settings.sleepBookMinutes : settings.sleepMusicMinutes;
+    final minutes = player.inBook ? _listening.sleepBookMinutes : _listening.sleepMusicMinutes;
     if (minutes > 0) {
       _until = now().add(Duration(minutes: minutes));
       run(SleepMode.minutes);
@@ -124,5 +126,5 @@ class SleepTimer extends SleepCountdown<SleepMode> {
   @override
   Future<void> setTargetVolume(double v) => player.setVolume(v);
   @override
-  int get fadeSeconds => settings.sleepFadeSeconds;
+  int get fadeSeconds => _listening.sleepFadeSeconds;
 }

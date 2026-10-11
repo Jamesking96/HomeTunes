@@ -124,9 +124,9 @@ extension _VideoPageControls on _VideoPageState {
       ),
     );
     // Skip buttons and speed (Settings › Videos sets how far the skips go).
-    final back = _settings.videoSkipBackSeconds, ahead = _settings.videoSkipForwardSeconds;
+    final back = _settings.video.videoSkipBackSeconds, ahead = _settings.video.videoSkipForwardSeconds;
     // Colours, sizes and the backing behind each button (Settings › Appearance › Video player).
-    final look = _settings.videoPlayerLook, accent = AppColors.accent;
+    final look = _settings.appearance.videoPlayerLook, accent = AppColors.accent;
     final speedButton = Builder(
       builder: (context) => MaterialDesktopCustomButton(icon: const Icon(Icons.speed), onPressed: () => _chooseSpeed(context)),
     );
@@ -161,7 +161,7 @@ extension _VideoPageControls on _VideoPageState {
           icon: Icon(_VideoPageState.skipIcon(forward: true, seconds: ahead)), onPressed: () => _session.skip(forward: true)),
       jump(forward: true, size: look.size.desktop),
       // 0.1.62: our own volume (media_kit's stops at 100), up to the volume boost's top.
-      _VideoBarVolume(player: player, maxVolume: () => _settings.maxVolume, look: look, accent: accent),
+      _VideoBarVolume(player: player, maxVolume: () => _settings.playback.maxVolume, look: look, accent: accent),
       paddedTime(MaterialDesktopPositionIndicator(style: timeTextStyle(look, accent))),
       const Spacer(),
       // The sleep timer (0.1.63).
@@ -253,7 +253,7 @@ extension _VideoPageControls on _VideoPageState {
           controls: (state) => VideoWheel(
               player: player,
               look: look,
-              maxVolume: () => _settings.maxVolume,
+              maxVolume: () => _settings.playback.maxVolume,
               child: AdaptiveVideoControls(state)),
           // With libass the engine draws the subtitles into the picture; the app's own text
           // subtitles would show them twice.

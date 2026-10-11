@@ -33,14 +33,17 @@ class LyricsModel extends ChangeNotifier implements SongIdFollower {
 
   LyricsModel(this.library, this.storage, {Future<LocalLyrics> Function(String path)? readLocal, LrclibClient Function()? makeLrclib})
       : readLocal = readLocal ?? readLocalLyrics,
-        makeLrclib = makeLrclib ?? LrclibClient.new {
+        makeLrclib = makeLrclib ?? LrclibClient.new,
+        _knownTracks = library.tracks {
     library.addListener(_onLibraryChanged);
   }
 
   // Files may have changed (rescan, lyrics written into them): read them again. Only when the
   // songs themselves were rebuilt (a new list), not for every settings change (refactor phase 1,
   // 8 Oct 2026: a theme or sidebar change used to throw these away too).
-  late List<Track> _knownTracks = library.tracks;
+  // Set when this is made (refactor phase 9: it was `late`, so it was only set by the first change
+  // it heard of, and when that was itself a rebuild, the old lyrics were kept).
+  List<Track> _knownTracks;
   void _onLibraryChanged() {
     if (identical(library.tracks, _knownTracks)) return;
     _knownTracks = library.tracks;
@@ -189,7 +192,7 @@ class LyricsModel extends ChangeNotifier implements SongIdFollower {
     }
 
     // 5. LRCLIB, but only if the user turned on online lyrics, and never for audiobooks.
-    if (!library.onlineLyrics || library.bookOfTrack(t.id) != null) return null;
+    if (!library.settings.online.onlineLyrics || library.bookOfTrack(t.id) != null) return null;
     // Don't ask again if LRCLIB had nothing for this song within the last 14 days.
     final triedAt = _none[t.id];
     if (triedAt != null && now().difference(DateTime.fromMillisecondsSinceEpoch(triedAt)) < retryAfter) return null;

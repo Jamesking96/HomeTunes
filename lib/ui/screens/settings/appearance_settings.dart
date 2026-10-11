@@ -21,6 +21,7 @@ import 'theme_sharing.dart';
 import 'video_player_look_settings.dart';
 
 import 'appearance/colour_picker.dart';
+import '../../../state/settings/settings_groups.dart' as prefs;
 export 'appearance/colour_picker.dart' show accentSuggestions, backgroundSuggestions, anySuggestions, PickerMode, showColourPicker;
 part 'appearance/theme_editor.dart';
 
@@ -28,20 +29,19 @@ part 'appearance/theme_editor.dart';
 typedef AppLook = ({AppPalette palette, double corners, double textSize});
 
 /// The user's saved themes (Advanced); damaged entries are skipped.
-List<AppPalette> savedPalettes(LibraryModel lib) =>
-    [for (final t in lib.savedThemes) ?AppPalette.fromJson(t)];
+List<AppPalette> savedPalettes(prefs.AppearanceSettings a) => [for (final t in a.savedThemes) ?AppPalette.fromJson(t)];
 
 /// The theme the saved settings ask for.
-AppPalette paletteOfSettings(LibraryModel lib) => paletteFor(
-      lib.themeId,
-      customAccent: colourFromHex(lib.customAccent) ?? defaultPalette.accent,
-      customBackground: colourFromHex(lib.customBackground) ?? defaultPalette.bg,
-      saved: savedPalettes(lib),
+AppPalette paletteOfSettings(prefs.AppearanceSettings a) => paletteFor(
+      a.themeId,
+      customAccent: colourFromHex(a.customAccent) ?? defaultPalette.accent,
+      customBackground: colourFromHex(a.customBackground) ?? defaultPalette.bg,
+      saved: savedPalettes(a),
     );
 
 /// The whole look the saved settings ask for.
-AppLook lookOfSettings(LibraryModel lib) =>
-    (palette: paletteOfSettings(lib), corners: lib.cornerRoundness, textSize: lib.textSize);
+AppLook lookOfSettings(prefs.AppearanceSettings a) =>
+    (palette: paletteOfSettings(a), corners: a.cornerRoundness, textSize: a.textSize);
 
 /// Applies the chosen text size on top of the system's own text size setting.
 Widget withTextSize(BuildContext context, double size, Widget child) {
@@ -102,12 +102,13 @@ class AppearanceSettings extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lib = context.watch<LibraryModel>();
-    final accent = colourFromHex(lib.customAccent) ?? defaultPalette.accent;
-    final background = colourFromHex(lib.customBackground) ?? defaultPalette.bg;
+    final lib = context.read<LibraryModel>();
+    final appearance = context.watch<prefs.AppearanceSettings>();
+    final accent = colourFromHex(appearance.customAccent) ?? defaultPalette.accent;
+    final background = colourFromHex(appearance.customBackground) ?? defaultPalette.bg;
     final custom = AppPalette.fromColours(accent: accent, background: background);
-    final saved = savedPalettes(lib);
-    final chosen = paletteOfSettings(lib).id == 'default' && lib.themeId != 'default' ? 'default' : lib.themeId;
+    final saved = savedPalettes(appearance);
+    final chosen = paletteOfSettings(appearance).id == 'default' && appearance.themeId != 'default' ? 'default' : appearance.themeId;
 
     return SettingsPageList(children: [
       const SettingsGroupTitle('Colour theme'),
@@ -173,11 +174,11 @@ class AppearanceSettings extends StatelessWidget {
               key: const ValueKey('reset-custom'),
               icon: const Icon(Icons.restart_alt),
               label: const Text('Reset to default colours'),
-              onPressed: lib.customAccent == null && lib.customBackground == null
+              onPressed: appearance.customAccent == null && appearance.customBackground == null
                   ? null
                   : () {
                       final messenger = ScaffoldMessenger.maybeOf(context);
-                      final before = (lib.customAccent, lib.customBackground);
+                      final before = (appearance.customAccent, appearance.customBackground);
                       lib.resetCustomColours(); // the screen changes at once; the file save carries on
                       messenger
                         ?..hideCurrentSnackBar()
@@ -200,7 +201,7 @@ class AppearanceSettings extends StatelessWidget {
               key: ValueKey('saved-theme:${p.id}'),
               leading: _Strip(palette: p),
               title: Text(p.name),
-              subtitle: Text(p.id == lib.themeId ? 'In use' : (p.isLight ? 'Light theme' : 'Dark theme')),
+              subtitle: Text(p.id == appearance.themeId ? 'In use' : (p.isLight ? 'Light theme' : 'Dark theme')),
               onTap: () => lib.setTheme(id: p.id),
               // Edit and Delete are buttons you can see; Duplicate (and both again) are in ⋮.
               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -271,7 +272,7 @@ class AppearanceSettings extends StatelessWidget {
         child: ChoiceTile<double>(
           title: 'Text size',
           subtitle: 'On top of your device\'s own text size setting',
-          value: lib.textSize,
+          value: appearance.textSize,
           options: [for (final t in textSizes) t.$2],
           label: (v) => textSizes.firstWhere((t) => t.$2 == v, orElse: () => ('${(v * 100).round()}%', v)).$1,
           onChanged: (v) => lib.setLook(textSize: v),
@@ -282,7 +283,7 @@ class AppearanceSettings extends StatelessWidget {
         child: ChoiceTile<double>(
           title: 'Corners',
           subtitle: 'How rounded covers, cards, buttons and pop-ups are',
-          value: lib.cornerRoundness,
+          value: appearance.cornerRoundness,
           options: [for (final t in roundnessChoices) t.$2],
           label: (v) => roundnessChoices.firstWhere((t) => t.$2 == v, orElse: () => ('${(v * 100).round()}%', v)).$1,
           onChanged: (v) => lib.setLook(cornerRoundness: v),
@@ -296,7 +297,7 @@ class AppearanceSettings extends StatelessWidget {
           title: const Text('Shrink to fit small windows'),
           subtitle: const Text('On a computer, buttons, text and pictures get a little smaller when you make the '
               'window small, so more fits. Turn off to keep them the same size.'),
-          value: lib.scaleWithWindow,
+          value: appearance.scaleWithWindow,
           onChanged: lib.setScaleWithWindow,
         ),
       ),
@@ -310,7 +311,7 @@ class AppearanceSettings extends StatelessWidget {
 /// Asks, then deletes a saved theme. Returns true if it was deleted.
 Future<bool> confirmDeleteTheme(BuildContext context, AppPalette p) async {
   final lib = context.read<LibraryModel>();
-  final inUse = lib.themeId == p.id;
+  final inUse = lib.settings.appearance.themeId == p.id;
   final ok = await showDialog<bool>(
     context: context,
     builder: (c) => AlertDialog(

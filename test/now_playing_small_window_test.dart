@@ -14,6 +14,7 @@ import 'package:hometunes/state/playlists_model.dart';
 import 'package:hometunes/state/sleep_timer.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/now_playing_screen.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:provider/provider.dart';
 
 /// Stands in for the player: one song loaded, paused.
@@ -88,7 +89,7 @@ void main() {
     final player = FakePlayer(song);
     await tester.pumpWidget(MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: lib),
+        ...libraryProviders(lib),
         ChangeNotifierProvider(create: (_) => PlaylistsModel(storage)),
         ChangeNotifierProvider<PlayerModel>.value(value: player),
         ChangeNotifierProvider(create: (_) => SleepTimer(player, lib)),

@@ -17,6 +17,7 @@ import 'package:hometunes/state/selection_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/artist_screen.dart';
 import 'package:hometunes/ui/screens/queue_screen.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:provider/provider.dart';
 
 /// Stands in for the player: nothing is playing, and playTracks is recorded.
@@ -80,7 +81,7 @@ void main() {
     final player = FakePlayer();
     await tester.pumpWidget(MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: lib),
+        ...libraryProviders(lib),
         ChangeNotifierProvider(create: (_) => PlaylistsModel(Storage.at(dir))),
         ChangeNotifierProvider<PlayerModel>.value(value: player),
         ChangeNotifierProvider(create: (_) => SelectionModel()),

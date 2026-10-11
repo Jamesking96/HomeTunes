@@ -15,6 +15,7 @@ import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/ui/screens/settings/appearance_settings.dart';
 import 'package:hometunes/ui/screens/settings/theme_sharing.dart';
 import 'package:hometunes/ui/theme.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -39,8 +40,8 @@ void main() {
     final key = GlobalKey();
     BuildContext host() => tester.element(find.byKey(const ValueKey('host')));
 
-    await tester.pumpWidget(ChangeNotifierProvider.value(
-      value: lib,
+    await tester.pumpWidget(MultiProvider(
+      providers: libraryProviders(lib),
       child: RepaintBoundary(
         key: key,
         child: MaterialApp(

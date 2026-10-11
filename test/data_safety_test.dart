@@ -42,10 +42,10 @@ void main() {
     final lib = LibraryModel(storage);
     await lib.load();
     expect(lib.folders, ['C:/Music']);
-    expect(lib.skipBackSeconds, 15); // the default
-    expect(lib.skipForwardSeconds, 45);
-    expect(lib.sleepFadeSeconds, 5);
-    expect(lib.rewindOnResume, isFalse);
+    expect(lib.settings.listening.skipBackSeconds, 15); // the default
+    expect(lib.settings.listening.skipForwardSeconds, 45);
+    expect(lib.settings.listening.sleepFadeSeconds, 5);
+    expect(lib.settings.listening.rewindOnResume, isFalse);
     expect(copiesOf('settings'), hasLength(1));
     expect(lib.dataProblem, contains('settings'));
   });
@@ -62,7 +62,7 @@ void main() {
     put('settings.json', {'folders': ['C:/Music'], 'skipBackSeconds': 10});
     final lib = LibraryModel(storage);
     await lib.load();
-    expect(lib.skipBackSeconds, 10);
+    expect(lib.settings.listening.skipBackSeconds, 10);
     expect(copiesOf('settings'), isEmpty);
     expect(lib.dataProblem, isNull);
   });

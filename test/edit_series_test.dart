@@ -16,6 +16,7 @@ import 'package:hometunes/state/playlists_model.dart';
 import 'package:hometunes/state/selection_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/series_screen.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -127,7 +128,7 @@ void main() {
       playlists = PlaylistsModel(storage)..setFavouriteSeries(['Lantern Saga'], true);
       await tester.pumpWidget(MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: lib),
+          ...libraryProviders(lib),
           ChangeNotifierProvider.value(value: ListeningModel(storage)),
           ChangeNotifierProvider.value(value: playlists),
           ChangeNotifierProvider(create: (_) => AppNav()),

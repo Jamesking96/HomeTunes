@@ -13,7 +13,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../state/library_model.dart';
+import '../../state/settings/settings_groups.dart' as prefs;
 
 class VolumeSlider extends StatefulWidget {
   const VolumeSlider({super.key, required this.value, required this.max, required this.onChanged, this.sliderKey});
@@ -41,7 +41,7 @@ class _VolumeSliderState extends State<VolumeSlider> {
   double _width = 0;
   double _pad = 20;
 
-  bool get _wanted => context.read<LibraryModel?>()?.showVolumePercent ?? true;
+  bool get _wanted => context.read<prefs.PlaybackSettings?>()?.showVolumePercent ?? true;
 
   /// Shows the bubble; it hides itself [VolumeSlider.showFor] after the last change, unless the
   /// slider is still held.
@@ -79,7 +79,7 @@ class _VolumeSliderState extends State<VolumeSlider> {
   @override
   Widget build(BuildContext context) {
     // Turned off in Settings: take any bubble away.
-    final wanted = context.select<LibraryModel?, bool>((l) => l?.showVolumePercent ?? true);
+    final wanted = context.select<prefs.PlaybackSettings?, bool>((s) => s?.showVolumePercent ?? true);
     if (!wanted && _bubble.isShowing) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _bubble.isShowing) _bubble.hide();

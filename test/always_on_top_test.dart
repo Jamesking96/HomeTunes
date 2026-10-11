@@ -9,6 +9,7 @@ import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/services/window_pin.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/ui/widgets/always_on_top_button.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -25,8 +26,8 @@ void main() {
 
   Future<LibraryModel> pump(WidgetTester tester, {bool round = false}) async {
     final lib = LibraryModel(Storage.at(dir));
-    await tester.pumpWidget(ChangeNotifierProvider.value(
-      value: lib,
+    await tester.pumpWidget(MultiProvider(
+      providers: libraryProviders(lib),
       child: MaterialApp(home: Scaffold(body: Center(child: AlwaysOnTopButton(round: round)))),
     ));
     return lib;
@@ -40,13 +41,13 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('always-on-top')));
     await tester.pump();
-    expect(lib.alwaysOnTop, isTrue);
+    expect(lib.settings.playback.alwaysOnTop, isTrue);
     expect(find.byIcon(Icons.push_pin), findsOneWidget);
     expect(find.byTooltip(AlwaysOnTopButton.tooltipFor(true)), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('always-on-top')));
     await tester.pump();
-    expect(lib.alwaysOnTop, isFalse);
+    expect(lib.settings.playback.alwaysOnTop, isFalse);
     expect(find.byIcon(Icons.push_pin_outlined), findsOneWidget);
   });
 
@@ -57,7 +58,7 @@ void main() {
     await lib.setAlwaysOnTop(true);
     final again = LibraryModel(Storage.at(dir));
     await again.load();
-    expect(again.alwaysOnTop, isTrue);
+    expect(again.settings.playback.alwaysOnTop, isTrue);
   });
 
   testWidgets('the round one for over a video works the same', (tester) async {
@@ -66,7 +67,7 @@ void main() {
     expect(find.byType(Material), findsWidgets);
     await tester.tap(find.byKey(const ValueKey('always-on-top')));
     await tester.pump();
-    expect(lib.alwaysOnTop, isTrue);
+    expect(lib.settings.playback.alwaysOnTop, isTrue);
   });
 
   testWidgets('a phone has no pin (only a computer window can stay on top)', (tester) async {

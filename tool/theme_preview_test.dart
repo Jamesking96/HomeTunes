@@ -19,6 +19,8 @@ import 'package:hometunes/state/equalizer_model.dart';
 import 'package:hometunes/ui/screens/settings/appearance_settings.dart';
 import 'package:hometunes/ui/screens/settings/settings_screen.dart';
 import 'package:hometunes/ui/theme.dart';
+import 'package:hometunes/ui/library_providers.dart';
+import 'package:hometunes/state/settings/settings_groups.dart' as prefs;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
@@ -61,15 +63,15 @@ void main() {
       }
       await tester.pumpWidget(MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: lib),
+          ...libraryProviders(lib),
           ChangeNotifierProvider.value(value: nav),
           ChangeNotifierProvider(create: (_) => EqualizerModel(Storage.at(dir))),
           // Settings' side list builds every page's search entries, Folders & scanning included (0.1.40).
           ChangeNotifierProvider(create: (_) => VideoLibraryModel(Storage.at(dir), lib)),
           ChangeNotifierProvider(create: (_) => UpdateModel(Storage.at(dir), readVersion: () async => '0.1.24')),
         ],
-        child: Selector<LibraryModel, AppLook>(
-          selector: (_, l) => lookOfSettings(l),
+        child: Selector<prefs.AppearanceSettings, AppLook>(
+          selector: (_, a) => lookOfSettings(a),
           builder: (context, look, _) {
             AppColors.current = look.palette;
             AppShape.scale = look.corners;

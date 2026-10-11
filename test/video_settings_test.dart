@@ -14,6 +14,7 @@ import 'package:hometunes/ui/screens/edit_video.dart';
 import 'package:hometunes/ui/screens/settings/video_settings.dart';
 import 'package:hometunes/ui/screens/video_collection_screen.dart';
 import 'package:hometunes/ui/screens/videos_screen.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -47,15 +48,15 @@ void main() {
   }
 
   test('the settings are saved and come back', () async {
-    expect((lib.videoSkipBackSeconds, lib.videoSkipForwardSeconds, lib.defaultVideoSpeed, lib.videoRewindOnResume),
+    expect((lib.settings.video.videoSkipBackSeconds, lib.settings.video.videoSkipForwardSeconds, lib.settings.video.defaultVideoSpeed, lib.settings.video.videoRewindOnResume),
         (10, 10, 1.0, true));
     await lib.updateVideoSettings(
         skipBackSeconds: 5, skipForwardSeconds: 30, defaultSpeed: 1.25, rewindOnResume: false, videoShape: PictureShape.tall);
     final again = LibraryModel(storage);
     await again.load();
-    expect((again.videoSkipBackSeconds, again.videoSkipForwardSeconds, again.defaultVideoSpeed, again.videoRewindOnResume),
+    expect((again.settings.video.videoSkipBackSeconds, again.settings.video.videoSkipForwardSeconds, again.settings.video.defaultVideoSpeed, again.settings.video.videoRewindOnResume),
         (5, 30, 1.25, false));
-    expect((again.videoPictureShape, again.collectionPictureShape), (PictureShape.tall, PictureShape.wide));
+    expect((again.settings.video.videoPictureShape, again.settings.video.collectionPictureShape), (PictureShape.tall, PictureShape.wide));
   });
 
   test('videos can have their own equaliser preset', () async {
@@ -116,7 +117,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: lib),
+        ...libraryProviders(lib),
         ChangeNotifierProvider.value(value: videos),
         ChangeNotifierProvider.value(value: eq),
         ChangeNotifierProvider(create: (_) => AppNav()),
@@ -139,7 +140,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     });
     await tester.pump();
-    expect(lib.videoPictureShape, PictureShape.tall);
+    expect(lib.settings.video.videoPictureShape, PictureShape.tall);
     expect(videos.shapeOf(videos.videos.first), PictureShape.tall);
   });
 

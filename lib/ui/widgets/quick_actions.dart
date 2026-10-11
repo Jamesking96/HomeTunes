@@ -90,7 +90,7 @@ List<QuickAction> albumActions(BuildContext context, List<Album> albums) {
         () => showEditDetails(context, tracks, album: n == 1, albumCount: n)),
     QuickAction(Icons.image_outlined, n == 1 ? 'Choose cover…' : 'Choose one cover for all $n…',
         () => _chooseCover(context, ids, what)),
-    if (n == 1 && lib.onlineCovers)
+    if (n == 1 && lib.settings.online.onlineCovers)
       QuickAction(Icons.travel_explore, 'Find cover online…', () async {
         final path = await showCoverSearch(context, artist: albums.first.artist, album: albums.first.title);
         if (path != null) await lib.editMany(ids, TrackEdit(art: path));
@@ -130,7 +130,7 @@ List<QuickAction> bookActions(BuildContext context, List<Book> books) {
     QuickAction(Icons.edit_outlined, n == 1 ? 'Edit details…' : 'Edit $n books…', () => showEditBooks(context, books)),
     QuickAction(Icons.image_outlined, n == 1 ? 'Choose cover…' : 'Choose one cover for all $n…',
         () => _chooseCover(context, ids, what)),
-    if (n == 1 && lib.onlineCovers)
+    if (n == 1 && lib.settings.online.onlineCovers)
       QuickAction(Icons.travel_explore, 'Find cover online…', () async {
         final path = await showBookCoverSearch(context, title: books.first.title, author: books.first.author);
         if (path != null) await lib.editMany(ids, TrackEdit(art: path));

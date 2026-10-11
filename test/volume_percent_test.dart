@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/ui/widgets/volume_slider.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -35,8 +36,8 @@ void main() {
   /// A slider holding its own volume, like the players do.
   Future<ValueNotifier<double>> pump(WidgetTester tester) async {
     final volume = ValueNotifier<double>(50);
-    await tester.pumpWidget(ChangeNotifierProvider.value(
-      value: lib,
+    await tester.pumpWidget(MultiProvider(
+      providers: libraryProviders(lib),
       child: MaterialApp(
         home: Scaffold(
           body: Center(
@@ -109,10 +110,10 @@ void main() {
   });
 
   test('on unless turned off, and kept in settings.json', () async {
-    expect(lib.showVolumePercent, isTrue);
+    expect(lib.settings.playback.showVolumePercent, isTrue);
     await lib.setShowVolumePercent(false);
     final again = LibraryModel(storage);
     await again.load();
-    expect(again.showVolumePercent, isFalse);
+    expect(again.settings.playback.showVolumePercent, isFalse);
   });
 }

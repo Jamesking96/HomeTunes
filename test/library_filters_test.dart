@@ -13,6 +13,7 @@ import 'package:hometunes/state/selection_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/library_screen.dart';
 import 'package:hometunes/ui/widgets/cards.dart' show ArtistCard;
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:provider/provider.dart';
 
 Track t(String title, String artist, String album,
@@ -137,7 +138,7 @@ void main() {
       final playlists = PlaylistsModel(Storage.at(dir));
       await tester.pumpWidget(MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: lib),
+          ...libraryProviders(lib),
           ChangeNotifierProvider.value(value: playlists),
           ChangeNotifierProvider(create: (_) => SelectionModel()),
           ChangeNotifierProvider(create: (_) => AppNav()),
@@ -180,7 +181,7 @@ void main() {
       // Grid: round cards with the same counts; filters and the title box still apply.
       await tester.tap(find.byKey(const ValueKey('artists-view')));
       await tester.pumpAndSettle();
-      expect(lib.artistsGrid, isTrue);
+      expect(lib.settings.layout.artistsGrid, isTrue);
       expect(find.byKey(const ValueKey('artists-grid')), findsOneWidget);
       expect(find.byType(ArtistCard), findsNWidgets(4));
       expect(find.text('1 album · 2 songs'), findsNWidgets(2));
@@ -192,7 +193,7 @@ void main() {
       // And back to the list.
       await tester.tap(find.byTooltip('Show as a list'));
       await tester.pumpAndSettle();
-      expect(lib.artistsGrid, isFalse);
+      expect(lib.settings.layout.artistsGrid, isFalse);
       expect(find.byKey(const ValueKey('artists-list')), findsOneWidget);
     });
 

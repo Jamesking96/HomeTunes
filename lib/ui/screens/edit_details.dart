@@ -24,6 +24,7 @@ import '../widgets/artwork.dart';
 import 'cover_search_dialog.dart';
 import 'info_lookup_dialog.dart';
 import '../widgets/mixed_value_field.dart';
+import '../../state/settings/settings_groups.dart' as prefs;
 
 // The --:-- marker lives in state/mixed_value.dart (refactor phase 2); still reachable from here.
 export '../../state/mixed_value.dart' show differentMarker;
@@ -452,7 +453,7 @@ class _EditDetailsState extends State<_EditDetails> {
   /// that's been typed in shows "keep each one's own" instead (mixedValueDecoration).
   Widget? _suffixFor(_Field f) {
     if (_mixed.contains(f) && _ctrl[f]!.text.isNotEmpty) return null;
-    if (_manyAlbums || !context.watch<LibraryModel>().onlineDetails) return null;
+    if (_manyAlbums || !context.watch<prefs.OnlineSettings>().onlineDetails) return null;
     return IconButton(
       tooltip: 'Find ${_label(f).toLowerCase()} online',
       icon: const Icon(Icons.travel_explore, size: 20),
@@ -525,7 +526,7 @@ class _EditDetailsState extends State<_EditDetails> {
             ),
             // Only offer an online search when there's an artist or album to search for.
             if (!_manyAlbums &&
-                context.watch<LibraryModel>().onlineCovers &&
+                context.watch<prefs.OnlineSettings>().onlineCovers &&
                 (_current(_Field.artist).isNotEmpty || _current(_Field.album).isNotEmpty))
               OutlinedButton.icon(
                 onPressed: _saving ? null : _findOnline,

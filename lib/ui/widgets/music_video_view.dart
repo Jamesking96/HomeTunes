@@ -33,12 +33,12 @@ import 'package:provider/provider.dart';
 import '../../services/engine/engines.dart';
 import '../../services/video_drawing.dart';
 import '../../services/video_stats.dart';
-import '../../state/library_model.dart';
 import '../../state/player_model.dart';
 import '../theme.dart';
 import 'always_on_top_button.dart';
 import 'listening_controls.dart' show SkipIcon;
 import 'player_controls.dart' show SeekBar, VolumeControl;
+import '../../state/settings/settings_groups.dart' as prefs;
 
 /// How far the video may drift from the song before it jumps back into step (0.1.56: was 0.4 s;
 /// smaller drifts are now caught up with [videoSyncRate]. 0.1.57: 2 s, was 1.5 s).
@@ -420,8 +420,8 @@ class _MusicVideoControlsState extends State<MusicVideoControls> {
     // ← → skip, as on a normal video (0.1.59).
     final back = e.logicalKey == LogicalKeyboardKey.arrowLeft, ahead = e.logicalKey == LogicalKeyboardKey.arrowRight;
     if (back || ahead) {
-      final lib = Provider.of<LibraryModel?>(context, listen: false);
-      final secs = back ? (lib?.videoSkipBackSeconds ?? 10) : (lib?.videoSkipForwardSeconds ?? 10);
+      final video = Provider.of<prefs.VideoSettings?>(context, listen: false);
+      final secs = back ? (video?.videoSkipBackSeconds ?? 10) : (video?.videoSkipForwardSeconds ?? 10);
       context.read<PlayerModel>().skipBy(Duration(seconds: back ? -secs : secs));
       _poke();
       return KeyEventResult.handled;
@@ -529,8 +529,8 @@ class _FullScreenBar extends StatelessWidget {
           // next, and the volume (on wider screens; a phone has its own volume buttons).
           child: LayoutBuilder(builder: (context, box) {
             final wide = box.maxWidth >= 640;
-            final lib = Provider.of<LibraryModel?>(context);
-            final back = lib?.videoSkipBackSeconds ?? 10, ahead = lib?.videoSkipForwardSeconds ?? 10;
+            final video = Provider.of<prefs.VideoSettings?>(context);
+            final back = video?.videoSkipBackSeconds ?? 10, ahead = video?.videoSkipForwardSeconds ?? 10;
             Widget button(String tip, Widget icon, VoidCallback onPressed, {double size = 32, Key? key}) =>
                 IconButton(key: key, tooltip: tip, iconSize: size, color: Colors.white, icon: icon, onPressed: onPressed);
             final controls = Row(mainAxisSize: MainAxisSize.min, children: [

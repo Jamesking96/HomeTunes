@@ -16,6 +16,7 @@ import '../../state/library_model.dart';
 import '../../state/video_library_model.dart';
 import '../theme.dart';
 import '../widgets/track_tile.dart' show askForName;
+import '../../state/settings/settings_groups.dart' as prefs;
 
 /// Asks for a special title for season [season] (or [season].[sub]) of [c] and marks it.
 Future<void> showSpecialSeasonDialog(BuildContext context, VideoCollection c, int season, [int? sub]) async {
@@ -25,13 +26,13 @@ Future<void> showSpecialSeasonDialog(BuildContext context, VideoCollection c, in
     context: context,
     builder: (_) => _SpecialSeasonDialog(
       season: seasonText(season, sub),
-      titles: lib.specialSeasonTitles,
+      titles: lib.settings.video.specialSeasonTitles,
       current: videos.specialTitleOf(c, season, sub),
     ),
   );
   final t = title?.trim();
   if (t == null || t.isEmpty) return;
-  final isNew = !lib.specialSeasonTitles.any((x) => x.toLowerCase() == t.toLowerCase());
+  final isNew = !lib.settings.video.specialSeasonTitles.any((x) => x.toLowerCase() == t.toLowerCase());
   await Future.wait([
     videos.setSpecialSeason(c, season, t, sub: sub),
     // A new title is kept in the list, so it's offered next time.
@@ -149,8 +150,9 @@ class SpecialSeasonTitlesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lib = context.watch<LibraryModel>();
-    final titles = lib.specialSeasonTitles;
+    final lib = context.read<LibraryModel>();
+    final video = context.watch<prefs.VideoSettings>();
+    final titles = video.specialSeasonTitles;
     final isDefault = titles.length == LibraryModel.defaultSpecialSeasonTitles.length &&
         [for (var i = 0; i < titles.length; i++) titles[i] == LibraryModel.defaultSpecialSeasonTitles[i]]
             .every((x) => x);

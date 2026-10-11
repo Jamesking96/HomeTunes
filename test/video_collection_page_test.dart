@@ -11,6 +11,7 @@ import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/video_collection_screen.dart';
 import 'package:hometunes/ui/screens/videos_screen.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -48,7 +49,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: lib),
+        ...libraryProviders(lib),
         ChangeNotifierProvider.value(value: videos),
         ChangeNotifierProvider(create: (_) => AppNav()),
       ],
@@ -106,7 +107,7 @@ void main() {
     final nav = AppNav();
     await tester.pumpWidget(MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: lib),
+        ...libraryProviders(lib),
         ChangeNotifierProvider.value(value: videos),
         ChangeNotifierProvider.value(value: nav),
       ],
