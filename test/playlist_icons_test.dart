@@ -10,6 +10,7 @@ import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/playlists_model.dart';
 import 'package:hometunes/ui/widgets/playlist_art.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -94,7 +95,7 @@ void main() {
 
   Future<void> pump(WidgetTester tester, Widget body) => tester.pumpWidget(MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: lib),
+          ...libraryProviders(lib),
           ChangeNotifierProvider.value(value: playlists),
         ],
         child: MaterialApp(home: Scaffold(body: body)),

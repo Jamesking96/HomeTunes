@@ -8,6 +8,7 @@ import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/screens/settings/library_settings.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -90,7 +91,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: lib),
+        ...libraryProviders(lib),
         ChangeNotifierProvider.value(value: videos),
       ],
       child: const MaterialApp(home: Scaffold(body: SingleChildScrollView(child: VideoFoldersSection()))),

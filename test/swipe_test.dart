@@ -93,10 +93,10 @@ void main() {
     });
     final lib = LibraryModel(Storage.at(dir));
     await lib.load();
-    expect(lib.swipeToSkip, isTrue);
+    expect(lib.settings.playback.swipeToSkip, isTrue);
     await lib.updatePlaybackSettings(swipeToSkip: false);
     final again = LibraryModel(Storage.at(dir));
     await again.load();
-    expect(again.swipeToSkip, isFalse);
+    expect(again.settings.playback.swipeToSkip, isFalse);
   });
 }

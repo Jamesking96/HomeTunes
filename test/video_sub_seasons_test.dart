@@ -14,6 +14,7 @@ import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/edit_video.dart';
 import 'package:hometunes/state/mixed_value.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -153,7 +154,7 @@ void main() {
       final v = videos.collectionNamed('Show')!.videos.first;
       await tester.pumpWidget(MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: lib),
+          ...libraryProviders(lib),
           ChangeNotifierProvider.value(value: videos),
           ChangeNotifierProvider(create: (_) => AppNav()),
         ],
@@ -190,7 +191,7 @@ void main() {
       expect({for (final v in two) v.genre ?? ''}, {''}); // no genre on either
       await tester.pumpWidget(MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: lib),
+          ...libraryProviders(lib),
           ChangeNotifierProvider.value(value: videos),
           ChangeNotifierProvider(create: (_) => AppNav()),
         ],

@@ -238,6 +238,9 @@ class PlaybackSettings extends SettingsGroup {
   /// The music video starts by itself when a song with one plays.
   bool autoPlayMusicVideos = true;
 
+  /// The top of every volume slider: 100, or the boost's percentage while it's on.
+  double get maxVolume => maxVolumeFor(on: volumeBoost, percent: volumeBoostPercent);
+
   @override
   late final List<Setting> settings = [
     Setting.flag('gaplessPlayback', true, () => gaplessPlayback, (v) => gaplessPlayback = v),

@@ -4,7 +4,7 @@
 // The user asked for the sleep timer in the video player too. The music timer is tied to the
 // music player (songs, chapters), so videos have their own, which works on whatever video is in
 // charge (NowWatching): the one on the video page, also shown in the bottom bar. Its length is
-// Settings › Sleep timer › "Timer length for videos" (LibraryModel.sleepVideoMinutes; "End of
+// Settings › Sleep timer › "Timer length for videos" (ListeningSettings.sleepVideoMinutes; "End of
 // video" is LibraryModel.sleepAtEnd); the fade and the "Show sleep timer button" switch are
 // shared with music. The moon button is VideoSleepTimerButton (widgets/video_sleep_button.dart).
 // The ticking, the fade and putting the volume back are shared with the music timer
@@ -16,6 +16,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'library_model.dart';
+import 'settings/settings_groups.dart' show ListeningSettings;
 import 'now_watching.dart';
 import 'sleep_countdown.dart';
 
@@ -63,6 +64,7 @@ class VideoSleepTimer extends SleepCountdown<VideoSleepMode> {
 
   final VideoSleepTarget video;
   final LibraryModel settings;
+  ListeningSettings get _listening => settings.settings.listening;
   // Tells the timer the video changed (NowWatching); it stops when the video page closes.
   final Listenable? _changes;
 
@@ -77,7 +79,7 @@ class VideoSleepTimer extends SleepCountdown<VideoSleepMode> {
   @override
   void start() {
     if (video.videoId == null) return;
-    final minutes = settings.sleepVideoMinutes;
+    final minutes = _listening.sleepVideoMinutes;
     if (minutes > 0) _until = now().add(Duration(minutes: minutes));
     _videoId = video.videoId;
     run(minutes > 0 ? VideoSleepMode.minutes : VideoSleepMode.endOfVideo);
@@ -125,7 +127,7 @@ class VideoSleepTimer extends SleepCountdown<VideoSleepMode> {
   @override
   Future<void> setTargetVolume(double v) => video.setVolume(v);
   @override
-  int get fadeSeconds => settings.sleepFadeSeconds;
+  int get fadeSeconds => _listening.sleepFadeSeconds;
   @override
   bool get canRestoreVolume => video.videoId != null;
 

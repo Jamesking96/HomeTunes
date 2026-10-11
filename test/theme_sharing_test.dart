@@ -11,6 +11,8 @@ import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/ui/screens/settings/appearance_settings.dart';
 import 'package:hometunes/ui/screens/settings/theme_sharing.dart';
 import 'package:hometunes/ui/theme.dart';
+import 'package:hometunes/ui/library_providers.dart';
+import 'package:hometunes/state/settings/settings_groups.dart' as prefs;
 import 'package:provider/provider.dart';
 
 final sunset = defaultPalette.copyWith(
@@ -118,18 +120,18 @@ void main() {
       expect(isNew, isTrue);
       expect(added.name, 'Sunset (2)');
       expect(added.id, isNot('saved:x'));
-      expect(lib.themeId, added.id);
-      expect(lib.savedThemes, hasLength(2));
+      expect(lib.settings.appearance.themeId, added.id);
+      expect(lib.settings.appearance.savedThemes, hasLength(2));
 
       final (again, isNewAgain) = await addSharedTheme(lib, shared);
       expect(isNewAgain, isFalse);
       expect(again.id, added.id);
-      expect(lib.savedThemes, hasLength(2));
+      expect(lib.settings.appearance.savedThemes, hasLength(2));
 
       // Saved to disk like any other theme.
       final reread = LibraryModel(Storage.at(dir));
       await reread.load();
-      expect(reread.savedThemes.map((t) => t['name']), containsAll(['Sunset', 'Sunset (2)']));
+      expect(reread.settings.appearance.savedThemes.map((t) => t['name']), containsAll(['Sunset', 'Sunset (2)']));
     });
   });
 
@@ -145,10 +147,10 @@ void main() {
       tester.view.physicalSize = const Size(1000, 1600);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(ChangeNotifierProvider.value(
-        value: lib,
-        child: Selector<LibraryModel, AppLook>(
-          selector: (_, l) => lookOfSettings(l),
+      await tester.pumpWidget(MultiProvider(
+        providers: libraryProviders(lib),
+        child: Selector<prefs.AppearanceSettings, AppLook>(
+          selector: (_, a) => lookOfSettings(a),
           builder: (context, look, _) {
             AppColors.current = look.palette;
             return RedrawOnThemeChange(
@@ -267,7 +269,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('add-imported-theme')));
       await tester.pumpAndSettle();
 
-      expect(lib.savedThemes, hasLength(2));
+      expect(lib.settings.appearance.savedThemes, hasLength(2));
       expect(AppColors.current.name, 'Ocean');
       expect(AppColors.current.accent, const Color(0xFF3CCFCF));
       expect(find.text('Ocean'), findsWidgets);

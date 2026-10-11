@@ -9,6 +9,8 @@ import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/ui/screens/settings/appearance_settings.dart';
 import 'package:hometunes/ui/theme.dart';
+import 'package:hometunes/ui/library_providers.dart';
+import 'package:hometunes/state/settings/settings_groups.dart' as prefs;
 import 'package:provider/provider.dart';
 
 void main() {
@@ -112,9 +114,9 @@ void main() {
       await a.setTheme(id: 'custom', accent: '#4cc38a', background: '#0D1321');
       final b = LibraryModel(Storage.at(dir));
       await b.load();
-      expect(b.themeId, 'custom');
-      expect(b.customAccent, '#4CC38A');
-      expect(paletteOfSettings(b).bg, const Color(0xFF0D1321));
+      expect(b.settings.appearance.themeId, 'custom');
+      expect(b.settings.appearance.customAccent, '#4CC38A');
+      expect(paletteOfSettings(b.settings.appearance).bg, const Color(0xFF0D1321));
     });
 
     test('saved themes, text size and corners survive a restart', () async {
@@ -123,24 +125,24 @@ void main() {
       await a.setLook(textSize: 1.15, cornerRoundness: 0.5);
       final b = LibraryModel(Storage.at(dir));
       await b.load();
-      expect(b.themeId, 'saved:one');
-      expect(paletteOfSettings(b).name, 'Paper');
-      expect(b.textSize, 1.15);
-      expect(b.cornerRoundness, 0.5);
+      expect(b.settings.appearance.themeId, 'saved:one');
+      expect(paletteOfSettings(b.settings.appearance).name, 'Paper');
+      expect(b.settings.appearance.textSize, 1.15);
+      expect(b.settings.appearance.cornerRoundness, 0.5);
       // Silly values from a hand-edited file are kept within range.
       await Storage.at(dir).write('settings.json', {'textSize': 9, 'cornerRoundness': -3, 'savedThemes': 'x'});
       await b.load();
-      expect(b.textSize, 1.5);
-      expect(b.cornerRoundness, 0);
-      expect(b.savedThemes, isEmpty);
+      expect(b.settings.appearance.textSize, 1.5);
+      expect(b.settings.appearance.cornerRoundness, 0);
+      expect(b.settings.appearance.savedThemes, isEmpty);
     });
 
     test('a hand-edited settings file with bad colours falls back', () async {
       await Storage.at(dir).write('settings.json', {'theme': 'custom', 'customAccent': 'orange', 'customBackground': 5});
       final lib = LibraryModel(Storage.at(dir));
       await lib.load();
-      expect(lib.customAccent, isNull);
-      final p = paletteOfSettings(lib);
+      expect(lib.settings.appearance.customAccent, isNull);
+      final p = paletteOfSettings(lib.settings.appearance);
       expect(p.accent, defaultPalette.accent);
       expect(p.bg, defaultPalette.bg);
     });
@@ -156,10 +158,10 @@ void main() {
       tester.view.physicalSize = const Size(1000, 1600);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(ChangeNotifierProvider.value(
-        value: lib,
-        child: Selector<LibraryModel, AppLook>(
-          selector: (_, l) => lookOfSettings(l),
+      await tester.pumpWidget(MultiProvider(
+        providers: libraryProviders(lib),
+        child: Selector<prefs.AppearanceSettings, AppLook>(
+          selector: (_, a) => lookOfSettings(a),
           builder: (context, look, _) {
             AppColors.current = look.palette;
             AppShape.scale = look.corners;
@@ -197,8 +199,8 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('save-theme')));
       await tester.pumpAndSettle();
 
-      expect(lib.savedThemes, hasLength(1));
-      expect(lib.themeId, startsWith('saved:'));
+      expect(lib.settings.appearance.savedThemes, hasLength(1));
+      expect(lib.settings.appearance.themeId, startsWith('saved:'));
       expect(AppColors.current.name, 'Paper');
       expect(AppColors.current.isLight, isTrue);
       expect(probe(), lightStarter.surface);
@@ -207,7 +209,7 @@ void main() {
       // Deleting the theme in use goes back to Default.
       // The screen changes at once; the file save isn't waited for (it can't finish inside a
       // widget test's pretend clock, and a later save would queue behind it).
-      lib.deleteTheme(lib.themeId);
+      lib.deleteTheme(lib.settings.appearance.themeId);
       await tester.pumpAndSettle();
       expect(AppColors.current, defaultPalette);
       expect(probe(), defaultPalette.surface);
@@ -225,16 +227,16 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('reset-custom')));
       await tester.pumpAndSettle(); // lets the notice slide in before Undo is tapped
-      expect(lib.customAccent, isNull);
-      expect(lib.customBackground, isNull);
-      expect(lib.themeId, 'custom'); // still "Your own", now in its starting colours
+      expect(lib.settings.appearance.customAccent, isNull);
+      expect(lib.settings.appearance.customBackground, isNull);
+      expect(lib.settings.appearance.themeId, 'custom'); // still "Your own", now in its starting colours
       expect(AppColors.current.accent, defaultPalette.accent);
       expect(find.text('"Your own" is back to its default colours'), findsOneWidget);
 
       await tester.tap(find.text('Undo'));
       await tester.pumpAndSettle();
-      expect(lib.customAccent, '#E35BD8');
-      expect(lib.customBackground, '#1A1020');
+      expect(lib.settings.appearance.customAccent, '#E35BD8');
+      expect(lib.settings.appearance.customBackground, '#1A1020');
       lib.resetCustomColours();
       lib.setTheme(id: 'default');
       await tester.pumpAndSettle();
@@ -245,7 +247,7 @@ void main() {
       lib.saveTheme(lightStarter.copyWith(id: 'saved:a', name: 'Paper').toJson());
       lib.saveTheme(defaultPalette.copyWith(id: 'saved:b', name: 'Night').toJson(), use: false);
       await tester.pumpAndSettle();
-      expect(lib.themeId, 'saved:a');
+      expect(lib.settings.appearance.themeId, 'saved:a');
 
       // The row's delete button asks first; Cancel keeps it.
       await tester.ensureVisible(find.byKey(const ValueKey('delete-theme:saved:b')));
@@ -254,12 +256,12 @@ void main() {
       expect(find.text('Delete "Night"?'), findsOneWidget);
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
-      expect(lib.savedThemes, hasLength(2));
+      expect(lib.settings.appearance.savedThemes, hasLength(2));
       await tester.tap(find.byKey(const ValueKey('delete-theme:saved:b')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('confirm-delete')));
       await tester.pumpAndSettle();
-      expect(lib.savedThemes.map((t) => t['id']), ['saved:a']);
+      expect(lib.settings.appearance.savedThemes.map((t) => t['id']), ['saved:a']);
       expect(find.byKey(const ValueKey('saved-theme:saved:b')), findsNothing);
 
       // In the editor: "Delete this theme" (it's in use, so it goes back to Default).
@@ -272,8 +274,8 @@ void main() {
       expect(find.textContaining('This theme is in use'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('confirm-delete')));
       await tester.pumpAndSettle();
-      expect(lib.savedThemes, isEmpty);
-      expect(lib.themeId, 'default');
+      expect(lib.settings.appearance.savedThemes, isEmpty);
+      expect(lib.settings.appearance.themeId, 'default');
       expect(find.text('Edit theme'), findsNothing); // back on the Appearance page
     });
 
@@ -321,7 +323,7 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('theme:midnight')));
       await tester.pumpAndSettle();
-      expect(lib.themeId, 'midnight');
+      expect(lib.settings.appearance.themeId, 'midnight');
       expect(AppColors.current.id, 'midnight');
       expect(probe(), builtInPalettes[1].surface); // redrawn although nothing it watches changed
 

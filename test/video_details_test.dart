@@ -14,6 +14,7 @@ import 'package:hometunes/services/video_scanner.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/screens/video_details_screen.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -136,7 +137,7 @@ void main() {
 
     Widget app(Widget home) => MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: lib),
+        ...libraryProviders(lib),
         ChangeNotifierProvider.value(value: videos),
       ],
       child: MaterialApp(home: home),

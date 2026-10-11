@@ -6,7 +6,7 @@
 //   in the right-click menus (albums, audiobooks, collections, videos).
 // * [openQuickLink]: what clicking a link in the sidebar does; something that's no longer in the
 //   library says so, with a button to take the link off.
-// The links themselves are LibraryModel.quickLinks (models/quick_link.dart).
+// The links themselves are LayoutSettings.quickLinks (models/quick_link.dart).
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -16,6 +16,7 @@ import '../../state/playlists_model.dart';
 import '../../state/video_library_model.dart';
 import '../nav.dart';
 import 'playlist_art.dart' show playlistIconOf;
+import '../../state/settings/settings_groups.dart' as prefs;
 
 export '../../models/quick_link.dart';
 
@@ -126,7 +127,8 @@ class QuickLinkButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final on = context.select<LibraryModel, bool>((l) => l.isQuickLink(link.kind, link.id));
+    // The links are in the layout settings, which LibraryModel doesn't pass on (refactor phase 9).
+    final on = context.select<prefs.LayoutSettings, bool>((s) => s.isQuickLink(link.kind, link.id));
     return IconButton(
       key: const ValueKey('quick-link-button'),
       tooltip: on ? 'In the sidebar (click to remove)' : 'Add to sidebar',

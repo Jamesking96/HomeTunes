@@ -4,7 +4,7 @@
 // The user asked to add and remove more quick links there. They're added from an item's menu
 // ("Add to sidebar": right-click or press and hold an album, audiobook, collection or video; the
 // button on an artist's page) and removed the same way, or with a right-click on the link in
-// the sidebar. They're kept in settings.json (LibraryModel.quickLinks), in the order added.
+// the sidebar. They're kept in settings.json (LayoutSettings.quickLinks), in the order added.
 // [label] is the name when it was added, shown if the item is no longer in the library.
 
 enum QuickLinkKind { album, artist, book, collection, video, playlist, series }

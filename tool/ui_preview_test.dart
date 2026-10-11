@@ -26,6 +26,7 @@ import 'package:hometunes/ui/screens/artist_screen.dart';
 import 'package:hometunes/ui/screens/queue_screen.dart';
 import 'package:hometunes/ui/screens/settings/settings_screen.dart';
 import 'package:hometunes/ui/theme.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
@@ -89,7 +90,7 @@ void main() {
     Future<void> show(Widget home) async {
       await tester.pumpWidget(MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: lib),
+          ...libraryProviders(lib),
           ChangeNotifierProvider.value(value: nav),
           ChangeNotifierProvider(create: (_) => PlaylistsModel(Storage.at(dir))),
           ChangeNotifierProvider<PlayerModel>.value(value: _Player()),

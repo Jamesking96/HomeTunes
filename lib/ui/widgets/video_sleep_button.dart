@@ -12,6 +12,7 @@ import '../../state/library_model.dart';
 import '../../state/video_sleep_timer.dart';
 import '../theme.dart';
 import 'listening_controls.dart' show SleepTimerButton;
+import '../../state/settings/settings_groups.dart' as prefs;
 
 class VideoSleepTimerButton extends StatelessWidget {
   /// The icon's size and colour (the video player's look; the theme's when null).
@@ -27,13 +28,13 @@ class VideoSleepTimerButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final timer = Provider.of<VideoSleepTimer?>(context);
-    final lib = Provider.of<LibraryModel?>(context);
-    if (timer == null || lib == null) return const SizedBox.shrink();
-    if (!lib.sleepButtonShown && !timer.active) return const SizedBox.shrink();
+    final listening = Provider.of<prefs.ListeningSettings?>(context);
+    if (timer == null || listening == null) return const SizedBox.shrink();
+    if (!listening.sleepButtonShown && !timer.active) return const SizedBox.shrink();
     if (!timer.active) {
       return IconButton(
         key: const ValueKey('video-sleep-timer'),
-        tooltip: 'Sleep timer (${describe(lib.sleepVideoMinutes)})',
+        tooltip: 'Sleep timer (${describe(listening.sleepVideoMinutes)})',
         iconSize: iconSize,
         color: color,
         icon: const Icon(Icons.bedtime_outlined),

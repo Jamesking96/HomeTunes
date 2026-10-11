@@ -26,13 +26,15 @@ import '../equalizer_screen.dart';
 import '../special_seasons.dart' show SpecialSeasonTitlesSection;
 import 'library_settings.dart' show VideoFoldersSection;
 import 'settings_widgets.dart';
+import '../../../state/settings/settings_groups.dart' as prefs;
 
 class VideoSettings extends StatelessWidget {
   const VideoSettings({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final lib = context.watch<LibraryModel>();
+    final lib = context.read<LibraryModel>();
+    final video = context.watch<prefs.VideoSettings>();
     final eq = context.watch<EqualizerModel>();
     final videos = context.watch<VideoLibraryModel>();
     const skips = [5, 10, 15, 30, 45, 60];
@@ -70,7 +72,7 @@ class VideoSettings extends StatelessWidget {
           child: ChoiceTile<int>(
             title: 'Skip back',
             subtitle: 'The player\'s back button, the ← and J keys, and a double-tap on the left on a phone',
-            value: lib.videoSkipBackSeconds,
+            value: video.videoSkipBackSeconds,
             options: skips,
             label: (v) => '$v seconds',
             onChanged: (v) => lib.updateVideoSettings(skipBackSeconds: v),
@@ -81,7 +83,7 @@ class VideoSettings extends StatelessWidget {
           child: ChoiceTile<int>(
             title: 'Skip forward',
             subtitle: 'The forward button, the → and L keys, and a double-tap on the right',
-            value: lib.videoSkipForwardSeconds,
+            value: video.videoSkipForwardSeconds,
             options: skips,
             label: (v) => '$v seconds',
             onChanged: (v) => lib.updateVideoSettings(skipForwardSeconds: v),
@@ -92,7 +94,7 @@ class VideoSettings extends StatelessWidget {
           child: ChoiceTile<double>(
             title: 'Speed',
             subtitle: 'Each collection remembers its own speed once you change it while watching',
-            value: lib.defaultVideoSpeed,
+            value: video.defaultVideoSpeed,
             options: PlayerModel.speeds,
             label: SpeedButton.label,
             onChanged: (v) => lib.updateVideoSettings(defaultSpeed: v),
@@ -103,7 +105,7 @@ class VideoSettings extends StatelessWidget {
           child: SwitchListTile(
             title: const Text('Rewind a little when carrying on'),
             subtitle: const Text('A few seconds after a short pause, up to 30 seconds after a long break'),
-            value: lib.videoRewindOnResume,
+            value: video.videoRewindOnResume,
             onChanged: (v) => lib.updateVideoSettings(rewindOnResume: v),
           ),
         ),
@@ -117,7 +119,7 @@ class VideoSettings extends StatelessWidget {
                     'play the usual way). Turn this off if a video shows '
                     'a black picture. Takes effect the next time a video opens.'
                 : 'Only changes anything on a phone.'),
-            value: lib.videoDirectDrawing,
+            value: video.videoDirectDrawing,
             onChanged: Platform.isAndroid ? (v) => lib.updateVideoSettings(directDrawing: v) : null,
           ),
         ),
@@ -159,12 +161,12 @@ class VideoSettings extends StatelessWidget {
         const SettingsGroupTitle('Look'),
         SettingTarget(
           'video-shape',
-          child: shapes('Video picture shape', lib.videoPictureShape, (s) => lib.updateVideoSettings(videoShape: s),
+          child: shapes('Video picture shape', video.videoPictureShape, (s) => lib.updateVideoSettings(videoShape: s),
               'video-shape-choice'),
         ),
         SettingTarget(
           'collection-shape',
-          child: shapes('Collection poster shape', lib.collectionPictureShape,
+          child: shapes('Collection poster shape', video.collectionPictureShape,
               (s) => lib.updateVideoSettings(collectionShape: s), 'collection-shape-choice'),
         ),
         Padding(

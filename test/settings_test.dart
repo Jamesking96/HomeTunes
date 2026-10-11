@@ -15,6 +15,7 @@ import 'package:hometunes/state/update_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/settings/settings_catalog.dart';
 import 'package:hometunes/ui/screens/settings/settings_screen.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
@@ -130,7 +131,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: lib),
+          ...libraryProviders(lib),
           ChangeNotifierProvider.value(value: nav),
           ChangeNotifierProvider(create: (_) => EqualizerModel(Storage.at(Directory.systemTemp))),
           // Folders & scanning has the video folders (0.1.40).

@@ -18,6 +18,7 @@ import 'package:hometunes/ui/screens/settings/video_player_look_settings.dart';
 import 'package:hometunes/ui/screens/video_collection_screen.dart';
 import 'package:hometunes/ui/screens/videos_screen.dart';
 import 'package:hometunes/ui/widgets/video_controls_look.dart';
+import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -165,7 +166,7 @@ void main() {
 
     Widget app(Widget home) => MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: lib),
+        ...libraryProviders(lib),
         ChangeNotifierProvider.value(value: videos),
         ChangeNotifierProvider(create: (_) => AppNav()),
       ],
@@ -176,8 +177,8 @@ void main() {
       await lib.setVideoPlayerLook(const VideoPlayerLook(backing: VideoButtonBacking.circle, buttonColour: 'accent'));
       final again = LibraryModel(storage);
       await again.load();
-      expect(again.videoPlayerLook.backing, VideoButtonBacking.circle);
-      expect(again.videoPlayerLook.buttonColour, 'accent');
+      expect(again.settings.appearance.videoPlayerLook.backing, VideoButtonBacking.circle);
+      expect(again.settings.appearance.videoPlayerLook.buttonColour, 'accent');
     });
 
     test('season titles: from the folder, the user\'s own wins and is kept, and tvshow.nfo gets it', () async {
@@ -346,13 +347,13 @@ void main() {
 
       await tester.tap(find.text('Circles'));
       await tester.pumpAndSettle();
-      expect(lib.videoPlayerLook.backing, VideoButtonBacking.circle);
+      expect(lib.settings.appearance.videoPlayerLook.backing, VideoButtonBacking.circle);
       expect(find.byKey(const ValueKey('backing-strength')), findsOneWidget);
       await tester.tap(find.text('Large'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('button-colour-black')));
       await tester.pumpAndSettle();
-      expect((lib.videoPlayerLook.size, lib.videoPlayerLook.buttonColour), (VideoButtonSize.large, 'black'));
+      expect((lib.settings.appearance.videoPlayerLook.size, lib.settings.appearance.videoPlayerLook.buttonColour), (VideoButtonSize.large, 'black'));
       // The preview's backing is light behind black buttons.
       final backing = tester.widget<ButtonBacking>(find.byType(ButtonBacking).first);
       expect(backing.look.backingColour(Colors.orange).computeLuminance(), greaterThan(0.5));
@@ -362,7 +363,7 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('video-look-reset')));
       await tester.pumpAndSettle();
-      expect(lib.videoPlayerLook, VideoPlayerLook.standard);
+      expect(lib.settings.appearance.videoPlayerLook, VideoPlayerLook.standard);
       // Let the settings.json writes finish before the folder is removed.
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 600)));
     });

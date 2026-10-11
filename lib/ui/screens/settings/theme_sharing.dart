@@ -111,7 +111,7 @@ String _colourKey(AppPalette p) => [for (final f in AppPalette.colourSlots.value
 /// A saved theme with exactly [p]'s colours, if there is one.
 AppPalette? sameSavedTheme(LibraryModel lib, AppPalette p) {
   final key = _colourKey(p);
-  for (final s in savedPalettes(lib)) {
+  for (final s in savedPalettes(lib.settings.appearance)) {
     if (_colourKey(s) == key) return s;
   }
   return null;
@@ -136,7 +136,7 @@ Future<(AppPalette, bool)> addSharedTheme(LibraryModel lib, AppPalette p) async 
     await lib.setTheme(id: existing.id);
     return (existing, false);
   }
-  final added = p.copyWith(id: newThemeId(), name: uniqueThemeName(p.name, savedPalettes(lib).map((t) => t.name)));
+  final added = p.copyWith(id: newThemeId(), name: uniqueThemeName(p.name, savedPalettes(lib.settings.appearance).map((t) => t.name)));
   await lib.saveTheme(added.toJson());
   return (added, true);
 }

@@ -24,6 +24,7 @@ import 'cover_search_dialog.dart';
 import 'info_lookup_dialog.dart';
 import 'details_screen.dart';
 import 'edit_details.dart';
+import '../../state/settings/settings_groups.dart' as prefs;
 
 /// Shows one album. [albumKey] is the album's grouping key (album artist + album name), which
 /// is looked up fresh on every build so the page always shows the latest edits.
@@ -228,6 +229,7 @@ class _MissingInfoPromptsState extends State<_MissingInfoPrompts> {
   @override
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
+    final online = context.watch<prefs.OnlineSettings>();
     final album = lib.albumByKey(widget.albumKey);
     if (album == null) return const SizedBox.shrink();
     final tracks = album.tracks;
@@ -237,15 +239,15 @@ class _MissingInfoPromptsState extends State<_MissingInfoPrompts> {
     // Each entry is (what's missing, icon, message, button label). Cover lookups and detail lookups
     // have their own on/off switches in Settings > Online lookups.
     final missing = <(_Missing, IconData, String, String)>[
-      if (lib.onlineCovers && tracks.every((t) => t.art == null))
+      if (online.onlineCovers && tracks.every((t) => t.art == null))
         (_Missing.cover, Icons.image_search, 'This album has no cover. Look for one online?', 'Find cover'),
-      if (lib.onlineDetails && album.artist == 'Unknown Artist')
+      if (online.onlineDetails && album.artist == 'Unknown Artist')
         (_Missing.artist, Icons.person_search, 'The artist is unknown. Look it up online?', 'Find artist'),
-      if (lib.onlineDetails && tracks.every((t) => t.year == null))
+      if (online.onlineDetails && tracks.every((t) => t.year == null))
         (_Missing.year, Icons.event, 'This album has no year. Look it up online?', 'Find year'),
-      if (lib.onlineDetails && tracks.every((t) => t.genre == null))
+      if (online.onlineDetails && tracks.every((t) => t.genre == null))
         (_Missing.genre, Icons.category_outlined, 'This album has no genre. Look it up online?', 'Find genre'),
-      if (lib.onlineDetails && noTrackNumbers > 0)
+      if (online.onlineDetails && noTrackNumbers > 0)
         (
           _Missing.trackNumbers,
           Icons.format_list_numbered,

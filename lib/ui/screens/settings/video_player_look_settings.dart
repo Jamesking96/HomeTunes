@@ -11,6 +11,7 @@ import '../../theme.dart';
 import '../../widgets/video_controls_look.dart';
 import 'appearance_settings.dart' show showColourPicker, PickerMode;
 import 'settings_widgets.dart';
+import '../../../state/settings/settings_groups.dart' as prefs;
 
 /// The colour choices offered as chips; anything else is "Your own".
 const _buttonColours = [('white', 'White'), ('accent', 'Theme highlight'), ('black', 'Black')];
@@ -28,8 +29,9 @@ class _VideoPlayerLookSettingsState extends State<VideoPlayerLookSettings> {
 
   @override
   Widget build(BuildContext context) {
-    final lib = context.watch<LibraryModel>();
-    final look = lib.videoPlayerLook;
+    final lib = context.read<LibraryModel>();
+    final appearance = context.watch<prefs.AppearanceSettings>();
+    final look = appearance.videoPlayerLook;
     final accent = AppColors.accent;
     void set(VideoPlayerLook l) => lib.setVideoPlayerLook(l);
     final dim = TextStyle(color: AppColors.textDim, fontSize: 12);
