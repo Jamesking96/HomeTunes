@@ -26,7 +26,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/cards.dart' show EmptyState;
 import '../widgets/escape_cancels.dart';
-import '../widgets/music_filter_sheet.dart' show MusicFilterBar, showMusicFilterSheet, reverseGroupsIf;
+import '../widgets/filter_sheet.dart' show FilterBar, showFilterSheet, reverseGroupsIf;
 import 'video_collection_screen.dart';
 import 'video_pictures.dart';
 
@@ -135,7 +135,7 @@ class _CollectionGrid extends StatefulWidget {
 class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliveClientMixin {
   final _search = TextEditingController();
   String _query = '';
-  MusicFilters _only = MusicFilters.none;
+  Filters _only = Filters.none;
   CollectionSort _sort = CollectionSort.category;
 
   /// The other way round from the sort's usual direction (0.1.69).
@@ -239,13 +239,13 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
           ),
         ))
       else
-      MusicFilterBar<CollectionSort>(
+      FilterBar<CollectionSort>(
         controller: _search,
         hint: 'Filter by name, category, genre or year',
         onChanged: (v) => setState(() => _query = v),
         filtersActive: !_only.isEmpty,
         onFilter: () async {
-          final picked = await showMusicFilterSheet<VideoCollection>(context,
+          final picked = await showFilterSheet<VideoCollection>(context,
               items: all, fields: collectionFilterFields, current: _only, showLabel: 'Show collections');
           if (picked != null && mounted) setState(() => _only = picked);
         },
@@ -321,8 +321,8 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
 
 /// The filters in use, as chips: tap × to remove one.
 class _FilterChips extends StatelessWidget {
-  final MusicFilters filters;
-  final ValueChanged<MusicFilters> onChanged;
+  final Filters filters;
+  final ValueChanged<Filters> onChanged;
   const _FilterChips({required this.filters, required this.onChanged});
 
   @override
@@ -345,7 +345,7 @@ class _FilterChips extends StatelessWidget {
               ),
             ),
           if (filters.picked.length > 1)
-            TextButton(onPressed: () => onChanged(MusicFilters.none), child: const Text('Clear filters')),
+            TextButton(onPressed: () => onChanged(Filters.none), child: const Text('Clear filters')),
         ],
       ),
     );
@@ -370,7 +370,7 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
   String _query = '';
 
   /// One category / collection / genre / decade / length / picture / file type to show.
-  MusicFilters _only = MusicFilters.none;
+  Filters _only = Filters.none;
 
   /// Ticked videos (select mode is on while this isn't empty).
   final Set<String> _selected = {};
@@ -385,7 +385,7 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
   }
 
   Future<void> _chooseFilters(List<VideoItem> videos) async {
-    final picked = await showMusicFilterSheet<VideoItem>(
+    final picked = await showFilterSheet<VideoItem>(
       context,
       items: videos,
       fields: videoFilterFields,
@@ -435,7 +435,7 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
           onSelectAll: () => setState(() => _selected.addAll(shownIds)),
         )
       else
-        MusicFilterBar<VideoSort>(
+        FilterBar<VideoSort>(
           controller: _search,
           hint: 'Filter by title, collection, genre or year',
           onChanged: (v) => setState(() => _query = v),
@@ -486,7 +486,7 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
                         ),
                       ),
                     if (_only.picked.length > 1)
-                      TextButton(onPressed: () => setState(() => _only = MusicFilters.none), child: const Text('Clear filters')),
+                      TextButton(onPressed: () => setState(() => _only = Filters.none), child: const Text('Clear filters')),
                   ],
                 ),
               ),

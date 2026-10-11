@@ -57,16 +57,16 @@ void main() {
 
   group('filters', () {
     test('albums by artist, genre and decade', () {
-      final jazz = const MusicFilters({'Genre': 'Jazz'});
+      final jazz = const Filters({'Genre': 'Jazz'});
       expect([for (final a in albums) if (jazz.matches(a, albumFields)) a.title], ['Kind of Blue']);
-      final sixties = const MusicFilters({'Decade': '1960s'});
+      final sixties = const Filters({'Decade': '1960s'});
       expect([for (final a in albums) if (sixties.matches(a, albumFields)) a.title], ['Help!']);
-      final both = const MusicFilters({'Decade': '1960s', 'Genre': 'Jazz'});
+      final both = const Filters({'Decade': '1960s', 'Genre': 'Jazz'});
       expect(albums.where((a) => both.matches(a, albumFields)), isEmpty);
     });
 
     test('choices are narrowed by the other picks, not by their own', () {
-      final f = const MusicFilters({'Genre': 'Jazz'});
+      final f = const Filters({'Genre': 'Jazz'});
       final genre = albumFields.firstWhere((x) => x.label == 'Genre');
       final artist = albumFields.firstWhere((x) => x.label == 'Artist');
       // Genre choices ignore the genre pick itself…
@@ -76,7 +76,7 @@ void main() {
     });
 
     test('songs by album; decades come from years, none without one', () {
-      final f = const MusicFilters({'Album': 'Help!'});
+      final f = const Filters({'Album': 'Help!'});
       expect([for (final s in songs) if (f.matches(s, songFields)) s.title], ['Yesterday', 'Help!']);
       expect(decadeOf(1983), '1980s');
       expect(decadeOf(null), isNull);
@@ -84,7 +84,7 @@ void main() {
     });
 
     test('withValue sets and removes a pick', () {
-      final f = MusicFilters.none.withValue('Genre', 'Rock');
+      final f = Filters.none.withValue('Genre', 'Rock');
       expect(f.picked, {'Genre': 'Rock'});
       expect(f.withValue('Genre', null).isEmpty, isTrue);
     });

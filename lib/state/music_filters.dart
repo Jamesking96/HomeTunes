@@ -1,85 +1,16 @@
-// Sorting, filtering and title search for the Artists, Albums and Songs tabs in Your Library.
+// Sorting and filtering for the Artists, Albums and Songs tabs in Your Library.
 //
 // HomeTunes (0.1.18): these tabs work like the Books tab. Each has a box to filter by title
 // (every typed word must appear in the title, in any order), a filter sheet to show only one
 // artist / album / genre / decade, and a sort menu. Like book_index.dart, this file has no
 // Flutter in it so it's easy to unit test; the tabs live in ui/screens/library_screen.dart.
+// How a filter is described (FilterField, Filters, the title search) is shared with the Books
+// and Videos tabs and lives in filters.dart (refactor phase 12), exported from here as before.
 import '../models/track.dart';
+import 'filters.dart';
 import 'library_index.dart';
 
-// ---------------------------------------------------------------- title search
-
-/// Splits what was typed into lower-case words.
-List<String> filterWords(String query) =>
-    query.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-
-/// True when every word of [query] appears in [title] (ignoring case). A blank query matches all.
-bool titleMatches(String title, String query) {
-  final words = filterWords(query);
-  if (words.isEmpty) return true;
-  final t = title.toLowerCase();
-  return words.every(t.contains);
-}
-
-// ---------------------------------------------------------------- filters
-
-/// "1990s" for 1994; null when there's no (sensible) year.
-String? decadeOf(int? year) => year == null || year <= 0 ? null : '${year ~/ 10 * 10}s';
-
-/// One thing the filter sheet can narrow by, e.g. "Genre". [values] gives the choices an item
-/// has (an album can have songs in several genres, so it's a list).
-class FilterField<T> {
-  final String label;
-  final Iterable<String> Function(T item) values;
-
-  /// The order the choices are listed in, when A–Z doesn't fit (e.g. lengths shortest first;
-  /// the Videos tab, 0.1.40). Null: A–Z.
-  final int Function(String a, String b)? order;
-  const FilterField(this.label, this.values, {this.order});
-}
-
-/// The choices picked in a filter sheet, by field label (e.g. {"Genre": "Jazz"}).
-class MusicFilters {
-  final Map<String, String> picked;
-  const MusicFilters([this.picked = const {}]);
-
-  /// Nothing picked: everything shows.
-  static const none = MusicFilters();
-
-  bool get isEmpty => picked.isEmpty;
-
-  /// True when [item] has every picked value. [skip] leaves one field out (used so each
-  /// dropdown's choices are narrowed by the other picks but not by itself).
-  bool matches<T>(T item, List<FilterField<T>> fields, {String? skip}) {
-    for (final f in fields) {
-      if (f.label == skip) continue;
-      final want = picked[f.label];
-      if (want != null && !f.values(item).contains(want)) return false;
-    }
-    return true;
-  }
-
-  /// A copy with [label] set to [value], or removed when [value] is null.
-  MusicFilters withValue(String label, String? value) {
-    final next = {...picked};
-    value == null ? next.remove(label) : next[label] = value;
-    return MusicFilters(next);
-  }
-
-  /// The choices for [field] among [items] (narrowed by the other picks), with how many
-  /// items have each, sorted A–Z (decades oldest first).
-  Map<String, int> choices<T>(Iterable<T> items, List<FilterField<T>> fields, FilterField<T> field) {
-    final counts = <String, int>{};
-    for (final i in items) {
-      if (!matches(i, fields, skip: field.label)) continue;
-      for (final v in field.values(i).toSet()) {
-        if (v.isNotEmpty) counts[v] = (counts[v] ?? 0) + 1;
-      }
-    }
-    final keys = counts.keys.toList()..sort(field.order ?? (a, b) => sortKey(a).compareTo(sortKey(b)));
-    return {for (final k in keys) k: counts[k]!};
-  }
-}
+export 'filters.dart';
 
 /// Genres of a song (none when it has no genre).
 Iterable<String> _genres(Track t) => [if (t.genre != null && t.genre!.trim().isNotEmpty) t.genre!.trim()];

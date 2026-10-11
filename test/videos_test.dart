@@ -193,18 +193,18 @@ void main() {
         sized('clip.webm', d: const Duration(minutes: 3)),
       ];
       FilterField<VideoItem> field(String label) => videoFilterFields.firstWhere((f) => f.label == label);
-      expect(MusicFilters.none.choices(list, videoFilterFields, field('Length')).keys,
+      expect(Filters.none.choices(list, videoFilterFields, field('Length')).keys,
           ['Under 10 minutes', '30–60 minutes', 'Over 2 hours']);
-      expect(MusicFilters.none.choices(list, videoFilterFields, field('Picture')), {'4K': 1, '1080p': 1, '720p': 1});
-      expect(MusicFilters.none.choices(list, videoFilterFields, field('Decade')).keys, ['1990s', '2000s', '2010s']);
-      expect(MusicFilters.none.choices(list, videoFilterFields, field('File type')).keys.toSet(), {'MKV', 'MP4', 'WEBM'});
+      expect(Filters.none.choices(list, videoFilterFields, field('Picture')), {'4K': 1, '1080p': 1, '720p': 1});
+      expect(Filters.none.choices(list, videoFilterFields, field('Decade')).keys, ['1990s', '2000s', '2010s']);
+      expect(Filters.none.choices(list, videoFilterFields, field('File type')).keys.toSet(), {'MKV', 'MP4', 'WEBM'});
 
-      final comedy = const MusicFilters().withValue('Genre', 'Comedy');
+      final comedy = const Filters().withValue('Genre', 'Comedy');
       expect(filterVideos(list, comedy).map((v) => v.title), ['ep1.mkv', 'ep2.mkv']);
       expect(comedy.choices(list, videoFilterFields, field('Collection')), {'Show': 2});
       final both = comedy.withValue('Picture', '720p');
       expect(filterVideos(list, both).single.title, 'ep2.mkv');
-      expect(filterVideos(list, MusicFilters.none), hasLength(4));
+      expect(filterVideos(list, Filters.none), hasLength(4));
     });
   });
 
@@ -654,7 +654,7 @@ void main() {
       expect(sortCollections(list, CollectionSort.mostVideos).single.$2.first.name, 'South Park');
       expect(sortCollections(list, CollectionSort.year).single.$2.first.name, 'Naruto');
       expect(searchCollections(list, 'tv 1997').single.name, 'South Park');
-      expect(MusicFilters.none.withValue('Category', 'TV').choices(list, collectionFilterFields, collectionFilterFields.first),
+      expect(Filters.none.withValue('Category', 'TV').choices(list, collectionFilterFields, collectionFilterFields.first),
           {'Anime': 1, 'TV': 2});
     });
   });
