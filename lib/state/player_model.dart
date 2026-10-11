@@ -8,6 +8,8 @@
 // - Book mode: while an audiobook plays, the queue holds the book's files, the place is saved
 //   regularly (ListeningModel), and any music queue waits in _music until "Back to music".
 // - It implements SleepTarget so the sleep timer can read the position and pause it.
+// Refactor phase 11 (9 Oct 2026): the audiobook methods, the queue buttons and the stall check are
+// extensions in player_model/ (part files of this library, so they use its private names).
 import 'dart:async';
 import 'dart:math';
 
@@ -28,6 +30,9 @@ import 'listening_model.dart';
 import 'play_queue.dart';
 import 'playback_guard.dart';
 import 'sleep_timer.dart';
+part 'player_model/books.dart';
+part 'player_model/queue_actions.dart';
+part 'player_model/stall_check.dart';
 
 /// The music queue, kept aside while an audiobook plays.
 // A snapshot of the queue (songs, place, shuffle/repeat, label) so it can be put back exactly.
@@ -271,13 +276,6 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     _leaveBook();
     queue.setTracks(tracks, start: start, shuffle: shuffle, label: label);
     await _openCurrent();
-  }
-
-  /// Plays everything shuffled.
-  Future<void> shufflePlay(List<Track> tracks, {String? label}) {
-    if (tracks.isEmpty) return Future.value();
-    final start = Random().nextInt(tracks.length);
-    return playTracks(tracks, start: start, shuffle: true, label: label);
   }
 
   /// Opens the queue's current song in the engine (with the next one loaded ahead) and plays it.
@@ -550,51 +548,9 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     return _player.pause();
   }
 
-  // ---- keeping "playing" honest ----
-
-  /// Called every few seconds: if the screen says playing but the position hasn't moved for a
-  /// while (and it isn't buffering or opening), playback has quietly stopped, for example after
-  /// the phone put the app to sleep. Restart the song where it was; if that doesn't help within
-  /// a minute, pause and say so, rather than pretending to play.
-  Future<void> _checkProgress() async {
-    final stuck = _stall.check(
-      playing: playing,
-      busy: buffering || _opening > 0 || queue.current == null,
-      position: _player.position,
-      now: DateTime.now(),
-    );
-    if (stuck) await _recoverStall();
-  }
-
-  Future<void> _recoverStall() async {
-    final at = _player.position;
-    final now = DateTime.now();
-    final again = _lastRestart != null && now.difference(_lastRestart!) < const Duration(minutes: 1);
-    if (again) {
-      PlaybackLog.add('Still not moving after restarting: showing paused');
-      pausedOnPurpose = true;
-      lastError = 'Playback stopped by itself. Press play to carry on.';
-      await _player.pause();
-      notifyListeners();
-      return;
-    }
-    _lastRestart = now;
-    PlaybackLog.add('Playing, but stuck at ${at.inSeconds} s: restarting the song there');
-    _stall.reset();
-    await _openCurrent(startAt: at);
-  }
-
-  /// When the app comes back to the screen: check playback really is moving (it may have been
-  /// stopped while the app was asleep).
-  Future<void> checkAfterResume() async {
-    if (!playing) return;
-    final before = _player.position;
-    await Future<void>.delayed(const Duration(seconds: 3));
-    if (playing && !buffering && _opening == 0 && queue.current != null && _player.position == before) {
-      PlaybackLog.add('Back on screen, but playback isn\'t moving');
-      await _recoverStall();
-    }
-  }
+  // ---- the buttons ----
+  // (Keeping "playing" honest is in player_model/stall_check.dart; the queue buttons and menus in
+  // player_model/queue_actions.dart, refactor phase 11.)
 
   /// A swipe on the player (touch screens): left = next song, or skip forward in a book;
   /// right = previous song, or skip back in a book (by the Settings > Audiobooks lengths).
@@ -668,70 +624,9 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// then catches up with the latest. A refused filter is shown on the Equaliser screen.)
   Future<void> _applyEqualizer() => _eq.update();
 
-  void toggleShuffle() {
-    if (book != null) return; // books always play in order
-    queue.setShuffle(!queue.shuffle);
-    notifyListeners();
-    _syncLoadedAhead();
-  }
-
-  /// Off → all → one → off. Books don't repeat, so it does nothing during a book.
-  void cycleRepeat() {
-    if (book != null) return;
-    queue.cycleRepeat();
-    notifyListeners();
-    _syncLoadedAhead();
-  }
-
-  /// Plays the song at [queueIndex] (tapping a song in the queue list).
-  Future<void> jumpTo(int queueIndex) async {
-    queue.jumpTo(queueIndex);
-    await _openCurrent();
-  }
-
-  /// "Play next": puts [t] straight after the current song. If nothing was playing, it starts.
-  Future<void> playNext(Track t) async {
-    if (book != null) {
-      // Goes into the waiting music queue; the book keeps playing.
-      _addToWaitingMusic(t, next: true);
-      return;
-    }
-    final wasEmpty = queue.isEmpty;
-    queue.playNext(t);
-    if (wasEmpty) await _openCurrent();
-    notifyListeners();
-    // The song loaded ahead in the engine is now probably wrong, so fix it up.
-    await _syncLoadedAhead();
-  }
-
-  /// "Add to queue": puts [t] at the end. If nothing was playing, it starts.
-  Future<void> addToQueue(Track t) async {
-    if (book != null) {
-      _addToWaitingMusic(t, next: false);
-      return;
-    }
-    final wasEmpty = queue.isEmpty;
-    queue.add(t);
-    if (wasEmpty) await _openCurrent();
-    notifyListeners();
-    await _syncLoadedAhead();
-  }
-
-  /// Removes song [i] from "Up next" (after that, the engine's preloaded song is re-checked).
-  void removeUpcoming(int i) {
-    queue.removeUpcoming(i);
-    notifyListeners();
-    _syncLoadedAhead();
-  }
-
-  /// Drag-to-reorder in "Up next".
-  void moveUpcoming(int from, int to) {
-    queue.moveUpcoming(from, to);
-    notifyListeners();
-    _syncLoadedAhead();
-  }
-
   // ---- audiobooks ----
+  // (Playing a book, the waiting music, skipping, chapters and speed are in player_model/books.dart,
+  // refactor phase 11; what the sleep timer reads stays here.)
 
   /// True while an audiobook (rather than music) is playing.
   @override
@@ -748,56 +643,6 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     return const Duration(seconds: 30);
   }
 
-  /// Plays [b] from where the listener left off, or from [partIndex]/[at] if
-  /// given (e.g. a chapter), or from the start with [fromStart].
-  Future<void> playBook(Book b, {bool fromStart = false, int? partIndex, Duration? at}) async {
-    if (b.parts.isEmpty) return;
-    // 1. Put away what was playing: save the old book's place, or park the music queue
-    //    (songs, place, shuffle, repeat) so "Back to music" can bring it back.
-    if (book != null) {
-      saveBookPlace();
-    } else if (!queue.isEmpty) {
-      _music = _MusicQueue(
-        queue.tracks,
-        queue.originalTracks,
-        queue.position,
-        _player.position,
-        queue.shuffle,
-        queue.repeat,
-        queue.contextLabel,
-      );
-    }
-
-    // 2. Work out where to start: a chosen file/position, or the saved place, or the start.
-    var index = 0;
-    var position = Duration.zero;
-    if (partIndex != null) {
-      index = partIndex.clamp(0, b.parts.length - 1);
-      position = at ?? Duration.zero;
-    } else if (!fromStart) {
-      final saved = listening?.progressFor(b);
-      if (saved != null && !saved.finished) {
-        final i = b.indexOfPart(saved.partId);
-        if (i >= 0) {
-          index = i;
-          // Go back a little when resuming (if that setting is on), more after a longer break.
-          final since = Duration(milliseconds: DateTime.now().millisecondsSinceEpoch - saved.updatedMs);
-          position = library.settings.listening.rewindOnResume ? saved.position - resumeRewind(since) : saved.position;
-          if (position.isNegative) position = Duration.zero;
-        }
-      }
-    }
-
-    // 3. Switch into book mode: the queue becomes the book's files, in order, with no repeat.
-    _setBook(b);
-    queue.setTracks(b.parts, start: index, shuffle: false, label: 'Book · ${b.title}');
-    queue.repeat = RepeatSetting.off;
-    // 4. Save the starting place, set the book's own speed, and start playing.
-    await listening?.record(b, b.parts[index].id, position);
-    await _applySpeed(listening?.speedFor(b) ?? library.settings.listening.defaultBookSpeed);
-    await _openCurrent(startAt: position);
-  }
-
   /// Saves the place in the playing book (every 10 s, on pause, when the app
   /// goes to the background, and before switching away).
   @override
@@ -808,55 +653,6 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     if (b == null || t == null || _opening > 0) return;
     listening?.record(b, t.id, _player.position);
   }
-
-  /// Stops being in book mode (music was chosen). The waiting music queue is
-  /// dropped because new music replaces it, but its shuffle/repeat are kept.
-  void _leaveBook() {
-    if (book == null) return;
-    saveBookPlace();
-    _setBook(null);
-    _applySpeed(1.0);
-    final m = _music;
-    if (m != null) {
-      queue.shuffle = m.shuffle;
-      queue.repeat = m.repeat;
-    }
-    _music = null;
-  }
-
-  /// "Play next" / "Add to queue" while a book plays: the song joins the waiting music queue
-  /// instead of interrupting the book. [next] puts it after the song that was playing.
-  void _addToWaitingMusic(Track t, {required bool next}) {
-    final m = _music;
-    if (m == null || m.tracks.isEmpty) {
-      _music = _MusicQueue([t], [t], 0, Duration.zero, queue.shuffle, RepeatSetting.off, null);
-    } else {
-      final list = List.of(m.tracks);
-      list.insert(next ? m.index + 1 : list.length, t);
-      // Same place in the original order: after the song that was playing, or at the end.
-      final original = List.of(m.original);
-      final at = next ? original.indexOf(m.tracks[m.index]) + 1 : original.length;
-      original.insert(at.clamp(0, original.length), t);
-      _music = _MusicQueue(list, original, m.index, m.position, m.shuffle, m.repeat, m.label);
-    }
-    notifyListeners();
-  }
-
-  /// Leaves the book (its place is saved) and goes back to the music queue.
-  Future<void> resumeMusic() async {
-    final m = _music;
-    if (book == null || m == null) return;
-    saveBookPlace();
-    _setBook(null);
-    await _applySpeed(1.0);
-    _music = null;
-    // Put the queue back exactly: play order, original order (for turning shuffle off later),
-    // place, shuffle and repeat.
-    queue.restore(m.tracks, m.original, position: m.index, shuffle: m.shuffle, repeat: m.repeat, label: m.label);
-    await _openCurrent(startAt: m.position);
-  }
-
-  // ---- skipping, chapters and speed ----
 
   /// Time from the start of the playing book to where we are.
   @override
@@ -886,51 +682,12 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     return found;
   }
 
-  /// The chapter playing now, or null for music.
-  BookChapter? get currentChapter {
-    final i = currentChapterIndex;
-    return i < 0 ? null : _chapters[i];
-  }
-
   /// Where chapter [i] ends, from the start of the book.
   @override
   Duration chapterEnd(int i) {
     final b = book;
     if (b == null || i < 0) return Duration.zero;
     return i + 1 < _chapters.length ? _chapters[i + 1].offset : b.duration;
-  }
-
-  /// Goes to [at] in file [part] of the queue (same file: just seeks).
-  Future<void> _goTo(int part, Duration at) async {
-    if (at.isNegative) at = Duration.zero;
-    // Same file: a plain seek. Another file: open that file at the right spot.
-    if (part == queue.position) {
-      await _player.seek(at);
-      notifyListeners();
-    } else {
-      queue.jumpTo(part);
-      await _openCurrent(startAt: at);
-    }
-    // Save the new place straight away, so a jump isn't lost if the app closes.
-    final b = book;
-    final t = queue.current;
-    if (b != null && t != null) await listening?.record(b, t.id, at);
-  }
-
-  /// Jumps back or forward by [delta]. In a book this carries on into the
-  /// previous / next file.
-  Future<void> skipBy(Duration delta) async {
-    final t = current;
-    if (t == null) return;
-    final b = book;
-    // The engine's length is best for the file that's open; the others use their tagged length.
-    final length = duration > Duration.zero ? duration : t.duration;
-    final lengths = b == null
-        ? [length]
-        : [for (var i = 0; i < b.parts.length; i++) i == queue.position ? length : b.parts[i].duration];
-    final target = skipTarget(lengths, b == null ? 0 : queue.position, position, delta);
-    if (target == null) return next(); // past the end of a song: next song
-    await _goTo(b == null ? queue.position : target.$1, target.$2);
   }
 
   /// Where a skip of [delta] from [position] in file [part] lands, given the
@@ -960,54 +717,13 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     return (part, target);
   }
 
-  // The skip amounts come from Settings → Audiobooks (15 s back and 30 s forward by default).
-  Future<void> skipBack() => skipBy(-Duration(seconds: library.settings.listening.skipBackSeconds));
-  Future<void> skipForward() => skipBy(Duration(seconds: library.settings.listening.skipForwardSeconds));
-
-  /// Goes to [at] in file [part] of the playing book (e.g. a bookmark).
-  Future<void> goToPart(int part, Duration at) => _goTo(part, at);
-
-  /// Jumps to the start of chapter [i] of the playing book.
-  Future<void> goToChapter(int i) async {
-    if (i < 0 || i >= _chapters.length) return;
-    await _goTo(_chapters[i].part, _chapters[i].start);
-  }
-
-  /// Jumps to the start of the next chapter (does nothing in the last one).
-  Future<void> nextChapter() async {
-    final i = currentChapterIndex;
-    if (i < 0 || i + 1 >= _chapters.length) return;
-    final c = _chapters[i + 1];
-    await _goTo(c.part, c.start);
-  }
-
-  /// Back to the start of this chapter, or to the previous one if we're
-  /// within 3 seconds of the start.
-  Future<void> previousChapter() async {
-    final i = currentChapterIndex;
-    if (i < 0) return;
-    final c = _chapters[i];
-    final into = bookOffset - c.offset;
-    final target = (into > const Duration(seconds: 3) || i == 0) ? c : _chapters[i - 1];
-    await _goTo(target.part, target.start);
-  }
-
   /// The speeds offered in the speed menu.
   static const speeds = [0.75, 0.9, 1.0, 1.1, 1.2, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5];
 
-  // Sets the engine's speed without remembering it for the book.
-  Future<void> _applySpeed(double s) async {
-    speed = s;
-    await _player.setRate(s);
-  }
 
-  /// Changes the speed; for a book it's remembered for that book.
-  Future<void> setSpeed(double s) async {
-    await _applySpeed(s);
-    final b = book;
-    if (b != null) await listening?.setSpeed(b, s);
-    notifyListeners();
-  }
+  /// Tells the watchers something changed. For the methods in player_model/*.dart (extensions
+  /// can't call notifyListeners, which only the class itself may use).
+  void _changed() => notifyListeners();
 
   @override
   void dispose() {
