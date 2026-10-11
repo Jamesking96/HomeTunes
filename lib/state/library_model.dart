@@ -1,12 +1,16 @@
 // The heart of the app: the library, the user's edits and (almost) all the settings.
 //
 // LibraryModel loads and saves settings.json, library.json and edits.json. It runs folder scans
-// and server syncs (one at a time, see _enqueue), then `_rebuild()` works out everything the
+// and server syncs (one at a time, see _enqueue in library_model/scanning.dart), then `_rebuild()` works out everything the
 // screens show: edits applied on top of the files' own details, each file sorted into music or
-// audiobook (BookRules), and the albums, artists and books built from them. Almost every screen
-// watches it. The other models (playlists, listening, bookmarks) are told through callbacks set
+// audiobook (BookRules), and the albums, artists and books built from them. Most screens
+// watch it. The other models (playlists, listening, bookmarks) are told through callbacks set
 // in main.dart when files move or are forgotten, so they can follow. It also holds helpers for
 // covers, backups, writing edits into the files, and turning a song into something playable.
+// Refactor phase 10 (9 Oct 2026): the methods for pictures and series, folders, scanning, the server,
+// and backup / writing edits are extensions in library_model/ (part files of this library, so
+// they use its private names); its fields stay here. Settings changes other than folders and the
+// server don't reach LibraryModel's watchers (phase 9): watch the settings group instead.
 import 'dart:async';
 import 'dart:io';
 
@@ -41,6 +45,11 @@ export 'settings/settings_groups.dart' show ReplayGainMode;
 // What writing edits into files reports, for Settings › Your edits (refactor phase 7: screens don't
 // import the tag writer itself).
 export '../services/tag_writer.dart' show TagWriteResult;
+part 'library_model/pictures.dart';
+part 'library_model/folders.dart';
+part 'library_model/scanning.dart';
+part 'library_model/server.dart';
+part 'library_model/backup.dart';
 
 /// Where a picture comes from: a file on disk, or (for the server's covers) its address. The
 /// screens turn it into an image (ui/widgets/library_images.dart, refactor phase 3).
@@ -77,6 +86,10 @@ class LibraryModel extends ChangeNotifier {
   void _onSettingsChanged() {
     if (!_quietSettings) notifyListeners();
   }
+
+  /// Tells whoever watches the library that it changed. For the methods in library_model/*.dart
+  /// (extensions can't call notifyListeners, which only the class itself may use).
+  void _changed() => notifyListeners();
 
   // ---- settings ----
   // Every setting lives in [settings] (state/settings/settings_groups.dart: one group per part of
@@ -376,15 +389,6 @@ class LibraryModel extends ChangeNotifier {
 
   Future<void> setOnlineVideoArt(bool on) => settings.online.setOnlineVideoArt(on);
 
-  /// Shows or leaves out the audiobooks found on the music server.
-  Future<void> setServerBooks(bool on) async {
-    serverBooks = on;
-    // Changes which files go on the Books tab, so everything has to be rebuilt.
-    _rebuild();
-    notifyListeners();
-    await _saveSettings();
-  }
-
   Future<void> setOnlineCovers(bool on) => settings.online.setOnlineCovers(on);
 
   /// Writes the scanned/synced songs (and the missing ones being kept) to library.json.
@@ -460,30 +464,6 @@ class LibraryModel extends ChangeNotifier {
 
   // ---- audiobooks ----
 
-  /// Adds a folder where everything is an audiobook, and scans it.
-  Future<void> addAudiobookFolder(String path) async {
-    if (audiobookFolders.contains(path)) return;
-    audiobookFolders = [...audiobookFolders, path];
-    await _saveSettings();
-    notifyListeners();
-    await scanLocal();
-  }
-
-  /// Stops scanning an audiobook folder. The rescan drops its files from the library.
-  Future<void> removeAudiobookFolder(String path) async {
-    audiobookFolders = audiobookFolders.where((f) => f != path).toList();
-    hiddenFormats = {...hiddenFormats}..remove(path);
-    await _saveSettings();
-    await scanLocal();
-  }
-
-  /// Sets which genres count as audiobooks (blank entries are dropped).
-  Future<void> setBookGenres(List<String> genres) async {
-    bookGenres = [for (final g in genres) if (g.trim().isNotEmpty) g.trim()];
-    await _saveSettings();
-    _rebuild();
-  }
-
   /// The titles offered for special seasons (0.1.66): blank ones and repeats (any case) dropped,
   /// order kept.
   Future<void> setSpecialSeasonTitles(List<String> titles) => settings.video.setSpecialSeasonTitles(titles);
@@ -521,184 +501,6 @@ class LibraryModel extends ChangeNotifier {
 
   /// Your Library › Artists: grid (true) or list (false) (0.1.52).
   Future<void> setArtistsGrid(bool on) => settings.layout.setArtistsGrid(on);
-
-  /// The track whose cover an artist shows: the album chosen with "Use an album cover", else
-  /// their first album's (0.1.53).
-  Track? artistAlbumArt(Artist a) {
-    final pick = artistPictures[a.name];
-    if (pick != null && pick.startsWith(artistAlbumPrefix)) {
-      final key = pick.substring(artistAlbumPrefix.length);
-      final album = a.albums.where((x) => x.key == key).firstOrNull;
-      if (album != null) return album.artTrack;
-    }
-    return a.albums.isEmpty ? null : a.albums.first.artTrack;
-  }
-
-  /// The artist's own picture file (Choose an image file…), if one was chosen and it's still
-  /// in HomeTunes' art folder; else null (0.1.53).
-  String? artistPictureFile(Artist a) {
-    final pick = artistPictures[a.name];
-    if (pick == null || pick.startsWith(artistAlbumPrefix)) return null;
-    return isInsideAny(pick, [storage.artDir]) ? pick : null;
-  }
-
-  /// Where the picture to draw for an artist comes from: their own file, the chosen album cover,
-  /// or the first album's cover (the screens use LibraryImages.artistImage).
-  PictureSource? artistSource(Artist a, {int size = 512}) {
-    final file = artistPictureFile(a);
-    if (file != null) return (file: file, url: null);
-    return coverSource(artistAlbumArt(a), size: size);
-  }
-  bool hasArtistPicture(Artist a) => artistPictures.containsKey(a.name);
-
-  /// Sets an artist's picture (0.1.53): [file] (already copied in with [importCover] /
-  /// [importCoverBytes]), or [album] (one of their albums), or neither to go back to automatic.
-  Future<void> setArtistPicture(Artist a, {String? file, Album? album}) async {
-    if (file != null) {
-      artistPictures[a.name] = file;
-    } else if (album != null) {
-      artistPictures[a.name] = '$artistAlbumPrefix${album.key}';
-    } else {
-      artistPictures.remove(a.name);
-    }
-    picturesChanged();
-    notifyListeners();
-    await _saveSettings();
-    await _removeUnusedCustomArt();
-  }
-
-  // ---- audiobook series (0.1.76, Edit series) ----
-
-  /// The series' own description, if one was written.
-  String? seriesDescription(String name) => seriesInfo[name]?['description'];
-
-  /// Whether a picture was chosen for the series.
-  bool hasSeriesPicture(String name) => seriesInfo[name]?['picture'] != null;
-
-  /// The series' own picture file (Choose an image file…), if it's still in HomeTunes' art
-  /// folder; else null.
-  String? seriesPictureFile(String name) {
-    final pick = seriesInfo[name]?['picture'];
-    if (pick == null || pick.startsWith(seriesBookPrefix)) return null;
-    return isInsideAny(pick, [storage.artDir]) ? pick : null;
-  }
-
-  /// The book whose cover the series shows: the one picked, else its first book with a cover.
-  Book seriesCoverBook(BookSeries s) {
-    final pick = seriesInfo[s.name]?['picture'];
-    if (pick != null && pick.startsWith(seriesBookPrefix)) {
-      final id = pick.substring(seriesBookPrefix.length);
-      final b = s.books.where((b) => b.id == id).firstOrNull;
-      if (b != null) return b;
-    }
-    return s.coverBook;
-  }
-
-  void _setSeriesField(String name, String key, String? value) {
-    final m = {...?seriesInfo[name]};
-    if (value == null || value.isEmpty) {
-      m.remove(key);
-    } else {
-      m[key] = value;
-    }
-    if (m.isEmpty) {
-      seriesInfo.remove(name);
-    } else {
-      seriesInfo[name] = m;
-    }
-  }
-
-  /// Sets a series' picture: [file] (already copied in with [importCover]), or [book] (one of
-  /// its books' covers), or neither to go back to the first book's cover.
-  Future<void> setSeriesPicture(String name, {String? file, Book? book}) async {
-    _setSeriesField(name, 'picture', file ?? (book == null ? null : '$seriesBookPrefix${book.id}'));
-    picturesChanged();
-    notifyListeners();
-    await _saveSettings();
-    await _removeUnusedCustomArt();
-  }
-
-  /// Sets (or with null or "", removes) a series' description.
-  Future<void> setSeriesDescription(String name, String? text) async {
-    _setSeriesField(name, 'description', text?.trim());
-    notifyListeners();
-    await _saveSettings();
-  }
-
-  /// Changes a whole series at once, saved as edits on its books' files (the files themselves
-  /// aren't changed, like Edit book / Edit collection):
-  ///  * [name]: renames the series on every book; its description, picture and sidebar link
-  ///    follow (its favourite is PlaylistsModel.renameFavouriteSeries);
-  ///  * [author]: the author of every book;
-  ///  * [order]: the books in a new order, numbered 1, 2, 3…;
-  ///  * [add]: books to put in the series, numbered after the last one;
-  ///  * [remove]: books to take out (no series and no number).
-  Future<void> editSeries(
-    BookSeries s, {
-    String? name,
-    String? author,
-    List<Book>? order,
-    List<Book> add = const [],
-    List<Book> remove = const [],
-  }) async {
-    final to = (name == null || name.trim().isEmpty) ? s.name : name.trim();
-    final who = (author == null || author.trim().isEmpty) ? null : author.trim();
-    final out = {for (final b in remove) b.id};
-    final kept = [for (final b in order ?? s.books) if (!out.contains(b.id)) b];
-    final keptIds = {for (final b in kept) b.id};
-    final adding = [for (final b in add) if (!out.contains(b.id) && keptIds.add(b.id)) b];
-
-    // 1. Each book's new series, number and author (only what changes).
-    final changes = <String, TrackEdit>{};
-    void change(Book b, {double? number}) {
-      final e = TrackEdit(
-        series: b.series != to ? to : null,
-        seriesIndex: number != null && number != b.seriesIndex ? number : null,
-        artist: who != null && who != b.author ? who : null,
-        albumArtist: who != null && who != b.author ? who : null,
-      );
-      if (e.isEmpty) return;
-      for (final t in b.parts) {
-        changes[t.id] = e;
-      }
-    }
-
-    for (final (i, b) in kept.indexed) {
-      change(b, number: order == null ? null : (i + 1).toDouble());
-    }
-    var last = order != null
-        ? kept.length.toDouble()
-        : kept.fold<double>(0, (m, b) => (b.seriesIndex ?? 0) > m ? b.seriesIndex! : m);
-    for (final b in adding) {
-      change(b, number: ++last);
-    }
-    for (final b in remove) {
-      for (final t in b.parts) {
-        changes[t.id] = const TrackEdit(series: '', cleared: {'seriesIndex'});
-      }
-    }
-
-    // 2. A new name: the series' details and its sidebar link come along.
-    if (to != s.name) {
-      final info = seriesInfo.remove(s.name);
-      if (info != null) seriesInfo[to] = {...?seriesInfo[to], ...info};
-      final had = isQuickLink(QuickLinkKind.series, s.name);
-      final layout = settings.layout;
-      layout.quickLinks = [
-        for (final l in layout.quickLinks)
-          if (!l.sameAs(QuickLinkKind.series, s.name) && !(had && l.sameAs(QuickLinkKind.series, to))) l
-          else if (l.sameAs(QuickLinkKind.series, s.name)) QuickLink(QuickLinkKind.series, to, to)
-      ];
-      // The sidebar watches the layout settings (refactor phase 9).
-      layout.changed();
-      await _saveSettings();
-    }
-    if (changes.isNotEmpty) {
-      await editTracks(changes);
-    } else {
-      notifyListeners();
-    }
-  }
 
   /// Settings › Appearance › Shrink to fit small windows.
   Future<void> setScaleWithWindow(bool on) => settings.appearance.setScaleWithWindow(on);
@@ -766,201 +568,16 @@ class LibraryModel extends ChangeNotifier {
   /// Changes how the video player's buttons look (Settings › Appearance › Video player).
   Future<void> setVideoPlayerLook(VideoPlayerLook look) => settings.appearance.setVideoPlayerLook(look);
 
-  /// "Move to Books" (true), "Move to Music" (false), or back to automatic (null).
-  Future<void> setIsBook(Iterable<String> trackIds, bool? isBook) async {
-    for (final id in trackIds) {
-      if (isBook == null) {
-        _kindOverrides.remove(id);
-      } else {
-        _kindOverrides[id] = isBook;
-      }
-    }
-    await _saveSettings();
-    _rebuild();
-  }
-
-  // ---- video folders (0.1.40) ----
-
-  /// Adds a folder for the Videos tab. VideoLibraryModel notices and scans it.
-  Future<void> addVideoFolder(String path) async {
-    if (videoFolders.contains(path)) return;
-    videoFolders = [...videoFolders, path];
-    await _saveSettings();
-    _rebuild();
-  }
-
-  /// Stops listing a video folder's videos.
-  Future<void> removeVideoFolder(String path) async {
-    videoFolders = videoFolders.where((f) => f != path).toList();
-    hiddenFormats = {...hiddenFormats}..remove(path);
-    await _saveSettings();
-    _rebuild();
-  }
-
-  /// A song file that's really a video in a video folder (an .mp4 on its own there).
-  bool _isVideoFolderFile(Track t) {
-    final path = t.path;
-    if (videoFolders.isEmpty || !t.isLocal || path == null) return false;
-    return videoExtensions.contains(p.extension(path).toLowerCase()) && videoFolders.any((f) => isInside(path, f));
-  }
-
-  // ---- folders ----
-
-  /// Adds a music folder and scans it.
-  Future<void> addFolder(String path) async {
-    if (folders.contains(path)) return;
-    folders = [...folders, path];
-    await _saveSettings();
-    notifyListeners();
-    await scanLocal();
-  }
-
-  /// Stops scanning a music folder. The rescan drops its songs (or keeps them as "missing" if
-  /// they're in a playlist or have edits).
-  Future<void> removeFolder(String path) async {
-    folders = folders.where((f) => f != path).toList();
-    hiddenFormats = {...hiddenFormats}..remove(path);
-    await _saveSettings();
-    await scanLocal();
-  }
-
-  // ---- one folder's options (Settings › Folders & scanning, 0.1.27) ----
-
-  // File types switched off per folder (folder path → extensions, lower case without the dot,
-  // "wav"): [hiddenFormats], with the folders above. Anything not listed shows, so a type that
-  // turns up later shows until switched off.
+  // ---- folders, scanning and the server ----
+  // Their methods are in library_model/folders.dart, scanning.dart and server.dart (refactor phase
+  // 10); what they keep is here.
 
   /// "flac" for ".../song.FLAC"; "" when there's no extension.
   static String formatOf(String path) => fileFormatOf(path);
 
-  /// The folder whose options apply to a file: the innermost music or audiobook folder that
-  /// holds it (an audiobook folder inside a music folder has its own options).
-  String? ownerFolder(String path) => owningFolder(path, _scanFolders);
-
-  bool _formatHidden(Track t) {
-    final path = t.path;
-    if (!t.isLocal || path == null) return false;
-    final owner = ownerFolder(path);
-    return owner != null && (hiddenFormats[owner]?.contains(formatOf(path)) ?? false);
-  }
-
-  /// The file types found in [folder] at the last scan (switched off ones included), with how
-  /// many files of each, A–Z.
-  Map<String, int> formatsIn(String folder) =>
-      formatCounts([for (final t in _local) ?t.path], folder, _scanFolders);
-
-  /// Whether files of [format] in [folder] are shown.
-  bool formatShown(String folder, String format) => !(hiddenFormats[folder]?.contains(format) ?? false);
-
-  /// Switches one file type in one folder on or off. Takes effect at once (no rescan needed).
-  Future<void> setFormatShown(String folder, String format, bool shown) async {
-    final set = {...?hiddenFormats[folder]};
-    shown ? set.remove(format) : set.add(format);
-    hiddenFormats = {...hiddenFormats};
-    if (set.isEmpty) {
-      hiddenFormats.remove(folder);
-    } else {
-      hiddenFormats[folder] = set.toList()..sort();
-    }
-    _rebuild(); // the screens change at once; the settings file is saved after
-    await _saveSettings();
-  }
-
-  /// Rescans just [folder] (its options window). Songs elsewhere are left as they are.
-  Future<void> scanFolder(String folder) => _enqueue(() async {
-        musicAccess = await checkAccess();
-        if (musicAccess != MusicAccess.allowed) {
-          error = _noAccessMessage;
-          return;
-        }
-        if (!await folderReachable(folder)) {
-          error = 'Can\'t reach $folder right now, so what was found there before is kept.';
-          return;
-        }
-        error = null;
-        final name = p.basename(folder);
-        status = 'Scanning $name…';
-        notifyListeners();
-        _applyPendingDurations();
-        try {
-          final previous = {for (final t in _local) t.id: t};
-          final scanned = await _scanner.scan([folder], previous: previous, onProgress: (done, total) {
-            status = 'Scanning $name: $done / $total';
-          });
-          final found = {for (final t in scanned) t.id};
-          // Everything outside the folder stays; everything inside comes from this scan.
-          _local = [
-            for (final t in _local)
-              if (!found.contains(t.id) && !(t.path != null && isInside(t.path!, folder))) t,
-            ...scanned,
-          ]..sort((a, b) => (a.path ?? '').compareTo(b.path ?? ''));
-          offlineFolders = [for (final f in offlineFolders) if (f != folder) f];
-          await _reconcile(previous);
-          await _saveLibrary();
-          await _scanner.removeUnusedArt(_local);
-          status = null;
-        } catch (e) {
-          status = null;
-          error = 'Scan failed: $e';
-        }
-      });
-
   /// Scans and syncs run one after another, never at the same time.
   Future<void> _jobs = Future.value();
   int _queued = 0;
-
-  /// Runs [work] after any job already running or waiting. Each job is chained onto the
-  /// previous one, so they queue up. The library is rebuilt once each job finishes.
-  Future<void> _enqueue(Future<void> Function() work) {
-    _queued++;
-    final next = _jobs.then((_) async {
-      busy = true;
-      notifyListeners();
-      try {
-        await work();
-      } finally {
-        _queued--;
-        busy = _queued > 0;
-        _rebuild();
-      }
-    });
-    // The chain swallows errors so one failed job doesn't block the ones after it, but the
-    // caller still gets the error through `next`.
-    _jobs = next.catchError((_) {});
-    return next;
-  }
-
-  Future<void> scanLocal() => _enqueue(() async {
-        // Without access the scan would find nothing and wrongly drop every
-        // song from the library, so don't scan at all.
-        musicAccess = await checkAccess();
-        if (musicAccess != MusicAccess.allowed && _scanFolders.isNotEmpty) {
-          error = _noAccessMessage;
-          return;
-        }
-        error = null;
-        status = 'Looking for music…';
-        notifyListeners();
-        // Lengths learned while playing go in first, so the scan keeps them.
-        _applyPendingDurations();
-        try {
-          // Give the scanner what we already know, so unchanged files are reused, not re-read.
-          final previous = {for (final t in _local) t.id: t};
-          // Progress goes into statusText only (no notifyListeners), so the app isn't redrawn.
-          _local = await _scanAvailable(previous, onProgress: (done, total) {
-            status = 'Scanning $done / $total';
-          });
-          // Follow moved files and keep gone ones that matter, save, then tidy unused covers.
-          await _reconcile(previous);
-          await _saveLibrary();
-          await _scanner.removeUnusedArt(_local);
-          status = null;
-          if (offlineFolders.isNotEmpty) error = _offlineMessage();
-        } catch (e) {
-          status = null;
-          error = 'Scan failed: $e';
-        }
-      });
 
   /// Music or audiobook folders that couldn't be reached at the last scan (a drive that isn't
   /// plugged in, a network share that's asleep). Their songs are kept as they were.
@@ -969,147 +586,14 @@ class LibraryModel extends ChangeNotifier {
   /// How long to wait for a folder (e.g. a sleeping network share) before counting it offline.
   static const folderCheckTimeout = Duration(seconds: 10); // the same as media_folders.dart's
 
-  /// Scans the folders that can be reached. Songs in folders that can't be reached are kept
-  /// exactly as they were in [previous], instead of counting as gone.
-  ///
-  /// HomeTunes (0.1.16): before, an unplugged drive looked like an empty folder, so its songs
-  /// were dropped (all but those with edits or playlist places), their cached covers deleted,
-  /// and everything read again from scratch when the drive came back.
-  Future<List<Track>> _scanAvailable(Map<String, Track> previous, {void Function(int done, int total)? onProgress}) async {
-    // A missing folder inside one that can be reached has really gone (its drive is there).
-    final (:reachable, :offline) = await checkFolders(_scanFolders, folderReachable);
-    offlineFolders = offline;
-    final scanned = await _scanner.scan(reachable, previous: previous, onProgress: onProgress);
-    if (offlineFolders.isEmpty) return scanned;
-    final found = {for (final t in scanned) t.id};
-    final kept = [
-      for (final t in previous.values)
-        if (!found.contains(t.id) && t.path != null && offlineFolders.any((f) => isInside(t.path!, f))) t,
-    ];
-    // Same order as a normal scan: by path.
-    return [...scanned, ...kept]..sort((a, b) => (a.path ?? '').compareTo(b.path ?? ''));
-  }
-
   /// Whether [folder] exists and can be listed right now. For tests it can be replaced.
   Future<bool> Function(String folder) folderReachable = canListFolder;
 
-  String _offlineMessage() {
-    final names = offlineFolders.join(', ');
-    return offlineFolders.length == 1
-        ? 'Can\'t reach $names right now, so its songs are shown as they were. '
-            'If it\'s gone for good, remove it in Settings.'
-        : 'Can\'t reach $names right now, so their songs are shown as they were. '
-            'If they\'re gone for good, remove them in Settings.';
-  }
-
-  // ---- server ----
-
-  /// Saves server details after checking they work. Returns an error message or null.
-  ///
-  /// HomeTunes (0.1.17): an address typed without http:// or https:// is tried with https://
-  /// first (so the login token isn't sent in the clear when the server supports it), then
-  /// http://; whichever works is saved with its scheme. The password goes into the system's
-  /// protected storage rather than settings.json.
-  ///
-  /// HomeTunes (0.1.21, security review #4): when https doesn't answer and the address is on the
-  /// internet (not the home network or Tailscale), http isn't tried on its own any more: the
-  /// login would travel where others could read it. [httpConsentNeeded] comes back instead, and
-  /// Settings asks; calling again with [allowPlainHttp] (the user said yes) tries http and
-  /// remembers the answer for that server. An address typed with http:// is the user's choice.
-  Future<String?> connectServer(ServerConfig config, {bool allowPlainHttp = false}) async {
-    final (:working, :error) = await connection.connectionTo(config, allowPlainHttp: allowPlainHttp);
-    if (working == null) return error;
-    if (ServerConnection.needsHttpAllowance(config.url, working)) {
-      httpAllowedHost = ServerConnection.hostOf(working.url);
-    }
-    final previous = server;
-    server = working;
-    serverEnabled = true;
-    await connection.storePassword(working, previous: previous);
-    _rebuildClient();
-    await _saveSettings();
-    await syncServer();
-    return null;
-  }
   /// What [connectServer] returns when the server only answered over plain http on the
   /// internet, and the user hasn't agreed to that yet.
   static const httpConsentNeeded = ServerConnection.httpConsentNeeded;
 
-  /// The server on/off switch. Turning it on syncs, if we don't have its songs yet.
-  Future<void> setServerEnabled(bool on) async {
-    serverEnabled = on;
-    _rebuildClient();
-    await _saveSettings();
-    _rebuild();
-    if (on && _remote.isEmpty) await syncServer();
-  }
-
-  /// Removes the server's details and its songs.
-  Future<void> forgetServer() async {
-    // Its password is removed from the protected storage too.
-    await connection.forgetPassword();
-    server = const ServerConfig(url: '', username: '', password: '');
-    serverEnabled = false;
-    httpAllowedHost = null;
-    _remote = [];
-    _rebuildClient();
-    await connection.clearArtCache();
-    await _saveSettings();
-    await _saveLibrary();
-    _rebuild();
-  }
-
-  /// Fetches the server's whole song list (album by album) and replaces the server songs.
-  Future<void> syncServer() => _enqueue(() async {
-        final c = _client;
-        if (c == null) return;
-        error = null;
-        status = 'Connecting to server…';
-        notifyListeners();
-        try {
-          final result = await c.fetchAllTracks(onProgress: (done, total) {
-            status = 'Syncing server albums $done / $total';
-          });
-          status = null;
-          // The server may have been forgotten or switched off while we synced.
-          if (!identical(c, _client)) return;
-          _remote = result.tracks;
-          await _saveLibrary();
-          if (result.failedAlbums > 0) {
-            error = 'Synced, but ${result.failedAlbums} album(s) could not be read from the server.';
-          }
-        } catch (e) {
-          status = null;
-          // Cancelled by "Forget server" / switching it off: not an error.
-          if (!identical(c, _client)) return;
-          error = 'Server sync failed: ${hideSecrets('$e')}';
-        }
-      });
-
-  /// After a scan: follows songs that moved to their new place, and keeps the
-  /// details of songs that have gone (if anything refers to them) so they
-  /// come back as they were if the file returns.
-  Future<void> _reconcile(Map<String, Track> previous) async {
-    // Everything we knew of before the scan: last scan's songs plus ones already missing.
-    final known = {for (final t in _missing) t.id: t, ...previous};
-    final found = {for (final t in _local) t.id};
-    final gone = [for (final t in known.values) if (!found.contains(t.id)) t];
-    if (gone.isEmpty) {
-      _missing = [];
-      return;
-    }
-    // Songs that vanished and songs that are new may be the same files in a new place
-    // (track_matching.dart pairs them up). Their edits, playlists etc. move to the new id.
-    final added = [for (final t in _local) if (!known.containsKey(t.id)) t];
-    final moved = matchMovedTracks(gone, added);
-    if (moved.isNotEmpty) await _remapIds(moved);
-    // Of the rest, keep only the ones something still refers to; the others are simply gone.
-    final referenced = referencedIds;
-    _missing = [
-      for (final t in gone)
-        if (!moved.containsKey(t.id) && referenced.contains(t.id)) t
-    ];
-  }
+  // ---- moved and missing songs ----
 
   /// Ids anything refers to: edits, playlists, Liked Songs.
   Set<String> get referencedIds => {..._edits.keys, ...?otherReferencedIds?.call()};
@@ -1314,141 +798,6 @@ class LibraryModel extends ChangeNotifier {
   String get _customArtDir => p.join(storage.artDir, 'custom');
   late final CustomArtStore _customArt = CustomArtStore(_customArtDir, protectNew: true);
 
-  /// Copies an image the user picked into the app's data folder (so moving or
-  /// deleting the original doesn't break the cover) and returns the copy's path.
-  Future<String> importCover(String sourcePath) async =>
-      importCoverBytes(await File(sourcePath).readAsBytes(), p.extension(sourcePath).toLowerCase());
-
-  /// Saves cover image bytes (e.g. downloaded from online) and returns the file path.
-  Future<String> importCoverBytes(List<int> bytes, [String ext = '']) async {
-    // No file extension given: work it out from the image data itself.
-    if (ext.isEmpty) {
-      final mime = imageMimeType(bytes);
-      ext = mime == 'image/png' ? '.png' : (mime == 'image/jpeg' ? '.jpg' : '.img');
-    }
-    // Named after a fingerprint (md5) of its contents, so the same picture is stored once. Not
-    // used by any edit yet (the editor saves it later), so it's kept from the tidy-up for a while.
-    final path = await _customArt.store(bytes, ext);
-    // Make sure images show the new picture even if an old one was cached.
-    picturesChanged();
-    return path;
-  }
-
-  // Covers imported but not yet used by any edit are kept from the tidy-up for a while
-  // (HomeTunes 0.1.16; CustomArtStore.protectNew).
-  /// Deletes custom covers that no edit points at any more.
-  Future<void> _removeUnusedCustomArt() => _customArt.removeUnused({
-        for (final e in _edits.values) if (e.art != null) e.art!,
-        // Artists' own pictures live here too (0.1.53), and series' (0.1.76).
-        for (final v in artistPictures.values) if (!v.startsWith(artistAlbumPrefix)) v,
-        for (final i in seriesInfo.values)
-          if (i['picture'] case final v? when !v.startsWith(seriesBookPrefix)) v,
-      });
-  // ---- backup & restore ----
-
-  /// Everything HomeTunes keeps on this device, as one file (see [AppBackup]).
-  /// The server password is never included (0.1.21, security review #6): it would be readable
-  /// by anyone with the file. After restoring on another device it's typed in once.
-  Future<Uint8List> createBackup({bool includeCoverCache = true}) =>
-      AppBackup.create(storage, includeCoverCache: includeCoverCache);
-
-  /// Where the automatic "just before restoring" backup is kept.
-  String get beforeRestorePath => p.join(storage.root.path, AppBackup.beforeRestoreName);
-
-  /// Restores [backup] (replacing or merging, see [AppBackup.restore]), after
-  /// saving the current data to [beforeRestorePath]. [reloadOthers] reloads
-  /// the other models (playlists). Then rescans, so songs are matched up.
-  Future<RestoreResult> restoreBackup(
-    BackupContents backup, {
-    required bool merge,
-    required Future<void> Function() reloadOthers,
-  }) async {
-    late RestoreResult result;
-    await _enqueue(() async {
-      error = null;
-      status = 'Restoring backup…';
-      notifyListeners();
-      try {
-        // 1. Save everything as it is now, so a bad restore can be undone. (Without the server
-        //    password since 0.1.17: it stays in protected storage, so undoing keeps it anyway.)
-        final undo = await AppBackup.create(storage);
-        await File(beforeRestorePath).writeAsBytes(undo, flush: true);
-        // 2. Write the backup's files, then reload this model and the others from them.
-        //    (AppBackup.restore throws if a file can't be saved; the error reaches the caller.)
-        result = await AppBackup.restore(storage, backup, merge: merge);
-        await load();
-        await reloadOthers();
-        // The same server's password is still in protected storage: no need to type it again.
-        if (result.needsPassword && server.password.isNotEmpty) {
-          result = RestoreResult(missingFolders: result.missingFolders, needsPassword: false);
-        }
-      } finally {
-        status = null;
-      }
-    });
-    // 3. Rescan (a backup from another computer has different paths) and sync if needed.
-    await scanLocal();
-    if (_client != null && _remote.isEmpty) await syncServer();
-    return result;
-  }
-
-  // ---- writing edits into the music files ----
-
-  /// Local songs whose HomeTunes edits could be written into their files.
-  List<Track> get tracksWithWritableEdits => [
-        for (final t in _local)
-          if (_edits.containsKey(t.id) && t.path != null && TagSupport.forPath(t.path!).anything) t,
-      ];
-
-  /// Songs with edits that can't go into their files (server songs, OGG/Opus…).
-  int get unwritableEditCount =>
-      _edits.keys.where(_rawById.containsKey).length - tracksWithWritableEdits.length;
-
-  /// Where copies of files are kept before tags are written into them.
-  String get backupRoot => p.join(storage.root.path, 'backups');
-
-  /// Writes the HomeTunes edits of [tracks] into their music files. Anything a
-  /// file type can't hold stays as a HomeTunes edit. With [backup], each file
-  /// is copied into a dated folder under [backupRoot] first.
-  Future<List<TagWriteResult>> writeEditsToFiles(List<Track> tracks, {bool backup = true}) async {
-    final results = <TagWriteResult>[];
-    // A folder name like 2026-09-25T14-03-11 (":" isn't allowed in Windows file names).
-    final stamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
-    final backupDir = backup ? p.join(backupRoot, stamp) : null;
-    await _enqueue(() async {
-      error = null;
-      var done = 0;
-      for (final t in tracks) {
-        status = 'Writing tags ${++done} / ${tracks.length}';
-        final edit = _edits[t.id];
-        if (edit == null || t.path == null) continue;
-        final r = await writeTagsToFile(t.path!, edit,
-            backupDir: backupDir, libraryRoots: _scanFolders, artRoots: [storage.artDir]);
-        results.add(r);
-        // Written: whatever the file now holds is no longer needed as an edit; anything the
-        // format couldn't hold (the leftover) stays as an edit. A failed write changes nothing.
-        if (r.ok) {
-          if (r.leftover.isEmpty) {
-            _edits.remove(t.id);
-          } else {
-            _edits[t.id] = r.leftover;
-          }
-        }
-      }
-      await storage.write('edits.json', {for (final e in _edits.entries) e.key: e.value.toJson()});
-      // Re-read the changed files so the library shows their new tags.
-      status = 'Re-reading changed files…';
-      notifyListeners();
-      final previous = {for (final t in _local) t.id: t};
-      _local = await _scanAvailable(previous);
-      await _reconcile(previous);
-      await _saveLibrary();
-      await _removeUnusedCustomArt();
-      status = null;
-    });
-    return results;
-  }
-
   /// Local songs, and any song given a custom cover, use an image file on disk;
   /// server songs otherwise use the server's cover art.
   bool _artIsFile(Track t) => t.isLocal || _edits[t.id]?.art != null;
@@ -1506,4 +855,5 @@ class LibraryModel extends ChangeNotifier {
     final c = _client;
     if (c == null) return null;
     return (file: null, url: c.coverArtUrl(t.art!, size: size));
-  }}
+ }
+}
