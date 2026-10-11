@@ -1,9 +1,11 @@
 // The filter bar and filter sheet shared by the Artists, Albums and Songs tabs in Your Library
-// (0.1.18). The bar has a "filter by title" box, a filter button and a sort menu; the sheet
-// offers one dropdown per FilterField (artist, album, genre, decade…), like the Books tab's.
+// (0.1.18), the Audiobooks tab and the Videos tab. The bar has a "filter by title" box, a filter
+// button and a sort menu; the sheet offers one dropdown per FilterField (artist, album, genre,
+// decade…; state/filters.dart). Refactor phase 12: was music_filter_sheet.dart, MusicFilterBar
+// and showMusicFilterSheet.
 import 'package:flutter/material.dart';
 
-import '../../state/music_filters.dart';
+import '../../state/filters.dart';
 import '../../state/sort_order.dart';
 import '../theme.dart';
 import 'search_choice_field.dart';
@@ -11,7 +13,7 @@ import 'search_choice_field.dart';
 export '../../state/sort_order.dart';
 
 /// Title box + filter button + sort menu, shown at the top of a library tab.
-class MusicFilterBar<S> extends StatelessWidget {
+class FilterBar<S> extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final ValueChanged<String> onChanged;
@@ -30,7 +32,7 @@ class MusicFilterBar<S> extends StatelessWidget {
   /// Extra buttons before Filter (the Artists tab's list / grid button, 0.1.52).
   final List<Widget> actions;
 
-  const MusicFilterBar({
+  const FilterBar({
     super.key,
     this.actions = const [],
     this.sortWords,
@@ -169,36 +171,36 @@ class SortMenu<S> extends StatelessWidget {
 }
 
 /// Opens the filter sheet for [items]. Returns the new filters, or null if dismissed.
-Future<MusicFilters?> showMusicFilterSheet<T>(
+Future<Filters?> showFilterSheet<T>(
   BuildContext context, {
   required List<T> items,
   required List<FilterField<T>> fields,
-  required MusicFilters current,
+  required Filters current,
   required String showLabel,
 }) =>
-    showModalBottomSheet<MusicFilters>(
+    showModalBottomSheet<Filters>(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
       showDragHandle: true,
-      builder: (_) => _MusicFilterSheet<T>(items: items, fields: fields, current: current, showLabel: showLabel),
+      builder: (_) => _FilterSheet<T>(items: items, fields: fields, current: current, showLabel: showLabel),
     );
 
-class _MusicFilterSheet<T> extends StatefulWidget {
+class _FilterSheet<T> extends StatefulWidget {
   final List<T> items;
   final List<FilterField<T>> fields;
-  final MusicFilters current;
+  final Filters current;
   final String showLabel;
-  const _MusicFilterSheet({required this.items, required this.fields, required this.current, required this.showLabel});
+  const _FilterSheet({required this.items, required this.fields, required this.current, required this.showLabel});
 
   @override
-  State<_MusicFilterSheet<T>> createState() => _MusicFilterSheetState<T>();
+  State<_FilterSheet<T>> createState() => _FilterSheetState<T>();
 }
 
-class _MusicFilterSheetState<T> extends State<_MusicFilterSheet<T>> {
+class _FilterSheetState<T> extends State<_FilterSheet<T>> {
   /// The filters being chosen; only handed back when the Show button is pressed.
-  late MusicFilters _f = widget.current;
+  late Filters _f = widget.current;
 
   @override
   Widget build(BuildContext context) {
@@ -211,7 +213,7 @@ class _MusicFilterSheetState<T> extends State<_MusicFilterSheet<T>> {
           for (final field in widget.fields) _dropdown(field),
           const SizedBox(height: 4),
           Row(children: [
-            TextButton(onPressed: () => Navigator.pop(context, MusicFilters.none), child: const Text('Clear all')),
+            TextButton(onPressed: () => Navigator.pop(context, Filters.none), child: const Text('Clear all')),
             const Spacer(),
             FilledButton(onPressed: () => Navigator.pop(context, _f), child: Text(widget.showLabel)),
           ]),

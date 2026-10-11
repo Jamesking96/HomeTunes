@@ -2,7 +2,7 @@
 // (no Flutter), so they're unit tested directly (test/videos_test.dart).
 import '../models/video_item.dart';
 import 'library_index.dart' show sortKey;
-import 'music_filters.dart';
+import 'filters.dart';
 import 'sort_order.dart';
 
 /// The chips along the top of the Videos tab.
@@ -46,7 +46,7 @@ bool videoShown(VideoShow show, VideoPlace? place) => switch (show) {
 
 /// Videos whose title, collection, genre or year contain every word of [query] (any order).
 List<VideoItem> searchVideos(List<VideoItem> videos, String query) {
-  final words = query.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+  final words = filterWords(query);
   if (words.isEmpty) return videos;
   return [
     for (final v in videos)
@@ -158,7 +158,7 @@ bool isNearEnd(Duration position, Duration length) {
 }
 
 // ---- the filter sheet ("Show only") ----
-// The same sheet and rules as the Library tabs (music_filters.dart: MusicFilters, FilterField):
+// The same sheet and rules as the Library and Audiobooks tabs (filters.dart: Filters, FilterField):
 // pick one value per field, each list narrowed by the other picks, with counts.
 
 /// Length groups, shortest first. Videos whose length isn't known yet aren't in any.
@@ -204,7 +204,7 @@ final videoFilterFields = <FilterField<VideoItem>>[
 ];
 
 /// The videos that have every picked value.
-List<VideoItem> filterVideos(List<VideoItem> videos, MusicFilters filters) =>
+List<VideoItem> filterVideos(List<VideoItem> videos, Filters filters) =>
     filters.isEmpty ? videos : [for (final v in videos) if (filters.matches(v, videoFilterFields)) v];
 
 // ---- the Collections and Favourites sub-tabs ----

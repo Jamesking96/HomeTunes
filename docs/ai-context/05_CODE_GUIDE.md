@@ -28,6 +28,9 @@ The app is built in layers, and each layer only talks to the one below it. Scree
 **How screens reach the models.** Provider makes each model available anywhere in the widget tree. A screen uses one of three calls:
 
 - `context.watch<LibraryModel>()`: redraw whenever the library changes.
+- `context.watch<prefs.PlaybackSettings>()` (or another settings group): redraw when that part of the settings changes.
+  Settings changes don't redraw `LibraryModel`'s watchers (except folders and the server; refactor phase 9). Screens
+  import `state/settings/settings_groups.dart` `as prefs`, because some settings pages have the same class names.
 - `context.select(...)`: redraw only when one particular value changes (used to keep the player bar cheap).
 - `context.read<PlayerModel>()`: use it once, e.g. inside a button's `onPressed`, without redrawing.
 
@@ -78,12 +81,13 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 
 | File | What it does |
 | --- | --- |
-| `library_model.dart` | **The core.** Owns the scanned library and your edits, and `settings` (all the settings, in groups: see `settings/`; the old names such as `lib.skipBackSeconds` and `lib.setTheme` still work and pass through). Runs scans (all folders, or one with `scanFolder`) and server syncs one at a time, then rebuilds the song, album, artist and book lists. Also follows moved files, keeps "missing" songs, artist and series pictures, backup and restore, and writing edits into files. Says where pictures come from (`coverSource`, `artistSource`); `ui/widgets/library_images.dart` draws them. |
-| `player_model.dart` | Joins the play queue to the audio engine, an `AudioEngine` (`services/engine/`; media_kit / mpv in the app, `test/fake_audio_engine.dart` in tests, refactor phase 4). Handles gapless (the engine holds only the current song and the next one), book mode (saving your place, skipping across files, chapters, speed per book), the music queue that waits while a book plays, swipe to skip, mute, and the checks that keep background playback going on the phone. |
+| `library_model.dart` | **The core.** Owns the scanned library and your edits, and `settings` (all the settings, in groups: see `settings/`). Folder and server settings still pass through (`lib.folders`, `lib.serverEnabled`); the rest are read from their group (`lib.settings.listening.skipBackSeconds`), and setters such as `lib.setTheme` still work (refactor phase 9). Runs scans (all folders, or one with `scanFolder`) and server syncs one at a time, then rebuilds the song, album, artist and book lists. Also follows moved files, keeps "missing" songs, artist and series pictures, backup and restore, and writing edits into files. Says where pictures come from (`coverSource`, `artistSource`); `ui/widgets/library_images.dart` draws them. Refactor phase 10: its methods for pictures and series, folders, scanning, the server and backup / writing edits are extensions in `library_model/` (`pictures.dart`, `folders.dart`, `scanning.dart`, `server.dart`, `backup.dart`; part files of this library, so they use its private names and call `_changed()` to tell its watchers); its fields stay in `library_model.dart` (859 lines). |
+| `player_model.dart` | Joins the play queue to the audio engine, an `AudioEngine` (`services/engine/`; media_kit / mpv in the app, `test/fake_audio_engine.dart` in tests, refactor phase 4). Handles gapless (the engine holds only the current song and the next one), book mode (saving your place, skipping across files, chapters, speed per book), the music queue that waits while a book plays, swipe to skip, mute, and the checks that keep background playback going on the phone. Refactor phase 11: the audiobook methods (`player_model/books.dart`), the queue buttons and menus (`queue_actions.dart`) and the stall check (`stall_check.dart`) are extensions in part files; what the sleep timer reads (`SleepTarget`) and what the test fakes stand in for stay in the class. |
 | `play_queue.dart` | The play order with no audio in it: queue, current position, shuffle (keeping the original order), repeat, Play next, reordering, and a peek at what plays next. |
 | `library_index.dart` | Plain functions that group songs into albums and artists (ignoring a leading "The") and run the song, album and artist search. |
-| `music_filters.dart` | The Artists, Albums and Songs tabs' title box (`titleMatches`), filters (`MusicFilters` with one `FilterField` per artist / album / genre / decade) and sorting (`sortArtists`, `sortAlbums` with decade headings, `sortSongs`). No Flutter, so it's unit tested directly. |
-| `book_index.dart` | Decides which files are audiobooks (six rules, first match wins) and groups them into books. Guesses series, number and narrator from folder names; your edits win. Also the Books tab's sort and filters, and book and chapter search. |
+| `filters.dart` | How a filter is described, for every tab with a filter sheet (refactor phase 12): `FilterField` (a label and the values an item has), `Filters` (what was picked, one value per field; `matches`, `withValue`, `choices` with counts narrowed by the other picks; was `MusicFilters`), and the shared title search (`filterWords`, `titleMatches`) and `decadeOf`. Each tab lists its fields: `artistFields` / `albumFields` / `songFields` (music_filters.dart), `bookFields` (book_index.dart), `videoFilterFields` (video_filters.dart). |
+| `music_filters.dart` | The Artists, Albums and Songs tabs' filter fields and sorting (`sortArtists`, `sortAlbums` with decade headings, `sortSongs`); re-exports `filters.dart`. No Flutter, so it's unit tested directly. |
+| `book_index.dart` | Decides which files are audiobooks (six rules, first match wins) and groups them into books. Guesses series, number and narrator from folder names; your edits win. Also the Books tab's sort, its filter fields (`bookFields`, refactor phase 12; the old `BookFilters` is gone) and book and chapter search. |
 | `playback_guard.dart` | Two small helpers that keep playback honest: `SystemPlayingState` (hides a pause nobody asked for from the phone for 5 s, so Android doesn't stop background playback) and `StallDetector` (spots "playing" with no movement for 10 s). |
 | `equalizer_model.dart` | The equaliser (`equalizer.json`): on/off, the preset for music and for audiobooks, your changes to built-in presets and your own presets. The player listens and applies it live. |
 | `listening_model.dart` | Each book's saved place, finished state and speed (`listening.json`), plus percent done, time left and "Continue listening". |
@@ -98,7 +102,7 @@ You'll spend nearly all your time in `lib/`. The platform folders are mostly gen
 | `video_sleep_timer.dart` | The sleep timer for videos (0.1.63): `VideoSleepTimer` pauses the video in charge (`WatchingSleepTarget` over `NowWatching`) after Settings › Sleep timer's length for videos or at the end of the video (half a second early, so the next episode doesn't start), with the shared fade. |
 | `selection_model.dart` | What's ticked in select mode: songs, albums or audiobooks (one kind at a time), plus what "Select all" covers. `pick(id, order)` (0.1.47) is the tap used by tiles and cards: a toggle, or with Shift held a range. |
 | `settings/setting.dart` | One saved setting, described once (refactor phase 3, 8 Oct): `Setting` (key in settings.json, default, how it's read back with the damaged-file checks, how it's written) and `SettingsReader` (falls back to the default for a missing or wrong-typed value and notes damage). |
-| `settings/settings_groups.dart` | The settings in groups, each its own `ChangeNotifier` with its fields, its `settings` list and its simple setters: `FolderSettings`, `ServerSettings`, `OnlineSettings`, `PlaybackSettings`, `ListeningSettings`, `VideoSettings`, `AppearanceSettings`, `LayoutSettings`; `AppSettings` holds them and makes settings.json. Also `ReplayGainMode`. Every group change still redraws `LibraryModel`'s watchers; the groups are provided on their own too. |
+| `settings/settings_groups.dart` | The settings in groups, each its own `ChangeNotifier` with its fields, its `settings` list and its simple setters: `FolderSettings`, `ServerSettings`, `OnlineSettings`, `PlaybackSettings`, `ListeningSettings`, `VideoSettings`, `AppearanceSettings`, `LayoutSettings`; `AppSettings` holds them and makes settings.json. Also `ReplayGainMode`. Each group is provided on its own (`ui/library_providers.dart`'s `libraryProviders`, used by `main.dart` and the widget tests). Since refactor phase 9 only `FolderSettings` and `ServerSettings` changes are passed on to `LibraryModel`'s watchers (they change what's in the library); a screen showing any other setting watches its group. |
 | `server_connection.dart` | The music server connection (refactor phase 3): the password in protected storage (`loadPassword`, `storePassword`, `forgetPassword`), the Subsonic client and its cover cache (`reconnect`), and trying a typed address https first, then http, asking before plain http on the internet (`connectionTo`, `httpConsentNeeded`). |
 | `custom_art_store.dart` | Pictures the user chose (refactor phase 3): `CustomArtStore` stores them by md5 and deletes unused ones (covers, artist and series pictures in `art/custom`, kept 30 minutes after import; video pictures and posters in `art/video/custom`). `picturesChanged`: main.dart sets it to clear Flutter's image cache. |
 | `range_select.dart` | Shift + click ranges (0.1.47): `shiftHeld` (read at tap time), `idsBetween(order, from, to)` and `RangePicker` (remembers the last item clicked, then ticks or fills a range in a `Set<String>`). Used by `SelectionModel` and by the Videos screens' own selections. |
@@ -227,7 +231,7 @@ class live in a private extension on it in the part file; only methods that don'
 | `bookmark_widgets.dart` | Adding, listing and jumping to bookmarks. |
 | `collection_header.dart` | The big header on album, artist and playlist pages with Play and Shuffle. |
 | `quick_actions.dart` | The quick actions for albums and books (edit, cover, favourites, details) used by tile menus and the selection bar. |
-| `music_filter_sheet.dart` | The title box / filter / sort bar (`MusicFilterBar`) and the "Show only" sheet (`showMusicFilterSheet`) used by the Library tabs. `SortMenu` (0.1.69): the sort button's menu with Ascending / Descending (also on Audiobooks and Videos); re-exports `state/sort_order.dart` (`SortWords`, `reversedIf`, `reverseGroupsIf`). |
+| `filter_sheet.dart` | The title box / filter / sort bar (`FilterBar`) and the "Show only" sheet (`showFilterSheet`) used by the Library, Audiobooks and Videos tabs (refactor phase 12: was `music_filter_sheet.dart`, `MusicFilterBar`, `showMusicFilterSheet`). `SortMenu` (0.1.69): the sort button's menu with Ascending / Descending (also on Audiobooks and Videos); re-exports `state/sort_order.dart` (`SortWords`, `reversedIf`, `reverseGroupsIf`). |
 | `artwork.dart` | Cover images, loaded at a sensible size to save memory. `Artwork(artist: …)` (0.1.53) draws an artist's picture (`LibraryModel.artistImage`) and redraws when it's changed. |
 | `library_images.dart` | `LibraryImages` (refactor phase 3): `lib.artFor(track)` and `lib.artistImage(artist)` as Flutter images, from `LibraryModel.coverSource` / `artistSource` (a file or the server's address). Import it where those are used. |
 | `artist_picture.dart` | Change an artist's picture (0.1.53): `showArtistPictureOptions` (Choose an image file…, Use one of their album covers… with a grid of their albums, Use the automatic picture) and `showArtistMenu` (the right-click / press-and-hold menu on artist cards and the Artists tab's rows). |
@@ -428,6 +432,7 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | `audio_chain_test.dart` | Refactor phase 4: the shared equaliser chain (sent once, the level as a volume factor or `replaygain-fallback`, a new sample rate, catching up with the latest change, a refusal, no engine options, closed) |
 | `engines_test.dart` | Refactor phase 4: each player use keeps its title and its mpv settings |
 | `layer_rules_test.dart` | Refactor phase 7: the layer rules, from every import in `lib/` (see "Layer rules") |
+| `settings_watch_test.dart` | Refactor phase 9: a change in online, playback, listening, video, appearance or layout settings leaves `LibraryModel` quiet; folder and server changes still reach it; a widget watching its group redraws |
 | `cover_search_test.dart` | Find cover online (9 Oct fix): searching again without punctuation, a busy MusicBrainz retried, and "the cover website didn't answer" told apart from "no cover" |
 | `video_session_test.dart` | Refactor phase 5: `VideoSession` with a fake engine (`fake_video_engine.dart`) over a real two-season series: the collection's speed, carrying on and Start over, the end and Up next (and Cancel, and none after the last episode), previous / next across seasons and twice in a row (0.1.71), places on pause and on close, remembered audio / subtitles, a file the engine can't open, music pausing the video |
 
@@ -484,9 +489,13 @@ Take "Rewind a little when carrying on" (Settings › Videos) as the pattern to 
    never rename it once released.
 2. **Changing it.** Add a named parameter to the group's `update(...)` (or a small setter) that sets the field and
    ends with `commit()` (redraw, then save). Screens call it through `LibraryModel` (`lib.updateVideoSettings(
-   rewindOnResume: v)`); add the parameter there too. A plain getter on `LibraryModel`
-   (`bool get videoRewindOnResume => settings.video.videoRewindOnResume;`) is only needed if older code reads it
-   there; new code can read `lib.settings.video.…`.
+   rewindOnResume: v)`); add the parameter there too. Code reads it from the group (`lib.settings.video.
+   videoRewindOnResume`); `LibraryModel` has no getter for it (refactor phase 9 removed those, except the folder and
+   server ones). **A screen that shows it watches the group**, not `LibraryModel`, or it won't redraw when it
+   changes: `final video = context.watch<prefs.VideoSettings>();` (or `context.select<prefs.VideoSettings, bool>((s)
+   => s.videoRewindOnResume)` for one value). Models that act on a setting listen to the group
+   (`PlayerModel` listens to `PlaybackSettings` for gapless and ReplayGain). `test/settings_watch_test.dart` checks
+   that settings changes leave `LibraryModel` quiet.
 3. **The safety net.** Give it a value that isn't the default in `test/fixtures/settings_full.json`;
    `refactor_safety_test.dart` fails until you do, so a setting can't be left out of saving or backups.
 4. **Search.** One line in `settingsCatalog` (`lib/ui/screens/settings/settings_catalog.dart`):
@@ -494,8 +503,9 @@ Take "Rewind a little when carrying on" (Settings › Videos) as the pattern to 
    the page, the title as the search shows it, and other words people might type.
 5. **The widget on its page** (`lib/ui/screens/settings/video_settings.dart`), wrapped in `SettingTarget` with the
    same id, so search can scroll to it and make it glow:
-   `SettingTarget('video-rewind', child: SwitchListTile(title: …, value: lib.videoRewindOnResume, onChanged: (v) =>
-   lib.updateVideoSettings(rewindOnResume: v)))`.
+   `SettingTarget('video-rewind', child: SwitchListTile(title: …, value: video.videoRewindOnResume, onChanged: (v) =>
+   lib.updateVideoSettings(rewindOnResume: v)))`, with `video` watched as in step 2 and `lib` read
+   (`context.read<LibraryModel>()`).
 
 Then `flutter test test/refactor_safety_test.dart test/settings_test.dart` (saving, and the page in phone and wide
 layouts).

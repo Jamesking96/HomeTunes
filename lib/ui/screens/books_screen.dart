@@ -22,27 +22,12 @@ import '../theme.dart';
 import '../widgets/book_card.dart';
 import '../widgets/cards.dart';
 import '../widgets/music_access_banner.dart';
-import '../widgets/music_filter_sheet.dart';
+import '../widgets/filter_sheet.dart';
 import '../widgets/rescan_button.dart';
 import '../widgets/series_card.dart';
 
 /// The sub-tabs along the top of the Audiobooks tab, in the order shown.
 enum BookTab { series, all, inProgress, notStarted, finished, favourites }
-
-/// What the Audiobooks filter sheet can narrow by.
-final List<FilterField<Book>> bookFields = [
-  FilterField('Author', (b) => [if (b.author.isNotEmpty) b.author]),
-  FilterField('Narrator', (b) => [?b.narrator]),
-  FilterField('Series', (b) => [?b.series]),
-  FilterField(
-    'Genre',
-    (b) => {
-      for (final t in b.parts)
-        if (t.genre?.trim().isNotEmpty ?? false) t.genre!.trim(),
-    },
-  ),
-  FilterField('Decade', (b) => [?decadeOf(b.year)]),
-];
 
 /// The Audiobooks tab.
 class BooksScreen extends StatefulWidget {
@@ -153,7 +138,7 @@ class _BookTab extends StatefulWidget {
 class _BookTabState extends State<_BookTab> with AutomaticKeepAliveClientMixin {
   final _search = TextEditingController();
   String _query = '';
-  MusicFilters _filters = MusicFilters.none;
+  Filters _filters = Filters.none;
   bool _favouritesOnly = false;
 
   /// The sort on the book tabs (not saved, so it starts as "Recently listened" each run)…
@@ -180,7 +165,7 @@ class _BookTabState extends State<_BookTab> with AutomaticKeepAliveClientMixin {
   void clearAll() => setState(() {
     _search.clear();
     _query = '';
-    _filters = MusicFilters.none;
+    _filters = Filters.none;
     _favouritesOnly = false;
   });
 
@@ -234,7 +219,7 @@ class _BookTabState extends State<_BookTab> with AutomaticKeepAliveClientMixin {
   };
 
   Future<void> _chooseFilters(List<Book> books) async {
-    final picked = await showMusicFilterSheet<Book>(
+    final picked = await showFilterSheet<Book>(
       context,
       items: books,
       fields: bookFields,
@@ -383,7 +368,7 @@ class _BookTabState extends State<_BookTab> with AutomaticKeepAliveClientMixin {
     }
 
     final filterBar = series
-        ? MusicFilterBar<SeriesSort>(
+        ? FilterBar<SeriesSort>(
             controller: _search,
             hint: 'Filter by title, author, narrator or series',
             onChanged: (v) => setState(() => _query = v),
@@ -400,7 +385,7 @@ class _BookTabState extends State<_BookTab> with AutomaticKeepAliveClientMixin {
             reversed: _reversed,
             onReversed: (r) => setState(() => _reversed = r),
           )
-        : MusicFilterBar<BookSort>(
+        : FilterBar<BookSort>(
             controller: _search,
             hint: 'Filter by title, author, narrator or series',
             onChanged: (v) => setState(() => _query = v),

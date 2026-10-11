@@ -34,7 +34,8 @@ lib/services/            no Flutter UI: files, network, platform
 lib/services/engine/     the playback engine layer (refactor phase 4): AudioEngine + MediaKitAudioEngine (music),
                          VideoEngine + MediaKitVideoEngine (the video page), AudioChain (the shared equaliser),
                          engines.dart (every other player, made and set up in one place; Mpv)
-lib/state/               ChangeNotifiers + pure helpers (library_index, book_index, play_queue, music_filters, playback_guard)
+lib/state/               ChangeNotifiers + pure helpers (library_index, book_index, play_queue, filters, music_filters, playback_guard);
+                         library_model/ and player_model/ hold the parts of those two (phases 10–11)
 lib/state/settings/      every setting described once (Setting) in groups (FolderSettings … LayoutSettings, AppSettings)
 lib/state/video_session.dart  one open video page's playback (refactor phase 5)
 lib/ui/shell.dart        wide: sidebar + DesktopPlayerBar; phone: MiniPlayer + bottom nav; per-tab Navigators (nav.dart AppNav)
@@ -84,7 +85,7 @@ docs/                    USER_GUIDE.md (user-facing), ai-context/ (these notes),
   overall level, `builtInEqPresets`, and `eqFilter(preset, sampleRate:)`, which builds the mpv `af` text.
 
 ## State (ChangeNotifiers)
-- **`LibraryModel`** is the core. It owns the settings (`settings.json`; since refactor phase 3 they're in groups in `state/settings/`, `LibraryModel.settings`, with the old names passing through), the scanned library
+- **`LibraryModel`** is the core. It owns the settings (`settings.json`; since refactor phase 3 they're in groups in `state/settings/`, `LibraryModel.settings`; since phase 9 only folder and server changes are passed on to `LibraryModel`'s watchers, and screens watch the group they show), the scanned library
   (`library.json`: local, remote and missing lists), edits (`edits.json`), and the derived
   tracks/albums/artists/books.
   - `_rebuild()` applies edits, then decides music vs book (`BookRules.isBook`), then groups.
@@ -127,7 +128,7 @@ docs/                    USER_GUIDE.md (user-facing), ai-context/ (these notes),
   `main()` and passed in with `.value`.
 
 Pure helpers (no Flutter): `library_index.dart` (albums, artists, search), `book_index.dart`
-(`BookRules`, `groupBooks`, Books tab sorting and filters), `play_queue.dart`, `music_filters.dart`
+(`BookRules`, `groupBooks`, Books tab sorting and filters), `play_queue.dart`, `filters.dart`, `music_filters.dart`
 (title search, filters and sorting for the Artists/Albums/Songs tabs) and `playback_guard.dart`
 (`SystemPlayingState`: hides an unasked-for pause from Android's media session for a few seconds
 so a locked phone keeps playing; `StallDetector`).

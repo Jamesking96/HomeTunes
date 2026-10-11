@@ -70,7 +70,7 @@ while commenting".
 | Audiobooks sub-tabs (Series first, then All / In progress / Not started / Finished / Favourites), each with Your Library's filter bar, chips and sorting (0.1.74) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. See `03_`, Audiobooks sub-tabs |
 | Audiobook series: a page per series, series cards, favourite series, series in the sidebar (0.1.75) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 1 of 2 (the user: "Go with your suggestions"). See `03_`, Audiobook series |
 | Edit series: name, author, description, order, add / take out books, picture (0.1.76) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 2 of 2. See `03_`, Edit series |
-| Modular refactor (code review of 8 Oct), phases 0–7 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0–3 merged into `main` (8–9 Oct, each after the user tried a test build) and Phases 1–3 released together as **v0.1.77** (9 Oct; the user: "Everything looks good"). Phase 4 (audio engine layer) merged into `main` and released on its own as **v0.1.78** (9 Oct; the user tried the test build: "All seems good"). Phase 5 (`VideoSession` out of the video page) merged into `main` and released as **v0.1.79** (9 Oct; the user tried the test build: "Things look good here"). Phase 6 (screen-file splits and shared widgets, plus the Find cover online fix) merged into `main` and released as **v0.1.80** (9 Oct; the user: "Looks good to me now"). Phase 7 (docs and the layer test) is done on `refactor/p7-docs-layers` (9 Oct): no visible change, so it's merged without a test build and goes out with the next release. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
+| Modular refactor (code review of 8 Oct), phases 0–7, then 8–12 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0–3 merged into `main` (8–9 Oct, each after the user tried a test build) and Phases 1–3 released together as **v0.1.77** (9 Oct; the user: "Everything looks good"). Phase 4 (audio engine layer) merged into `main` and released on its own as **v0.1.78** (9 Oct; the user tried the test build: "All seems good"). Phase 5 (`VideoSession` out of the video page) merged into `main` and released as **v0.1.79** (9 Oct; the user tried the test build: "Things look good here"). Phase 6 (screen-file splits and shared widgets, plus the Find cover online fix) merged into `main` and released as **v0.1.80** (9 Oct; the user: "Looks good to me now"). Phase 7 (docs and the layer test) merged into `main` 9 Oct (no visible change, no test build); it goes out with the next release. **Phases 8–12** (9 Oct, the user: "lets go and address those deliberately left out"): 8 the skipped-song note and the frame-picker bench, 9 screens watch only their settings group, 10 `LibraryModel` under 1,000 lines, 11 `PlayerModel` split, 12 the shared filter description; each on its own branch with a test build, as before. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
 | L: Linux build, incl. Steam Deck (0.2.0, the start of the next level) | On hold (6 Oct, the user's choice): WSL2 can't be installed on the current PC, so L1 (the Linux build) moves to another PC. Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
 | A: Android Auto (the 0.2.x after L) | After L |
 | T: Android TV (the 0.2.x after A) | After A |
@@ -277,6 +277,47 @@ phases, each on its own branch (`refactor/p<n>-<name>`), merged with `--no-ff` o
   engine layer, settings groups, video session, layer rules), `05_` (layer rules, "How to add a setting", the new
   tests). That ends the refactor plan; what it didn't do is listed under each phase (screens watching only their
   settings group, `LibraryModel` under 1,000 lines, splitting `PlayerModel` further, the shared filter description).
+  Merged into `main` 9 Oct.
+- **Phase 8 (branch `refactor/p8-missing-file-bench`, 9 Oct; test build `build\test\phase8\`):** a song whose file
+  has gone is skipped and its note now shows: it stays up while the next song plays ("\"Two\" isn't on this
+  device – skipped"; several in a row: "\"Two\" (and 2 more) aren't…") and comes down when that song hands over
+  (`PlayerModel._openCurrent(skipped:)`, `_skipNote`). Before, it was cleared as the next song opened, so it never
+  showed. `tool/bench/frame_picker_engine_test.dart` passes now: media_kit reports a seek's position at once, and
+  the bench sent its frame step before mpv's seek had landed, so mpv dropped it; it now waits for mpv's own
+  `seeking` / `time-pos`. (The app's frame picker was fine: a person never presses that fast.) Tests: 3 in
+  `player_model_test`. 687 tests, all benches and the 37 pictures pass.
+- **Phase 9 (branch `refactor/p9-settings-groups`, 9 Oct):** settings changes redraw only what watches that part
+  of the settings. `LibraryModel` passes on only `FolderSettings` and `ServerSettings` changes (they change what's
+  in the library); its pass-through getters for the other six groups are gone, so every reader was found by the
+  analyzer and now reads the group (`lib.settings.playback.gaplessPlayback`). Screens that show a setting watch or
+  select its group (`context.watch<prefs.PlaybackSettings>()`; `settings_groups.dart` is imported `as prefs`
+  because some settings pages share the class names); the settings pages read `LibraryModel` (for its setters)
+  instead of watching it. `ui/library_providers.dart` (`libraryProviders`) gives `LibraryModel` and its eight
+  groups to `main.dart` and the widget tests. Models: `PlayerModel` listens to `PlaybackSettings` (gapless,
+  ReplayGain, the volume top), `VideoLibraryModel` to `VideoSettings` (picture shapes), `VideoSession` to
+  `PlaybackSettings` (volume top); `maxVolume` moved to `PlaybackSettings`. `lookOfSettings` / `paletteOfSettings`
+  take `AppearanceSettings` (the app's theme `Selector` watches it). Found on the way: `LyricsModel`'s "songs
+  rebuilt?" check was set lazily by the first change it heard, so a rebuild that came first kept old lyrics; it's
+  set when the model is made now. The page bookmark button watches `LayoutSettings` (quick links). Test:
+  `test/settings_watch_test.dart`. The preview tests (`tool/*_preview_test.dart`) use `libraryProviders` too.
+- **Phase 10 (branch `refactor/p10-library-model`, 9 Oct):** `library_model.dart` 1,509 → 859 lines. Its methods for
+  artist / series pictures and Edit series, folders and file types, scanning, the server, and backup / writing
+  edits are extensions in `state/library_model/` (`pictures.dart`, `folders.dart`, `scanning.dart`, `server.dart`,
+  `backup.dart`): part files of the same library, so they use its private names; they call `_changed()` (the class
+  keeps `notifyListeners` to itself). Fields and static values stay in the class. No change in behaviour; no test
+  build of its own (one build for 10–12).
+- **Phase 11 (branch `refactor/p11-player-model`, 9 Oct):** `player_model.dart` 1,027 → 745 lines, the same way:
+  `state/player_model/books.dart` (playing a book, the waiting music, skipping, chapters, speed),
+  `queue_actions.dart` (shuffle / repeat, jump to, Play next, Add to queue, remove / move upcoming) and
+  `stall_check.dart` (keeping "playing" honest). What `SleepTarget` needs (`bookOffset`, `chapterEnd`,
+  `saveBookPlace`…) and what the tests' fake players stand in for stay in the class: an extension can't implement
+  an interface or be overridden.
+- **Phase 12 (branch `refactor/p12-filters`, 9 Oct):** one way of describing filters. `state/filters.dart` holds
+  `FilterField`, `Filters` (was `MusicFilters`) and the shared title search; each tab lists its fields
+  (`artistFields` / `albumFields` / `songFields`, `bookFields` moved from `books_screen.dart` to `book_index.dart`,
+  `videoFilterFields`). The Books tab's old `BookFilters` (no longer used by the tab) is gone; its test now checks
+  `bookFields`. The sheet is `ui/widgets/filter_sheet.dart` (`FilterBar`, `showFilterSheet`; was
+  `music_filter_sheet.dart`). `searchVideos` splits words with the shared `filterWords`. No change on screen.
 
 ### Platforms plan: Linux, Android Auto, Android TV (agreed 1 Oct)
 (Versions, corrected 7 Oct by the user: **0.2.0 is only for the next level of development**. Fixes and features on the app as it is stay on 0.1.x (the Next-video fix is 0.1.71). The 6 Oct note said the next release would be 0.2.0 whatever it held; that was wrong, and a 0.2.0 test build of the fix was renumbered 0.1.71. The platform phases start the 0.2.x line: Linux **0.2.0**, Android Auto **0.2.1** and Android TV **0.2.2**; 0.1.x work in between doesn't move them. The build number after `+` keeps counting up from 72, so phones still accept each update. The plan doc matches this. Before 6 Oct the phases were renumbered each time other 0.1.x work went first, ending at 0.1.71–0.1.73.)
@@ -396,7 +437,7 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
 fix). Before it, **v0.1.79** (9 Oct: refactor Phase 5, the video session), **v0.1.78** (9 Oct: refactor Phase 4, the audio engine layer) and **v0.1.77** (9 Oct: refactor Phases 1–3; the visible changes
 are the video equaliser at 22 kHz and `--:--` in the video / collection editors). Work on the app as it is stays
 0.1.x (0.1.81 next); 0.2.0 is kept for the next level of development (the user, 7 Oct; see the
-Platforms plan above). No branches are open besides `main`. Refactor branches are `refactor/p<n>-<name>` (see
+Platforms plan above). Open branches (9 Oct), each on top of the one before: `refactor/p8-missing-file-bench`, `refactor/p9-settings-groups`, `refactor/p10-library-model`, `refactor/p11-player-model`, `refactor/p12-filters`; test builds with the user. Refactor branches are `refactor/p<n>-<name>` (see
 "Modular refactor" above). Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
