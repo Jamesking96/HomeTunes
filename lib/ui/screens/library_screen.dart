@@ -22,7 +22,7 @@ import '../theme.dart';
 import '../widgets/artist_picture.dart';
 import '../widgets/artwork.dart';
 import '../widgets/cards.dart';
-import '../widgets/music_filter_sheet.dart';
+import '../widgets/filter_sheet.dart';
 import '../widgets/playlist_art.dart';
 import '../widgets/quick_links.dart';
 import '../widgets/rescan_button.dart';
@@ -120,7 +120,7 @@ class _PlaylistsTab extends StatelessWidget {
 abstract class _FilteredTabState<W extends StatefulWidget> extends State<W> with AutomaticKeepAliveClientMixin {
   final search = TextEditingController();
   String query = '';
-  MusicFilters filters = MusicFilters.none;
+  Filters filters = Filters.none;
   bool favouritesOnly = false;
 
   @override
@@ -138,7 +138,7 @@ abstract class _FilteredTabState<W extends StatefulWidget> extends State<W> with
   void clearAll() => setState(() {
         search.clear();
         query = '';
-        filters = MusicFilters.none;
+        filters = Filters.none;
         favouritesOnly = false;
       });
 
@@ -146,7 +146,7 @@ abstract class _FilteredTabState<W extends StatefulWidget> extends State<W> with
 
   /// Opens the filter sheet over [items] and keeps what's picked.
   Future<void> chooseFilters<T>(List<T> items, List<FilterField<T>> fields, String showLabel) async {
-    final picked = await showMusicFilterSheet<T>(
+    final picked = await showFilterSheet<T>(
       context,
       items: items,
       fields: fields,
@@ -306,7 +306,7 @@ class _ArtistsTabState extends _FilteredTabState<_ArtistsTab> {
       );
     }
     return Column(children: [
-      MusicFilterBar<ArtistSort>(
+      FilterBar<ArtistSort>(
         controller: search,
         hint: 'Filter by artist name',
         onChanged: setQuery,
@@ -423,7 +423,7 @@ class _AlbumsTabState extends _FilteredTabState<_AlbumsTab> {
     }
 
     return Column(children: [
-      MusicFilterBar<AlbumSort>(
+      FilterBar<AlbumSort>(
         controller: search,
         hint: 'Filter by album title',
         onChanged: setQuery,
@@ -493,7 +493,7 @@ class _SongsTabState extends _FilteredTabState<_SongsTab> {
     final label = narrowed ? 'Songs' : 'All songs';
     void edit() => chooseFilters(lib.tracks, songFields, 'Show songs');
     return Column(children: [
-      MusicFilterBar<SongSort>(
+      FilterBar<SongSort>(
         controller: search,
         hint: 'Filter by song title',
         onChanged: setQuery,

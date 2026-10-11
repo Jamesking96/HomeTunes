@@ -307,6 +307,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
       }
       // Nothing playable left. HomeTunes: stop the engine too; before 0.1.15 the previous song
       // kept playing while the screen showed the unplayable one.
+      onSkipped?.call(lastError!);
       pausedOnPurpose = true;
       _engineIds = [];
       try {
@@ -319,6 +320,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     }
     // Any note about songs skipped on the way here stays; otherwise a new song starts clean.
     lastError = _skipNote = skipped.isEmpty ? null : _skippedNote(skipped);
+    if (_skipNote != null) onSkipped?.call(_skipNote!);
     PlaybackLog.add('Opening "${t.title}"${startAt != null && startAt > Duration.zero ? ' at ${startAt.inSeconds} s' : ''}');
     // Show the tagged length straight away; the engine's real length arrives a moment later.
     duration = t.duration;
@@ -355,6 +357,11 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
 
   /// The skipped-songs note while it's showing, so the next song along can take it down.
   String? _skipNote;
+
+  /// Told the note when songs were skipped (12 Oct, the user's test of 0.1.81: the note was only on
+  /// the full Now Playing screen, so from an album page nothing showed). main.dart shows it as a
+  /// notice at the bottom of the window.
+  void Function(String note)? onSkipped;
 
   /// The song to load ahead in the engine (and its file / stream), if any.
   (Track, String)? _songToLoadAhead() {
