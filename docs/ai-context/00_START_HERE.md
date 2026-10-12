@@ -118,8 +118,8 @@ Read the files in this order:
 - **These notes** are also in the repo under `docs/ai-context/`, kept the same as the project
   copy. Update them when things change.
 - **Next:** nothing agreed yet. The open phases are D (offline server songs, after the server
-  review) and E (the Audiobookshelf connection, which needs a plan). The Platforms plan (Linux, Android
-  Auto, Android TV; see `04_…`) is agreed but paused; its phases are planned as 0.2.x (the next level of development), only
+  review) and E (the Audiobookshelf connection, which needs a plan). The Platforms plan (Android TV, then
+  Android Auto, then Linux, reordered 13 Oct; see `04_…`) is agreed but paused; its phases are planned as 0.2.x (the next level of development), only
   once the user starts them.
   Ask the user.
 

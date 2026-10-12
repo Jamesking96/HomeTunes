@@ -71,9 +71,9 @@ while commenting".
 | Audiobook series: a page per series, series cards, favourite series, series in the sidebar (0.1.75) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 1 of 2 (the user: "Go with your suggestions"). See `03_`, Audiobook series |
 | Edit series: name, author, description, order, add / take out books, picture (0.1.76) | Merged into `main` 8 Oct and released as v0.1.76 (8 Oct), covering 0.1.71–0.1.76. Step 2 of 2. See `03_`, Edit series |
 | Modular refactor (code review of 8 Oct), phases 0–7, then 8–12 | Agreed 8 Oct. Plan: "HomeTunes Modular Refactor Plan" (https://claude.ai/artifact/KGaAEeyJAo8kDyWDTmFYzD). Phases 0–3 merged into `main` (8–9 Oct, each after the user tried a test build) and Phases 1–3 released together as **v0.1.77** (9 Oct; the user: "Everything looks good"). Phase 4 (audio engine layer) merged into `main` and released on its own as **v0.1.78** (9 Oct; the user tried the test build: "All seems good"). Phase 5 (`VideoSession` out of the video page) merged into `main` and released as **v0.1.79** (9 Oct; the user tried the test build: "Things look good here"). Phase 6 (screen-file splits and shared widgets, plus the Find cover online fix) merged into `main` and released as **v0.1.80** (9 Oct; the user: "Looks good to me now"). Phase 7 (docs and the layer test) merged into `main` 9 Oct (no visible change, no test build); it goes out with the next release. **Phases 8–12** (9 Oct, the user: "lets go and address those deliberately left out"): 8 the skipped-song note and the frame-picker bench, 9 screens watch only their settings group, 10 `LibraryModel` under 1,000 lines, 11 `PlayerModel` split, 12 the shared filter description; each on its own branch with a test build, as before. All merged into `main` and released together with Phase 7 as **v0.1.81** (12 Oct; the user tried the Phase 12 build: "All works"). That ends the refactor. Phases 1–3 are released together as 0.1.77; new features wait until Phase 3 is done. See "Modular refactor" below |
-| L: Linux build, incl. Steam Deck (0.2.0, the start of the next level) | On hold (6 Oct, the user's choice): WSL2 can't be installed on the current PC, so L1 (the Linux build) moves to another PC. Paused 1 Oct (the user's choice). Its only commit (the Linux notes) is on `main`; `feature/linux` was deleted. See "Platforms plan" below |
-| A: Android Auto (the 0.2.x after L) | After L |
-| T: Android TV (the 0.2.x after A) | After A |
+| T: Android TV (0.2.0, the start of the next level) | First (reordered 13 Oct, the user's choice). Not started. See "Platforms plan" below |
+| A: Android Auto (0.2.1) | After T |
+| L: Linux build, incl. Steam Deck (0.2.2) | Last (13 Oct): WSL2 can't be installed on the current PC, so L1 (the Linux build) needs another PC. Paused 1 Oct; on hold 6 Oct. `feature/linux` was deleted. See "Platforms plan" below |
 | D: offline copies of server songs (was phase 4) | After the server review |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to D isn't decided |
 
@@ -323,10 +323,13 @@ phases, each on its own branch (`refactor/p<n>-<name>`), merged with `--no-ff` o
   at the bottom of the window (Now Playing keeps its line). The user: "All works".
 
 ### Platforms plan: Linux, Android Auto, Android TV (agreed 1 Oct)
-(Versions, corrected 7 Oct by the user: **0.2.0 is only for the next level of development**. Fixes and features on the app as it is stay on 0.1.x (the Next-video fix is 0.1.71). The 6 Oct note said the next release would be 0.2.0 whatever it held; that was wrong, and a 0.2.0 test build of the fix was renumbered 0.1.71. The platform phases start the 0.2.x line: Linux **0.2.0**, Android Auto **0.2.1** and Android TV **0.2.2**; 0.1.x work in between doesn't move them. The build number after `+` keeps counting up from 72, so phones still accept each update. The plan doc matches this. Before 6 Oct the phases were renumbered each time other 0.1.x work went first, ending at 0.1.71–0.1.73.)
+(Versions, corrected 7 Oct by the user: **0.2.0 is only for the next level of development**. Fixes and features on the app as it is stay on 0.1.x (the Next-video fix is 0.1.71). The 6 Oct note said the next release would be 0.2.0 whatever it held; that was wrong, and a 0.2.0 test build of the fix was renumbered 0.1.71. The platform phases start the 0.2.x line. Since the 13 Oct reorder that's Android TV **0.2.0**, Android Auto **0.2.1** and Linux **0.2.2**; 0.1.x work in between doesn't move them. The build number after `+` keeps counting up (83 on 0.1.81), so phones and the TV accept each update. The plan doc matches this. Before 6 Oct the phases were renumbered each time other 0.1.x work went first, ending at 0.1.71–0.1.73.)
 The plan is the doc "HomeTunes Platforms Plan" (https://claude.ai/code/artifact/831e2a97-57ac-4af8-b0fd-738442c570d9),
-with numbered steps per phase (L1–L7, A1–A7, T1–T7). Agreed order: **L Linux → A Android Auto → T Android TV**, each
-on its own branch (`feature/linux`, `feature/android-auto`, `feature/android-tv`) and released on its own.
+with numbered steps per phase (L1–L7, A1–A7, T1–T7). Agreed order (changed 13 Oct, the user's choice): **T Android TV → A Android Auto → L Linux**,
+each on its own branch (`feature/android-tv`, `feature/android-auto`, `feature/linux`) and released on its own.
+Linux went last because its build needs WSL2, which can't be installed on the current PC. The plan doc's sections
+now read in this order, and its file references were re-checked on 0.1.81 (13 Oct): "Show in folder" for videos
+moved to `ui/widgets/video_card.dart` in the refactor.
 - **User's answers (1 Oct):**
   - Linux: as accessible as possible and must run on the user's **Steam Deck** (Desktop and Game Mode). AppImage
     first (bundles libmpv, so the LGPL source offer applies as on Windows), then Flatpak (Flathub / Discover), plus a
@@ -341,8 +344,8 @@ on its own branch (`feature/linux`, `feature/android-auto`, `feature/android-tv`
   Linux) go behind one `services/desktop_open.dart`. Linux media controls via `audio_service_mpris` (0.2.1; no seek
   signals, volume or shuffle). The manifest already declares audio_service's `MediaBrowserService`; Android Auto
   needs `automotive_app_desc.xml`, a browse tree (`getChildren`/`playFromMediaId`/`playFromSearch`), a cold-start
-  check and maybe a `ContentProvider` for covers. The D-pad focus work (T3) is started in L6 for the Steam Deck's
-  controller.
+  check and maybe a `ContentProvider` for covers. The D-pad focus work is done for the TV (T3), and the Steam Deck's
+  controller (L6) reuses it.
 - **New since the plan (checked 6 Oct on 0.1.70):** Always on top (`services/window_pin.dart`, 0.1.60) is Windows
   only. On Linux, `linux/runner/my_application.cc` needs to answer the same `hometunes/window` channel with GTK's
   keep-above setting (L2 in the plan doc). The other Windows-only calls are unchanged; only their line numbers moved.
