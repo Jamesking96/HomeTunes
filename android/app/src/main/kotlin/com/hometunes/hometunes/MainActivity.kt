@@ -1,7 +1,11 @@
 package com.hometunes.hometunes
 
+import android.app.UiModeManager
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -35,6 +39,15 @@ class MainActivity : AudioServiceActivity() {
                                 result.error("no_browser", "No app can open links", null)
                             }
                         }
+                    }
+                    // Android TV / Google TV (0.2.0): Dart switches to remote-friendly navigation and
+                    // layout (services/device_kind.dart). TV mode, or the TV ("leanback") feature.
+                    "isTv" -> {
+                        val ui = getSystemService(Context.UI_MODE_SERVICE) as UiModeManager
+                        result.success(
+                            ui.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION ||
+                                packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+                        )
                     }
                     else -> result.notImplemented()
                 }

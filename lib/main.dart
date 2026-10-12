@@ -17,6 +17,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import 'services/app_licences.dart';
+import 'services/device_kind.dart';
 import 'services/internet_check.dart';
 import 'services/media_session.dart';
 import 'services/playback_log.dart';
@@ -66,6 +67,8 @@ Future<void> main() async {
   final storage = await Storage.open();
   await PlaybackLog.attach(storage.root.path);
   PlaybackLog.add('HomeTunes started');
+  // Android TV / Google TV (0.2.0): asked once, before any screen is built.
+  if (await DeviceKind.detect()) PlaybackLog.add('Running on a TV');
   final library = LibraryModel(storage);
   final playlists = PlaylistsModel(storage);
   final listening = ListeningModel(storage);

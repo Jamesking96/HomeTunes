@@ -20,8 +20,9 @@ void main() {
   stdout.writeln('Platform files patched.');
 }
 
-/// Android: adds permissions, the audio_service background-playback service, the MainActivity
-/// changes, the compileSdk level and a "keep these icons" rule to the generated project.
+/// Android: adds permissions, the audio_service background-playback service, the TV launcher
+/// entry and banner, the MainActivity changes, the compileSdk level and a "keep these icons" rule
+/// to the generated project.
 void _android() {
   // If the Android folder wasn't generated (e.g. a desktop-only setup), there's nothing to do.
   final f = File('android/app/src/main/AndroidManifest.xml');
@@ -95,6 +96,35 @@ void _android() {
             </intent-filter>
         </receiver>
     </application>''');
+  }
+  // Android TV / Google TV (0.2.0): the TV only lists apps that don't require a touchscreen and
+  // that have a TV launcher entry, and shows a 320x180 banner for them on its home screen.
+  // `required="false"` keeps the same APK installable on phones.
+  const features = [
+    '<uses-feature android:name="android.hardware.touchscreen" android:required="false"/>',
+    '<uses-feature android:name="android.software.leanback" android:required="false"/>',
+  ];
+  for (final feat in features) {
+    final name = RegExp(r'android:name="([^"]+)"').firstMatch(feat)!.group(1)!;
+    if (!s.contains('"$name"')) {
+      s = s.replaceFirst('<application', '$feat\n    <application');
+    }
+  }
+  if (!s.contains('android.intent.category.LEANBACK_LAUNCHER')) {
+    s = s.replaceFirst('<category android:name="android.intent.category.LAUNCHER"/>',
+        '<category android:name="android.intent.category.LAUNCHER"/>\n'
+        '                <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>');
+  }
+  if (!s.contains('android:banner')) {
+    s = s.replaceFirst('<application', '<application\n        android:banner="@drawable/tv_banner"');
+  }
+  // The banner picture itself is kept in tool/assets so a regenerated android/ folder gets it back.
+  final banner = File('android/app/src/main/res/drawable-xhdpi/tv_banner.png');
+  final bannerSource = File('tool/assets/tv_banner.png');
+  if (!banner.existsSync() && bannerSource.existsSync()) {
+    banner.parent.createSync(recursive: true);
+    bannerSource.copySync(banner.path);
+    stdout.writeln('  android: TV banner added');
   }
   f.writeAsStringSync(s);
   stdout.writeln('  android: manifest updated');
@@ -191,6 +221,13 @@ void _mainActivity() {
   if (pkg == null) return;
   f.writeAsStringSync('''package $pkg
 
+import android.app.UiModeManager
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.net.Uri
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -208,6 +245,28 @@ class MainActivity : AudioServiceActivity() {
                     }
                     // Which permission reads music files depends on the Android version.
                     "sdkInt" -> result.success(android.os.Build.VERSION.SDK_INT)
+                    // Settings > About > Check for updates: open the release page (https only).
+                    "openUrl" -> {
+                        val url = call.argument<String>("url")
+                        if (url == null || !url.startsWith("https://")) {
+                            result.error("bad_url", "Only https links can be opened", null)
+                        } else {
+                            try {
+                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                result.success(null)
+                            } catch (e: ActivityNotFoundException) {
+                                result.error("no_browser", "No app can open links", null)
+                            }
+                        }
+                    }
+                    // Android TV / Google TV (0.2.0): remote-friendly navigation and layout.
+                    "isTv" -> {
+                        val ui = getSystemService(Context.UI_MODE_SERVICE) as UiModeManager
+                        result.success(
+                            ui.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION ||
+                                packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+                        )
+                    }
                     else -> result.notImplemented()
                 }
             }
