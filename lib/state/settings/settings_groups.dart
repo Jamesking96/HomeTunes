@@ -11,6 +11,7 @@ import '../../models/video_item.dart' show PictureShape;
 import '../../models/video_player_look.dart';
 import '../../models/volume_boost.dart';
 import '../../services/subsonic_client.dart' show ServerConfig;
+import '../../services/device_kind.dart';
 import '../../services/window_pin.dart';
 import '../book_index.dart' show defaultBookGenres;
 import 'setting.dart';
@@ -453,8 +454,13 @@ class VideoSettings extends SettingsGroup {
   Future<void> addSpecialSeasonTitle(String title) => setSpecialSeasonTitles([...specialSeasonTitles, title]);
 }
 
-/// Settings › Appearance: colour themes, text size, corners, the video player's look, and
-/// shrinking to fit small windows.
+/// Settings › Appearance › TV mode (0.2.0): whether HomeTunes is laid out for a TV and driven
+/// with a remote's arrow keys. [automatic] follows the device ([DeviceKind.isTv]); [on] lets the
+/// TV layout be tried on a computer or phone; [off] keeps the usual layout on a TV.
+enum TvMode { automatic, on, off }
+
+/// Settings › Appearance: colour themes, text size, corners, the video player's look,
+/// shrinking to fit small windows, and TV mode.
 class AppearanceSettings extends SettingsGroup {
   /// The colour theme, and "Your own" colours ("#RRGGBB"). See LibraryModel.setTheme.
   String themeId = 'default';
@@ -473,6 +479,12 @@ class AppearanceSettings extends SettingsGroup {
 
   /// On a computer, buttons and text get a little smaller when the window is small (0.1.41).
   bool scaleWithWindow = true;
+
+  /// TV mode (0.2.0): automatic (on when running on a TV), on or off.
+  TvMode tvMode = TvMode.automatic;
+
+  /// Whether the TV layout and remote navigation are in use right now.
+  bool get tvLayout => tvMode == TvMode.on || (tvMode == TvMode.automatic && DeviceKind.isTv);
 
   /// "#RRGGBB".
   static final hexColour = RegExp(r'^#[0-9A-Fa-f]{6}$');
@@ -511,6 +523,14 @@ class AppearanceSettings extends SettingsGroup {
         write: (v) => v.toJson(),
         read: (r) => VideoPlayerLook.fromJson(r['videoPlayerLook'])),
     Setting.flag('scaleWithWindow', true, () => scaleWithWindow, (v) => scaleWithWindow = v),
+    // Only written once changed, so settings.json stays as it was for everyone on Automatic.
+    Setting<TvMode>('tvMode',
+        fallback: () => TvMode.automatic,
+        get: () => tvMode,
+        set: (v) => tvMode = v,
+        write: (v) => v.name,
+        writeIf: (v) => v != TvMode.automatic,
+        read: (r) => TvMode.values.firstWhere((m) => m.name == r['tvMode'], orElse: () => TvMode.automatic)),
   ];
 
   /// Adds a saved theme, or replaces the one with the same id (Settings › Appearance ›
@@ -573,6 +593,13 @@ class AppearanceSettings extends SettingsGroup {
   /// Settings › Appearance › Shrink to fit small windows.
   Future<void> setScaleWithWindow(bool on) {
     scaleWithWindow = on;
+    return commit();
+  }
+
+  /// Settings › Appearance › TV mode.
+  Future<void> setTvMode(TvMode mode) {
+    if (mode == tvMode) return Future.value();
+    tvMode = mode;
     return commit();
   }
 

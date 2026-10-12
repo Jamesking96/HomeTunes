@@ -11,6 +11,8 @@
 // 0.1.29: the colour picker has a box to type or paste a colour code (#FF7A59), and saved themes
 // can be shared: Share… on a theme gives a theme code to copy or a .hometunes-theme file, and
 // Import a theme reads either one back (theme_sharing.dart).
+//
+// 0.2.0: TV mode (Automatic / On / Off), for the Android TV layout and remote navigation.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -299,6 +301,23 @@ class AppearanceSettings extends StatelessWidget {
               'window small, so more fits. Turn off to keep them the same size.'),
           value: appearance.scaleWithWindow,
           onChanged: lib.setScaleWithWindow,
+        ),
+      ),
+      // TV mode (0.2.0): the layout and remote-control navigation for a TV.
+      SettingTarget(
+        'tv-mode',
+        child: ChoiceTile<prefs.TvMode>(
+          title: 'TV mode',
+          subtitle: 'Laid out for a TV and moved around with a remote\'s arrow keys. Automatic turns it on '
+              'when HomeTunes is running on a TV.',
+          value: appearance.tvMode,
+          options: prefs.TvMode.values,
+          label: (v) => switch (v) {
+            prefs.TvMode.automatic => 'Automatic',
+            prefs.TvMode.on => 'On',
+            prefs.TvMode.off => 'Off',
+          },
+          onChanged: lib.setTvMode,
         ),
       ),
       // The video player's buttons: colour, size, backing and progress bar (0.1.40).

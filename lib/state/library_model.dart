@@ -41,7 +41,7 @@ import 'media_folders.dart';
 import 'server_connection.dart';
 import 'settings/settings_groups.dart';
 
-export 'settings/settings_groups.dart' show ReplayGainMode;
+export 'settings/settings_groups.dart' show ReplayGainMode, TvMode;
 // What writing edits into files reports, for Settings › Your edits (refactor phase 7: screens don't
 // import the tag writer itself).
 export '../services/tag_writer.dart' show TagWriteResult;
@@ -504,6 +504,9 @@ class LibraryModel extends ChangeNotifier {
 
   /// Settings › Appearance › Shrink to fit small windows.
   Future<void> setScaleWithWindow(bool on) => settings.appearance.setScaleWithWindow(on);
+
+  /// Settings › Appearance › TV mode (0.2.0).
+  Future<void> setTvMode(TvMode mode) => settings.appearance.setTvMode(mode);
 
   /// Changes the playback settings (Settings > Playback).
   Future<void> updatePlaybackSettings({

@@ -119,6 +119,8 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('corners', SettingsPage.appearance, 'Corners', 'rounded round square shape'),
   SettingInfo('scale-with-window', SettingsPage.appearance, 'Shrink to fit small windows',
       'scale scaling zoom window size small smaller resize buttons widgets fit'),
+  SettingInfo('tv-mode', SettingsPage.appearance, 'TV mode',
+      'tv television android tv google tv remote arrow keys d-pad sofa big screen layout'),
   SettingInfo('video-player-preview', SettingsPage.appearance, 'Video player look', 'video player controls buttons appearance theme preview'),
   SettingInfo('video-button-colour', SettingsPage.appearance, 'Video player button colour', 'video controls buttons colour color icons'),
   SettingInfo('video-button-size', SettingsPage.appearance, 'Video player button size', 'video controls buttons size bigger smaller'),
