@@ -337,8 +337,9 @@ moved to `ui/widgets/video_card.dart` in the refactor.
   - Car: **2018 Ford Focus (SYNC 3)**, Android Auto by USB cable. Wireless must work too; SYNC 3 is wired-only, so
     that means a wireless Android Auto adapter (no separate app code). Sideloaded app needs Android Auto's
     developer setting "Unknown sources".
-  - TV: **Sony "BRAVIA 4K GB ATV3"** (Android TV, not Google TV; probably Android 8/9, likely 32-bit ARM, so check
-    `armeabi-v7a` in the APK). Music from **both USB drives and the server**.
+  - TV (changed 13 Oct): **Sony BRAVIA 2 II 55" (K55S25M2PB, 2026)**, a **Google TV** with the X1 processor,
+    two USB ports (3.0 + 2.0), HDR10 / HLG, 60 Hz. The 0.1.81 APK already has libmpv for both 32- and 64-bit ARM, so
+    that's no longer a risk. Android version still to read from the TV. Music from **both USB drives and the server**.
 - **Key findings:** about 10 Windows-only calls in `lib/` (`rundll32`/`explorer` in update_checker, book_screen,
   details_screen, videos_screen, video_player_screen, about_settings; `main.dart` and `media_session.dart` skip
   Linux) go behind one `services/desktop_open.dart`. Linux media controls via `audio_service_mpris` (0.2.1; no seek
