@@ -5,6 +5,9 @@
 // bar and the player. Wide windows (desktop) get a left sidebar and a full player bar along the
 // bottom; phones get a mini player above a bottom navigation bar. It also decides what the
 // Android Back button does.
+//
+// TV mode (0.2.0): the sidebar, the page and the bars along the bottom are each a TvRegion, so a
+// remote's arrow keys move within one part of the screen before crossing to the next.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -28,6 +31,7 @@ import 'screens/search_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/videos_screen.dart';
 import 'theme.dart';
+import 'tv/tv_focus.dart';
 import 'widgets/always_on_top_button.dart';
 import 'widgets/escape_cancels.dart';
 import 'widgets/player_controls.dart';
@@ -93,13 +97,17 @@ class Shell extends StatelessWidget {
         body: Column(children: [
           Expanded(
             child: Row(children: [
-              const Sidebar(),
-              Expanded(child: body),
+              const TvRegion(child: Sidebar()),
+              Expanded(child: TvRegion(child: body)),
             ]),
           ),
-          const _StatusStrip(),
-          const _SelectionBar(),
-          const _PlayerBarWithPin(),
+          const TvRegion(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              _StatusStrip(),
+              _SelectionBar(),
+              _PlayerBarWithPin(),
+            ]),
+          ),
         ]),
       );
     }

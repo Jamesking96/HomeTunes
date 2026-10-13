@@ -1,0 +1,230 @@
+// Remote-control navigation for TV mode (Android TV phase, step T3, 0.2.0).
+//
+// A TV has no touchscreen and no mouse: everything is done with the remote's arrow keys and its
+// OK button. Flutter already moves focus with the arrow keys and lets every tap-able widget take
+// focus, so what TV mode adds here is:
+//  * [TvFocus]: focus is always drawn (not only after a key press), the remote's OK / Select and
+//    a game controller's A button press the focused thing, and something has focus as soon as the
+//    app opens, so the first arrow press goes somewhere;
+//  * [tvTheme]: a clear highlight in the theme's accent colour on whatever has focus, because
+//    Material's own focus shading is made for a desk, not for a sofa;
+//  * [TvRegion]: keeps the arrow keys inside one part of the screen (the sidebar, the page, the
+//    player bar) until they reach its edge, so focus doesn't jump about.
+// Settings › Appearance › TV mode decides when it's on (AppearanceSettings.tvLayout). With it off,
+// TvFocus and tvTheme step aside. The regions stay either way (so switching TV mode doesn't reset
+// open pages); on a computer they only mean Tab finishes the sidebar before moving to the page.
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+/// The remote's OK button and its equivalents. Enter and Space already press things in Flutter;
+/// Select (most TV remotes) and a game controller's A are added for TV mode.
+const tvActivateKeys = <LogicalKeyboardKey>[
+  LogicalKeyboardKey.select,
+  LogicalKeyboardKey.gameButtonA,
+  LogicalKeyboardKey.enter,
+  LogicalKeyboardKey.numpadEnter,
+];
+
+class TvFocus extends StatefulWidget {
+  const TvFocus({super.key, required this.enabled, required this.child});
+
+  final bool enabled;
+  final Widget child;
+
+  @override
+  State<TvFocus> createState() => _TvFocusState();
+}
+
+class _TvFocusState extends State<TvFocus> {
+  @override
+  void initState() {
+    super.initState();
+    _apply();
+  }
+
+  @override
+  void didUpdateWidget(TvFocus old) {
+    super.didUpdateWidget(old);
+    if (old.enabled != widget.enabled) _apply();
+  }
+
+  @override
+  void dispose() {
+    FocusManager.instance.removeListener(_focusChanged);
+    if (widget.enabled) FocusManager.instance.highlightStrategy = FocusHighlightStrategy.automatic;
+    super.dispose();
+  }
+
+  void _apply() {
+    FocusManager.instance.highlightStrategy =
+        widget.enabled ? FocusHighlightStrategy.alwaysTraditional : FocusHighlightStrategy.automatic;
+    FocusManager.instance.removeListener(_focusChanged);
+    if (widget.enabled) {
+      FocusManager.instance.addListener(_focusChanged);
+      _focusChanged();
+    }
+  }
+
+  /// When focus lands on a page with nothing inside it focused (the app opening, a page being
+  /// opened or closed), give the page's first item focus once it's drawn, the way the first arrow
+  /// press would. On a TV something must always have focus, or the remote does nothing visible.
+  void _focusChanged() {
+    final current = FocusManager.instance.primaryFocus;
+    if (current != null && current is! FocusScopeNode) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !widget.enabled) return;
+      final now = FocusManager.instance.primaryFocus;
+      if (now != null && now is! FocusScopeNode) return; // something got focus meanwhile
+      final scope = now as FocusScopeNode? ?? FocusManager.instance.rootScope;
+      // Back on a page that had something focused: give it back. Otherwise its first item.
+      final remembered = scope.focusedChild;
+      if (remembered != null && remembered.canRequestFocus && remembered.context != null) {
+        remembered.requestFocus();
+      } else {
+        scope.focusInDirection(TraversalDirection.down);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final child = _TvOn(on: widget.enabled, child: widget.child);
+    if (!widget.enabled) return child;
+    return Shortcuts(
+      shortcuts: {for (final k in tvActivateKeys) SingleActivator(k): const ActivateIntent()},
+      child: child,
+    );
+  }
+}
+
+/// Whether TV mode is on, for [TvRegion].
+class _TvOn extends InheritedWidget {
+  const _TvOn({required this.on, required super.child});
+  final bool on;
+
+  static bool of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<_TvOn>()?.on ?? false;
+
+  @override
+  bool updateShouldNotify(_TvOn old) => old.on != on;
+}
+
+/// One part of the screen the arrow keys stay inside (the sidebar, the page, the player bar).
+///
+/// In TV mode an arrow press first looks for the nearest item in that direction inside this
+/// region; only when there's none (the region's edge) does it cross to the next region, the usual
+/// way. Flutter on its own picks the nearest item on the whole screen, so a step down from an
+/// album could land in the sidebar instead of on the button under it.
+class TvRegion extends StatefulWidget {
+  const TvRegion({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<TvRegion> createState() => _TvRegionState();
+}
+
+class _TvRegionState extends State<TvRegion> {
+  // Holds this region's items (skipTraversal: the region itself is never focused).
+  final _node = FocusNode(debugLabel: 'TvRegion', skipTraversal: true, canRequestFocus: false);
+
+  @override
+  void dispose() {
+    _node.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tv = _TvOn.of(context);
+    return FocusTraversalGroup(
+      child: Actions(
+        actions: {DirectionalFocusIntent: _RegionArrowAction(_node, () => tv)},
+        child: Focus(focusNode: _node, child: widget.child),
+      ),
+    );
+  }
+}
+
+/// An arrow press inside a [TvRegion] (see there). Outside TV mode it does exactly what Flutter
+/// would have done.
+class _RegionArrowAction extends DirectionalFocusAction {
+  _RegionArrowAction(this.region, this.tv);
+
+  final FocusNode region;
+  final bool Function() tv;
+
+  @override
+  void invoke(DirectionalFocusIntent intent) {
+    final current = FocusManager.instance.primaryFocus;
+    if (tv() && current != null && current.context != null) {
+      final next = nearestInDirection(
+        current.rect,
+        intent.direction,
+        [for (final n in region.traversalDescendants) if (n != current && n.canRequestFocus && n.context != null) n],
+      );
+      if (next != null) {
+        next.requestFocus();
+        return;
+      }
+    }
+    super.invoke(intent);
+  }
+}
+
+/// The node in [candidates] nearest to [from] in [direction], or null if none lies that way.
+/// Left / Right only consider items level with [from]; Up / Down prefer items in line with it
+/// (overlapping it across the direction of travel) over ones off to the side. Nearer beats further.
+@visibleForTesting
+FocusNode? nearestInDirection(Rect from, TraversalDirection direction, Iterable<FocusNode> candidates) {
+  const slack = 1.0; // rounding
+  FocusNode? best;
+  var bestScore = double.infinity;
+  for (final n in candidates) {
+    final r = n.rect;
+    final (ahead, along, across) = switch (direction) {
+      TraversalDirection.down => (r.top >= from.bottom - slack, r.top - from.bottom, _gap(r.left, r.right, from.left, from.right)),
+      TraversalDirection.up => (r.bottom <= from.top + slack, from.top - r.bottom, _gap(r.left, r.right, from.left, from.right)),
+      TraversalDirection.right => (r.left >= from.right - slack, r.left - from.right, _gap(r.top, r.bottom, from.top, from.bottom)),
+      TraversalDirection.left => (r.right <= from.left + slack, from.left - r.right, _gap(r.top, r.bottom, from.top, from.bottom)),
+    };
+    if (!ahead) continue;
+    // Left / Right move along a row: only items level with this one. At the row's end the press
+    // crosses to the next region (from the page to the sidebar). Up / Down may step to the
+    // nearest row even when it doesn't line up exactly (a button under a row of cards).
+    final sideways = direction == TraversalDirection.left || direction == TraversalDirection.right;
+    if (sideways && across > 0) continue;
+    // In line counts most; then distance.
+    final score = (across > 0 ? 100000.0 : 0.0) + along.clamp(0, double.infinity) + 2 * across;
+    if (score < bestScore) {
+      bestScore = score;
+      best = n;
+    }
+  }
+  return best;
+}
+
+/// How far apart two ranges [a1, a2] and [b1, b2] are (0 when they overlap).
+double _gap(double a1, double a2, double b1, double b2) => a2 < b1 ? b1 - a2 : (b2 < a1 ? a1 - b2 : 0);
+
+/// [theme] with a clear focus highlight in [accent] for TV mode: cards, rows and every kind of
+/// button get a strong accent shade while they have focus. Pressing shades a little; there's no
+/// hover on a TV.
+ThemeData tvTheme(ThemeData theme, Color accent) {
+  final focused = accent.withValues(alpha: 0.45);
+  final pressed = accent.withValues(alpha: 0.3);
+  final overlay = WidgetStateProperty.resolveWith<Color?>((states) {
+    if (states.contains(WidgetState.focused)) return focused;
+    if (states.contains(WidgetState.pressed)) return pressed;
+    return null;
+  });
+  final buttons = ButtonStyle(overlayColor: overlay);
+  ButtonStyle withFocus(ButtonStyle? style) => (style ?? const ButtonStyle()).merge(buttons);
+  return theme.copyWith(
+    focusColor: focused,
+    iconButtonTheme: IconButtonThemeData(style: withFocus(theme.iconButtonTheme.style)),
+    textButtonTheme: TextButtonThemeData(style: withFocus(theme.textButtonTheme.style)),
+    filledButtonTheme: FilledButtonThemeData(style: withFocus(theme.filledButtonTheme.style)),
+    outlinedButtonTheme: OutlinedButtonThemeData(style: withFocus(theme.outlinedButtonTheme.style)),
+    elevatedButtonTheme: ElevatedButtonThemeData(style: withFocus(theme.elevatedButtonTheme.style)),
+  );
+}
