@@ -46,7 +46,8 @@ void main() {
     await c.update();
     await c.update(); // nothing changed: nothing sent
     expect(sent, [startsWith('af=format=format=floatp,lavfi=[')]);
-    expect(factors.single, closeTo(0.501, 0.001));
+    // -6 dB: the engine cubes its volume, so the factor is 10^(-6 / 60) (0.1.83).
+    expect(factors.single, closeTo(0.794, 0.001));
     expect(c.levelFactor, factors.single);
     expect(results, [false]);
   });
