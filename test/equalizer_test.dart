@@ -3,6 +3,7 @@
 // and the Equaliser screen.
 
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -54,7 +55,10 @@ void main() {
     test('the overall level scales the volume', () {
       expect(eqLevelFactor(null), 1.0);
       expect(eqLevelFactor(builtInEqPresets.first), 1.0);
-      expect(eqLevelFactor(builtInEqPreset('bass')), closeTo(0.501, 0.001)); // −6 dB ≈ half
+      // Bass boost's -6 dB: the engine cubes its volume, so the factor is 10^(-6 / 60) and the
+      // sound ends up 10^(-6 / 20) as loud, about half (0.1.83; it was -18 dB before).
+      expect(eqLevelFactor(builtInEqPreset('bass')), closeTo(0.794, 0.001));
+      expect(math.pow(eqLevelFactor(builtInEqPreset('bass')), 3), closeTo(0.501, 0.001));
     });
 
     test('saved values out of range are brought back into range', () {
