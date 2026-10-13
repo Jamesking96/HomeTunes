@@ -17,6 +17,8 @@ import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/widgets/cards.dart';
 import 'package:provider/provider.dart';
 
+import 'idle_player.dart';
+
 Track song(String id, String album) => Track(
       id: 'local:/m/$id.mp3',
       source: TrackSource.local,
@@ -103,6 +105,7 @@ void main() {
     final playlists = PlaylistsModel(Storage.at(dir));
     await tester.pumpWidget(MultiProvider(
       providers: [
+        idlePlayerProvider(),
         ChangeNotifierProvider(create: (_) => LibraryModel(Storage.at(dir))),
         ChangeNotifierProvider.value(value: playlists),
         ChangeNotifierProvider(create: (_) => SelectionModel()),

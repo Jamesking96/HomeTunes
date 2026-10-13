@@ -19,6 +19,8 @@ import 'package:hometunes/ui/widgets/cards.dart';
 import 'package:hometunes/ui/library_providers.dart';
 import 'package:provider/provider.dart';
 
+import 'idle_player.dart';
+
 Track song(String id, String album, {String artist = 'Tidewater', int? year, String? genre, String ext = 'mp3'}) =>
     Track(
       id: 'local:/m/$id.$ext',
@@ -92,6 +94,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(MultiProvider(
         providers: [
+          idlePlayerProvider(),
           ...libraryProviders(lib),
           ChangeNotifierProvider(create: (_) => SelectionModel()),
           ChangeNotifierProvider(create: (_) => AppNav()),
@@ -240,6 +243,7 @@ void main() {
       final keys = [for (final a in albums) a.key];
       await tester.pumpWidget(MultiProvider(
         providers: [
+          idlePlayerProvider(),
           ...libraryProviders(lib),
           ChangeNotifierProvider.value(value: sel),
           ChangeNotifierProvider(create: (_) => AppNav()),

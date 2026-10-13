@@ -750,3 +750,32 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     super.dispose();
   }
 }
+
+/// Which album or playlist is playing (0.1.82), for the Play buttons on their pages and covers.
+///
+/// The queue doesn't record where its songs came from, so "playing from this album" means the
+/// queue was started from exactly these songs, in this order (shuffled or not). Written as an
+/// extension (not methods on PlayerModel) so the stand-in players in tests, which only answer
+/// [PlayerModel.current], keep working: with nothing playing it never looks further.
+extension PlayingFrom on PlayerModel {
+  /// True when the music playing now (or paused) was started from [tracks]. Never during a book.
+  bool isPlayingFrom(List<Track> tracks) {
+    if (current == null || tracks.isEmpty || inBook) return false;
+    final from = queue.originalTracks;
+    if (from.length != tracks.length) return false;
+    for (var i = 0; i < from.length; i++) {
+      if (from[i].id != tracks[i].id) return false;
+    }
+    return true;
+  }
+
+  /// Whether [tracks] are playing right now (not paused), for a Pause icon.
+  bool isPlayingNowFrom(List<Track> tracks) => isPlayingFrom(tracks) && playing;
+
+  /// A collection's Play button: pauses or carries on when its music is already the one playing,
+  /// otherwise plays [tracks] from the start.
+  Future<void> playOrPauseFrom(List<Track> tracks, {bool? shuffle, String? label}) {
+    if (!isPlayingFrom(tracks)) return playTracks(tracks, shuffle: shuffle, label: label);
+    return playing ? pause() : play();
+  }
+}
