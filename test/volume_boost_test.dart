@@ -25,8 +25,19 @@ void main() {
 
   test('up to 100 is the normal volume; above it is amplified (500 % = five times as loud)', () {
     expect(engineVolume(0), 0);
-    expect(engineVolume(70), 70);
+    expect(engineVolume(-5), 0);
     expect(engineVolume(100), 100);
+    // 0.1.83: up to 100 the sound level is (slider / 100)² (the engine cubes its own number), so
+    // the low end of the slider is still audible: 50 is a quarter as loud, 20 is 1/25 (-28 dB).
+    double level(double slider) => math.pow(engineVolume(slider) / 100, 3).toDouble();
+    expect(level(50), closeTo(0.25, 1e-9));
+    expect(level(20), closeTo(0.04, 1e-9));
+    expect(level(10), closeTo(0.01, 1e-9));
+    // Louder all the way up, with no jump at 100 where the boost takes over.
+    for (var s = 1.0; s <= 500; s++) {
+      expect(level(s), greaterThan(level(s - 1)));
+    }
+    expect(level(100.0001), closeTo(1, 1e-5));
     // The engine's volume is cubic: (volume / 100)³ is how loud.
     expect(math.pow(engineVolume(500) / 100, 3), closeTo(5, 1e-9));
     expect(math.pow(engineVolume(200) / 100, 3), closeTo(2, 1e-9));
