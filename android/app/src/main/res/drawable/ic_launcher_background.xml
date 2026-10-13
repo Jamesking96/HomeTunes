@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HomeTunes' icon background (0.2.0): coral, a little warmer at the top. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient android:angle="270" android:startColor="#FF8C5E" android:endColor="#E6504C"/>
+</shape>

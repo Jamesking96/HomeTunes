@@ -12,6 +12,7 @@ import 'dart:io';
 /// Patches each platform folder that exists, then removes Flutter's sample test.
 void main() {
   _android();
+  _windows();
   _macos();
   _ios();
   // `flutter create` adds a counter-app test that doesn't apply here.
@@ -21,8 +22,8 @@ void main() {
 }
 
 /// Android: adds permissions, the audio_service background-playback service, the TV launcher
-/// entry and banner, the MainActivity changes, the compileSdk level and a "keep these icons" rule
-/// to the generated project.
+/// entry and banner, HomeTunes' app icon, the MainActivity changes, the compileSdk level and a
+/// "keep these icons" rule to the generated project.
 void _android() {
   // If the Android folder wasn't generated (e.g. a desktop-only setup), there's nothing to do.
   final f = File('android/app/src/main/AndroidManifest.xml');
@@ -118,14 +119,10 @@ void _android() {
   if (!s.contains('android:banner')) {
     s = s.replaceFirst('<application', '<application\n        android:banner="@drawable/tv_banner"');
   }
-  // The banner picture itself is kept in tool/assets so a regenerated android/ folder gets it back.
-  final banner = File('android/app/src/main/res/drawable-xhdpi/tv_banner.png');
-  final bannerSource = File('tool/assets/tv_banner.png');
-  if (!banner.existsSync() && bannerSource.existsSync()) {
-    banner.parent.createSync(recursive: true);
-    bannerSource.copySync(banner.path);
-    stdout.writeln('  android: TV banner added');
-  }
+  // HomeTunes' own pictures (0.2.0): the app icon in every size (plus the adaptive and themed
+  // icon for newer Android) and the TV banner. They're kept in tool/assets/android/res, so a
+  // regenerated android/ folder gets them back instead of Flutter's default icon.
+  _copyAssets('tool/assets/android/res', 'android/app/src/main/res', 'android');
   f.writeAsStringSync(s);
   stdout.writeln('  android: manifest updated');
 
@@ -274,6 +271,38 @@ class MainActivity : AudioServiceActivity() {
 }
 ''');
   stdout.writeln('  android: MainActivity updated');
+}
+
+/// Windows: HomeTunes' own icon (0.2.0) instead of Flutter's, kept in tool/assets/windows.
+void _windows() {
+  if (!Directory('windows/runner').existsSync()) return;
+  _copyAssets('tool/assets/windows', 'windows/runner/resources', 'windows');
+}
+
+/// Copies every file under [from] to the same place under [to], replacing the file there when it
+/// differs (Flutter's default icon has the same name as HomeTunes' own).
+void _copyAssets(String from, String to, String label) {
+  final src = Directory(from);
+  if (!src.existsSync()) return;
+  var copied = 0;
+  for (final f in src.listSync(recursive: true).whereType<File>()) {
+    final rel = f.path.substring(src.path.length + 1);
+    final dest = File('$to/$rel');
+    final bytes = f.readAsBytesSync();
+    if (dest.existsSync() && _same(dest.readAsBytesSync(), bytes)) continue;
+    dest.parent.createSync(recursive: true);
+    dest.writeAsBytesSync(bytes);
+    copied++;
+  }
+  if (copied > 0) stdout.writeln('  $label: $copied icon / banner file(s) put in place');
+}
+
+bool _same(List<int> a, List<int> b) {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }
 
 /// macOS: the app sandbox needs permission for network access (the server) and for reading
