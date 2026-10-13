@@ -120,5 +120,8 @@ String eqFilter(EqPreset? p, {int? sampleRate}) {
   return parts.isEmpty ? '' : 'format=format=floatp,lavfi=[${parts.join(',')}]';
 }
 
-/// How much to scale the volume for [p]'s overall level (1 = unchanged).
-double eqLevelFactor(EqPreset? p) => p == null || p.level == 0 ? 1.0 : math.pow(10, p.level / 20).toDouble();
+/// How much to scale the engine's volume for [p]'s overall level (1 = unchanged). The engine's
+/// volume is cubic (see models/volume_boost.dart), so the factor is the cube root of the level's
+/// gain: -6 dB is 10^(-6 / 60). Up to 0.1.82 it was 10^(-6 / 20), which the engine cubed into
+/// -18 dB, so a preset with a lowered level (Bass boost, for one) was far quieter than it said.
+double eqLevelFactor(EqPreset? p) => p == null || p.level == 0 ? 1.0 : math.pow(10, p.level / 60).toDouble();
