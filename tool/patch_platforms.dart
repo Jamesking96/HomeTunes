@@ -55,6 +55,8 @@ void _android() {
   if (!s.contains('usesCleartextTraffic')) {
     s = s.replaceFirst('<application', '<application\n        android:usesCleartextTraffic="true"');
   }
+  // The name under the app's icon (0.2.0): "HomeTunes", not flutter create's lowercase project name.
+  s = s.replaceFirst('android:label="hometunes"', 'android:label="HomeTunes"');
   // HomeTunes (0.1.21, security review #5): no Google cloud backup and no copying during
   // new-phone setup. People move their data with a HomeTunes backup (.htbackup) instead.
   if (!s.contains('android:allowBackup')) {
@@ -277,6 +279,22 @@ class MainActivity : AudioServiceActivity() {
 void _windows() {
   if (!Directory('windows/runner').existsSync()) return;
   _copyAssets('tool/assets/windows', 'windows/runner/resources', 'windows');
+  // The name Windows shows (0.2.0): the window title (taskbar, Alt+Tab) and the program's
+  // description and product name (Task Manager, the file's Properties). The file itself stays
+  // hometunes.exe: the installer and the self-update look for it by that name.
+  _replaceIn('windows/runner/main.cpp', 'window.Create(L"hometunes"', 'window.Create(L"HomeTunes"', 'windows');
+  _replaceIn('windows/runner/Runner.rc', 'VALUE "FileDescription", "hometunes"', 'VALUE "FileDescription", "HomeTunes"', 'windows');
+  _replaceIn('windows/runner/Runner.rc', 'VALUE "ProductName", "hometunes"', 'VALUE "ProductName", "HomeTunes"', 'windows');
+}
+
+/// Replaces [from] with [to] in [path] if it's there (so it's safe to run again).
+void _replaceIn(String path, String from, String to, String label) {
+  final f = File(path);
+  if (!f.existsSync()) return;
+  final s = f.readAsStringSync();
+  if (!s.contains(from)) return;
+  f.writeAsStringSync(s.replaceFirst(from, to));
+  stdout.writeln('  $label: ${path.split('/').last} updated');
 }
 
 /// Copies every file under [from] to the same place under [to], replacing the file there when it

@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.hometunes" "\0"
-            VALUE "FileDescription", "hometunes" "\0"
+            VALUE "FileDescription", "HomeTunes" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "hometunes" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.hometunes. All rights reserved." "\0"
             VALUE "OriginalFilename", "hometunes.exe" "\0"
-            VALUE "ProductName", "hometunes" "\0"
+            VALUE "ProductName", "HomeTunes" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
