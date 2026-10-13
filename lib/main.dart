@@ -46,6 +46,7 @@ import 'ui/screens/settings/update_ui.dart';
 import 'ui/screens/settings/whats_new_ui.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
+import 'ui/tv/tv_focus.dart';
 import 'ui/widgets/notices.dart';
 import 'ui/widgets/offline_warning.dart';
 import 'ui/widgets/window_scale.dart';
@@ -277,13 +278,16 @@ class HomeTunesApp extends StatelessWidget {
         builder: (context, look, _) {
           AppColors.current = look.palette;
           AppShape.scale = look.corners;
+          // TV mode (0.2.0): a clear focus highlight, and the remote's arrow keys and OK button.
+          final tv = context.select<prefs.AppearanceSettings, bool>((s) => s.tvLayout);
+          final theme = buildTheme(look.palette, look.corners);
           return RedrawOnThemeChange(
             look: look,
             child: MaterialApp(
               title: 'HomeTunes',
               debugShowCheckedModeBanner: false,
               navigatorKey: appNavigatorKey,
-              theme: buildTheme(look.palette, look.corners),
+              theme: tv ? tvTheme(theme, look.palette.accent) : theme,
               scrollBehavior: appScrollBehavior,
               // Text size: on top of the system's own setting. Notices go through NoticeMessenger
               // (15 seconds each, even while waiting; 1 Oct), whose key lets the start-up update
@@ -295,7 +299,9 @@ class HomeTunesApp extends StatelessWidget {
                 child: Builder(
                   builder: (context) => WindowScale(
                     enabled: context.select<prefs.AppearanceSettings, bool>((s) => s.scaleWithWindow),
-                    child: Builder(builder: (context) => withTextSize(context, look.textSize, child!)),
+                    child: Builder(
+                      builder: (context) => TvFocus(enabled: tv, child: withTextSize(context, look.textSize, child!)),
+                    ),
                   ),
                 ),
               ),
