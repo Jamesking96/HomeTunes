@@ -19,7 +19,8 @@ import 'artwork.dart';
 import 'quick_actions.dart';
 
 /// Album tile for grids and carousels. Hovering over the cover with a mouse shows a round
-/// play button that plays the album straight away (0.1.26).
+/// play button that plays the album straight away (0.1.26). While the album is the one playing,
+/// the button stays in view and shows Pause (0.1.82), so it's easy to see which album it is.
 class AlbumCard extends StatelessWidget {
   final Album album;
   /// Fixed width for shelves; null lets a grid decide.
@@ -47,6 +48,8 @@ class AlbumCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final favourite = context.select<PlaylistsModel, bool>((p) => p.isFavouriteAlbum(album));
     void openPage() => context.read<AppNav>().openAlbum(album);
+    final (fromHere, playingNow) = context.select<PlayerModel, (bool, bool)>(
+        (p) => (p.isPlayingFrom(album.tracks), p.isPlayingNowFrom(album.tracks)));
     final card = SelectableCard(
       id: album.key,
       kind: SelectKind.albums,
@@ -72,9 +75,11 @@ class AlbumCard extends StatelessWidget {
             child: HoverPlayCover(
               key: ValueKey('hover-play:${album.key}'),
               tooltip: 'Play ${album.title}',
+              active: fromHere,
+              playing: playingNow,
               onPlay: () => context
                   .read<PlayerModel>()
-                  .playTracks(album.tracks, label: 'Album · ${album.title}'),
+                  .playOrPauseFrom(album.tracks, label: 'Album · ${album.title}'),
               child: ArtworkFill(track: album.artTrack),
             ),
           ),
@@ -243,12 +248,22 @@ class _SelectableCardState extends State<SelectableCard> {
 }
 
 /// A cover that shows a round play button in its corner while the mouse is over it (0.1.26).
-/// Touch screens have no hover, so there it's just the cover.
+/// Touch screens have no hover, so there it's just the cover, unless [active] (0.1.82): then the
+/// button is always shown, with Pause while [playing], because this cover's music is playing.
 class HoverPlayCover extends StatefulWidget {
   final Widget child;
   final VoidCallback onPlay;
   final String tooltip;
-  const HoverPlayCover({super.key, required this.child, required this.onPlay, this.tooltip = 'Play'});
+  final bool active;
+  final bool playing;
+  const HoverPlayCover({
+    super.key,
+    required this.child,
+    required this.onPlay,
+    this.tooltip = 'Play',
+    this.active = false,
+    this.playing = false,
+  });
 
   @override
   State<HoverPlayCover> createState() => _HoverPlayCoverState();
@@ -260,6 +275,9 @@ class _HoverPlayCoverState extends State<HoverPlayCover> {
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
+    final shown = _hover || widget.active;
+    final pause = widget.active && widget.playing;
+    final tip = widget.active ? (widget.playing ? 'Pause' : 'Resume') : widget.tooltip;
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
@@ -268,17 +286,18 @@ class _HoverPlayCoverState extends State<HoverPlayCover> {
         Positioned(
           right: 8,
           bottom: 8,
-          // Hidden (and not clickable) until hovered; slides up a little as it appears.
+          // Hidden (and not clickable) until hovered, or while this music plays; slides up a
+          // little as it appears.
           child: IgnorePointer(
-            ignoring: !_hover,
+            ignoring: !shown,
             child: AnimatedSlide(
-              offset: _hover ? Offset.zero : const Offset(0, 0.25),
+              offset: shown ? Offset.zero : const Offset(0, 0.25),
               duration: const Duration(milliseconds: 150),
               child: AnimatedOpacity(
-                opacity: _hover ? 1 : 0,
+                opacity: shown ? 1 : 0,
                 duration: const Duration(milliseconds: 150),
                 child: Tooltip(
-                  message: widget.tooltip,
+                  message: tip,
                   child: Material(
                     key: const ValueKey('hover-play-button'),
                     color: accent,
@@ -289,7 +308,8 @@ class _HoverPlayCoverState extends State<HoverPlayCover> {
                       onTap: widget.onPlay,
                       child: Padding(
                         padding: const EdgeInsets.all(10),
-                        child: Icon(Icons.play_arrow_rounded, size: 26, color: AppColors.current.onAccent),
+                        child: Icon(pause ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                            size: 26, color: AppColors.current.onAccent),
                       ),
                     ),
                   ),

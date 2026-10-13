@@ -1,6 +1,9 @@
 // The big header at the top of album, artist and playlist pages: cover, "ALBUM"-style label,
 // title, subtitle, and Play / Shuffle buttons (plus any extra buttons the page adds).
 //
+// 0.1.82: while the music playing came from this page's songs, Play shows Pause (and Resume once
+// paused), and pressing it pauses or carries on instead of starting again.
+//
 // On wide windows it's laid out side by side (cover left, text right); on phones everything is
 // stacked and centred. The background fades from the accent colour into the page colour.
 import 'package:flutter/material.dart';
@@ -38,6 +41,9 @@ class CollectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final player = context.read<PlayerModel>();
+    // Is this page's music the one playing? (Only a change to that redraws the header.)
+    final (fromHere, playingNow) =
+        context.select<PlayerModel, (bool, bool)>((p) => (p.isPlayingFrom(tracks), p.isPlayingNowFrom(tracks)));
     final wide = MediaQuery.sizeOf(context).width > 600;
     final artSize = wide ? 200.0 : 180.0;
 
@@ -63,10 +69,11 @@ class CollectionHeader extends StatelessWidget {
       mainAxisAlignment: wide ? MainAxisAlignment.start : MainAxisAlignment.center,
       children: [
         IconButton.filled(
+          key: const ValueKey('collection-play'),
           iconSize: 32,
-          tooltip: 'Play',
-          icon: const Icon(Icons.play_arrow_rounded),
-          onPressed: tracks.isEmpty ? null : () => player.playTracks(tracks, shuffle: false, label: contextLabel),
+          tooltip: playingNow ? 'Pause' : (fromHere ? 'Resume' : 'Play'),
+          icon: Icon(playingNow ? Icons.pause_rounded : Icons.play_arrow_rounded),
+          onPressed: tracks.isEmpty ? null : () => player.playOrPauseFrom(tracks, shuffle: false, label: contextLabel),
         ),
         const SizedBox(width: 8),
         IconButton(
