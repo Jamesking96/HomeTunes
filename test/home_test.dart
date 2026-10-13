@@ -21,6 +21,8 @@ import 'package:hometunes/ui/library_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
+import 'idle_player.dart';
+
 import 'metadata_features_test.dart' show silentWav;
 
 const _song = Track(
@@ -147,6 +149,7 @@ void main() {
 
     Widget app() => MultiProvider(
       providers: [
+        idlePlayerProvider(),
         ...libraryProviders(lib),
         ChangeNotifierProvider.value(value: playlists),
         ChangeNotifierProvider.value(value: listening),
@@ -210,6 +213,7 @@ void main() {
       await tester.pumpWidget(
         MultiProvider(
           providers: [
+            idlePlayerProvider(),
             ChangeNotifierProvider.value(value: bare),
             ChangeNotifierProvider.value(value: PlaylistsModel(s)),
             ChangeNotifierProvider.value(value: ListeningModel(s)),
