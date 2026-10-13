@@ -16,6 +16,8 @@ import 'package:hometunes/ui/widgets/cards.dart' show ArtistCard;
 import 'package:hometunes/ui/library_providers.dart';
 import 'package:provider/provider.dart';
 
+import 'idle_player.dart';
+
 Track t(String title, String artist, String album,
         {int? year, String? genre, int minutes = 3, int modified = 0, int? no}) =>
     Track(
@@ -138,6 +140,7 @@ void main() {
       final playlists = PlaylistsModel(Storage.at(dir));
       await tester.pumpWidget(MultiProvider(
         providers: [
+          idlePlayerProvider(),
           ...libraryProviders(lib),
           ChangeNotifierProvider.value(value: playlists),
           ChangeNotifierProvider(create: (_) => SelectionModel()),
