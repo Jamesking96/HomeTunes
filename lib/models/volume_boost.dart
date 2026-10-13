@@ -7,11 +7,18 @@
 // the sound is amplified, so 500 % is 5 times as loud (+14 dB). Very high boosts can distort,
 // as in VLC: loud parts clip.
 //
-// The engine is mpv 0.36. Its volume is cubic (the sound level is (volume / 100)³) and stops at
-// 130 unless "volume-max" is raised, so a slider value above 100 is sent as 100 × ∛(value / 100)
-// ([engineVolume]) with volume-max at [engineVolumeMax]; at or below 100 it's sent as it is, so
-// nothing changes for normal listening. [sliderVolume] turns the engine's number back (the
-// video player's volume lives in the engine, so its sliders read it from there).
+// The engine is mpv 0.36. Its volume is cubic: the sound level is (volume / 100)³, so 50 is an
+// eighth as loud (-18 dB) and 20 only 1/125 (-42 dB), which is close to silent. 0.1.82 and before
+// sent the slider's number straight to it, so the bottom fifth of every slider was too quiet to
+// hear (the user, 13 Oct). Since 0.1.83 a slider value up to 100 sets the level to
+// (value / 100)², a square law like most players': 50 is a quarter (-12 dB), 20 is -28 dB and 10
+// is -40 dB, so the sound fades out smoothly over the whole slider. The engine gets
+// 100 × (value / 100)^(2/3), which mpv cubes back to that.
+//
+// Above 100 the level is value / 100 (500 % is five times as loud), so the engine gets
+// 100 × ∛(value / 100), and its "volume-max" is raised to [engineVolumeMax] (it stops at 130
+// otherwise). Both meet at 100. [sliderVolume] turns the engine's number back (the video
+// player's volume lives in the engine, so its sliders read it from there).
 import 'dart:math' as math;
 
 /// The Settings slider's range in percent, and its steps.
@@ -28,13 +35,15 @@ double maxVolumeFor({required bool on, required int percent}) =>
 
 /// The engine's volume for a slider value (0 up to 500).
 double engineVolume(double slider) {
-  if (slider <= 100) return slider < 0 ? 0 : slider;
+  if (slider <= 0) return 0;
+  if (slider <= 100) return 100 * math.pow(slider / 100, 2 / 3).toDouble();
   return 100 * math.pow(slider / 100, 1 / 3).toDouble();
 }
 
 /// The slider value for the engine's volume (the reverse of [engineVolume]).
 double sliderVolume(double engine) {
-  if (engine <= 100) return engine < 0 ? 0 : engine;
+  if (engine <= 0) return 0;
+  if (engine <= 100) return 100 * math.pow(engine / 100, 3 / 2).toDouble();
   return 100 * math.pow(engine / 100, 3).toDouble();
 }
 
