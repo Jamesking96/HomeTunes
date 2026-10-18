@@ -41,6 +41,7 @@
   "defaultVideoSpeed": 1.5,
   "videoRewindOnResume": false,
   "videoDirectDrawing": false,
+  "videoSeekPreview": false,
   "videoPictureShape": "tall",
   "collectionPictureShape": "square",
   "videoPlayerLook": {
