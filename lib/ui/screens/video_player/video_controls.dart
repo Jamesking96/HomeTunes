@@ -263,6 +263,10 @@ extension _VideoPageControls on _VideoPageState {
                   final w = player.state.width, h = player.state.height;
                   return w != null && h != null && w > 0 && h > 0 ? w / h : 16 / 9;
                 },
+                // TV mode (0.2.0): the remote moves along the bar, OK jumps (or plays / pauses).
+                position: () => player.state.position,
+                onSeek: player.seek,
+                onActivate: player.playOrPause,
                 child: AdaptiveVideoControls(state),
               )),
           // With libass the engine draws the subtitles into the picture; the app's own text

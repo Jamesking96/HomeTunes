@@ -108,6 +108,9 @@ class _TvOn extends InheritedWidget {
   bool updateShouldNotify(_TvOn old) => old.on != on;
 }
 
+/// Whether TV mode is on where [context] is (the seek preview's remote control, 0.2.0).
+bool tvModeOf(BuildContext context) => _TvOn.of(context);
+
 /// One part of the screen the arrow keys stay inside (the sidebar, the page, the player bar).
 ///
 /// In TV mode an arrow press first looks for the nearest item in that direction inside this

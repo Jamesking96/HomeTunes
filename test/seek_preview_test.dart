@@ -2,13 +2,14 @@
 // through the video (services/seek_preview.dart, ui/widgets/seek_preview_overlay.dart). The real
 // pictures need the engine, so a stand-in source is used; the bar is a stand-in for media_kit's.
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/services/engine/engines.dart';
 import 'package:hometunes/services/seek_preview.dart';
+import 'package:flutter/services.dart';
+import 'package:hometunes/ui/tv/tv_focus.dart';
 import 'package:hometunes/ui/widgets/seek_preview_overlay.dart';
 
 /// Hands out a tiny picture per spot; each can be held back until [release] to act like a slow
@@ -259,6 +260,111 @@ void main() {
       expect(find.byKey(const ValueKey('seek-preview')), findsNothing);
       await again.up();
       expect(frames.asked, isEmpty);
+    });
+  });
+
+  // 0.2.0: on a TV the remote moves along the bar instead of a pointer.
+  group('with the TV remote', () {
+    var pos = Duration.zero;
+    late List<Duration> seeks;
+    var activated = 0;
+
+    setUp(() {
+      pos = const Duration(minutes: 5);
+      seeks = [];
+      activated = 0;
+    });
+
+    Widget page({bool tv = true}) => MaterialApp(
+          home: TvFocus(
+            enabled: tv,
+            child: Scaffold(
+              body: Column(children: [
+                TextButton(key: const ValueKey('a-button'), onPressed: () {}, child: const Text('A button')),
+                SizedBox(
+                  width: 640,
+                  height: 360,
+                  child: SeekPreviewOverlay(
+                    previewer: null,
+                    length: () => hour,
+                    position: () => pos,
+                    onSeek: seeks.add,
+                    onActivate: () => activated++,
+                    isSeekBar: (w) => w is FakeBar,
+                    child: const Align(alignment: Alignment.bottomCenter, child: FakeBar()),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        );
+
+    Future<void> open(WidgetTester tester, {bool tv = true}) async {
+      await tester.pumpWidget(page(tv: tv));
+      for (var i = 0; i < 4; i++) {
+        await tester.pump();
+      }
+    }
+
+    Future<void> press(WidgetTester tester, LogicalKeyboardKey key) async {
+      await tester.sendKeyEvent(key);
+      await tester.pump();
+    }
+
+    String? focused() => FocusManager.instance.primaryFocus?.debugLabel;
+
+    test('one press moves 10 s, or a 150th of a long video, and more while held', () {
+      expect(SeekPreviewOverlayState.remoteStep(const Duration(minutes: 20), 0), const Duration(seconds: 10));
+      expect(SeekPreviewOverlayState.remoteStep(hour, 0), const Duration(seconds: 24));
+      expect(SeekPreviewOverlayState.remoteStep(hour, 6), const Duration(seconds: 72));
+      expect(SeekPreviewOverlayState.remoteStep(hour, 300), const Duration(minutes: 6)); // at most a tenth
+    });
+
+    testWidgets('the bar has focus when the video opens; → moves the spot with its time, OK jumps there', (tester) async {
+      await open(tester);
+      expect(find.byKey(const ValueKey('tv-seek-bar')), findsOneWidget);
+      expect(focused(), 'seek bar');
+      await press(tester, LogicalKeyboardKey.arrowRight);
+      expect(find.text('5:24'), findsOneWidget); // 5:00 + an hour's 150th
+      await press(tester, LogicalKeyboardKey.arrowRight);
+      expect(find.text('5:48'), findsOneWidget);
+      expect(seeks, isEmpty); // not until OK, or a rest
+      await press(tester, LogicalKeyboardKey.select);
+      expect(seeks, [const Duration(minutes: 5, seconds: 48)]);
+      expect(find.byKey(const ValueKey('seek-preview')), findsNothing);
+      await tester.pumpWidget(const SizedBox()); // ends the bar's redraw timer
+    });
+
+    testWidgets('← stops at the start; the video jumps by itself once the remote rests; Back drops the spot',
+        (tester) async {
+      pos = const Duration(seconds: 10);
+      await open(tester);
+      await press(tester, LogicalKeyboardKey.arrowLeft);
+      expect(find.text('0:00'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      expect(seeks, [Duration.zero]);
+      await press(tester, LogicalKeyboardKey.mediaFastForward);
+      expect(find.text('0:34'), findsOneWidget);
+      await press(tester, LogicalKeyboardKey.escape);
+      expect(find.byKey(const ValueKey('seek-preview')), findsNothing);
+      await tester.pump(const Duration(seconds: 2));
+      expect(seeks, [Duration.zero]); // dropped, no jump
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('OK with no spot chosen plays or pauses; ↑ moves on to the buttons', (tester) async {
+      await open(tester);
+      await press(tester, LogicalKeyboardKey.select);
+      expect(activated, 1);
+      expect(seeks, isEmpty);
+      await press(tester, LogicalKeyboardKey.arrowUp);
+      expect(focused(), isNot('seek bar'));
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('not on a computer or phone', (tester) async {
+      await open(tester, tv: false);
+      expect(find.byKey(const ValueKey('tv-seek-bar')), findsNothing);
     });
   });
 }
