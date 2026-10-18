@@ -19,6 +19,7 @@ void main() {
       EngineUse.framePicker: 'HomeTunes frame picker',
       EngineUse.probe: 'HomeTunes details',
       EngineUse.thumbnails: 'HomeTunes thumbnails',
+      EngineUse.seekPreview: 'HomeTunes seek preview',
     });
   });
 }

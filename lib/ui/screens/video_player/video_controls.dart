@@ -250,11 +250,21 @@ extension _VideoPageControls on _VideoPageState {
           controller: _controller,
           fill: Colors.black,
           // The mouse wheel: 5 s skips over the progress bar, volume elsewhere (30 Sep).
+          // 0.1.84: the picture and time above the progress bar while moving through the video.
           controls: (state) => VideoWheel(
               player: player,
               look: look,
               maxVolume: () => _settings.playback.maxVolume,
-              child: AdaptiveVideoControls(state)),
+              child: SeekPreviewOverlay(
+                previewer: _preview,
+                length: () => player.state.duration,
+                enabled: () => _settings.video.videoSeekPreview,
+                aspect: () {
+                  final w = player.state.width, h = player.state.height;
+                  return w != null && h != null && w > 0 && h > 0 ? w / h : 16 / 9;
+                },
+                child: AdaptiveVideoControls(state),
+              )),
           // With libass the engine draws the subtitles into the picture; the app's own text
           // subtitles would show them twice.
           subtitleViewConfiguration: SubtitleViewConfiguration(visible: Platform.isAndroid),
