@@ -18,7 +18,7 @@ Read the files in this order:
 
 ## Status (6 Oct 2026)
 
-- **Latest (13 Oct):** 0.1.82 (an album's or playlist's Play button shows when it's playing) and 0.1.83 (the volume sliders fade evenly to silence; the EQ level is right) are merged into `main` and pushed, not yet released; v0.1.81 (12 Oct) is the latest release. The Android TV work (0.2.0) is on `feature/android-tv`, with `main` merged in. See `04_`, Source control.
+- **Latest (13 Oct):** 0.1.82 (an album's or playlist's Play button shows when it's playing) 0.1.83 (the volume sliders fade evenly to silence; the EQ level is right) and 0.1.84 (a preview picture above a video's progress bar) are merged into `main` and pushed, not yet released; v0.1.81 (12 Oct) is the latest release. The Android TV work (0.2.0) is on `feature/android-tv`, with `main` merged in. See `04_`, Source control.
 - **Released:** the latest release is
   [v0.1.70](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.70) (6 Oct), which
   covers 0.1.63–0.1.70 in one release: the video sleep timer, sidebar quick links (playlists
