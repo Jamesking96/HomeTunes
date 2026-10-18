@@ -31,6 +31,7 @@ import '../../models/video_item.dart';
 import '../../models/video_player_look.dart';
 import '../../models/volume_boost.dart';
 import '../../services/engine/video_engine.dart';
+import '../../services/seek_preview.dart';
 import '../../services/video_drawing.dart';
 import '../../services/video_stats.dart';
 import '../../state/equalizer_model.dart';
@@ -43,6 +44,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/always_on_top_button.dart';
 import '../widgets/listening_controls.dart' show SpeedButton;
+import '../widgets/seek_preview_overlay.dart';
 import '../widgets/video_controls_look.dart';
 import '../widgets/video_sleep_button.dart';
 import 'edit_video.dart';
@@ -242,6 +244,10 @@ class _VideoPageState extends State<_VideoPage> {
   /// The video fills the whole page (the details are hidden).
   bool _enlarged = false;
 
+  /// The pictures above the progress bar while moving through the video (0.1.84). Its hidden
+  /// player only opens the first time one is wanted.
+  final SeekPreviewer _preview = SeekPreviewer();
+
   @override
   void initState() {
     super.initState();
@@ -261,11 +267,13 @@ class _VideoPageState extends State<_VideoPage> {
       onCarryOn: _carryOn,
       onOpenPage: _bringBack,
     )..addListener(_redraw);
+    _preview.setVideo(_session.file);
     // The first video's first picture is on screen (this only happens once per player).
     _controller.waitUntilFirstFrameRendered.then((_) => _session.shown());
   }
 
   void _redraw() {
+    _preview.setVideo(_session.file); // the next video in the collection: its own pictures
     if (mounted) setState(() {});
   }
 
@@ -293,6 +301,7 @@ class _VideoPageState extends State<_VideoPage> {
   void dispose() {
     _session.removeListener(_redraw);
     _session.dispose(); // saves the place, lets the bottom bar go, closes the player
+    _preview.dispose();
     super.dispose();
   }
 

@@ -32,7 +32,11 @@ enum EngineUse {
   probe('HomeTunes details'),
 
   /// Taking videos' pictures for the Videos tab: pictures only.
-  thumbnails('HomeTunes thumbnails');
+  thumbnails('HomeTunes thumbnails'),
+
+  /// The small picture above a video's progress bar (0.1.84, services/seek_preview.dart):
+  /// pictures only, jumping to key frames (fast) rather than the exact frame.
+  seekPreview('HomeTunes seek preview');
 
   const EngineUse(this.title);
   final String title;
@@ -63,6 +67,14 @@ List<(String, String)> engineSettings(EngineUse use) => switch (use) {
       EngineUse.framePicker => const [('vid', 'auto'), ('aid', 'no'), ('sid', 'no'), ('hr-seek', 'yes')],
       EngineUse.probe => const [('ao', 'null'), ('sid', 'no')],
       EngineUse.thumbnails => const [('vid', 'auto'), ('aid', 'no'), ('sid', 'no')],
+      EngineUse.seekPreview => const [
+          ('vid', 'auto'),
+          ('aid', 'no'),
+          ('sid', 'no'),
+          ('hr-seek', 'no'),
+          ('screenshot-format', 'jpg'),
+          ('screenshot-jpeg-quality', '85'),
+        ],
     };
 
 /// mpv's own properties and commands for a player.

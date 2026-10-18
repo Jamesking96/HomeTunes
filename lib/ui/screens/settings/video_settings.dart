@@ -1,7 +1,7 @@
 // Settings › Videos (0.1.40): like Settings › Audiobooks, for the Videos tab.
 //   Watching: skip back / forward amounts (the player's buttons, ← → and J / L, double-tap on a
 //             phone), the speed for collections that haven't had one chosen, rewinding a little
-//             when carrying on, smoother video on phones (0.1.57: drawing straight from the
+//             when carrying on, the preview above the progress bar (0.1.84), smoother video on phones (0.1.57: drawing straight from the
 //             video chip), and a separate equaliser preset for videos.
 //   Where your videos are: the video folders (the same list as Settings › Folders & scanning).
 //   Your edits: whether edits are also saved into .nfo files beside the videos.
@@ -107,6 +107,17 @@ class VideoSettings extends StatelessWidget {
             subtitle: const Text('A few seconds after a short pause, up to 30 seconds after a long break'),
             value: video.videoRewindOnResume,
             onChanged: (v) => lib.updateVideoSettings(rewindOnResume: v),
+          ),
+        ),
+        // 0.1.84: the picture above the progress bar while moving through a video.
+        SettingTarget(
+          'video-seek-preview',
+          child: SwitchListTile(
+            title: const Text('Preview when moving through a video'),
+            subtitle: const Text('A small picture and the time above the progress bar, while the mouse is over it '
+                'or while you drag it (on a phone, while your finger is on it)'),
+            value: video.videoSeekPreview,
+            onChanged: (v) => lib.updateVideoSettings(seekPreview: v),
           ),
         ),
         // 0.1.57: draw straight from the phone's video chip (services/video_drawing.dart).
