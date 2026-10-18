@@ -93,6 +93,8 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('video-skip-forward', SettingsPage.videos, 'Skip forward (videos)', 'fast forward seconds video keys'),
   SettingInfo('video-speed', SettingsPage.videos, 'Video speed', 'playback speed faster slower videos'),
   SettingInfo('video-rewind', SettingsPage.videos, 'Rewind a little when carrying on', 'resume videos'),
+  SettingInfo('video-seek-preview', SettingsPage.videos, 'Preview when moving through a video',
+      'seek preview thumbnail scrub progress bar hover drag picture frame'),
   SettingInfo('video-direct', SettingsPage.videos, 'Smoother video on phones',
       'stutter lag laggy choppy smooth hardware video chip drawing black picture videos'),
   SettingInfo('video-eq', SettingsPage.videos, 'Separate equaliser for videos', 'equalizer eq sound videos'),

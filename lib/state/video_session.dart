@@ -208,9 +208,15 @@ class VideoSession extends ChangeNotifier {
     if (target != null) goTo(target.id);
   }
 
+  /// The file (or server address) of the video on the page now, or null if it can't be found.
+  /// For the seek preview (0.1.84), which opens the same video in a hidden player.
+  String? get file => _file;
+  String? _file;
+
   Future<void> open(String id) async {
     final v = videos.byId(id);
     final file = v == null ? null : videos.playableFile(v);
+    _file = file;
     shownId.value = id;
     _id = id;
     problem = null;
