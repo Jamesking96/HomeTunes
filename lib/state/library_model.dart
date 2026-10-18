@@ -552,10 +552,12 @@ class LibraryModel extends ChangeNotifier {
     double? defaultSpeed,
     bool? rewindOnResume,
     bool? directDrawing,
+    bool? seekPreview,
     PictureShape? videoShape,
     PictureShape? collectionShape,
   }) =>
       settings.video.update(
+        seekPreview: seekPreview,
         skipBackSeconds: skipBackSeconds,
         skipForwardSeconds: skipForwardSeconds,
         defaultSpeed: defaultSpeed,

@@ -393,6 +393,9 @@ class VideoSettings extends SettingsGroup {
   /// Phone: videos are drawn straight from the video chip (0.1.57, services/video_drawing.dart).
   bool videoDirectDrawing = true;
 
+  /// The small picture above a video's progress bar while moving through it (0.1.84).
+  bool videoSeekPreview = true;
+
   /// The usual picture shape for videos and for collections (each can have its own).
   PictureShape videoPictureShape = PictureShape.wide;
   PictureShape collectionPictureShape = PictureShape.wide;
@@ -413,6 +416,7 @@ class VideoSettings extends SettingsGroup {
     Setting.decimal('defaultVideoSpeed', 1.0, () => defaultVideoSpeed, (v) => defaultVideoSpeed = v),
     Setting.flag('videoRewindOnResume', true, () => videoRewindOnResume, (v) => videoRewindOnResume = v),
     Setting.flag('videoDirectDrawing', true, () => videoDirectDrawing, (v) => videoDirectDrawing = v),
+    Setting.flag('videoSeekPreview', true, () => videoSeekPreview, (v) => videoSeekPreview = v),
     _shape('videoPictureShape', () => videoPictureShape, (v) => videoPictureShape = v),
     _shape('collectionPictureShape', () => collectionPictureShape, (v) => collectionPictureShape = v),
   ];
@@ -424,10 +428,12 @@ class VideoSettings extends SettingsGroup {
     double? defaultSpeed,
     bool? rewindOnResume,
     bool? directDrawing,
+    bool? seekPreview,
     PictureShape? videoShape,
     PictureShape? collectionShape,
   }) {
     videoDirectDrawing = directDrawing ?? videoDirectDrawing;
+    videoSeekPreview = seekPreview ?? videoSeekPreview;
     videoSkipBackSeconds = skipBackSeconds ?? videoSkipBackSeconds;
     videoSkipForwardSeconds = skipForwardSeconds ?? videoSkipForwardSeconds;
     defaultVideoSpeed = defaultSpeed ?? defaultVideoSpeed;
