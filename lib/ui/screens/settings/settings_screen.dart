@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 
 import '../../nav.dart';
 import '../../theme.dart';
+import '../../tv/tv_focus.dart' show tvFocusFirstIn, tvModeOf;
 import '../../widgets/music_access_banner.dart';
 import 'about_settings.dart';
 import 'appearance_settings.dart';
@@ -63,9 +64,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _opened = 0; // makes the page start fresh (and scroll) each time a setting is picked
   bool _wide = false; // set during build from the available width
 
+  /// Holds the open page on the right (wide), so TV mode can move focus into it.
+  final _pane = FocusNode(debugLabel: 'settings page', skipTraversal: true, canRequestFocus: false);
+
   @override
   void dispose() {
     _search.dispose();
+    _pane.dispose();
     super.dispose();
   }
 
@@ -78,6 +83,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _highlight = setting;
         _opened++;
       });
+      // TV mode (0.2.0): the remote goes on into the page just opened, as it would on a phone
+      // where the page opens over the list.
+      if (tvModeOf(context)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) tvFocusFirstIn(_pane);
+        });
+      }
     } else {
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => _SettingsPageScreen(page: page, highlight: setting),
@@ -142,10 +154,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         constraints: const BoxConstraints(maxWidth: 820),
                         // The key changes each time a page/setting is opened, so the page is
                         // rebuilt from scratch and the highlight runs again.
-                        child: SettingsHighlight(
-                          key: ValueKey('${_page.name}/$_opened'),
-                          id: _highlight,
-                          child: settingsPageBody(_page),
+                        child: Focus(
+                          focusNode: _pane,
+                          child: SettingsHighlight(
+                            key: ValueKey('${_page.name}/$_opened'),
+                            id: _highlight,
+                            child: settingsPageBody(_page),
+                          ),
                         ),
                       ),
                     ),

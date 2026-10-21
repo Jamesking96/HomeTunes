@@ -117,4 +117,122 @@ void main() {
     expect(overlay.resolve({}), isNull);
     expect(t.iconButtonTheme.style!.overlayColor!.resolve({WidgetState.focused}), isNotNull);
   });
+
+  // 22 Oct fix (tried on the TV): on a TV-sized screen Settings opens each page over its list. ↓
+  // went on into the hidden list underneath, so OK opened About instead of "Add video folder".
+  group('pages opened over others', () {
+    Widget item(String name, {List<String>? pressed, double width = 200}) => InkWell(
+          key: ValueKey(name),
+          onTap: () => pressed?.add(name),
+          child: SizedBox(width: width, height: 48, child: Center(child: Text(name))),
+        );
+
+    final pageKey = GlobalKey<NavigatorState>();
+
+    /// The sidebar, and the page area with its own pages (as each tab has): a list of five, and
+    /// later a page with two buttons opened over it.
+    Widget app(List<String> pressed) => MaterialApp(
+          home: TvFocus(
+            enabled: true,
+            child: Scaffold(
+              body: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                TvRegion(child: Column(children: [item('Home'), item('Settings')])),
+                Expanded(
+                  child: TvRegion(
+                    child: Navigator(
+                      key: pageKey,
+                      onGenerateRoute: (_) => MaterialPageRoute(
+                        builder: (_) => Material(
+                          child: Column(children: [
+                            for (final n in ['Library', 'Playback', 'Videos', 'Backup', 'About']) item(n, pressed: pressed),
+                          ]),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        );
+
+    Future<void> openPage(WidgetTester tester, List<String> pressed) async {
+      pageKey.currentState!.push(MaterialPageRoute(
+        builder: (_) => Material(
+          child: Column(children: [item('Add video folder', pressed: pressed), item('Rescan', pressed: pressed)]),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the arrows stay on the page that\'s open, and OK presses what\'s on it', (tester) async {
+      final pressed = <String>[];
+      await tester.pumpWidget(app(pressed));
+      await tester.pumpAndSettle();
+      await openPage(tester, pressed);
+      expect(focusedName(), 'Add video folder'); // the new page's first item
+      await press(tester, LogicalKeyboardKey.arrowDown);
+      expect(focusedName(), 'Rescan');
+      // Further down is only the hidden list (Backup, About): nothing there to go to.
+      await press(tester, LogicalKeyboardKey.arrowDown);
+      expect(focusedName(), isNot(isIn(['Library', 'Playback', 'Videos', 'Backup', 'About'])));
+      await press(tester, LogicalKeyboardKey.arrowUp);
+      await press(tester, LogicalKeyboardKey.arrowUp);
+      expect(focusedName(), 'Add video folder');
+      await press(tester, LogicalKeyboardKey.select);
+      expect(pressed, ['Add video folder']);
+      // ← from the open page still reaches the sidebar.
+      await press(tester, LogicalKeyboardKey.arrowLeft);
+      expect(focusedName(), isIn(['Home', 'Settings']));
+    });
+
+    testWidgets('a long list scrolls to keep the focused item in view', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: TvFocus(
+          enabled: true,
+          child: Scaffold(
+            body: SizedBox(
+              height: 300,
+              child: TvRegion(
+                child: ListView(children: [for (var i = 1; i <= 40; i++) item('Item $i')]),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(focusedName(), 'Item 1');
+      for (var i = 0; i < 24; i++) {
+        await press(tester, LogicalKeyboardKey.arrowDown);
+      }
+      expect(focusedName(), 'Item 25');
+      final shown = tester.getRect(find.byKey(const ValueKey('Item 25')));
+      expect(shown.bottom, lessThanOrEqualTo(300.5)); // scrolled into view
+      expect(shown.top, greaterThanOrEqualTo(0));
+    });
+
+    testWidgets('→ from a list goes on to the page beside it, even when nothing is level with it', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: TvFocus(
+          enabled: true,
+          child: Scaffold(
+            body: TvRegion(
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Column(children: [item('List 1'), item('List 2'), item('List 3'), item('List 4')]),
+                Padding(padding: const EdgeInsets.only(top: 10), child: Column(children: [item('Pane 1')])),
+              ]),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 3; i++) {
+        await press(tester, LogicalKeyboardKey.arrowDown);
+      }
+      expect(focusedName(), 'List 4');
+      await press(tester, LogicalKeyboardKey.arrowRight);
+      expect(focusedName(), 'Pane 1');
+    });
+  });
 }
