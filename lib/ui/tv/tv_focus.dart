@@ -9,7 +9,10 @@
 //  * [tvTheme]: a clear highlight in the theme's accent colour on whatever has focus, because
 //    Material's own focus shading is made for a desk, not for a sofa;
 //  * [TvRegion]: keeps the arrow keys inside one part of the screen (the sidebar, the page, the
-//    player bar) until they reach its edge, so focus doesn't jump about.
+//    player bar) until they reach its edge, so focus doesn't jump about. Only what's on screen
+//    counts: not a page covered by the one opened over it (22 Oct fix: on the TV, Settings opens
+//    each page over the list, and ↓ went on into the hidden list, so OK opened About), and lists
+//    scroll to keep the focused item in view.
 // Settings › Appearance › TV mode decides when it's on (AppearanceSettings.tvLayout). With it off,
 // TvFocus and tvTheme step aside. The regions stay either way (so switching TV mode doesn't reset
 // open pages); on a computer they only mean Tab finishes the sidebar before moving to the page.
@@ -160,25 +163,79 @@ class _RegionArrowAction extends DirectionalFocusAction {
   void invoke(DirectionalFocusIntent intent) {
     final current = FocusManager.instance.primaryFocus;
     if (tv() && current != null && current.context != null) {
-      final next = nearestInDirection(
-        current.rect,
-        intent.direction,
-        [for (final n in region.traversalDescendants) if (n != current && n.canRequestFocus && n.context != null) n],
-      );
+      final d = intent.direction;
+      final from = current.rect;
+      final here = [for (final n in region.traversalDescendants) if (n != current && tvCanGo(n)) n];
+      // The other parts of the screen (the sidebar, the player bar), worked out only if needed.
+      // Flutter's own step only looks inside the page that's open, so it can't leave it.
+      List<FocusNode> elsewhere() {
+        final inHere = here.toSet()..add(current);
+        return [
+          for (final n in FocusManager.instance.rootScope.traversalDescendants)
+            if (!inHere.contains(n) && !_isWithin(n, region) && tvCanGo(n)) n,
+        ];
+      }
+
+      // In order: straight ahead in this part of the screen (along a row for ← →); straight ahead
+      // in the next part (the page's edge to the sidebar); anything that way in this part (the
+      // other column of a two-pane page); anything that way at all.
+      var next = nearestInDirection(from, d, here);
+      List<FocusNode>? others;
+      next ??= nearestInDirection(from, d, others ??= elsewhere());
+      next ??= nearestInDirection(from, d, here, levelOnly: false);
+      next ??= nearestInDirection(from, d, others ??= elsewhere(), levelOnly: false);
       if (next != null) {
-        next.requestFocus();
+        tvFocusOn(next, d);
         return;
       }
     }
     super.invoke(intent);
   }
+
+  static bool _isWithin(FocusNode n, FocusNode region) => n.ancestors.contains(region);
+}
+
+/// Whether the remote can move to [n]: it takes focus, and it's on the page that's showing, not
+/// one covered by another page or a dialog.
+bool tvCanGo(FocusNode n) {
+  final context = n.context;
+  if (!n.canRequestFocus || n.skipTraversal || context == null || !context.mounted) return false;
+  final route = ModalRoute.of(context);
+  return route == null || route.isCurrent;
+}
+
+/// Gives [n] focus and scrolls it into view (moving [direction]: it comes in at that edge).
+void tvFocusOn(FocusNode n, TraversalDirection direction) {
+  FocusTraversalPolicy.defaultTraversalRequestFocusCallback(
+    n,
+    alignmentPolicy: switch (direction) {
+      TraversalDirection.up || TraversalDirection.left => ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+      TraversalDirection.down || TraversalDirection.right => ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+    },
+  );
+}
+
+/// Moves focus to the first thing (top left) that can take it inside [within], scrolled into
+/// view. For a pane whose content was just changed from elsewhere (Settings' list and page).
+/// Returns false if there's nothing there.
+bool tvFocusFirstIn(FocusNode within) {
+  final all = [for (final n in within.traversalDescendants) if (tvCanGo(n)) n];
+  if (all.isEmpty) return false;
+  all.sort((a, b) {
+    final dy = a.rect.top.compareTo(b.rect.top);
+    return dy != 0 ? dy : a.rect.left.compareTo(b.rect.left);
+  });
+  tvFocusOn(all.first, TraversalDirection.up);
+  return true;
 }
 
 /// The node in [candidates] nearest to [from] in [direction], or null if none lies that way.
-/// Left / Right only consider items level with [from]; Up / Down prefer items in line with it
-/// (overlapping it across the direction of travel) over ones off to the side. Nearer beats further.
+/// Left / Right only consider items level with [from] ([levelOnly]; false: any that way); Up /
+/// Down prefer items in line with it (overlapping it across the direction of travel) over ones
+/// off to the side. Nearer beats further.
 @visibleForTesting
-FocusNode? nearestInDirection(Rect from, TraversalDirection direction, Iterable<FocusNode> candidates) {
+FocusNode? nearestInDirection(Rect from, TraversalDirection direction, Iterable<FocusNode> candidates,
+    {bool levelOnly = true}) {
   const slack = 1.0; // rounding
   FocusNode? best;
   var bestScore = double.infinity;
@@ -195,7 +252,7 @@ FocusNode? nearestInDirection(Rect from, TraversalDirection direction, Iterable<
     // crosses to the next region (from the page to the sidebar). Up / Down may step to the
     // nearest row even when it doesn't line up exactly (a button under a row of cards).
     final sideways = direction == TraversalDirection.left || direction == TraversalDirection.right;
-    if (sideways && across > 0) continue;
+    if (sideways && levelOnly && across > 0) continue;
     // In line counts most; then distance.
     final score = (across > 0 ? 100000.0 : 0.0) + along.clamp(0, double.infinity) + 2 * across;
     if (score < bestScore) {
