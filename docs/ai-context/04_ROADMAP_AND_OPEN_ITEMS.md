@@ -354,6 +354,27 @@ moved to `ui/widgets/video_card.dart` in the refactor.
   only. On Linux, `linux/runner/my_application.cc` needs to answer the same `hometunes/window` channel with GTK's
   keep-above setting (L2 in the plan doc). The other Windows-only calls are unchanged; only their line numbers moved.
 - Model/Android version of the TV still to confirm (Settings › Device Preferences › About), optional.
+- **Android TV progress (`feature/android-tv`, 0.2.0+94, pushed to GitHub 22 Oct):**
+  - Done: T1 (TV launcher entry, banner, the C2 icon everywhere, the name "HomeTunes"), T2 (Settings › Appearance ›
+    TV mode: Automatic / On / Off; `services/device_kind.dart` asks Android if it's a TV), T3a (the remote:
+    `ui/tv/tv_focus.dart` TvFocus / TvRegion / tvTheme), and the seek preview's remote version (18 Oct: the
+    video's bar has focus; ← → move a spot with its picture, OK or a rest jumps there, Back drops it).
+  - Tried on the TV by the user, 22 Oct: (1) the remote went on into pages hidden under the open one (Settings
+    opens each page over its list at the TV's size, so ↓ then OK opened About). Fixed: only the page that's showing
+    counts (`tvCanGo`), lists scroll to the focused item, and arrows reach the next part of the screen when nothing
+    is straight ahead; the user: "That works now". (2) Add folder did nothing: Google TV has no system folder
+    picker (file_picker's `explorer_not_found`, which went nowhere). Fixed: HomeTunes' own folder browser
+    (`ui/widgets/folder_browser.dart`; storage and USB drives from MainActivity's new `storageVolumes`, also in
+    `tool/patch_platforms.dart`) on a TV, and wherever the system picker can't open. **Not yet tried on the TV**:
+    the build couldn't be moved off this PC (its USB drives refuse writes from the session: "The media is write
+    protected").
+  - Next: try the folder browser on the TV; the other file pickers (covers and pictures, backup and theme
+    restore) probably fail silently on Google TV in the same way (offered, not started); then the rest of T3
+    (menus by long press, sliders, select mode, dialogs), T4 (the sofa layout), T5–T7.
+  - On a new PC (the user, 22 Oct: carrying on from another PC without these restrictions): clone, then
+    `git switch feature/android-tv`, and `flutter pub get`. The release key (keystore and `key.properties`) isn't
+    in git: the user brings it across. On this PC `tool/build_release.ps1 -Android` stopped right after Gradle
+    every time (13–22 Oct), so the APK was copied to `build/dist` and checked by hand.
 
 ### E: Audiobook server (asked for 25 Sep)
 - **User's answer:** books should come from **both** the music server and, optionally, a separate
@@ -447,7 +468,7 @@ time. What each fix does is in `05_CODE_GUIDE.md` → "Fixed in 0.1.21", and the
 notice). Before it, **v0.1.80** (9 Oct: refactor Phase 6, and the Find cover online fix), **v0.1.79** (9 Oct: refactor Phase 5, the video session), **v0.1.78** (9 Oct: refactor Phase 4, the audio engine layer) and **v0.1.77** (9 Oct: refactor Phases 1–3; the visible changes
 are the video equaliser at 22 kHz and `--:--` in the video / collection editors). Work on the app as it is stays
 0.1.x (0.1.85 next); 0.2.0 is kept for the next level of development (the user, 7 Oct; see the
-Platforms plan above). Open besides `main`: `feature/android-tv` (0.2.0, the Android TV phase). `main` is merged into it whenever 0.1.x work lands, so the TV release has everything (done with 0.1.82, 0.1.83 and 0.1.84; its build number is raised each time to stay above `main`'s). Refactor branches are `refactor/p<n>-<name>` (see
+Platforms plan above). Open besides `main`: `feature/android-tv` (0.2.0, the Android TV phase; pushed to GitHub 22 Oct, so it can be carried on from another PC; its progress is under the Platforms plan). `main` is merged into it whenever 0.1.x work lands, so the TV release has everything (done with 0.1.82, 0.1.83 and 0.1.84; its build number is raised each time to stay above `main`'s). Refactor branches are `refactor/p<n>-<name>` (see
 "Modular refactor" above). Each feature gets its own branch, merged into `main` with
 `--no-ff` once the user approves, and merged branches are deleted. Builds (`build\dist`) are not in
 git; (13 Oct: twice running, `build_release.ps1 -Android` stopped right after Gradle without copying the APK; copy `build\app\outputs\flutter-apk\app-release.apk` to `build\dist\HomeTunes-<version>-android.apk` and check its signature by hand until that's found); they are rebuilt from source with the commands in `02_…` and published as GitHub Releases. The
