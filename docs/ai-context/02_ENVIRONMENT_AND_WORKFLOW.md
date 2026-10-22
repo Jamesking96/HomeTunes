@@ -1,6 +1,23 @@
 # Environment and workflow
 
 ## Machines
+- **The user's current PC (since 22 Oct 2026, `desktop-f319tfd`)**: the old one below couldn't copy
+  builds onto USB drives. Set up on 22 Oct:
+  - Repo: `C:\Users\james_yeycka3\source\hometunes` (cloned from GitHub; on `feature/android-tv`)
+  - Flutter 3.47.5: `C:\Users\james_yeycka3\flutter\bin` (on the user PATH; fresh shells started by
+    a tool may still need it prepended)
+  - Android SDK `%LOCALAPPDATA%\Android\Sdk` (platform 37, build-tools 36 and 37, command-line tools,
+    licences accepted); Android Studio's Java at `C:\Program Files\Android\Android Studio\jbr`
+  - Visual Studio Community 2026 (MSVC 14.51) with C++ desktop tools. It rejects the old experimental
+    coroutines that audio_service_win's C++/WinRT used under C++17 (error STL1011), so
+    `windows/CMakeLists.txt` builds that plugin as C++20 (also in `tool/patch_platforms.dart`).
+  - Windows Developer Mode is on (Flutter needs it for plugin links). Inno Setup 6, Python 3.13, Git.
+  - Release key: `C:\Users\james_yeycka3\keys\hometunes-release.jks` (a copy of the one the user
+    keeps in Proton Drive); `android\key.properties` points at it (the user typed the passwords in).
+  - Here `tool\build_release.ps1 -Android` runs to the end (the old PC's stopped after Gradle).
+  - Two tests deleted their temp folder while Windows (likely antivirus) still held it; their
+    tearDown now leaves it, as the other tests do.
+  - The paths in the rest of this file are the old PC's; swap `James.Miller` for `james_yeycka3`.
 - **User's Windows PC**:
   - Repo: `C:\Users\James.Miller\source\hometunes`
   - Flutter: `C:\Users\James.Miller\flutter\bin` (not always on PATH in fresh shells, so prepend it)
