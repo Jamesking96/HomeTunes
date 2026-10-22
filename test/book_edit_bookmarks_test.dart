@@ -101,7 +101,9 @@ void main() {
     // Short wait so any save still in progress finishes before the folder is deleted.
     tearDown(() async {
       await Future<void>.delayed(const Duration(milliseconds: 100));
-      dir.deleteSync(recursive: true);
+      try {
+        dir.deleteSync(recursive: true);
+      } catch (_) {} // still held by another program (antivirus): left for Windows to tidy
     });
 
     // Editing a book edits all its files at once (the book's title is the files' album name).
@@ -144,7 +146,9 @@ void main() {
     });
     tearDown(() async {
       await Future<void>.delayed(const Duration(milliseconds: 100));
-      dir.deleteSync(recursive: true);
+      try {
+        dir.deleteSync(recursive: true);
+      } catch (_) {} // still held by another program (antivirus): left for Windows to tidy
     });
 
     // Bookmarks come back in the order they occur in the book, not the order they were added.
