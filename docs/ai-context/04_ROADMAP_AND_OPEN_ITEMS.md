@@ -371,6 +371,21 @@ moved to `ui/widgets/video_card.dart` in the refactor.
   - Next: try the folder browser on the TV; the other file pickers (covers and pictures, backup and theme
     restore) probably fail silently on Google TV in the same way (offered, not started); then the rest of T3
     (menus by long press, sliders, select mode, dialogs), T4 (the sofa layout), T5–T7.
+  - **TV interface (decided 23 Oct, the user: "redesigning the application with a specific Interface for Tv"):**
+    the remote still got stuck in menus, long lists and grids, the players' sliders, and dialogs / search / typing,
+    so the TV gets screens of its own over the same data and playback code (PC and phone unchanged). Mockups:
+    "HomeTunes TV Interface" (https://claude.ai/artifact/Krz2YvzeGfSffKgyAYSYB7, 9 screens at 960 x 540; the
+    user: "This looks good to me, I like the proposals too"). Seven steps, in the Platforms Plan doc's "The TV
+    interface" table: 1 the frame, 2 Home and the libraries, 3 the pages, 4 the options panel, 5 the players,
+    6 search, 7 settings and edit forms. Replaces the rest of T3 and T4.
+  - **Step 1 done 23 Oct (0.2.0+95, pushed), waiting for the user's TV test:** `ui/tv/tv_shell.dart` (TvShell:
+    the rail + AppNav's same six tab navigators via Shell's now-public `TabPages`; `AppHome` picks TvShell or
+    Shell by `tvLayout`; Back: a page back, then onto the rail, then Home, then `sendAppToBackground`),
+    `tv_rail.dart`, `tv_widgets.dart` (TvPressable: OK presses, holding OK 500 ms is hold; TvFocusFrame,
+    TvTile, TvRow, TvHints), `tv_options.dart` (showTvOptions, the panel from the right). Tests:
+    `test/tv_frame_test.dart`. The pages inside are still the old screens until steps 2-7. Paused there by the
+    user ("I'll come back to this later"). `video_settings_test` failed once under the full run (FocusManager
+    used after dispose, after the test ended) and passed 3 times alone: a timing flake.
   - On a new PC (the user, 22 Oct: carrying on from another PC without these restrictions): clone, then
     `git switch feature/android-tv`, and `flutter pub get`. The release key (keystore and `key.properties`) isn't
     in git: the user brings it across. On this PC `tool/build_release.ps1 -Android` stopped right after Gradle
