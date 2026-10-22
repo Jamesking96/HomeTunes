@@ -318,6 +318,26 @@ void _windows() {
   _replaceIn('windows/runner/main.cpp', 'window.Create(L"hometunes"', 'window.Create(L"HomeTunes"', 'windows');
   _replaceIn('windows/runner/Runner.rc', 'VALUE "FileDescription", "hometunes"', 'VALUE "FileDescription", "HomeTunes"', 'windows');
   _replaceIn('windows/runner/Runner.rc', 'VALUE "ProductName", "hometunes"', 'VALUE "ProductName", "HomeTunes"', 'windows');
+  // Visual Studio 2026 (0.2.0): audio_service_win's C++/WinRT needs C++20 (see windows/CMakeLists.txt).
+  final cmake = File('windows/CMakeLists.txt');
+  if (cmake.existsSync()) {
+    final s = cmake.readAsStringSync();
+    const anchor = 'include(flutter/generated_plugins.cmake)';
+    if (s.contains(anchor) && !s.contains('audio_service_win_plugin PRIVATE cxx_std_20')) {
+      final nl = s.contains('\r\n') ? '\r\n' : '\n';
+      final block = [
+        '',
+        '# audio_service_win (the Windows media controls) uses C++/WinRT, which in C++17 falls back to the',
+        '# old experimental coroutines. Visual Studio 2026 (MSVC 14.51) no longer accepts those (error',
+        '# STL1011), so that plugin is built as C++20, where C++/WinRT uses the standard ones (0.2.0).',
+        'if(TARGET audio_service_win_plugin)',
+        '  target_compile_features(audio_service_win_plugin PRIVATE cxx_std_20)',
+        'endif()',
+      ].join(nl);
+      cmake.writeAsStringSync(s.replaceFirst(anchor, '$anchor$block'));
+      stdout.writeln('  windows: audio_service_win built as C++20');
+    }
+  }
 }
 
 /// Replaces [from] with [to] in [path] if it's there (so it's safe to run again).

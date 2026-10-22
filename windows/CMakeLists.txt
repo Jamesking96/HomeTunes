@@ -57,6 +57,13 @@ add_subdirectory("runner")
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+# audio_service_win (the Windows media controls) uses C++/WinRT, which in C++17 falls back to the
+# old experimental coroutines. Visual Studio 2026 (MSVC 14.51) no longer accepts those (error
+# STL1011), so that plugin is built as C++20, where C++/WinRT uses the standard ones (0.2.0).
+if(TARGET audio_service_win_plugin)
+  target_compile_features(audio_service_win_plugin PRIVATE cxx_std_20)
+endif()
+
 
 # === Installation ===
 # Support files are copied into place next to the executable, so that it can
