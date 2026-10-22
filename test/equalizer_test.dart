@@ -177,7 +177,11 @@ void main() {
       dir = Directory.systemTemp.createTempSync('hometunes_eq_ui');
       eq = EqualizerModel(Storage.at(dir));
     });
-    tearDown(() => dir.deleteSync(recursive: true));
+    tearDown(() {
+      try {
+        dir.deleteSync(recursive: true);
+      } catch (_) {} // still held by another program (antivirus): left for Windows to tidy
+    });
 
     Future<void> pump(WidgetTester tester, {bool? forBooks}) async {
       tester.view.physicalSize = const Size(420, 1400);
