@@ -214,7 +214,7 @@ void _mainActivity() {
   final f = files.first;
   final old = f.readAsStringSync();
   // Already patched (both parts present), so leave the file alone.
-  if (old.contains('AudioServiceActivity') && old.contains('sdkInt')) return;
+  if (old.contains('AudioServiceActivity') && old.contains('storageVolumes')) return;
   // Keep the file's own package line; the rest of the file is replaced wholesale below.
   final pkg = RegExp(r'^package\s+([\w.]+)', multiLine: true).firstMatch(old)?.group(1);
   if (pkg == null) return;
@@ -227,6 +227,10 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.os.storage.StorageManager
+import android.os.storage.StorageVolume
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -266,9 +270,38 @@ class MainActivity : AudioServiceActivity() {
                                 packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
                         )
                     }
+                    // HomeTunes' own folder browser (0.2.0) starts from these: the device's own
+                    // storage and any USB drive or SD card plugged in. Google TV has no system
+                    // folder picker, so "Add folder" there uses the app's own.
+                    "storageVolumes" -> result.success(storageVolumes())
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    /** Mounted storage volumes as {path, name, removable}; just the device's own before Android 7. */
+    @Suppress("DEPRECATION")
+    private fun storageVolumes(): List<Map<String, Any>> {
+        val own = Environment.getExternalStorageDirectory().path
+        if (Build.VERSION.SDK_INT < 24) return listOf(mapOf("path" to own, "name" to "Internal storage", "removable" to false))
+        val sm = getSystemService(Context.STORAGE_SERVICE) as StorageManager
+        val found = mutableListOf<Map<String, Any>>()
+        for (v in sm.storageVolumes) {
+            val state = v.state
+            if (state != Environment.MEDIA_MOUNTED && state != Environment.MEDIA_MOUNTED_READ_ONLY) continue
+            val path = try {
+                when {
+                    Build.VERSION.SDK_INT >= 30 -> v.directory?.path
+                    v.isPrimary -> own
+                    else -> StorageVolume::class.java.getMethod("getPath").invoke(v) as? String
+                }
+            } catch (e: Exception) {
+                null
+            } ?: continue
+            found.add(mapOf("path" to path, "name" to v.getDescription(this), "removable" to v.isRemovable))
+        }
+        if (found.isEmpty()) found.add(mapOf("path" to own, "name" to "Internal storage", "removable" to false))
+        return found
     }
 }
 ''');
