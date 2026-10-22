@@ -7,7 +7,6 @@
 // page shows too (the same setting in both places, as the user asked on 29 Sep). On Android the
 // app must have "Music and audio" access before a folder is added, otherwise the scan would
 // find nothing and wipe the library (see 03_FEATURES_AND_DESIGN_NOTES, Android fixes).
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -15,6 +14,7 @@ import '../../../services/music_permission.dart';
 import '../../../state/library_model.dart';
 import '../../../state/video_library_model.dart';
 import '../../theme.dart';
+import '../../widgets/folder_browser.dart' show pickFolder;
 import 'settings_widgets.dart';
 
 
@@ -34,7 +34,9 @@ Future<String?> pickFolderWithPermission(BuildContext context, String title) asy
     ));
     return null;
   }
-  return FilePicker.getDirectoryPath(dialogTitle: title);
+  // 0.2.0: the system picker, or HomeTunes' own where there's none (Google TV).
+  if (!context.mounted) return null;
+  return pickFolder(context, title);
 }
 
 /// The small options button on each folder row (0.1.27): opens [showFolderOptions].
@@ -240,7 +242,8 @@ class VideoFoldersSection extends StatelessWidget {
       ));
       return;
     }
-    final path = await FilePicker.getDirectoryPath(dialogTitle: 'Choose a video folder');
+    if (!context.mounted) return;
+    final path = await pickFolder(context, 'Choose a video folder');
     if (path == null) return;
     await lib.addVideoFolder(path);
     messenger.showSnackBar(const SnackBar(content: Text('Looking for videos… They appear in the Videos tab.')));
