@@ -58,12 +58,12 @@ class Shell extends StatelessWidget {
     final tabs = IndexedStack(
       index: nav.tab,
       children: [
-        _TabNavigator(navKey: nav.keys[0], root: const HomeScreen()),
-        _TabNavigator(navKey: nav.keys[1], root: const SearchScreen()),
-        _TabNavigator(navKey: nav.keys[2], root: const LibraryScreen()),
-        _TabNavigator(navKey: nav.keys[AppNav.booksTab], root: const BooksScreen()),
-        _TabNavigator(navKey: nav.keys[AppNav.videosTab], root: const VideosScreen()),
-        _TabNavigator(navKey: nav.keys[AppNav.settingsTab], root: const SettingsScreen()),
+        TabPages(navKey: nav.keys[0], root: const HomeScreen()),
+        TabPages(navKey: nav.keys[1], root: const SearchScreen()),
+        TabPages(navKey: nav.keys[2], root: const LibraryScreen()),
+        TabPages(navKey: nav.keys[AppNav.booksTab], root: const BooksScreen()),
+        TabPages(navKey: nav.keys[AppNav.videosTab], root: const VideosScreen()),
+        TabPages(navKey: nav.keys[AppNav.settingsTab], root: const SettingsScreen()),
       ],
     );
 
@@ -85,7 +85,7 @@ class Shell extends StatelessWidget {
         } else if (nav.tab != 0) {
           nav.selectTab(0);
         } else {
-          await _sendToBackground();
+          await sendAppToBackground();
         }
       },
       child: tabs,
@@ -176,9 +176,10 @@ class _PlayerBarWithPin extends StatelessWidget {
 /// so the music keeps playing (closing the app would stop it).
 const _appChannel = MethodChannel('hometunes/app');
 
-// Asks the Android side (MainActivity.kt) to move the app to the background. Does nothing on
+// Asks the Android side (MainActivity.kt) to move the app to the background (also the TV frame's
+// Back on Home, tv/tv_shell.dart). Does nothing on
 // Windows, where there's no Back button to handle.
-Future<void> _sendToBackground() async {
+Future<void> sendAppToBackground() async {
   if (!Platform.isAndroid) return;
   try {
     await _appChannel.invokeMethod<void>('moveToBackground');
@@ -191,10 +192,10 @@ Future<void> _sendToBackground() async {
 
 /// One tab's own page stack. It starts with [root] (e.g. HomeScreen) and AppNav pushes album,
 /// artist, book pages etc. on top using [navKey].
-class _TabNavigator extends StatelessWidget {
+class TabPages extends StatelessWidget {
   final GlobalKey<NavigatorState> navKey;
   final Widget root;
-  const _TabNavigator({required this.navKey, required this.root});
+  const TabPages({super.key, required this.navKey, required this.root});
 
   @override
   Widget build(BuildContext context) {

@@ -47,6 +47,7 @@ import 'ui/screens/settings/whats_new_ui.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
 import 'ui/tv/tv_focus.dart';
+import 'ui/tv/tv_shell.dart' show AppHome;
 import 'ui/widgets/notices.dart';
 import 'ui/widgets/offline_warning.dart';
 import 'ui/widgets/window_scale.dart';
@@ -305,7 +306,8 @@ class HomeTunesApp extends StatelessWidget {
                   ),
                 ),
               ),
-              home: const Shell(),
+              // The TV frame in TV mode, else Shell (0.2.0: ui/tv/tv_shell.dart).
+              home: const AppHome(),
             ),
           );
         },
