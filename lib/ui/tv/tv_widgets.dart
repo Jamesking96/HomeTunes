@@ -188,6 +188,8 @@ class TvTile extends StatelessWidget {
     this.onHold,
     this.focusNode,
     this.autofocus = false,
+    this.onFocusChange,
+    this.pictureRadius = TvStyle.radius,
   });
 
   final Widget picture;
@@ -200,6 +202,10 @@ class TvTile extends StatelessWidget {
   final VoidCallback? onPressed, onHold;
   final FocusNode? focusNode;
   final bool autofocus;
+  final ValueChanged<bool>? onFocusChange;
+
+  /// The picture's corners (half the width: a round artist picture).
+  final double pictureRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -208,12 +214,14 @@ class TvTile extends StatelessWidget {
       onHold: onHold,
       focusNode: focusNode,
       autofocus: autofocus,
+      onFocusChange: onFocusChange,
       semanticLabel: subtitle == null ? title : '$title, $subtitle',
       builder: (context, focused) => SizedBox(
         width: width,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           TvFocusFrame(
             focused: focused,
+            radius: pictureRadius,
             child: AspectRatio(aspectRatio: aspectRatio, child: picture),
           ),
           const SizedBox(height: 8),
@@ -245,6 +253,7 @@ class TvRow extends StatelessWidget {
     this.autofocus = false,
     this.height = 52,
     this.background,
+    this.onFocusChange,
   });
 
   final String title;
@@ -257,6 +266,7 @@ class TvRow extends StatelessWidget {
 
   /// The row's colour when it hasn't focus (null: none, just the text).
   final Color? background;
+  final ValueChanged<bool>? onFocusChange;
 
   @override
   Widget build(BuildContext context) {
@@ -265,6 +275,7 @@ class TvRow extends StatelessWidget {
       onHold: onHold,
       focusNode: focusNode,
       autofocus: autofocus,
+      onFocusChange: onFocusChange,
       semanticLabel: subtitle == null ? title : '$title, $subtitle',
       builder: (context, focused) => TvFocusFrame(
         focused: focused,

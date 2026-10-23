@@ -3,6 +3,10 @@
 // Shell: the rail on the left (tv_rail.dart) and the page beside it, with the hint bubble.
 // The pages are the same six tabs and their page stacks as Shell's (AppNav's navigators), so
 // everything opens and works as before; steps 2–7 replace each page with its TV version.
+// Step 2 (23 Oct): Home, Music, Audiobooks and Videos start on their TV screens (tv_home.dart,
+// tv_music.dart, tv_books.dart, tv_videos.dart); the pages they open are still the old ones
+// until step 3. Search and Settings come in steps 6 and 7. The page showing sets the hint
+// bubble's words (TvHintBoard).
 //
 // Back, in order: back a page in this tab; from a tab's first page, onto the rail; from the
 // rail, to Home; on Home, the app goes to the background (music keeps playing), as in Shell.
@@ -13,18 +17,19 @@ import '../../state/now_watching.dart';
 import '../../state/player_model.dart';
 import '../../state/settings/settings_groups.dart' as prefs;
 import '../nav.dart';
-import '../screens/books_screen.dart';
-import '../screens/home_screen.dart';
-import '../screens/library_screen.dart';
 import '../screens/search_screen.dart';
 import '../screens/settings/settings_screen.dart';
-import '../screens/videos_screen.dart';
 import '../shell.dart';
 import '../theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/player_controls.dart' show openNowPlaying;
+import 'tv_books.dart';
+import 'tv_browse.dart';
 import 'tv_focus.dart';
+import 'tv_home.dart';
+import 'tv_music.dart';
 import 'tv_rail.dart';
+import 'tv_videos.dart';
 import 'tv_widgets.dart';
 
 /// The app's first screen: the TV frame in TV mode, else the usual Shell. Switching TV mode in
@@ -61,9 +66,11 @@ class _TvShellState extends State<TvShell> {
   // Holds the page, so picking a place on the rail can move the remote into it.
   final _page = FocusNode(debugLabel: 'tv page', skipTraversal: true, canRequestFocus: false);
   bool _railOpen = false;
+  final _hints = TvHintBoard();
 
   @override
   void dispose() {
+    _hints.dispose();
     _page.dispose();
     super.dispose();
   }
@@ -101,16 +108,18 @@ class _TvShellState extends State<TvShell> {
     final tabs = IndexedStack(
       index: nav.tab,
       children: [
-        TabPages(navKey: nav.keys[0], root: const HomeScreen()),
+        TabPages(navKey: nav.keys[0], root: const TvHomeScreen()),
         TabPages(navKey: nav.keys[1], root: const SearchScreen()),
-        TabPages(navKey: nav.keys[AppNav.libraryTab], root: const LibraryScreen()),
-        TabPages(navKey: nav.keys[AppNav.booksTab], root: const BooksScreen()),
-        TabPages(navKey: nav.keys[AppNav.videosTab], root: const VideosScreen()),
+        TabPages(navKey: nav.keys[AppNav.libraryTab], root: const TvMusicScreen()),
+        TabPages(navKey: nav.keys[AppNav.booksTab], root: const TvBooksScreen()),
+        TabPages(navKey: nav.keys[AppNav.videosTab], root: const TvVideosScreen()),
         TabPages(navKey: nav.keys[AppNav.settingsTab], root: const SettingsScreen()),
       ],
     );
 
-    return Scaffold(
+    return ChangeNotifierProvider.value(
+     value: _hints,
+     child: Scaffold(
       backgroundColor: AppColors.bg,
       body: PopScope(
         canPop: false,
@@ -150,9 +159,17 @@ class _TvShellState extends State<TvShell> {
               ),
             ),
           ),
-          const Positioned(right: 24, bottom: 16, child: TvHints(TvHints.browsing)),
+          Positioned(
+            right: 24,
+            bottom: 16,
+            child: ListenableBuilder(
+              listenable: _hints,
+              builder: (context, _) => TvHints(_hints.forTab(nav.tab) ?? TvHints.browsing),
+            ),
+          ),
         ]),
       ),
+     ),
     );
   }
 }

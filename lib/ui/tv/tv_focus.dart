@@ -219,12 +219,18 @@ void tvFocusOn(FocusNode n, TraversalDirection direction) {
 /// view. For a pane whose content was just changed from elsewhere (Settings' list and page).
 /// Returns false if there's nothing there.
 bool tvFocusFirstIn(FocusNode within) {
-  final all = [for (final n in within.traversalDescendants) if (tvCanGo(n)) n];
+  // Only things that take focus themselves: not the pages' focus scopes, which cover the whole
+  // page and would always come first.
+  final all = [for (final n in within.traversalDescendants) if (n is! FocusScopeNode && tvCanGo(n)) n];
   if (all.isEmpty) return false;
-  all.sort((a, b) {
-    final dy = a.rect.top.compareTo(b.rect.top);
-    return dy != 0 ? dy : a.rect.left.compareTo(b.rect.left);
-  });
+  // The top row, then its left-most: things within a few pixels of the top count as one row (a
+  // title row's tabs and its taller Sort button; a grid's first tiles and the A–Z strip beside
+  // them).
+  const sameRow = 14.0;
+  final top = all.map((n) => n.rect.top).reduce((a, b) => a < b ? a : b);
+  all
+    ..retainWhere((n) => n.rect.top <= top + sameRow)
+    ..sort((a, b) => a.rect.left.compareTo(b.rect.left));
   tvFocusOn(all.first, TraversalDirection.up);
   return true;
 }
@@ -233,7 +239,6 @@ bool tvFocusFirstIn(FocusNode within) {
 /// Left / Right only consider items level with [from] ([levelOnly]; false: any that way); Up /
 /// Down prefer items in line with it (overlapping it across the direction of travel) over ones
 /// off to the side. Nearer beats further.
-@visibleForTesting
 FocusNode? nearestInDirection(Rect from, TraversalDirection direction, Iterable<FocusNode> candidates,
     {bool levelOnly = true}) {
   const slack = 1.0; // rounding
