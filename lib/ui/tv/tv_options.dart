@@ -30,6 +30,7 @@ Future<void> showTvOptions(
   String? subtitle,
   Widget? picture,
   required List<TvOption> options,
+  int focusIndex = 0,
 }) async {
   final chosen = await showGeneralDialog<TvOption>(
     context: context,
@@ -37,7 +38,8 @@ Future<void> showTvOptions(
     barrierLabel: 'Close the options',
     barrierColor: const Color(0xA8050608),
     transitionDuration: const Duration(milliseconds: 180),
-    pageBuilder: (context, _, _) => _TvOptionsPanel(title: title, subtitle: subtitle, picture: picture, options: options),
+    pageBuilder: (context, _, _) =>
+        _TvOptionsPanel(title: title, subtitle: subtitle, picture: picture, options: options, focusIndex: focusIndex),
     transitionBuilder: (context, anim, _, child) => SlideTransition(
       position: Tween(begin: const Offset(1, 0), end: Offset.zero).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
       child: child,
@@ -47,8 +49,11 @@ Future<void> showTvOptions(
 }
 
 class _TvOptionsPanel extends StatelessWidget {
-  const _TvOptionsPanel({required this.title, this.subtitle, this.picture, required this.options});
+  const _TvOptionsPanel({required this.title, this.subtitle, this.picture, required this.options, this.focusIndex = 0});
   final String title;
+
+  /// The row that has focus first (the chapter playing, the speed in use), scrolled into view.
+  final int focusIndex;
   final String? subtitle;
   final Widget? picture;
   final List<TvOption> options;
@@ -86,7 +91,7 @@ class _TvOptionsPanel extends StatelessWidget {
               ]),
               const SizedBox(height: 18),
               Expanded(
-                child: ListView(children: [
+                child: ListView(controller: ScrollController(initialScrollOffset: (focusIndex - 3).clamp(0, 9999) * 48.0), children: [
                   for (var i = 0; i < options.length; i++)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 4),
@@ -102,7 +107,7 @@ class _TvOptionsPanel extends StatelessWidget {
                               ),
                         trailing: options[i].opensMore ? const Icon(Icons.chevron_right) : null,
                         height: options[i].subtitle == null && options[i].picture == null ? 44 : 52,
-                        autofocus: i == 0,
+                        autofocus: i == focusIndex.clamp(0, options.length - 1),
                         onPressed: () => Navigator.of(context).pop(options[i]),
                       ),
                     ),

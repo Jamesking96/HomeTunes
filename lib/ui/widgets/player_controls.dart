@@ -6,6 +6,8 @@
 // Playing reuses SeekBar and TransportControls at a bigger size. Everything reads from
 // PlayerModel. When a book is playing the controls switch to book mode (chapters, skip back /
 // forward, speed) instead of shuffle / repeat.
+import '../tv/tv_focus.dart' show tvModeOf;
+import '../tv/tv_now_playing.dart' show openTvNowPlaying;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -228,6 +230,8 @@ class LikeButton extends StatelessWidget {
 /// on the lyrics (null keeps whatever was chosen last).
 /// It's pushed on the root navigator so it covers the tabs and the player bar.
 void openNowPlaying(BuildContext context, {bool? lyrics}) {
+  // TV mode (0.2.0, step 5): the TV's own Now Playing.
+  if (tvModeOf(context)) return openTvNowPlaying(context);
   Navigator.of(context, rootNavigator: true).push(PageRouteBuilder(
     pageBuilder: (_, _, _) => NowPlayingScreen(showLyrics: lyrics),
     transitionsBuilder: (_, anim, _, child) => SlideTransition(
