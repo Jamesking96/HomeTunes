@@ -106,7 +106,8 @@ TvTile tvArtistTile(BuildContext context, Artist a, {FocusNode? node, double wid
 // ---- Songs ----
 
 /// One song in a list. OK plays [list] from this song.
-TvRow tvSongRow(BuildContext context, Track t, {required List<Track> list, required int index, required String label, FocusNode? node, bool showAlbum = true}) {
+TvRow tvSongRow(BuildContext context, Track t,
+    {required List<Track> list, required int index, required String label, FocusNode? node, bool showAlbum = true, List<TvOption> extra = const [], bool highlight = false}) {
   final player = context.read<PlayerModel>();
   return TvRow(
     key: ValueKey('tv-song:${t.id}'),
@@ -116,12 +117,14 @@ TvRow tvSongRow(BuildContext context, Track t, {required List<Track> list, requi
     title: t.title,
     subtitle: showAlbum ? '${t.artist} · ${t.album}' : t.artist,
     trailing: Text(t.hasDuration ? formatDuration(t.duration) : ''),
+    highlight: highlight,
     onPressed: () => player.playTracks(list, start: index, label: label),
-    onHold: () => showSongOptions(context, t),
+    onHold: () => showSongOptions(context, t, extra: extra),
   );
 }
 
-Future<void> showSongOptions(BuildContext context, Track t) {
+/// [extra] adds options for where the song is (Remove from this playlist).
+Future<void> showSongOptions(BuildContext context, Track t, {List<TvOption> extra = const []}) {
   final player = context.read<PlayerModel>();
   final pl = context.read<PlaylistsModel>();
   final lib = context.read<LibraryModel>();
@@ -139,6 +142,7 @@ Future<void> showSongOptions(BuildContext context, Track t) {
       if (album != null) TvOption('Go to the album', Icons.album_outlined, () => nav.openAlbum(album)),
       TvOption('Go to the artist', Icons.person_outline, () => nav.openArtist(t.albumArtist.isEmpty ? t.artist : t.albumArtist)),
       TvOption(liked ? 'Remove from Liked Songs' : 'Add to Liked Songs', liked ? Icons.favorite : Icons.favorite_border, () => pl.toggleLike(t)),
+      ...extra,
     ],
   );
 }

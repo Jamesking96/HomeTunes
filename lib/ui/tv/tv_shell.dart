@@ -40,6 +40,8 @@ class AppHome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tv = context.select<prefs.AppearanceSettings, bool>((s) => s.tvLayout);
+    // Pages opened from here on are the TV ones in TV mode (step 3).
+    Provider.of<AppNav?>(context, listen: false)?.tv = tv;
     return tv ? const TvShell() : const Shell();
   }
 }

@@ -254,6 +254,8 @@ class TvRow extends StatelessWidget {
     this.height = 52,
     this.background,
     this.onFocusChange,
+    this.focusedHint,
+    this.highlight = false,
   });
 
   final String title;
@@ -267,6 +269,12 @@ class TvRow extends StatelessWidget {
   /// The row's colour when it hasn't focus (null: none, just the text).
   final Color? background;
   final ValueChanged<bool>? onFocusChange;
+
+  /// A few words shown before [trailing] while the row has focus ("Hold OK for options").
+  final String? focusedHint;
+
+  /// Marks the row (the song playing, the chapter you're in): its title in the accent colour.
+  final bool highlight;
 
   @override
   Widget build(BuildContext context) {
@@ -295,11 +303,18 @@ class TvRow extends StatelessWidget {
                 Text(title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 16, fontWeight: focused ? FontWeight.w600 : FontWeight.w400, color: Colors.white)),
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: focused || highlight ? FontWeight.w600 : FontWeight.w400,
+                        color: highlight ? AppColors.accent : Colors.white)),
                 if (subtitle != null)
                   Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textDim)),
               ]),
             ),
+            if (focused && focusedHint != null) ...[
+              const SizedBox(width: 12),
+              Text(focusedHint!, style: TextStyle(fontSize: 12, color: AppColors.textDim)),
+            ],
             if (trailing != null) ...[
               const SizedBox(width: 12),
               DefaultTextStyle.merge(style: TextStyle(fontSize: 14, color: AppColors.textDim), child: trailing!),

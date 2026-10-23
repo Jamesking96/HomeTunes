@@ -37,24 +37,28 @@ const tvLetters = ['#', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', '
 /// The hint bubble's words for the page that's showing in each tab. The TV frame shows them;
 /// pages say theirs with [TvPageHints].
 class TvHintBoard extends ChangeNotifier {
-  final _byTab = <int, List<TvHint>>{};
+  // Per tab: the page that set the words, and the words.
+  final _byTab = <int, (Object, List<TvHint>)>{};
 
-  List<TvHint>? forTab(int tab) => _byTab[tab];
+  List<TvHint>? forTab(int tab) => _byTab[tab]?.$2;
 
-  void set(int tab, List<TvHint>? hints) {
+  /// [owner] (a page) shows [hints] in [tab]; with null hints it takes its words away, unless
+  /// another page has put up its own since (a page opened over it).
+  void set(int tab, Object owner, List<TvHint>? hints) {
     final old = _byTab[tab];
-    if (hints == null ? old == null : listEquals(old, hints)) return;
     if (hints == null) {
+      if (old == null || !identical(old.$1, owner)) return;
       _byTab.remove(tab);
     } else {
-      _byTab[tab] = hints;
+      if (old != null && identical(old.$1, owner) && listEquals(old.$2, hints)) return;
+      _byTab[tab] = (owner, hints);
     }
     notifyListeners();
   }
 }
 
 /// Sets the hint bubble's words for [tab] while this page is the one showing (a page opened
-/// over it puts the usual words back).
+/// over it puts its own up; closing that one brings these back).
 class TvPageHints extends StatelessWidget {
   const TvPageHints({super.key, required this.tab, required this.hints, required this.child});
   final int tab;
@@ -66,7 +70,8 @@ class TvPageHints extends StatelessWidget {
     final showing = ModalRoute.of(context)?.isCurrent ?? true;
     final board = Provider.of<TvHintBoard?>(context, listen: false);
     if (board != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => board.set(tab, showing ? hints : null));
+      final owner = context; // this page's place in the tree
+      WidgetsBinding.instance.addPostFrameCallback((_) => board.set(tab, owner, showing ? hints : null));
     }
     return child;
   }
