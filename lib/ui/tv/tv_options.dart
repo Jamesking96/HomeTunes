@@ -9,10 +9,14 @@ import 'tv_widgets.dart';
 
 /// One action in the panel.
 class TvOption {
-  const TvOption(this.label, this.icon, this.onSelected, {this.opensMore = false});
+  const TvOption(this.label, this.icon, this.onSelected, {this.opensMore = false, this.picture, this.subtitle});
   final String label;
   final IconData icon;
   final VoidCallback onSelected;
+
+  /// A small picture in place of [icon] (a playlist's or an album's cover), and a line under the label.
+  final Widget? picture;
+  final String? subtitle;
 
   /// Leads on to another choice (a playlist to add to, a form): shows a chevron.
   final bool opensMore;
@@ -89,9 +93,15 @@ class _TvOptionsPanel extends StatelessWidget {
                       child: TvRow(
                         key: ValueKey('tv-option-${options[i].label}'),
                         title: options[i].label,
-                        leading: Icon(options[i].icon),
+                        subtitle: options[i].subtitle,
+                        leading: options[i].picture == null
+                            ? Icon(options[i].icon)
+                            : ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: SizedBox(width: 36, height: 36, child: options[i].picture),
+                              ),
                         trailing: options[i].opensMore ? const Icon(Icons.chevron_right) : null,
-                        height: 44,
+                        height: options[i].subtitle == null && options[i].picture == null ? 44 : 52,
                         autofocus: i == 0,
                         onPressed: () => Navigator.of(context).pop(options[i]),
                       ),
