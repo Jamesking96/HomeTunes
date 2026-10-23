@@ -18,6 +18,9 @@ import 'screens/playlist_screen.dart';
 import 'screens/series_screen.dart';
 import 'screens/video_collection_screen.dart';
 import 'screens/video_player_screen.dart';
+import 'tv/tv_book_pages.dart';
+import 'tv/tv_collection_page.dart';
+import 'tv/tv_pages.dart';
 
 /// Keeps one Navigator per tab so album/artist pages open inside the content
 /// area while the player bar stays put.
@@ -31,6 +34,11 @@ class AppNav extends ChangeNotifier {
   final List<GlobalKey<NavigatorState>> keys = List.generate(tabCount, (_) => GlobalKey<NavigatorState>());
   /// The tab currently showing (0 = Home).
   int tab = 0;
+
+  /// TV mode's frame is showing (0.2.0, step 3 of the TV interface): albums, artists, playlists,
+  /// books, series and video collections open on their TV pages (ui/tv/). Set by TvShell, and
+  /// cleared by Shell.
+  bool tv = false;
 
   /// The Navigator of the tab on screen (null if it hasn't been built yet).
   NavigatorState? get current => keys[tab].currentState;
@@ -100,10 +108,10 @@ class AppNav extends ChangeNotifier {
 
   // Shortcuts used all over the app. Screens are opened by id/key rather than by passing the
   // object itself, so they always show the latest data after a rescan or edit.
-  void openAlbum(Album a) => push(AlbumScreen(albumKey: a.key));
-  void openArtist(String name) => push(ArtistScreen(name: name));
-  void openPlaylist(Playlist p) => push(PlaylistScreen(playlistId: p.id));
-  void openLiked() => push(const PlaylistScreen.liked());
+  void openAlbum(Album a) => push(tv ? TvAlbumPage(albumKey: a.key) : AlbumScreen(albumKey: a.key));
+  void openArtist(String name) => push(tv ? TvArtistPage(name: name) : ArtistScreen(name: name));
+  void openPlaylist(Playlist p) => push(tv ? TvPlaylistPage(playlistId: p.id) : PlaylistScreen(playlistId: p.id));
+  void openLiked() => push(tv ? const TvPlaylistPage.liked() : const PlaylistScreen.liked());
 
   /// Opens a book's page on the Books tab.
   void openBook(Book b) {
@@ -112,7 +120,7 @@ class AppNav extends ChangeNotifier {
       notifyListeners();
     }
     // The Books tab's navigator may not exist until the tab is shown.
-    WidgetsBinding.instance.addPostFrameCallback((_) => push(BookScreen(bookId: b.id)));
+    WidgetsBinding.instance.addPostFrameCallback((_) => push(tv ? TvBookPage(bookId: b.id) : BookScreen(bookId: b.id)));
   }
 
   /// Opens an audiobook series' page on the Books tab (0.1.75).
@@ -121,7 +129,7 @@ class AppNav extends ChangeNotifier {
       tab = booksTab;
       notifyListeners();
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) => push(SeriesScreen(name: name)));
+    WidgetsBinding.instance.addPostFrameCallback((_) => push(tv ? TvSeriesPage(name: name) : SeriesScreen(name: name)));
   }
 
   /// Opens a video collection's page on the Videos tab (0.1.40).
@@ -130,7 +138,8 @@ class AppNav extends ChangeNotifier {
       tab = videosTab;
       notifyListeners();
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) => push(VideoCollectionScreen(name: name)));
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => push(tv ? TvCollectionPage(name: name) : VideoCollectionScreen(name: name)));
   }
 
   /// Opens a video's player page on the Videos tab (0.1.40).

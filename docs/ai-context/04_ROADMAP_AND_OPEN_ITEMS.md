@@ -354,7 +354,7 @@ moved to `ui/widgets/video_card.dart` in the refactor.
   only. On Linux, `linux/runner/my_application.cc` needs to answer the same `hometunes/window` channel with GTK's
   keep-above setting (L2 in the plan doc). The other Windows-only calls are unchanged; only their line numbers moved.
 - Model/Android version of the TV still to confirm (Settings › Device Preferences › About), optional.
-- **Android TV progress (`feature/android-tv`, 0.2.0+96, pushed to GitHub 23 Oct):**
+- **Android TV progress (`feature/android-tv`, 0.2.0+97, pushed to GitHub 23 Oct):**
   - Done: T1 (TV launcher entry, banner, the C2 icon everywhere, the name "HomeTunes"), T2 (Settings › Appearance ›
     TV mode: Automatic / On / Off; `services/device_kind.dart` asks Android if it's a TV), T3a (the remote:
     `ui/tv/tv_focus.dart` TvFocus / TvRegion / tvTheme), and the seek preview's remote version (18 Oct: the
@@ -386,7 +386,7 @@ moved to `ui/widgets/video_card.dart` in the refactor.
     `test/tv_frame_test.dart`. The pages inside are still the old screens until steps 2-7. Paused there by the
     user ("I'll come back to this later"). `video_settings_test` failed once under the full run (FocusManager
     used after dispose, after the test ended) and passed 3 times alone: a timing flake.
-  - **Step 2 done 23 Oct (0.2.0+96, pushed), waiting for the user's TV test (steps 1 and 2 together):** Home,
+  - **Step 2 done 23 Oct (0.2.0+96, pushed); steps 1 and 2 tried on the TV by the user, 23 Oct: "all works".** Home,
     Music, Audiobooks and Videos open on TV screens of their own (`TvShell`'s tab roots); Search and Settings stay the
     old screens until steps 6–7, and the pages they open (album, artist, playlist, book, series, collection) until
     step 3. New in `lib/ui/tv/`: `tv_browse.dart` (TvPage: title, tabs, buttons, and ↑ from the top of the page goes
@@ -411,6 +411,24 @@ moved to `ui/widgets/video_card.dart` in the refactor.
     invented data; icons show as boxes there, as the test font has none). APK `build\dist\HomeTunes-0.2.0-android.apk`
     (23 Oct 16:00, signed with the release key; `build_release.ps1 -Android` again built Windows but not the APK,
     so `flutter build apk --release --no-tree-shake-icons` was run by hand).
+  - **Step 3 done 23 Oct (0.2.0+97, pushed), waiting for the user's TV test:** the pages. In TV mode `AppNav`
+    opens TV pages (`AppNav.tv`, set by `AppHome` from `tvLayout`): `tv_pages.dart` (TvAlbumPage: numbered rows,
+    Disc headings, the playing song marked, "Hold OK for options" on the row with focus, Play / Pause / Resume
+    through `playOrPauseFrom`, Shuffle, heart, More: Go to the artist, Add every song to the queue; TvArtistPage:
+    round picture, a row of its albums, then its songs; TvPlaylistPage and `.liked()`: Remove from this playlist
+    in a song's options), `tv_book_pages.dart` (TvBookPage: Play / Resume / Pause / Listen again, From the start,
+    heart, More: Go to the series, Mark as finished; progress bar, description; bookmarks and chapters as rows, OK
+    plays from there; TvSeriesPage: Play / Continue the next book, heart, description, its books as rows that open
+    the book), `tv_collection_page.dart` (TvCollectionPage: Play / Continue, heart, More: Mark all as watched; a
+    tab per season / Specials / Extras; episodes as rows with picture and progress, holding OK: Play, Mark as
+    watched). Shared: `tv_detail.dart` (TvDetailPage = header + TvAzGrid rows, TvDetailHeader, TvIconButton,
+    TvListHeading, TvDescription, TvProgressBar, TvPageHintsHere). TvRow gained `focusedHint` and `highlight`.
+    Fix: the hint bubble's words are kept per page (`TvHintBoard.set(tab, owner, hints)`); the page under an open
+    one used to clear the words the open page had just set. Edit, Details, Add to a playlist, Change picture
+    and the like aren't on the TV pages yet (step 4 moves the menus, step 7 the edit forms). Tests:
+    `test/tv_pages_test.dart` (5; it builds the library through `library.json` + `load()` so `albumByKey` and
+    `bookById` work, and fakes the videos model, as a real scan in a widget test never finished); 757 pass.
+    Pictures: `tool/tv_preview_test.dart` now also draws the six pages (`tv-page-*.png`).
   - On a new PC (the user, 22 Oct: carrying on from another PC without these restrictions): clone, then
     `git switch feature/android-tv`, and `flutter pub get`. The release key (keystore and `key.properties`) isn't
     in git: the user brings it across. On this PC `tool/build_release.ps1 -Android` stopped right after Gradle

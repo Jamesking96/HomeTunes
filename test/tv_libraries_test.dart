@@ -16,11 +16,11 @@ import 'package:hometunes/state/selection_model.dart';
 import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/library_providers.dart';
 import 'package:hometunes/ui/nav.dart';
-import 'package:hometunes/ui/screens/album_screen.dart';
 import 'package:hometunes/ui/theme.dart';
 import 'package:hometunes/ui/tv/tv_browse.dart';
 import 'package:hometunes/ui/tv/tv_focus.dart';
 import 'package:hometunes/ui/tv/tv_music.dart';
+import 'package:hometunes/ui/tv/tv_pages.dart';
 import 'package:hometunes/ui/tv/tv_shell.dart';
 import 'package:hometunes/ui/tv/tv_widgets.dart';
 import 'package:provider/provider.dart';
@@ -270,10 +270,10 @@ void main() {
       expect(focusedKey(), startsWith('tv-album:'));
       final album = focusedKey();
       await press(tester, LogicalKeyboardKey.select);
-      expect(find.byType(AlbumScreen), findsOneWidget);
+      expect(find.byType(TvAlbumPage), findsOneWidget);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
-      expect(find.byType(AlbumScreen), findsNothing);
+      expect(find.byType(TvAlbumPage), findsNothing);
       expect(focusedKey(), album);
     });
 

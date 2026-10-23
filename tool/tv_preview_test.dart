@@ -12,8 +12,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/book.dart';
 import 'package:hometunes/models/track.dart';
+import 'package:hometunes/models/video_item.dart';
+import 'package:hometunes/state/bookmarks_model.dart';
 import 'package:hometunes/services/storage.dart';
-import 'package:hometunes/state/library_index.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/listening_model.dart';
 import 'package:hometunes/state/play_history.dart';
@@ -78,6 +79,9 @@ List<Book> _books() {
             artist: author,
             album: title,
             albumArtist: author,
+            genre: 'Audiobook',
+            series: series,
+            seriesIndex: n,
             duration: const Duration(hours: 9, minutes: 20),
             path: '/b/$title.m4b',
           ),
@@ -95,10 +99,35 @@ List<Book> _books() {
   ];
 }
 
+/// A videos model with one collection, Coastline (two seasons), for the collection page.
+class _Videos extends VideoLibraryModel {
+  _Videos(super.storage, super.library) {
+    final list = [
+      for (final (s, e) in [(1, 1), (1, 2), (1, 3), (1, 4), (2, 1), (2, 2)])
+        VideoItem(
+          id: 'local:/v/Coastline S0${s}E0$e.mkv',
+          path: '/v/Coastline S0${s}E0$e.mkv',
+          title: ['The Harbour', 'Low Water', 'The Lighthouse', 'Night Crossing', 'Return', 'The Long Pier'][(s - 1) * 4 + e - 1],
+          collection: 'Coastline',
+          season: s,
+          episode: e,
+          duration: const Duration(minutes: 41, seconds: 12),
+        ),
+    ];
+    videos = list;
+    collections = [
+      VideoCollection(name: 'Coastline', videos: list, category: 'TV', year: 2024, description: 'A made-up series about a small harbour town.'),
+    ];
+  }
+
+  @override
+  VideoCollection? collectionNamed(String name) => collections.where((c) => c.name == name).firstOrNull;
+}
+
 void main() {
   const out = String.fromEnvironment('OUT', defaultValue: r'C:\Temp\ht\tv-preview');
 
-  testWidgets('TV step 2 previews', (tester) async {
+  testWidgets('TV previews (steps 2 and 3)', (tester) async {
     await tester.runAsync(() async {
       for (final f in [r'C:\Windows\Fonts\segoeui.ttf', r'C:\Windows\Fonts\segoeuib.ttf', r'C:\Windows\Fonts\seguisb.ttf']) {
         if (!File(f).existsSync()) continue;
@@ -114,12 +143,15 @@ void main() {
     final storage = Storage.at(dir);
     Directory(storage.artDir).createSync(recursive: true);
     final songs = _library();
-    final albums = groupAlbums(songs);
-    final lib = LibraryModel(storage)
-      ..tracks = songs
-      ..albums = albums
-      ..artists = groupArtists(albums)
-      ..books = _books();
+    // Through library.json, as the app keeps it, so the library's look-ups are built.
+    final lib = LibraryModel(storage);
+    await tester.runAsync(() async {
+      await storage.write('library.json', {
+        'local': [for (final t in [...songs, for (final b in _books()) ...b.parts]) t.toJson()],
+      });
+      await lib.load();
+    });
+    final albums = lib.albums;
     final playlists = PlaylistsModel(storage);
     for (final (i, name) in ['Sunday morning', 'Road trip', 'Late night', 'Kitchen'].indexed) {
       playlists.addTracks(playlists.create(name), songs.skip(i * 7).take(6 + i));
@@ -129,16 +161,18 @@ void main() {
     }
     final listening = ListeningModel(storage);
     final history = PlayHistory(storage);
-    // Albums can't be found by key here (the library isn't rebuilt), so Liked Songs, a
-    // playlist and an artist stand for what was played lately.
+    for (final (i, a) in albums.take(4).indexed) {
+      history.record(PlayedItem(PlayedKind.album, a.key, a.title, 200 - i));
+    }
     history.record(const PlayedItem(PlayedKind.liked, '', 'Liked Songs', 100));
     history.record(const PlayedItem(PlayedKind.playlist, 'Road trip', 'Road trip', 99));
     history.record(const PlayedItem(PlayedKind.artist, 'Mara Quill', 'Mara Quill', 98));
-    final videos = VideoLibraryModel(storage, lib);
+    final VideoLibraryModel videos = _Videos(storage, lib);
     final nav = AppNav();
     final appearance = lib.settings.appearance;
     await tester.runAsync(() async {
-      await listening.record(lib.books.first, lib.books.first.parts.first.id, const Duration(hours: 5, minutes: 50));
+      final north = lib.books.firstWhere((b) => b.title == 'The Long Road North');
+      await listening.record(north, north.parts.first.id, const Duration(hours: 5, minutes: 50));
       await appearance.setTvMode(TvMode.on);
     });
 
@@ -154,6 +188,7 @@ void main() {
         ChangeNotifierProvider.value(value: playlists),
         ChangeNotifierProvider.value(value: listening),
         ChangeNotifierProvider.value(value: history),
+        ChangeNotifierProvider(create: (_) => BookmarksModel(storage)),
         ChangeNotifierProvider<PlayerModel>.value(value: _Player()),
         ChangeNotifierProvider(create: (_) => SelectionModel()),
         ChangeNotifierProvider.value(value: videos),
@@ -238,5 +273,24 @@ void main() {
     await tester.pumpAndSettle();
     await press(LogicalKeyboardKey.arrowLeft, 8);
     await shoot('tv-rail-open');
+
+    // 6. Step 3: the pages, each opened as the app would, the remote on its first song / row.
+    Future<void> page(String name, void Function() open, {int down = 1}) async {
+      nav.selectTab(AppNav.libraryTab);
+      await tester.pumpAndSettle();
+      open();
+      await tester.pumpAndSettle();
+      await press(LogicalKeyboardKey.arrowDown, down);
+      await shoot(name);
+      nav.current?.popUntil((r) => r.isFirst);
+      await tester.pumpAndSettle();
+    }
+
+    await page('tv-page-album', () => nav.openAlbum(albums.firstWhere((a) => a.title == 'Paper Lanterns')), down: 2);
+    await page('tv-page-artist', () => nav.openArtist('Harbour Lights'));
+    await page('tv-page-playlist', () => nav.openPlaylist(playlists.playlists[1]));
+    await page('tv-page-book', () => nav.openBook(lib.books.firstWhere((b) => b.title == 'The Long Road North')), down: 2);
+    await page('tv-page-series', () => nav.openSeries('Northlands'));
+    await page('tv-page-collection', () => nav.openVideoCollection('Coastline'), down: 2);
   });
 }
