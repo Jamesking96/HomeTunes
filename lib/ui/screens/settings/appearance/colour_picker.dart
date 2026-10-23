@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../theme.dart';
+import '../../../tv/tv_keyboard.dart' show TvTextField;
 
 /// Suggested highlight colours.
 const accentSuggestions = <Color>[
@@ -192,7 +193,7 @@ class _ColourPickerState extends State<_ColourPicker> {
             ),
             const SizedBox(height: 12),
             // Type or paste a colour code (0.1.29).
-            TextField(
+            TvTextField(field: TextField(
               key: const ValueKey('colour-code'),
               controller: _code,
               onChanged: _typed,
@@ -220,7 +221,7 @@ class _ColourPickerState extends State<_ColourPicker> {
                   onPressed: _paste,
                 ),
               ),
-            ),
+            )),
             const SizedBox(height: 12),
             Wrap(spacing: 8, runSpacing: 8, children: [
               for (final s in suggestions)

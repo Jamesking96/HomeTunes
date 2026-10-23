@@ -21,6 +21,7 @@ import '../screens/lyrics_dialogs.dart';
 import '../theme.dart';
 import 'artwork.dart';
 import 'selectable_title.dart';
+import '../tv/tv_keyboard.dart' show TvTextField;
 
 /// One song row. Tapping plays [list] starting at [index].
 class TrackTile extends StatelessWidget {
@@ -330,12 +331,12 @@ class _NameDialogState extends State<_NameDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(widget.title),
-      content: TextField(
+      content: TvTextField(field: TextField(
         controller: _ctrl,
         autofocus: true,
         decoration: const InputDecoration(hintText: 'Name'),
         onSubmitted: (_) => _submit(),
-      ),
+      )),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(onPressed: _submit, child: const Text('Save')),

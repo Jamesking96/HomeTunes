@@ -4,9 +4,9 @@
 // elsewhere offer is here, laid out for the remote:
 //  * a choice that leads to another choice opens a second panel (Add to a playlist ›, Change
 //    picture ›, Delete ›, which asks first);
-//  * things that need typing or a form (Edit details, Rename, New playlist, Edit series) and
-//    choosing a picture file come in steps 6 and 7; Copy title, Select and Show in folder are
-//    left out (no clipboard, select mode or file window on a TV).
+//  * things that need typing or a form (Edit details, Rename, New playlist, Edit series) use the
+//    TV keyboard (step 7: tv_keyboard.dart; the forms' text boxes open it); Copy title, Select and
+//    Show in folder are left out (no clipboard, select mode or file window on a TV).
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -25,12 +25,18 @@ import '../nav.dart';
 import '../screens/book_lookup_dialog.dart' show showBookCoverSearch;
 import '../screens/cover_search_dialog.dart' show showCoverSearch;
 import '../screens/details_screen.dart' show openDetails;
+import '../screens/edit_book.dart' show showEditBook;
+import '../screens/edit_details.dart' show showEditDetails;
+import '../screens/edit_series.dart' show showEditSeries;
+import '../screens/edit_video.dart' show showEditVideos;
+import '../screens/video_collection/edit_collection.dart' show showEditCollection;
 import '../screens/lyrics_dialogs.dart' show showLyricsDialog, findLyricsOnline;
 import '../screens/video_details_screen.dart' show openVideoDetails, openCollectionDetails;
 import '../widgets/artwork.dart';
 import '../widgets/book_card.dart' show BookCover;
 import '../widgets/playlist_art.dart';
 import '../widgets/series_card.dart' show seriesProgress, playSeries, markSeriesFinished;
+import 'tv_keyboard.dart' show showTvTextInput;
 import 'tv_options.dart';
 
 String _songs(int n) => '$n song${n == 1 ? '' : 's'}';
@@ -61,8 +67,13 @@ TvOption tvAddToPlaylist(BuildContext context, List<Track> tracks, {String? what
           final added = pl.addTracks(p, tracks);
           tvNotice(context, added == 0 ? 'Already in ${p.name}' : 'Added to ${p.name}');
         }),
-      if (pl.playlists.isEmpty)
-        TvOption('No playlists yet (making one comes with typing on the TV)', Icons.info_outline, () {}),
+      TvOption('New playlist', Icons.add, opensMore: true, () async {
+        final name = await showTvTextInput(context, title: 'Name the new playlist', hint: 'Road trip, Sunday morning…');
+        if (name == null || name.trim().isEmpty || !context.mounted) return;
+        final p = pl.create(name.trim());
+        pl.addTracks(p, tracks);
+        tvNotice(context, 'Added to ${p.name}');
+      }),
     ]);
   });
 }
@@ -103,6 +114,7 @@ List<TvOption> songOptions(BuildContext context, Track t, {List<TvOption> extra 
     TvOption('Lyrics', Icons.lyrics_outlined, () => showLyricsDialog(context, t)),
     if (lib.settings.online.onlineLyrics) TvOption('Find lyrics online', Icons.travel_explore, () => findLyricsOnline(context, t)),
     TvOption('Details', Icons.info_outline, () => openDetails(context, kind: 'Song', title: t.title, tracks: [t])),
+    TvOption('Edit details', Icons.edit_outlined, opensMore: true, () => showEditDetails(context, [t])),
     if (t.isLocal)
       TvOption('Move to Audiobooks', Icons.menu_book_outlined, () async {
         await lib.setIsBook([t.id], true);
@@ -144,6 +156,7 @@ List<TvOption> albumOptions(BuildContext context, Album a, {bool onPage = false}
     TvOption('Go to the artist', Icons.person_outline, () => nav.openArtist(a.artist)),
     ..._coverOptions(context, a.tracks, () => showCoverSearch(context, artist: a.artist, album: a.title)),
     TvOption('Details', Icons.info_outline, () => openDetails(context, kind: 'Album', title: a.title, tracks: a.tracks)),
+    TvOption('Edit details', Icons.edit_outlined, opensMore: true, () => showEditDetails(context, a.tracks, album: true)),
   ];
 }
 
@@ -215,6 +228,11 @@ List<TvOption> playlistOptions(BuildContext context, Playlist? p, {bool onPage =
       }
     }),
     if (p != null)
+      TvOption('Rename', Icons.drive_file_rename_outline, opensMore: true, () async {
+        final to = await showTvTextInput(context, title: 'Rename the playlist', initial: p.name);
+        if (to != null && to.trim().isNotEmpty) pl.rename(p, to.trim());
+      }),
+    if (p != null)
       TvOption('Delete the playlist', Icons.delete_outline, opensMore: true, () {
         tvConfirm(context, title: 'Delete "${p.name}"?', subtitle: 'The songs stay in your library', yes: 'Delete it', run: () {
           if (onPage) Navigator.of(context).maybePop();
@@ -263,6 +281,7 @@ List<TvOption> bookOptions(BuildContext context, Book b, {bool onPage = false}) 
       TvOption('Mark as not finished', Icons.remove_done, () => listening.setFinished(b, false)),
     ..._coverOptions(context, b.parts, () => showBookCoverSearch(context, title: b.title, author: b.author)),
     TvOption('Details', Icons.info_outline, () => openDetails(context, kind: 'Audiobook', title: b.title, tracks: b.parts, book: b)),
+    TvOption('Edit details', Icons.edit_outlined, opensMore: true, () => showEditBook(context, b)),
   ];
 }
 
@@ -290,6 +309,14 @@ List<TvOption> seriesOptions(BuildContext context, BookSeries s, {bool onPage = 
         () => pl.setFavouriteSeries([s.name], !fav)),
     TvOption(progress.allFinished ? 'Mark all as not finished' : 'Mark all as finished',
         progress.allFinished ? Icons.remove_done : Icons.done_all, () => markSeriesFinished(listening, s, !progress.allFinished)),
+    TvOption('Edit series', Icons.edit_outlined, opensMore: true, () async {
+      final renamed = await showEditSeries(context, s);
+      // On its page under its old name: open it again under the new one.
+      if (onPage && renamed != null && renamed != s.name && context.mounted) {
+        Navigator.of(context).pop();
+        nav.openSeries(renamed);
+      }
+    }),
   ];
 }
 
@@ -319,6 +346,7 @@ List<TvOption> videoOptions(BuildContext context, VideoItem v) {
         () => model.setWatched([v.id], !watched)),
     TvOption('Go to the collection', Icons.video_library_outlined, () => nav.openVideoCollection(v.collection)),
     TvOption('Details', Icons.info_outline, () => openVideoDetails(context, v)),
+    TvOption('Edit details', Icons.edit_outlined, opensMore: true, () => showEditVideos(context, [v])),
   ];
 }
 
@@ -345,6 +373,13 @@ List<TvOption> collectionOptions(BuildContext context, VideoCollection c, {bool 
     TvOption(allWatched ? 'Mark all as not watched' : 'Mark all as watched', allWatched ? Icons.remove_done : Icons.done_all,
         () => model.setWatched([for (final v in c.main) v.id], !allWatched)),
     TvOption('Details', Icons.info_outline, () => openCollectionDetails(context, c)),
+    TvOption('Edit details', Icons.edit_outlined, opensMore: true, () async {
+      final renamed = await showEditCollection(context, c);
+      if (onPage && renamed != null && renamed != c.name && context.mounted) {
+        Navigator.of(context).pop();
+        nav.openVideoCollection(renamed);
+      }
+    }),
   ];
 }
 

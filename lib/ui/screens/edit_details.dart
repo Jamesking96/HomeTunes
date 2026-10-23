@@ -25,6 +25,7 @@ import 'cover_search_dialog.dart';
 import 'info_lookup_dialog.dart';
 import '../widgets/mixed_value_field.dart';
 import '../../state/settings/settings_groups.dart' as prefs;
+import '../tv/tv_keyboard.dart' show TvTextField;
 
 // The --:-- marker lives in state/mixed_value.dart (refactor phase 2); still reachable from here.
 export '../../state/mixed_value.dart' show differentMarker;
@@ -327,7 +328,7 @@ class _EditDetailsState extends State<_EditDetails> {
         _coverSection(anyCustomCover),
         const SizedBox(height: 16),
         for (final f in _fields) ...[
-          TextField(
+          TvTextField(field: TextField(
             controller: _ctrl[f],
             keyboardType: _isNumber(f) ? TextInputType.number : TextInputType.text,
             inputFormatters: _isNumber(f) ? [FilteringTextInputFormatter.digitsOnly] : null,
@@ -344,7 +345,7 @@ class _EditDetailsState extends State<_EditDetails> {
               helper: _helperFor(f, lib),
               suffix: _suffixFor(f),
             ),
-          ),
+          )),
           const SizedBox(height: 10),
         ],
         // Single song: offer to copy album-wide changes (album, album artist, year, genre, cover)

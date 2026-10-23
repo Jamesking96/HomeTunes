@@ -17,7 +17,6 @@ import '../../state/now_watching.dart';
 import '../../state/player_model.dart';
 import '../../state/settings/settings_groups.dart' as prefs;
 import '../nav.dart';
-import '../screens/settings/settings_screen.dart';
 import '../shell.dart';
 import '../theme.dart';
 import '../widgets/artwork.dart';
@@ -29,6 +28,7 @@ import 'tv_home.dart';
 import 'tv_music.dart';
 import 'tv_rail.dart';
 import 'tv_search.dart';
+import 'tv_settings.dart';
 import 'tv_videos.dart';
 import 'tv_widgets.dart';
 
@@ -115,7 +115,7 @@ class _TvShellState extends State<TvShell> {
         TabPages(navKey: nav.keys[AppNav.libraryTab], root: const TvMusicScreen()),
         TabPages(navKey: nav.keys[AppNav.booksTab], root: const TvBooksScreen()),
         TabPages(navKey: nav.keys[AppNav.videosTab], root: const TvVideosScreen()),
-        TabPages(navKey: nav.keys[AppNav.settingsTab], root: const SettingsScreen()),
+        TabPages(navKey: nav.keys[AppNav.settingsTab], root: const TvSettingsScreen()),
       ],
     );
 

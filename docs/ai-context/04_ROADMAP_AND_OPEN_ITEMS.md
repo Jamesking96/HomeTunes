@@ -354,7 +354,7 @@ moved to `ui/widgets/video_card.dart` in the refactor.
   only. On Linux, `linux/runner/my_application.cc` needs to answer the same `hometunes/window` channel with GTK's
   keep-above setting (L2 in the plan doc). The other Windows-only calls are unchanged; only their line numbers moved.
 - Model/Android version of the TV still to confirm (Settings › Device Preferences › About), optional.
-- **Android TV progress (`feature/android-tv`, 0.2.0+100, pushed to GitHub 23 Oct):**
+- **Android TV progress (`feature/android-tv`, 0.2.0+101, pushed to GitHub 23 Oct):**
   - Done: T1 (TV launcher entry, banner, the C2 icon everywhere, the name "HomeTunes"), T2 (Settings › Appearance ›
     TV mode: Automatic / On / Off; `services/device_kind.dart` asks Android if it's a TV), T3a (the remote:
     `ui/tv/tv_focus.dart` TvFocus / TvRegion / tvTheme), and the seek preview's remote version (18 Oct: the
@@ -498,6 +498,36 @@ moved to `ui/widgets/video_card.dart` in the refactor.
     - Tests: `test/tv_search_test.dart` (4), 2 more in `test/tv_players_test.dart` (← → along the buttons
       both ways; hold OK on the bar); 774 pass. Pictures: `tv-search-empty.png`, `tv-search.png`,
       `tv-search-results.png`.
+  - **Step 7 done 23 Oct (0.2.0+101, pushed). All seven steps are in; the user tests them together on the TV
+    (the user: "We'll do a test once everything is in").**
+    - Typing anywhere: `ui/tv/tv_keyboard.dart`. `TvKeyboard` (the short one Search uses; the full one adds
+      Shift, a symbols / accents page in the same places, New line or Done; keys are named after their place
+      on the letters page, `tv-key-a`, so the remote stays put when the page changes), `tvHardKey` (a real
+      keyboard types), `showTvTextInput` (a page: keyboard left; the text, Done, Cancel and Show for
+      passwords right) and `TvTextField`: wrap a `TextField` in it and in TV mode it shows as a box (label,
+      text, keyboard icon); OK opens the keyboard; Done sets the controller (through the field's
+      inputFormatters), then calls onChanged, onSubmitted and onEditingComplete. Off TV mode it is the field
+      itself. Every TextField in lib/ui is wrapped (about 45: edit forms, server dialog, lyrics, lookups,
+      theme editor, filters) except the phone's Search and Settings search boxes.
+    - Settings: `ui/tv/tv_settings.dart` (TvSettingsScreen, the Settings tab's root in TvShell): Search
+      settings and the pages listed left (the one showing tinted; resting 250 ms on a row shows it), the
+      page right (the usual `settingsPageBody`, bigger rounded rows). → or OK goes in at the page's top, ←
+      from its left edge back to that page's row. Search settings: keyboard, then the matches in the options
+      panel; choosing one opens the page with the remote on that setting. `AppNav.openSettings` requests
+      work as on the phone.
+    - `ChoiceTile` in TV mode: the value as a pill; OK opens the list in the options panel, the current one
+      ticked and focused. Switches flip with OK (as before).
+    - `TvFocus` sets `NavigationMode.directional`: sliders move with ← → and ↑ ↓ leave them (in the usual
+      mode ↑ ↓ changed them: the remote was stuck on every slider).
+    - The menus gained what needed typing: Edit details (songs, albums, books, videos, collections), Edit
+      series, Rename (playlists) and New playlist (under Add to a playlist). After renaming a series or a
+      collection on its own page, the page reopens under the new name.
+    - Checked with pictures: the album, book and video edit forms walk fine with ↓ and the boxes open the
+      keyboard. Not done: Choose image… in the edit forms still uses the system file picker (Google TV may
+      show nothing; Find online works).
+    - Tests: `test/tv_settings_test.dart` (8: the list and page, a choice's list, Search settings, Rename and
+      New playlist, the keyboard with Shift / symbols / Done, a password with Show and Back, off TV mode, a
+      slider); 782 pass. Pictures: `tv-settings*.png`, `tv-keyboard.png`, `tv-edit-*.png`.
   - On a new PC (the user, 22 Oct: carrying on from another PC without these restrictions): clone, then
     `git switch feature/android-tv`, and `flutter pub get`. The release key (keystore and `key.properties`) isn't
     in git: the user brings it across. On this PC `tool/build_release.ps1 -Android` stopped right after Gradle

@@ -7,6 +7,8 @@
 import 'package:flutter/material.dart';
 
 import '../../theme.dart';
+import '../../tv/tv_focus.dart' show tvModeOf;
+import '../../tv/tv_options.dart';
 
 /// The scrolling body of one settings page. [intro] is a short line under the
 /// page's title explaining what's on it.
@@ -136,6 +138,33 @@ class ChoiceTile<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     // A value saved by an older/newer version that isn't in the list still shows.
     final items = options.contains(value) ? options : [value, ...options];
+    // TV mode (step 7): the choice shows as a value on the right; OK opens the full list, the
+    // current choice ticked and the remote on it.
+    if (tvModeOf(context)) {
+      return ListTile(
+        title: Text(title),
+        subtitle: subtitle == null ? null : Text(subtitle!),
+        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(color: AppColors.surfaceHigh, borderRadius: BorderRadius.circular(8)),
+            child: Text(label(value), style: const TextStyle(fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right),
+        ]),
+        onTap: () => showTvOptions(
+          context,
+          title: title,
+          subtitle: subtitle,
+          focusIndex: items.indexOf(value),
+          options: [
+            for (final o in items)
+              TvOption(label(o), o == value ? Icons.check : Icons.circle_outlined, () => onChanged(o)),
+          ],
+        ),
+      );
+    }
     return ListTile(
       title: Text(title),
       subtitle: subtitle == null ? null : Text(subtitle!),

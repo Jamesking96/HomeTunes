@@ -11,6 +11,7 @@ import '../../models/book.dart';
 import '../../state/bookmarks_model.dart';
 import '../../state/player_model.dart';
 import '../theme.dart';
+import '../tv/tv_keyboard.dart' show TvTextField;
 
 /// Bookmarks the spot being listened to right now, and offers to add a note.
 Future<void> addBookmarkNow(BuildContext context) async {
@@ -44,14 +45,14 @@ Future<String?> askForBookmarkNote(BuildContext context, {String initial = ''}) 
     useRootNavigator: true,
     builder: (ctx) => AlertDialog(
       title: const Text('Bookmark note'),
-      content: TextField(
+      content: TvTextField(field: TextField(
         controller: ctrl,
         autofocus: true,
         minLines: 1,
         maxLines: 4,
         textCapitalization: TextCapitalization.sentences,
         decoration: const InputDecoration(hintText: 'What happens here?'),
-      ),
+      )),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
         FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Save')),

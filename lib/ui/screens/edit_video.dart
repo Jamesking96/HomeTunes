@@ -16,6 +16,7 @@ import '../../state/video_library_model.dart';
 import '../theme.dart';
 import '../widgets/save_nfo.dart';
 import 'video_pictures.dart' show PictureShapePicker;
+import '../tv/tv_keyboard.dart' show TvTextField;
 
 /// Opens the editor for [videos] (one or more).
 Future<void> showEditVideos(BuildContext context, List<VideoItem> videos) async {
@@ -173,7 +174,7 @@ class _EditVideosState extends State<_EditVideos> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(widget.videos.single.path, style: TextStyle(color: AppColors.textDim, fontSize: 12)),
               ),
-            TextField(
+            TvTextField(field: TextField(
               key: const ValueKey('video-title'),
               controller: _title,
               enabled: !_several,
@@ -182,9 +183,9 @@ class _EditVideosState extends State<_EditVideos> {
                 hintText: _several ? 'Each keeps its own title' : null,
                 helperText: fileSays(raw?.title, _title.text),
               ),
-            ),
+            )),
             const SizedBox(height: 8),
-            TextField(
+            TvTextField(field: TextField(
               key: const ValueKey('video-collection'),
               controller: _collection,
               decoration: InputDecoration(
@@ -199,26 +200,26 @@ class _EditVideosState extends State<_EditVideos> {
                   itemBuilder: (_) => [for (final c in model.collectionNames) PopupMenuItem(value: c, child: Text(c))],
                 ),
               ),
-            ),
+            )),
             const SizedBox(height: 8),
             Row(children: [
               SizedBox(
                 width: 120,
-                child: TextField(
+                child: TvTextField(field: TextField(
                   key: const ValueKey('video-year'),
                   controller: _year,
                   keyboardType: TextInputType.number,
                   onChanged: (_) => setState(() => _yearError = null),
                   decoration: InputDecoration(labelText: 'Year', hintText: _hint((v) => v.year?.toString()), errorText: _yearError),
-                ),
+                )),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: TextField(
+                child: TvTextField(field: TextField(
                   key: const ValueKey('video-genre'),
                   controller: _genre,
                   decoration: InputDecoration(labelText: 'Genre', hintText: _hint((v) => v.genre)),
-                ),
+                )),
               ),
             ]),
             const SizedBox(height: 8),
@@ -226,7 +227,7 @@ class _EditVideosState extends State<_EditVideos> {
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               SizedBox(
                 width: 170,
-                child: TextField(
+                child: TvTextField(field: TextField(
                   key: const ValueKey('video-season'),
                   controller: _season,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -238,29 +239,29 @@ class _EditVideosState extends State<_EditVideos> {
                     helperMaxLines: 2,
                     errorText: _numberError,
                   ),
-                ),
+                )),
               ),
               const SizedBox(width: 12),
               if (!_several)
                 SizedBox(
                   width: 120,
-                  child: TextField(
+                  child: TvTextField(field: TextField(
                     key: const ValueKey('video-episode'),
                     controller: _episode,
                     keyboardType: TextInputType.number,
                     onChanged: (_) => setState(() => _numberError = null),
                     decoration: const InputDecoration(labelText: 'Episode'),
-                  ),
+                  )),
                 ),
             ]),
             const SizedBox(height: 8),
-            TextField(
+            TvTextField(field: TextField(
               key: const ValueKey('video-description'),
               controller: _description,
               minLines: 2,
               maxLines: 6,
               decoration: InputDecoration(labelText: 'Description', hintText: _hint((v) => v.description)),
-            ),
+            )),
             const SizedBox(height: 12),
             // Look: the shape of its picture on the Videos tab.
             PictureShapePicker(

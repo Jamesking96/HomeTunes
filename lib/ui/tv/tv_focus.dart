@@ -93,9 +93,12 @@ class _TvFocusState extends State<TvFocus> {
   Widget build(BuildContext context) {
     final child = _TvOn(on: widget.enabled, child: widget.child);
     if (!widget.enabled) return child;
+    // Directional navigation (step 7): what a TV is. Sliders then move with ← → and let ↑ ↓ leave
+    // (in the usual mode ↑ ↓ change them, so the remote was stuck on one).
+    final media = MediaQuery.maybeOf(context);
     return Shortcuts(
       shortcuts: {for (final k in tvActivateKeys) SingleActivator(k): const ActivateIntent()},
-      child: child,
+      child: media == null ? child : MediaQuery(data: media.copyWith(navigationMode: NavigationMode.directional), child: child),
     );
   }
 }
