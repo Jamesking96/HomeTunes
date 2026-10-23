@@ -17,10 +17,12 @@ import 'screens/book_screen.dart';
 import 'screens/playlist_screen.dart';
 import 'screens/series_screen.dart';
 import 'screens/video_collection_screen.dart';
+import 'screens/settings/update_ui.dart' show appNavigatorKey;
 import 'screens/video_player_screen.dart';
 import 'tv/tv_book_pages.dart';
 import 'tv/tv_collection_page.dart';
 import 'tv/tv_pages.dart';
+import 'tv/tv_video_player.dart';
 
 /// Keeps one Navigator per tab so album/artist pages open inside the content
 /// area while the player bar stays put.
@@ -142,8 +144,14 @@ class AppNav extends ChangeNotifier {
         .addPostFrameCallback((_) => push(tv ? TvCollectionPage(name: name) : VideoCollectionScreen(name: name)));
   }
 
-  /// Opens a video's player page on the Videos tab (0.1.40).
+  /// Opens a video's player page on the Videos tab (0.1.40). On the TV (step 5) the TV player
+  /// opens full screen over everything instead.
   void openVideo(VideoItem v) {
+    final root = appNavigatorKey.currentState;
+    if (tv && root != null) {
+      root.push(MaterialPageRoute(builder: (_) => TvVideoPlayerPage(videoId: v.id)));
+      return;
+    }
     if (tab != videosTab) {
       tab = videosTab;
       notifyListeners();

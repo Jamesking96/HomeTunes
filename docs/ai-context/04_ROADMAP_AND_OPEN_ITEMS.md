@@ -354,7 +354,7 @@ moved to `ui/widgets/video_card.dart` in the refactor.
   only. On Linux, `linux/runner/my_application.cc` needs to answer the same `hometunes/window` channel with GTK's
   keep-above setting (L2 in the plan doc). The other Windows-only calls are unchanged; only their line numbers moved.
 - Model/Android version of the TV still to confirm (Settings › Device Preferences › About), optional.
-- **Android TV progress (`feature/android-tv`, 0.2.0+98, pushed to GitHub 23 Oct):**
+- **Android TV progress (`feature/android-tv`, 0.2.0+99, pushed to GitHub 23 Oct):**
   - Done: T1 (TV launcher entry, banner, the C2 icon everywhere, the name "HomeTunes"), T2 (Settings › Appearance ›
     TV mode: Automatic / On / Off; `services/device_kind.dart` asks Android if it's a TV), T3a (the remote:
     `ui/tv/tv_focus.dart` TvFocus / TvRegion / tvTheme), and the seek preview's remote version (18 Oct: the
@@ -429,7 +429,7 @@ moved to `ui/widgets/video_card.dart` in the refactor.
     `test/tv_pages_test.dart` (5; it builds the library through `library.json` + `load()` so `albumByKey` and
     `bookById` work, and fakes the videos model, as a real scan in a widget test never finished); 757 pass.
     Pictures: `tool/tv_preview_test.dart` now also draws the six pages (`tv-page-*.png`).
-  - **Step 4 done 23 Oct (0.2.0+98, pushed), waiting for the user's TV test:** every menu in the options panel.
+  - **Step 4 done 23 Oct (0.2.0+98, pushed); the user will review steps 1–5 together on the TV (23 Oct):** every menu in the options panel.
     `ui/tv/tv_menus.dart` has one option list per kind (`songOptions`, `albumOptions`, `artistOptions`,
     `playlistOptions` (null = Liked Songs), `bookOptions`, `seriesOptions`, `videoOptions`, `collectionOptions`)
     and a `show…Options` for each; holding OK on a tile or row and a page's More button (`onPage: true`, which
@@ -446,6 +446,38 @@ moved to `ui/widgets/video_card.dart` in the refactor.
     Lyrics and Details still open their usual dialogs / pages (Back closes them). Tests: 5 more in
     `test/tv_pages_test.dart` ("menus in the options panel"); 758 pass. Pictures: `tv-options-song.png`,
     `tv-options-playlist.png`.
+  - **Step 5 done 23 Oct (0.2.0+99, pushed), waiting for the user's full review of steps 1–5 (the user: "I want
+    to make sure that we have a framework for playing and managing videos"):** the players.
+    - `ui/tv/tv_seek_bar.dart` (TvSeekBar + TvSeekBarController, `tvTime`): no slider; with focus ← → move a marker
+      (10 s, a long video's 1/150th, growing while held, at most a tenth; the same rule as the old remote seek
+      preview), OK jumps or the remote resting 1.5 s does, Back / Esc cancels; OK with no marker plays / pauses;
+      `preview` draws the picture above the marker.
+    - `ui/tv/tv_video_player.dart`: the framework for videos on the TV. `TvVideoPlayerPage` makes the real
+      player (MediaKitVideoEngine, VideoController with `controls: NoVideoControls`, SeekPreviewer) and a
+      `VideoSession` with the same arguments as the usual page, so carrying on, the collection's speed and
+      track choice, saving the place, previous / next, Up next, the music pausing, the equaliser and NowWatching
+      all work as everywhere. `TvVideoView` is the screen: controls over the picture (collection · season ·
+      episode and title at the top; the bar, Play / Pause, − / + the skip amounts, Audio & subtitles, Speed,
+      Episodes, Next, More at the bottom), shown when it opens and with any press, hidden after 5 s of playing
+      (not while paused, scrubbing, a panel is open or Up next shows). While hidden, the first press only shows
+      them (`_catcher` holds focus). The remote's media keys work at any time. Back: marker → controls → close
+      (`Navigator.pop`, not `maybePop`: the page's PopScope would call Back again forever). Panels: Audio &
+      subtitles (Audio › and Subtitles › lists, remembered for the collection), Speed (0.5–2×), Episodes (the
+      collection, the one playing first), More (From the start, Previous, Mark as watched, Sleep timer, Details,
+      Go to the collection). Up next: a card with the countdown; Play now gets focus. In TV mode
+      `AppNav.openVideo` pushes it on the root navigator (`appNavigatorKey`), full screen.
+    - `ui/tv/tv_now_playing.dart` (`openNowPlaying` opens it in TV mode): songs: Shuffle, Previous, Play / Pause,
+      Next, Repeat; Up next (the queue in the panel, OK `jumpTo`), Lyrics (LyricsView in a panel), the heart,
+      Volume − / + (5 %, up to the boost), Sleep timer. Books: Previous chapter, Back, Play / Pause, Forward, Next
+      chapter; Chapters (panel, the one playing first), Bookmark, Speed − / + (0.1×), Volume, Sleep timer, Back to
+      music. The cover big over a blurred copy. Music videos aren't shown on the TV's Now Playing.
+    - `showTvOptions` gained `focusIndex` (the row with focus first, scrolled to). Tests:
+      `test/tv_players_test.dart` (10: the bar's steps, OK, resting, Back; the video view with a real
+      VideoSession over `FakeVideoEngine` and a videos model that needs no scan: controls up and the bar first,
+      fading, the first press, Back twice, paused stays up, media keys, Audio › choosing a track, Up next);
+      768 pass. Pictures: `tool/tv_player_preview_test.dart` (`tv-video-*.png`, `tv-now-playing.png`).
+    - Not yet: the queue's own moves (move / remove in Up next), the equaliser on the TV, music videos on
+      Now Playing, and a long-press / OK-on-picture shortcut for the video's options.
   - On a new PC (the user, 22 Oct: carrying on from another PC without these restrictions): clone, then
     `git switch feature/android-tv`, and `flutter pub get`. The release key (keystore and `key.properties`) isn't
     in git: the user brings it across. On this PC `tool/build_release.ps1 -Android` stopped right after Gradle
