@@ -14,7 +14,6 @@ import '../theme.dart';
 import 'tv_browse.dart';
 import 'tv_detail.dart';
 import 'tv_items.dart';
-import 'tv_options.dart';
 import 'tv_widgets.dart';
 
 class TvCollectionPage extends StatefulWidget {
@@ -38,7 +37,6 @@ class _TvCollectionPageState extends State<TvCollectionPage> {
     final fav = model.isFavourite(c);
     final next = model.nextUp(c);
     final watched = model.watchedCount(c);
-    final allWatched = watched == c.main.length && c.main.isNotEmpty;
     final nextStarted = next != null && (model.placeOf(next.id)?.inProgress ?? false);
     final extras = c.videos.length - c.main.length;
     final shape = model.collectionShapeOf(c);
@@ -89,10 +87,7 @@ class _TvCollectionPageState extends State<TvCollectionPage> {
           TvIconButton(
             icon: Icons.more_horiz,
             label: 'More options',
-            onPressed: () => showTvOptions(context, title: c.name, options: [
-              TvOption(allWatched ? 'Mark all as not watched' : 'Mark all as watched', allWatched ? Icons.remove_done : Icons.done_all,
-                  () => model.setWatched([for (final v in c.main) v.id], !allWatched)),
-            ]),
+            onPressed: () => showCollectionOptions(context, c, onPage: true),
           ),
         ],
         below: c.description == null ? null : TvDescription(c.description!, lines: 2),
@@ -154,11 +149,7 @@ class _EpisodeRow extends StatelessWidget {
       trailing: watched ? Icon(Icons.check_circle, size: 20, color: AppColors.textDim) : null,
       focusedHint: 'Hold OK for options',
       onPressed: () => nav.openVideo(video),
-      onHold: () => showTvOptions(context, title: video.title, subtitle: label, options: [
-        TvOption(started ? 'Carry on watching' : 'Play', Icons.play_arrow, () => nav.openVideo(video)),
-        TvOption(watched ? 'Mark as not watched' : 'Mark as watched', watched ? Icons.remove_done : Icons.done,
-            () => model.setWatched([video.id], !watched)),
-      ]),
+      onHold: () => showVideoOptions(context, video),
     );
   }
 }

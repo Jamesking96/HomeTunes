@@ -292,5 +292,20 @@ void main() {
     await page('tv-page-book', () => nav.openBook(lib.books.firstWhere((b) => b.title == 'The Long Road North')), down: 2);
     await page('tv-page-series', () => nav.openSeries('Northlands'));
     await page('tv-page-collection', () => nav.openVideoCollection('Coastline'), down: 2);
+
+    // 7. Step 4: a song's options, and Add to a playlist ›.
+    nav.selectTab(AppNav.libraryTab);
+    await tester.pumpAndSettle();
+    nav.openAlbum(albums.firstWhere((a) => a.title == 'Paper Lanterns'));
+    await tester.pumpAndSettle();
+    await press(LogicalKeyboardKey.arrowDown, 2);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.select);
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    await press(LogicalKeyboardKey.arrowDown, 2);
+    await shoot('tv-options-song');
+    await press(LogicalKeyboardKey.select);
+    await shoot('tv-options-playlist');
   });
 }

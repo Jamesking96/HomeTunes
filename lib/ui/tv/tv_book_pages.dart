@@ -23,7 +23,6 @@ import '../widgets/series_card.dart' show SeriesCover, seriesProgress, seriesCou
 import 'tv_browse.dart';
 import 'tv_detail.dart';
 import 'tv_items.dart';
-import 'tv_options.dart';
 import 'tv_widgets.dart';
 
 /// One row of a book's page: a heading, a bookmark or a chapter.
@@ -57,7 +56,6 @@ class TvBookPage extends StatelessWidget {
     final book = lib.bookById(bookId);
     if (book == null) return const TvMissingPage(icon: Icons.menu_book_outlined, title: 'This audiobook isn\'t in your library any more');
     final pl = context.watch<PlaylistsModel>();
-    final nav = context.read<AppNav>();
     final player = context.read<PlayerModel>();
     // Only these two facts about the player, so the page doesn't redraw on every tick.
     final playingThis = context.select<PlayerModel, bool>((p) => p.book?.id == bookId);
@@ -68,7 +66,6 @@ class TvBookPage extends StatelessWidget {
     final bookmarks = context.watch<BookmarksModel>().forBook(book);
     final current = _currentChapter(book, chapters, progress);
     final fav = pl.isFavouriteBook(book);
-    final series = book.series;
     final ratio = bookCoverRatio(context);
 
     final status = switch (state) {
@@ -129,14 +126,7 @@ class TvBookPage extends StatelessWidget {
           TvIconButton(
             icon: Icons.more_horiz,
             label: 'More options',
-            onPressed: () => showTvOptions(context, title: book.title, subtitle: book.author, options: [
-              if (series != null && series.trim().isNotEmpty)
-                TvOption('Go to the series', Icons.collections_bookmark_outlined, () => nav.openSeries(series)),
-              if (state != BookState.finished)
-                TvOption('Mark as finished', Icons.done_all, () => listening.setFinished(book, true))
-              else
-                TvOption('Mark as not finished', Icons.remove_done, () => listening.setFinished(book, false)),
-            ]),
+            onPressed: () => showBookOptions(context, book, onPage: true),
           ),
         ],
         below: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
@@ -243,6 +233,7 @@ class TvSeriesPage extends StatelessWidget {
             on: fav,
             onPressed: () => pl.setFavouriteSeries([name], !fav),
           ),
+          TvIconButton(icon: Icons.more_horiz, label: 'More options', onPressed: () => showSeriesOptions(context, series, onPage: true)),
         ],
         below: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           if (progress.finished > 0 && !progress.allFinished) TvProgressBar(progress.finished / series.books.length),

@@ -10,7 +10,6 @@ import '../../models/track.dart';
 import '../../state/library_model.dart';
 import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
-import '../nav.dart';
 import '../theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/playlist_art.dart';
@@ -60,7 +59,6 @@ class TvAlbumPage extends StatelessWidget {
     final album = lib.albumByKey(albumKey);
     if (album == null) return const TvMissingPage(icon: Icons.album_outlined, title: 'This album isn\'t in your library any more');
     final pl = context.watch<PlaylistsModel>();
-    final nav = context.read<AppNav>();
     final player = context.read<PlayerModel>();
     final tracks = album.tracks;
     final label = 'Album · ${album.title}';
@@ -95,14 +93,7 @@ class TvAlbumPage extends StatelessWidget {
           TvIconButton(
             icon: Icons.more_horiz,
             label: 'More options',
-            onPressed: () => showTvOptions(context, title: album.title, subtitle: album.artist, options: [
-              TvOption('Go to the artist', Icons.person_outline, () => nav.openArtist(album.artist)),
-              TvOption('Add every song to the queue', Icons.queue_music, () async {
-                for (final t in tracks) {
-                  await player.addToQueue(t);
-                }
-              }),
-            ]),
+            onPressed: () => showAlbumOptions(context, album, onPage: true),
           ),
         ],
       ),
@@ -156,7 +147,10 @@ class TvArtistPage extends StatelessWidget {
         kind: 'Artist',
         title: artist.name,
         lines: ['${albums.length} album${albums.length == 1 ? '' : 's'} · ${_songs(tracks.length)}'],
-        buttons: tvPlayButtons(context, tracks, label),
+        buttons: [
+          ...tvPlayButtons(context, tracks, label),
+          TvIconButton(icon: Icons.more_horiz, label: 'More options', onPressed: () => showArtistOptions(context, artist, onPage: true)),
+        ],
         after: TvShelf(title: 'Albums', children: [for (final a in albums) tvAlbumTile(context, a, width: 124)]),
       ),
       items: <Object>['Songs', ...tracks],
@@ -207,7 +201,10 @@ class TvPlaylistPage extends StatelessWidget {
         lines: [
           [_songs(tracks.length), if (length > Duration.zero) formatLong(length), if (missing > 0) '$missing not available now'].join(' · '),
         ],
-        buttons: tvPlayButtons(context, tracks, label),
+        buttons: [
+          ...tvPlayButtons(context, tracks, label),
+          TvIconButton(icon: Icons.more_horiz, label: 'More options', onPressed: () => showPlaylistOptions(context, playlist, onPage: true)),
+        ],
       ),
       items: tracks.isEmpty ? <Object>['No songs here yet.'] : <Object>[...found],
       itemBuilder: (context, x, i, node) {

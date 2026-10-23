@@ -260,4 +260,94 @@ void main() {
   test('outside TV mode the usual pages open (AppHome sets this; Shell\'s tests leave it off)', () {
     expect(AppNav().tv, isFalse);
   });
+
+  // Step 4: every menu in the options panel.
+  group('menus in the options panel', () {
+    Finder option(String label) => find.byKey(ValueKey('tv-option-$label'));
+
+    testWidgets('a song: the everyday actions, then Lyrics and Details; no Edit (that comes with the forms)', (tester) async {
+      await pumpApp(tester);
+      nav.openAlbum(lib.albums.firstWhere((a) => a.title == 'Paper Lanterns'));
+      await tester.pumpAndSettle();
+      await press(tester, LogicalKeyboardKey.arrowDown);
+      await holdOk(tester);
+      for (final l in ['Play next', 'Add to the queue', 'Add to a playlist', 'Add to Liked Songs', 'Go to the album', 'Go to the artist']) {
+        expect(option(l), findsOneWidget, reason: l);
+      }
+      // The rest are further down the panel: the remote scrolls it.
+      await press(tester, LogicalKeyboardKey.arrowDown, 9);
+      for (final l in ['Lyrics', 'Details', 'Move to Audiobooks']) {
+        expect(option(l), findsOneWidget, reason: l);
+      }
+      expect(find.textContaining('Edit'), findsNothing);
+    });
+
+    testWidgets('Add to a playlist › lists the playlists; choosing one adds the song and says so', (tester) async {
+      await pumpApp(tester);
+      nav.openAlbum(lib.albums.firstWhere((a) => a.title == 'Paper Lanterns'));
+      await tester.pumpAndSettle();
+      await press(tester, LogicalKeyboardKey.arrowDown); // Paper Lanterns, the song
+      await holdOk(tester);
+      await tester.tap(option('Add to a playlist'));
+      await tester.pumpAndSettle();
+      expect(option('Road trip'), findsOneWidget);
+      expect(option('Liked Songs'), findsOneWidget);
+      await tester.tap(option('Road trip'));
+      await tester.pump();
+      expect(playlists.playlists.single.trackIds.last, 'local:/m/Paper Lanterns/Paper Lanterns.mp3');
+      expect(find.text('Added to Road trip'), findsOneWidget);
+    });
+
+    testWidgets('deleting a playlist asks first; Keep it leaves it', (tester) async {
+      await pumpApp(tester);
+      nav.openPlaylist(playlists.playlists.single);
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('More options'));
+      await tester.pumpAndSettle();
+      expect(option('Open the playlist'), findsNothing); // it's open
+      await tester.tap(option('Delete the playlist'));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete "Road trip"?'), findsOneWidget);
+      await tester.tap(option('Keep it'));
+      await tester.pumpAndSettle();
+      expect(playlists.playlists, hasLength(1));
+      await tester.tap(find.bySemanticsLabel('More options'));
+      await tester.pumpAndSettle();
+      await tester.tap(option('Delete the playlist'));
+      await tester.pumpAndSettle();
+      await tester.tap(option('Delete it'));
+      await tester.pumpAndSettle();
+      expect(playlists.playlists, isEmpty);
+      expect(find.byType(TvPlaylistPage), findsNothing); // and its page closed
+    });
+
+    testWidgets('an artist: Change picture › one of their album covers', (tester) async {
+      await pumpApp(tester);
+      nav.openArtist('Harbour Lights');
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('More options'));
+      await tester.pumpAndSettle();
+      await tester.tap(option('Change picture'));
+      await tester.pumpAndSettle();
+      await tester.runAsync(() async {
+        await tester.tap(option('Night Ferry'));
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      });
+      await tester.pumpAndSettle();
+      expect(lib.artistPictures['Harbour Lights'], isNotNull);
+    });
+
+    testWidgets('a video: Play, Mark as watched, Go to the collection, Details', (tester) async {
+      await pumpApp(tester, withVideos: true);
+      nav.openVideoCollection('Coastline');
+      await tester.pumpAndSettle();
+      await press(tester, LogicalKeyboardKey.arrowDown);
+      await press(tester, LogicalKeyboardKey.arrowDown); // past the season tabs to the first episode
+      await holdOk(tester);
+      for (final l in ['Play', 'Mark as watched', 'Go to the collection', 'Details']) {
+        expect(option(l), findsOneWidget, reason: l);
+      }
+    });
+  });
 }
+

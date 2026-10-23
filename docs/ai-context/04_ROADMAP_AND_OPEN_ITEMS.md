@@ -354,7 +354,7 @@ moved to `ui/widgets/video_card.dart` in the refactor.
   only. On Linux, `linux/runner/my_application.cc` needs to answer the same `hometunes/window` channel with GTK's
   keep-above setting (L2 in the plan doc). The other Windows-only calls are unchanged; only their line numbers moved.
 - Model/Android version of the TV still to confirm (Settings › Device Preferences › About), optional.
-- **Android TV progress (`feature/android-tv`, 0.2.0+97, pushed to GitHub 23 Oct):**
+- **Android TV progress (`feature/android-tv`, 0.2.0+98, pushed to GitHub 23 Oct):**
   - Done: T1 (TV launcher entry, banner, the C2 icon everywhere, the name "HomeTunes"), T2 (Settings › Appearance ›
     TV mode: Automatic / On / Off; `services/device_kind.dart` asks Android if it's a TV), T3a (the remote:
     `ui/tv/tv_focus.dart` TvFocus / TvRegion / tvTheme), and the seek preview's remote version (18 Oct: the
@@ -411,7 +411,7 @@ moved to `ui/widgets/video_card.dart` in the refactor.
     invented data; icons show as boxes there, as the test font has none). APK `build\dist\HomeTunes-0.2.0-android.apk`
     (23 Oct 16:00, signed with the release key; `build_release.ps1 -Android` again built Windows but not the APK,
     so `flutter build apk --release --no-tree-shake-icons` was run by hand).
-  - **Step 3 done 23 Oct (0.2.0+97, pushed), waiting for the user's TV test:** the pages. In TV mode `AppNav`
+  - **Step 3 done 23 Oct (0.2.0+97, pushed); tried on the TV by the user, 23 Oct: "Music seems good, and the video collection looks good" (audiobook pages not mentioned).** The pages. In TV mode `AppNav`
     opens TV pages (`AppNav.tv`, set by `AppHome` from `tvLayout`): `tv_pages.dart` (TvAlbumPage: numbered rows,
     Disc headings, the playing song marked, "Hold OK for options" on the row with focus, Play / Pause / Resume
     through `playOrPauseFrom`, Shuffle, heart, More: Go to the artist, Add every song to the queue; TvArtistPage:
@@ -429,6 +429,23 @@ moved to `ui/widgets/video_card.dart` in the refactor.
     `test/tv_pages_test.dart` (5; it builds the library through `library.json` + `load()` so `albumByKey` and
     `bookById` work, and fakes the videos model, as a real scan in a widget test never finished); 757 pass.
     Pictures: `tool/tv_preview_test.dart` now also draws the six pages (`tv-page-*.png`).
+  - **Step 4 done 23 Oct (0.2.0+98, pushed), waiting for the user's TV test:** every menu in the options panel.
+    `ui/tv/tv_menus.dart` has one option list per kind (`songOptions`, `albumOptions`, `artistOptions`,
+    `playlistOptions` (null = Liked Songs), `bookOptions`, `seriesOptions`, `videoOptions`, `collectionOptions`)
+    and a `show…Options` for each; holding OK on a tile or row and a page's More button (`onPage: true`, which
+    leaves out Play / Open) open the same list. Added since step 3: Add to a playlist › (a second panel: Liked
+    Songs and every playlist, with their pictures; a notice says where it went), Lyrics, Find lyrics online,
+    Details (the usual Details pages), Move to Audiobooks, Find cover online and Use the files' own cover
+    (albums, books), Change picture › one of their album covers and Use the automatic picture (artists), Delete
+    the playlist › (asks first: Keep it / Delete it; closes its page), Play from the start and Mark as watched
+    (videos), Mark all as finished (series), Add to the queue (albums, artists, playlists). `TvOption` gained
+    `picture` and `subtitle`; `tvConfirm`, `tvNotice`, `tvAddToPlaylist`. More buttons on the artist, playlist and
+    series pages. Left for steps 6–7 (typing and forms): Edit details, Rename, New playlist, Edit series,
+    Edit collection, Change icon, and choosing a picture file. Left out on purpose: Copy title, Select, Show in
+    folder, Add to sidebar (no clipboard, select mode, file window or sidebar on the TV). Find cover online,
+    Lyrics and Details still open their usual dialogs / pages (Back closes them). Tests: 5 more in
+    `test/tv_pages_test.dart` ("menus in the options panel"); 758 pass. Pictures: `tv-options-song.png`,
+    `tv-options-playlist.png`.
   - On a new PC (the user, 22 Oct: carrying on from another PC without these restrictions): clone, then
     `git switch feature/android-tv`, and `flutter pub get`. The release key (keystore and `key.properties`) isn't
     in git: the user brings it across. On this PC `tool/build_release.ps1 -Android` stopped right after Gradle
