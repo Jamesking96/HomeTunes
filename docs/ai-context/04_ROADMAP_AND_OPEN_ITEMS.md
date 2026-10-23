@@ -354,7 +354,7 @@ moved to `ui/widgets/video_card.dart` in the refactor.
   only. On Linux, `linux/runner/my_application.cc` needs to answer the same `hometunes/window` channel with GTK's
   keep-above setting (L2 in the plan doc). The other Windows-only calls are unchanged; only their line numbers moved.
 - Model/Android version of the TV still to confirm (Settings › Device Preferences › About), optional.
-- **Android TV progress (`feature/android-tv`, 0.2.0+101, pushed to GitHub 23 Oct):**
+- **Android TV progress (released as v0.2.0 on 23 Oct, 0.2.0+101; `feature/android-tv` merged into `main` and deleted):**
   - Done: T1 (TV launcher entry, banner, the C2 icon everywhere, the name "HomeTunes"), T2 (Settings › Appearance ›
     TV mode: Automatic / On / Off; `services/device_kind.dart` asks Android if it's a TV), T3a (the remote:
     `ui/tv/tv_focus.dart` TvFocus / TvRegion / tvTheme), and the seek preview's remote version (18 Oct: the

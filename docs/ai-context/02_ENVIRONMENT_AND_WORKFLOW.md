@@ -115,6 +115,10 @@ If they are, don't build the Windows app (`LNK1168`), and don't switch branches 
    **Keep `docs/USER_GUIDE.md` up to date when features or menu names change.** `-UpdateOnly`
    refreshes just the page text and guide of an existing release; re-running without it
    skips files already uploaded.
+   **This PC (23 Oct) can't reach ftp.gnu.org** (the connection is reset), so `engine_source.ps1`
+   can't make the engine source zip here. While the engine is unchanged (`pubspec.lock`'s media_kit
+   entries), download `HomeTunes-audio-engine-source.zip` from the previous release into
+   `build\dist` and the script reuses it (done for v0.2.0 from v0.1.81).
    It refuses a debug-signed APK (and stops if it can't find apksigner), and writes
    `HomeTunes-<ver>-SHA256SUMS.txt` (uploaded, and listed at the end of the page). The app's
    "Check for updates" reads the latest release and checks the installer against that file, so

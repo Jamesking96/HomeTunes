@@ -18,6 +18,7 @@ Read the files in this order:
 
 ## Status (6 Oct 2026)
 
+- **Released 23 Oct: [v0.2.0](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.0)** (0.2.0+101), covering 0.1.82–0.2.0: the Android TV interface (all seven steps), the app icon, Play buttons showing what's playing, the even volume fade and the video seek preview. `feature/android-tv` was merged into `main` and deleted: **`main` is the only branch.** The user has seen some TV issues still to fix (to be listed).
 - **Latest (13 Oct):** 0.1.82 (an album's or playlist's Play button shows when it's playing) 0.1.83 (the volume sliders fade evenly to silence; the EQ level is right) and 0.1.84 (a preview picture above a video's progress bar) are merged into `main` and pushed, not yet released; v0.1.81 (12 Oct) is the latest release. The Android TV work (0.2.0) is on `feature/android-tv`, with `main` merged in. See `04_`, Source control.
 - **Android TV (22 Oct):** the TV work (0.2.0+94) is on `feature/android-tv`, pushed to GitHub. The user tried it on the TV: the remote now stays on the open page; HomeTunes' own folder browser for Add folder isn't tried yet. The user is moving to another PC; see `04_`, Platforms plan, Android TV progress.
 - **Released:** the latest release is
