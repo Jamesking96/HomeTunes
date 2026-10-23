@@ -18,6 +18,7 @@ import 'package:provider/provider.dart';
 import '../../../state/library_model.dart';
 import '../../theme.dart';
 import 'appearance_settings.dart';
+import '../../tv/tv_keyboard.dart' show TvTextField;
 
 /// File extension for a shared theme.
 const themeFileExtension = 'hometunes-theme';
@@ -349,7 +350,7 @@ class _ImportThemeDialogState extends State<ImportThemeDialog> {
             Text('Paste a theme code a friend sent you (it starts with $themeCodePrefix), or open a theme file.',
                 style: dim),
             const SizedBox(height: 10),
-            TextField(
+            TvTextField(field: TextField(
               key: const ValueKey('import-theme-code'),
               controller: _text,
               minLines: 2,
@@ -371,7 +372,7 @@ class _ImportThemeDialogState extends State<ImportThemeDialog> {
                   onPressed: _paste,
                 ),
               ),
-            ),
+            )),
           ]),
         ),
       ),

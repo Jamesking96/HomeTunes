@@ -10,6 +10,7 @@ import '../../../state/video_library_model.dart';
 import '../../theme.dart';
 import '../../widgets/save_nfo.dart';
 import '../video_pictures.dart';
+import '../../tv/tv_keyboard.dart' show TvTextField;
 
 /// Edit collection for one or several (select mode on the Collections tab). For several, only
 /// what's typed or picked is changed: category, year, genre and poster shape (a name or a
@@ -103,7 +104,7 @@ class _EditSeveralCollectionsState extends State<_EditSeveralCollections> {
             Text(_list.map((c) => c.name).join(', '),
                 maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.textDim, fontSize: 12)),
             const SizedBox(height: 8),
-            TextField(
+            TvTextField(field: TextField(
               key: const ValueKey('collections-category'),
               controller: _category,
               decoration: InputDecoration(
@@ -118,26 +119,26 @@ class _EditSeveralCollectionsState extends State<_EditSeveralCollections> {
                         itemBuilder: (_) => [for (final x in categories) PopupMenuItem(value: x, child: Text(x))],
                       ),
               ),
-            ),
+            )),
             const SizedBox(height: 8),
             Row(children: [
               SizedBox(
                 width: 120,
-                child: TextField(
+                child: TvTextField(field: TextField(
                   key: const ValueKey('collections-year'),
                   controller: _year,
                   keyboardType: TextInputType.number,
                   onChanged: (_) => setState(() => _yearError = null),
                   decoration: InputDecoration(labelText: 'Year', hintText: _hint((c) => c.year?.toString()), errorText: _yearError),
-                ),
+                )),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: TextField(
+                child: TvTextField(field: TextField(
                   key: const ValueKey('collections-genre'),
                   controller: _genre,
                   decoration: InputDecoration(labelText: 'Genre', hintText: _hint((c) => c.genre)),
-                ),
+                )),
               ),
             ]),
             const SizedBox(height: 12),
@@ -245,13 +246,13 @@ class _EditCollectionState extends State<_EditCollection> {
             Text('Changes are saved on all ${c.videos.length} videos in this collection.',
                 style: TextStyle(color: AppColors.textDim, fontSize: 12)),
             const SizedBox(height: 8),
-            TextField(
+            TvTextField(field: TextField(
               key: const ValueKey('collection-name'),
               controller: _name,
               decoration: const InputDecoration(labelText: 'Name', helperText: 'Another collection\'s name joins the two'),
-            ),
+            )),
             const SizedBox(height: 8),
-            TextField(
+            TvTextField(field: TextField(
               key: const ValueKey('collection-category'),
               controller: _category,
               decoration: InputDecoration(
@@ -266,36 +267,36 @@ class _EditCollectionState extends State<_EditCollection> {
                         itemBuilder: (_) => [for (final x in categories) PopupMenuItem(value: x, child: Text(x))],
                       ),
               ),
-            ),
+            )),
             const SizedBox(height: 8),
             Row(children: [
               SizedBox(
                 width: 120,
-                child: TextField(
+                child: TvTextField(field: TextField(
                   key: const ValueKey('collection-year'),
                   controller: _year,
                   keyboardType: TextInputType.number,
                   onChanged: (_) => setState(() => _yearError = null),
                   decoration: InputDecoration(labelText: 'Year', errorText: _yearError),
-                ),
+                )),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: TextField(
+                child: TvTextField(field: TextField(
                   key: const ValueKey('collection-genre'),
                   controller: _genre,
                   decoration: const InputDecoration(labelText: 'Genre'),
-                ),
+                )),
               ),
             ]),
             const SizedBox(height: 8),
-            TextField(
+            TvTextField(field: TextField(
               key: const ValueKey('collection-description'),
               controller: _description,
               minLines: 2,
               maxLines: 6,
               decoration: const InputDecoration(labelText: 'Description'),
-            ),
+            )),
             const SizedBox(height: 12),
             PictureShapePicker(
               title: 'Poster shape (Look)',

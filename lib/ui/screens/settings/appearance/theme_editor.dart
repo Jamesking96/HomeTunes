@@ -63,11 +63,11 @@ class _ThemeEditorState extends State<ThemeEditor> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              TextField(
+              TvTextField(field: TextField(
                 key: const ValueKey('theme-name'),
                 controller: _name,
                 decoration: const InputDecoration(labelText: 'Name'),
-              ),
+              )),
               const SizedBox(height: 16),
               ThemePreview(palette: _p, height: 180),
               const SizedBox(height: 8),

@@ -12,6 +12,7 @@ import '../../services/book_info.dart';
 import '../../state/library_model.dart';
 import '../theme.dart';
 import '../widgets/offline_warning.dart';
+import '../tv/tv_keyboard.dart' show TvTextField;
 
 /// Searches Open Library for a book cover and lets the user pick one.
 /// Returns the saved image's path, or null.
@@ -216,19 +217,19 @@ class _BookLookupDialogState extends State<_BookLookupDialog> {
             ]),
             Row(children: [
               Expanded(
-                child: TextField(
+                child: TvTextField(field: TextField(
                   controller: _title,
                   decoration: const InputDecoration(labelText: 'Title', isDense: true),
                   onSubmitted: (_) => _run(),
-                ),
+                )),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: TextField(
+                child: TvTextField(field: TextField(
                   controller: _author,
                   decoration: const InputDecoration(labelText: 'Author', isDense: true),
                   onSubmitted: (_) => _run(),
-                ),
+                )),
               ),
               IconButton(tooltip: 'Search', icon: const Icon(Icons.search), onPressed: _loading ? null : _run),
             ]),

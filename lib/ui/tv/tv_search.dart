@@ -1,6 +1,6 @@
 // The TV's Search screen (0.2.0, step 6 of the TV interface; mockup "Search"). The remote has no
-// letters, so the left of the screen is a keyboard: the letters, the digits, Space, Delete and
-// Clear. The results on the right update with every key (artists, songs, albums, audiobooks,
+// letters, so the left of the screen is a keyboard (tv_keyboard.dart's short one): the letters,
+// the digits, Space, Delete and Clear. The results on the right update with every key (artists, songs, albums, audiobooks,
 // video collections, videos and audiobook chapters); → from the keyboard's right edge goes to
 // them, ← from their left edge comes back. A real keyboard (or a remote's number keys) types too.
 //
@@ -21,22 +21,13 @@ import '../widgets/book_card.dart' show BookCover;
 import 'tv_browse.dart';
 import 'tv_detail.dart' show TvListHeading;
 import 'tv_items.dart';
+import 'tv_keyboard.dart';
 import 'tv_widgets.dart';
 
 /// The Search tab's place in the menu.
 const tvSearchTab = 1;
 
 const tvSearchHints = <TvHint>[('OK', 'type'), ('→', 'results'), ('Hold OK', 'Options'), ('←', 'menu')];
-
-/// The keyboard's keys, a row at a time: a–z then 1–0.
-const tvKeyboardRows = [
-  ['a', 'b', 'c', 'd', 'e', 'f'],
-  ['g', 'h', 'i', 'j', 'k', 'l'],
-  ['m', 'n', 'o', 'p', 'q', 'r'],
-  ['s', 't', 'u', 'v', 'w', 'x'],
-  ['y', 'z', '1', '2', '3', '4'],
-  ['5', '6', '7', '8', '9', '0'],
-];
 
 class TvSearchScreen extends StatefulWidget {
   const TvSearchScreen({super.key});
@@ -80,16 +71,19 @@ class _TvSearchScreenState extends State<TvSearchScreen> {
       hints: tvSearchHints,
       child: TvPage(
         title: 'Search',
-        body: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Focus(
-            canRequestFocus: false,
-            skipTraversal: true,
-            onKeyEvent: _hardKey,
-            child: _Keyboard(query: _query, onType: _type, onDelete: _delete, onClear: _clear),
-          ),
-          const SizedBox(width: 28),
-          Expanded(child: TvSearchResults(query: _query)),
-        ]),
+        body: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Focus(
+              canRequestFocus: false,
+              skipTraversal: true,
+              onKeyEvent: _hardKey,
+              child: _Keyboard(query: _query, onType: _type, onDelete: _delete, onClear: _clear),
+            ),
+            const SizedBox(width: 28),
+            Expanded(child: TvSearchResults(query: _query)),
+          ],
+        ),
       ),
     );
   }
@@ -102,91 +96,39 @@ class _Keyboard extends StatelessWidget {
   final ValueChanged<String> onType;
   final VoidCallback onDelete, onClear;
 
-  static const _key = 42.0, _gap = 6.0;
-  static const width = _key * 6 + _gap * 5;
-
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: width,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Container(
-          key: const ValueKey('tv-search-text'),
-          height: 46,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(color: AppColors.surfaceHigh, borderRadius: BorderRadius.circular(10)),
-          child: Row(children: [
-            Icon(Icons.search, size: 20, color: AppColors.textDim),
-            const SizedBox(width: 8),
-            Expanded(
-              child: query.isEmpty
-                  ? Text('Type to search', style: TextStyle(fontSize: 16, color: AppColors.textDim))
-                  : Text('$query|',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textDirection: TextDirection.ltr,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white)),
-            ),
-          ]),
-        ),
-        const SizedBox(height: 14),
-        for (final row in tvKeyboardRows) ...[
-          Row(children: [
-            for (var i = 0; i < row.length; i++) ...[
-              if (i > 0) const SizedBox(width: _gap),
-              _Key(label: row[i], width: _key, onPressed: () => onType(row[i])),
-            ],
-          ]),
-          const SizedBox(height: _gap),
-        ],
-        Row(children: [
-          _Key(label: 'Space', width: _key * 2 + _gap, onPressed: query.isEmpty ? null : () => onType(' ')),
-          const SizedBox(width: _gap),
-          _Key(label: 'Delete', icon: Icons.backspace_outlined, width: _key * 2 + _gap, onPressed: onDelete, onHold: onClear),
-          const SizedBox(width: _gap),
-          _Key(label: 'Clear', width: _key * 2 + _gap, onPressed: onClear),
-        ]),
-      ]),
-    );
-  }
-}
-
-class _Key extends StatelessWidget {
-  const _Key({required this.label, required this.width, required this.onPressed, this.icon, this.onHold});
-  final String label;
-  final IconData? icon;
-  final double width;
-  final VoidCallback? onPressed, onHold;
-
-  @override
-  Widget build(BuildContext context) {
-    // Space with nothing typed yet still takes focus (so the row doesn't jump about), just dimmed.
-    final enabled = onPressed != null;
-    return TvPressable(
-      key: ValueKey('tv-key-$label'),
-      semanticLabel: label,
-      onPressed: onPressed ?? () {},
-      onHold: onHold,
-      builder: (context, focused) => TvFocusFrame(
-        focused: focused,
-        radius: 8,
-        grow: false,
-        child: Container(
-          width: width,
-          height: 40,
-          alignment: Alignment.center,
-          color: focused ? AppColors.accent : AppColors.surfaceHigh,
-          child: icon != null
-              ? Icon(icon, size: 18, color: focused ? AppColors.current.onAccent : Colors.white)
-              : Text(
-                  label.length == 1 ? label.toUpperCase() : label,
-                  style: TextStyle(
-                    fontSize: label.length == 1 ? 17 : 13,
-                    fontWeight: FontWeight.w600,
-                    color: focused ? AppColors.current.onAccent : (enabled ? Colors.white : AppColors.textDim),
-                  ),
+      width: TvKeyboard.width,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            key: const ValueKey('tv-search-text'),
+            height: 46,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(color: AppColors.surfaceHigh, borderRadius: BorderRadius.circular(10)),
+            child: Row(
+              children: [
+                Icon(Icons.search, size: 20, color: AppColors.textDim),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: query.isEmpty
+                      ? Text('Type to search', style: TextStyle(fontSize: 16, color: AppColors.textDim))
+                      : Text(
+                          '$query|',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textDirection: TextDirection.ltr,
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white),
+                        ),
                 ),
-        ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          TvKeyboard(onType: onType, onDelete: onDelete, onClear: onClear, canSpace: query.isNotEmpty),
+        ],
       ),
     );
   }
@@ -209,7 +151,8 @@ class TvSearchResults extends StatelessWidget {
       return const TvEmpty(
         icon: Icons.search,
         title: 'Search your library',
-        message: 'Songs, artists, albums, audiobooks and their chapters, videos and video collections. The results show as you type.',
+        message:
+            'Songs, artists, albums, audiobooks and their chapters, videos and video collections. The results show as you type.',
       );
     }
     final results = lib.search(q);
@@ -218,7 +161,11 @@ class TvSearchResults extends StatelessWidget {
     final collections = videoModel == null ? const <VideoCollection>[] : searchCollections(videoModel.collections, q);
     final videos = videoModel == null ? const <VideoItem>[] : searchVideos(videoModel.videos, q);
     if (results.isEmpty && books.isEmpty && chapters.isEmpty && collections.isEmpty && videos.isEmpty) {
-      return TvEmpty(icon: Icons.search_off, title: 'Nothing found for "$q"', message: 'Try fewer letters, or part of a name.');
+      return TvEmpty(
+        icon: Icons.search_off,
+        title: 'Nothing found for "$q"',
+        message: 'Try fewer letters, or part of a name.',
+      );
     }
     final songs = results.tracks.take(most).toList();
     final label = 'Search · $q';

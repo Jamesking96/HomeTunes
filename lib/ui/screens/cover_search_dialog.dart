@@ -12,6 +12,7 @@ import '../../services/cover_search.dart';
 import '../../state/library_model.dart';
 import '../theme.dart';
 import '../widgets/offline_warning.dart';
+import '../tv/tv_keyboard.dart' show TvTextField;
 
 /// Searches online for a cover matching [artist] / [album] (or [title]) and
 /// lets the user pick one. Returns the saved image's path, or null.
@@ -192,19 +193,19 @@ class _CoverSearchDialogState extends State<_CoverSearchDialog> {
             ]),
             Row(children: [
               Expanded(
-                child: TextField(
+                child: TvTextField(field: TextField(
                   controller: _artist,
                   decoration: const InputDecoration(labelText: 'Artist', isDense: true),
                   onSubmitted: (_) => _run(),
-                ),
+                )),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: TextField(
+                child: TvTextField(field: TextField(
                   controller: _album,
                   decoration: const InputDecoration(labelText: 'Album', isDense: true),
                   onSubmitted: (_) => _run(),
-                ),
+                )),
               ),
               IconButton(tooltip: 'Search', icon: const Icon(Icons.search), onPressed: _loading ? null : _run),
             ]),

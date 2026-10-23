@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../../services/music_info.dart';
 import '../theme.dart';
 import '../widgets/offline_warning.dart';
+import '../tv/tv_keyboard.dart' show TvTextField;
 
 /// Song/album details that can be looked up online.
 enum InfoField { title, artist, album, albumArtist, year, genre, trackNumber, discNumber }
@@ -312,10 +313,10 @@ class _InfoLookupDialogState extends State<_InfoLookupDialog> {
   /// One fixed-width search box; pressing Enter runs the search again.
   Widget _box(TextEditingController c, String label) => SizedBox(
         width: 160,
-        child: TextField(
+        child: TvTextField(field: TextField(
           controller: c,
           decoration: InputDecoration(labelText: label, isDense: true),
           onSubmitted: (_) => _run(),
-        ),
+        )),
       );
 }

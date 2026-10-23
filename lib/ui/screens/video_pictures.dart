@@ -25,6 +25,7 @@ import '../widgets/picture_choice.dart';
 
 import 'video_pictures/frame_picker.dart';
 import '../../state/settings/settings_groups.dart' as prefs;
+import '../tv/tv_keyboard.dart' show TvTextField;
 export 'video_pictures/frame_picker.dart' show showFramePicker;
 
 /// Chosen pictures are kept at most this wide.
@@ -259,13 +260,13 @@ class _PictureSearchState extends State<_PictureSearch> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
             Expanded(
-              child: TextField(
+              child: TvTextField(field: TextField(
                 key: const ValueKey('picture-search-box'),
                 controller: _query,
                 textInputAction: TextInputAction.search,
                 onSubmitted: (_) => _find(),
                 decoration: const InputDecoration(labelText: 'Name to search for'),
-              ),
+              )),
             ),
             const SizedBox(width: 8),
             IconButton.filledTonal(tooltip: 'Search', icon: const Icon(Icons.search), onPressed: _busy ? null : _find),

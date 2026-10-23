@@ -265,7 +265,7 @@ void main() {
   group('menus in the options panel', () {
     Finder option(String label) => find.byKey(ValueKey('tv-option-$label'));
 
-    testWidgets('a song: the everyday actions, then Lyrics and Details; no Edit (that comes with the forms)', (tester) async {
+    testWidgets('a song: the everyday actions, then Lyrics, Details and Edit details (step 7)', (tester) async {
       await pumpApp(tester);
       nav.openAlbum(lib.albums.firstWhere((a) => a.title == 'Paper Lanterns'));
       await tester.pumpAndSettle();
@@ -275,11 +275,10 @@ void main() {
         expect(option(l), findsOneWidget, reason: l);
       }
       // The rest are further down the panel: the remote scrolls it.
-      await press(tester, LogicalKeyboardKey.arrowDown, 9);
-      for (final l in ['Lyrics', 'Details', 'Move to Audiobooks']) {
+      await press(tester, LogicalKeyboardKey.arrowDown, 11);
+      for (final l in ['Lyrics', 'Details', 'Edit details', 'Move to Audiobooks']) {
         expect(option(l), findsOneWidget, reason: l);
       }
-      expect(find.textContaining('Edit'), findsNothing);
     });
 
     testWidgets('Add to a playlist › lists the playlists; choosing one adds the song and says so', (tester) async {

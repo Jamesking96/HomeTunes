@@ -23,6 +23,7 @@ import '../theme.dart';
 import '../widgets/book_card.dart';
 import 'series_screen.dart' show SeriesScreen;
 import '../widgets/picture_choice.dart';
+import '../tv/tv_keyboard.dart' show TvTextField;
 
 /// Opens Edit series. Returns the series' name after saving (new if it was renamed), or null if
 /// nothing was saved.
@@ -143,22 +144,22 @@ class _EditSeriesState extends State<_EditSeries> {
     final form = ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
       children: [
-        TextField(key: const ValueKey('series-edit-name'), controller: _name, decoration: field('Name')),
+        TvTextField(field: TextField(key: const ValueKey('series-edit-name'), controller: _name, decoration: field('Name'))),
         const SizedBox(height: 12),
-        TextField(
+        TvTextField(field: TextField(
           key: const ValueKey('series-edit-author'),
           controller: _author,
           decoration: field('Author',
               hint: multipleAuthors ? '${widget.series.authors.join(', ')} (type one to use it for every book)' : null),
-        ),
+        )),
         const SizedBox(height: 12),
-        TextField(
+        TvTextField(field: TextField(
           key: const ValueKey('series-edit-description'),
           controller: _description,
           minLines: 2,
           maxLines: 6,
           decoration: field('Description'),
-        ),
+        )),
         const SizedBox(height: 20),
         Row(children: [
           Expanded(
@@ -290,12 +291,12 @@ class _BookPickerState extends State<_BookPicker> {
         width: 480,
         height: 420,
         child: Column(children: [
-          TextField(
+          TvTextField(field: TextField(
             key: const ValueKey('series-add-search'),
             autofocus: true,
             decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Title, author or series'),
             onChanged: (v) => setState(() => _query = v),
-          ),
+          )),
           const SizedBox(height: 8),
           Expanded(
             child: shown.isEmpty

@@ -12,6 +12,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import '../tv/tv_keyboard.dart' show TvTextField;
 
 /// True when [text] contains every word of [query] (ignoring case). An empty query matches all.
 bool choiceMatches(String text, String query) {
@@ -191,7 +192,7 @@ class _ChoiceListState extends State<_ChoiceList> {
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-          child: TextField(
+          child: TvTextField(field: TextField(
             key: ValueKey('choice-search-${widget.label}'),
             autofocus: _desktop,
             decoration: InputDecoration(
@@ -210,7 +211,7 @@ class _ChoiceListState extends State<_ChoiceList> {
                 }
               }
             },
-          ),
+          )),
         ),
         Flexible(
           child: ListView(

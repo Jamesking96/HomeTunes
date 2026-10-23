@@ -9,6 +9,7 @@ import '../../state/filters.dart';
 import '../../state/sort_order.dart';
 import '../theme.dart';
 import 'search_choice_field.dart';
+import '../tv/tv_keyboard.dart' show TvTextField;
 
 export '../../state/sort_order.dart';
 
@@ -55,7 +56,7 @@ class FilterBar<S> extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 8, 4, 0),
       child: Row(children: [
         Expanded(
-          child: TextField(
+          child: TvTextField(field: TextField(
             key: const ValueKey('library-title-filter'),
             controller: controller,
             onChanged: onChanged,
@@ -81,7 +82,7 @@ class FilterBar<S> extends StatelessWidget {
               border: OutlineInputBorder(borderRadius: AppShape.circular(24), borderSide: BorderSide.none),
               filled: true,
             ),
-          ),
+          )),
         ),
         ...actions,
         IconButton(

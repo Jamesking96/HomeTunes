@@ -17,6 +17,7 @@ import '../../state/video_library_model.dart';
 import '../theme.dart';
 import '../widgets/track_tile.dart' show askForName;
 import '../../state/settings/settings_groups.dart' as prefs;
+import '../tv/tv_keyboard.dart' show TvTextField;
 
 /// Asks for a special title for season [season] (or [season].[sub]) of [c] and marks it.
 Future<void> showSpecialSeasonDialog(BuildContext context, VideoCollection c, int season, [int? sub]) async {
@@ -97,7 +98,7 @@ class _SpecialSeasonDialogState extends State<_SpecialSeasonDialog> {
                 ),
             ]),
           const SizedBox(height: 8),
-          TextField(
+          TvTextField(field: TextField(
             key: const ValueKey('special-title-field'),
             controller: controller,
             decoration: const InputDecoration(labelText: 'Title', hintText: 'Pick one above or type a new one'),
@@ -105,7 +106,7 @@ class _SpecialSeasonDialogState extends State<_SpecialSeasonDialog> {
             onSubmitted: (v) {
               if (v.trim().isNotEmpty) Navigator.pop(context, v);
             },
-          ),
+          )),
         ]),
       ),
       actions: [

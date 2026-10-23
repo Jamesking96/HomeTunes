@@ -6,6 +6,7 @@ import '../../../models/video_item.dart';
 import '../../../state/video_library_model.dart';
 import '../../theme.dart';
 import '../../widgets/save_nfo.dart';
+import '../../tv/tv_keyboard.dart' show TvTextField;
 
 /// Name a season ("Season 1 – Offline News"). The title the season's folder gives is offered;
 /// an empty box shows none. Saved into the series' tvshow.nfo too when that's ticked.
@@ -56,7 +57,7 @@ class _SeasonTitleDialogState extends State<_SeasonTitleDialog> {
         content: SizedBox(
           width: 420,
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            TextField(
+            TvTextField(field: TextField(
               key: const ValueKey('season-title-field'),
               controller: controller,
               autofocus: true,
@@ -71,7 +72,7 @@ class _SeasonTitleDialogState extends State<_SeasonTitleDialog> {
                 ),
               ),
               onSubmitted: (v) => Navigator.pop(context, v),
-            ),
+            )),
             const SizedBox(height: 8),
             if (fromFolder != null)
               TextButton.icon(

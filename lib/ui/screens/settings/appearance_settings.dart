@@ -24,6 +24,7 @@ import 'video_player_look_settings.dart';
 
 import 'appearance/colour_picker.dart';
 import '../../../state/settings/settings_groups.dart' as prefs;
+import '../../tv/tv_keyboard.dart' show TvTextField;
 export 'appearance/colour_picker.dart' show accentSuggestions, backgroundSuggestions, anySuggestions, PickerMode, showColourPicker;
 part 'appearance/theme_editor.dart';
 

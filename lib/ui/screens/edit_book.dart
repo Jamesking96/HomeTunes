@@ -24,6 +24,7 @@ import 'book_lookup_dialog.dart';
 import '../../state/mixed_value.dart';
 import '../widgets/mixed_value_field.dart';
 import '../../state/settings/settings_groups.dart' as prefs;
+import '../tv/tv_keyboard.dart' show TvTextField;
 
 /// Edits an audiobook's details and cover. Like album edits, the changes are
 /// kept by HomeTunes and applied to every file of the book. Returns true if
@@ -285,7 +286,7 @@ class _EditBookState extends State<_EditBook> {
     /// [online] adds a "find online" button, if online details lookups are switched on.
     Widget field(_F f, {bool number = false, bool decimal = false, bool online = false}) => Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: TextField(
+          child: TvTextField(field: TextField(
             controller: _ctrl[f],
             keyboardType: number ? TextInputType.numberWithOptions(decimal: decimal) : TextInputType.text,
             inputFormatters: number ? [FilteringTextInputFormatter.allow(RegExp(decimal ? r'[0-9.,]' : r'[0-9]'))] : null,
@@ -311,7 +312,7 @@ class _EditBookState extends State<_EditBook> {
                     )
                   : null,
             ),
-          ),
+          )),
         );
 
     // The cover preview: the newly picked image if there is one, otherwise the current cover.

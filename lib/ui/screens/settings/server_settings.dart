@@ -18,6 +18,7 @@ import '../../../state/library_model.dart';
 import '../../../state/servers_model.dart';
 import '../../theme.dart';
 import 'settings_widgets.dart';
+import '../../tv/tv_keyboard.dart' show TvTextField;
 
 part 'servers/server_dialog.dart';
 

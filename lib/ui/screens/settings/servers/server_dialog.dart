@@ -229,31 +229,31 @@ class _ServerDialogState extends State<_ServerDialog> {
                 ),
               ),
               const SizedBox(height: 8),
-              TextField(
+              TvTextField(field: TextField(
                 key: const ValueKey('server-name'),
                 controller: _name,
                 decoration: const InputDecoration(labelText: 'Name (optional)', hintText: 'e.g. Living room PC'),
-              ),
+              )),
               const SizedBox(height: 8),
-              TextField(
+              TvTextField(field: TextField(
                 key: const ValueKey('server-url'),
                 controller: _url,
                 keyboardType: TextInputType.url,
                 autocorrect: false,
                 decoration: InputDecoration(labelText: 'Server address', hintText: 'e.g. ${_type.example}'),
                 onChanged: (_) => setState(() {}),
-              ),
+              )),
               // (0.1.17) Plain http outside the home network: the sign-in could be read on the way.
               if (isPlainHttpToInternet(_url.text)) _HttpWarning(tryHttps: !_url.text.trim().startsWith('http://')),
               const SizedBox(height: 8),
-              TextField(
+              TvTextField(field: TextField(
                 key: const ValueKey('server-user'),
                 controller: _user,
                 autocorrect: false,
                 decoration: const InputDecoration(labelText: 'Username'),
-              ),
+              )),
               const SizedBox(height: 8),
-              TextField(
+              TvTextField(field: TextField(
                 key: const ValueKey('server-password'),
                 controller: _pass,
                 obscureText: !_showPass,
@@ -266,7 +266,7 @@ class _ServerDialogState extends State<_ServerDialog> {
                     onPressed: () => setState(() => _showPass = !_showPass),
                   ),
                 ),
-              ),
+              )),
               const SizedBox(height: 12),
               const Text('Use it for', style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 6),

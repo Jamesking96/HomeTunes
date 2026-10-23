@@ -16,6 +16,7 @@ import '../../state/lyrics_model.dart';
 import '../theme.dart';
 import '../widgets/lyrics_view.dart';
 import '../widgets/offline_warning.dart';
+import '../tv/tv_keyboard.dart' show TvTextField;
 
 /// Formats a length as "m:ss" for the result list.
 String _mmss(Duration d) => '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
@@ -232,19 +233,19 @@ class _LrclibDialogState extends State<_LrclibDialog> {
             if (preview == null)
               Row(children: [
                 Expanded(
-                  child: TextField(
+                  child: TvTextField(field: TextField(
                     controller: _title,
                     decoration: const InputDecoration(labelText: 'Title', isDense: true),
                     onSubmitted: (_) => _run(),
-                  ),
+                  )),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: TextField(
+                  child: TvTextField(field: TextField(
                     controller: _artist,
                     decoration: const InputDecoration(labelText: 'Artist', isDense: true),
                     onSubmitted: (_) => _run(),
-                  ),
+                  )),
                 ),
                 IconButton(tooltip: 'Search', icon: const Icon(Icons.search), onPressed: _loading ? null : _run),
               ]),
@@ -341,7 +342,7 @@ class _EditLyricsDialogState extends State<_EditLyricsDialog> {
                 maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.textDim)),
             const SizedBox(height: 12),
             Expanded(
-              child: TextField(
+              child: TvTextField(field: TextField(
                 controller: _text,
                 maxLines: null,
                 expands: true,
@@ -353,7 +354,7 @@ class _EditLyricsDialogState extends State<_EditLyricsDialog> {
                   hintText: 'Type or paste the lyrics here.\n\n'
                       'For lyrics that follow the song, start each line with its time, like [01:23.45].',
                 ),
-              ),
+              )),
             ),
             const SizedBox(height: 8),
             Text(

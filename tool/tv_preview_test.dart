@@ -3,6 +3,7 @@
 // Interface". Step 2: Home, Music (Albums, Artists, Songs, Genres), Audiobooks and Videos, with
 // the rail and the focus ring. Uses Windows' Segoe UI so the text is readable. Invented titles.
 //   flutter test tool/tv_preview_test.dart
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -15,7 +16,9 @@ import 'package:hometunes/models/track.dart';
 import 'package:hometunes/models/video_item.dart';
 import 'package:hometunes/state/bookmarks_model.dart';
 import 'package:hometunes/services/storage.dart';
+import 'package:hometunes/state/equalizer_model.dart';
 import 'package:hometunes/state/library_model.dart';
+import 'package:hometunes/state/update_model.dart';
 import 'package:hometunes/state/listening_model.dart';
 import 'package:hometunes/state/play_history.dart';
 import 'package:hometunes/state/player_model.dart';
@@ -25,6 +28,9 @@ import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/library_providers.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/theme.dart';
+import 'package:hometunes/ui/screens/edit_book.dart';
+import 'package:hometunes/ui/screens/edit_details.dart';
+import 'package:hometunes/ui/screens/edit_video.dart';
 import 'package:hometunes/ui/tv/tv_focus.dart';
 import 'package:hometunes/ui/tv/tv_widgets.dart';
 import 'package:hometunes/ui/tv/tv_shell.dart';
@@ -193,6 +199,8 @@ void main() {
         ChangeNotifierProvider<PlayerModel>.value(value: _Player()),
         ChangeNotifierProvider(create: (_) => SelectionModel()),
         ChangeNotifierProvider.value(value: videos),
+        ChangeNotifierProvider(create: (_) => EqualizerModel(storage)),
+        ChangeNotifierProvider(create: (_) => UpdateModel(storage, readVersion: () async => '0.2.0')),
       ],
       child: RepaintBoundary(
         key: key,
@@ -286,6 +294,28 @@ void main() {
     await press(LogicalKeyboardKey.arrowDown);
     await shoot('tv-search-results');
 
+    // 4c. Settings (step 7): the list, the remote on Playback; into the page; a choice's list;
+    // the keyboard from Search settings.
+    nav.selectTab(AppNav.settingsTab);
+    await tester.pumpAndSettle();
+    Focus.of(tester.element(find.descendant(of: find.byKey(const ValueKey('tv-settings-playback')), matching: find.byType(TvFocusFrame)))).requestFocus();
+    await tester.pump(const Duration(milliseconds: 400));
+    await shoot('tv-settings');
+    await press(LogicalKeyboardKey.arrowRight);
+    await shoot('tv-settings-page');
+    Focus.of(tester.element(find.descendant(of: find.byKey(const ValueKey('tv-settings-appearance')), matching: find.byType(TvFocusFrame)))).requestFocus();
+    await tester.pump(const Duration(milliseconds: 400));
+    await press(LogicalKeyboardKey.select);
+    await shoot('tv-settings-appearance');
+    Focus.of(tester.element(find.descendant(of: find.byKey(const ValueKey('tv-settings-search')), matching: find.byType(TvFocusFrame)))).requestFocus();
+    await tester.pumpAndSettle();
+    await press(LogicalKeyboardKey.select);
+    for (final k in [LogicalKeyboardKey.keyT, LogicalKeyboardKey.keyH, LogicalKeyboardKey.keyE]) {
+      await press(k);
+    }
+    await shoot('tv-keyboard');
+    await press(LogicalKeyboardKey.escape);
+
     // 5. The rail open over Music.
     nav.selectTab(AppNav.libraryTab);
     await tester.pumpAndSettle();
@@ -325,5 +355,23 @@ void main() {
     await shoot('tv-options-song');
     await press(LogicalKeyboardKey.select);
     await shoot('tv-options-playlist');
+    await press(LogicalKeyboardKey.escape);
+    await press(LogicalKeyboardKey.escape);
+
+    // 7. The edit forms with the remote (step 7): an album's, a book's and a video's.
+    Future<void> form(String name, Future<Object?> Function(BuildContext) open) async {
+      final ctx = tester.element(find.byType(AppHome));
+      unawaited(open(ctx));
+      await tester.pumpAndSettle();
+      await shoot('$name-top');
+      await press(LogicalKeyboardKey.arrowDown, 3);
+      await shoot('$name-down');
+      await press(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+    }
+
+    await form('tv-edit-album', (c) => showEditDetails(c, albums.firstWhere((a) => a.title == 'Paper Lanterns').tracks, album: true));
+    await form('tv-edit-book', (c) => showEditBook(c, lib.books.firstWhere((b) => b.title == 'The Long Road North')));
+    await form('tv-edit-video', (c) => showEditVideos(c, [videos.videos.first]));
   });
 }
