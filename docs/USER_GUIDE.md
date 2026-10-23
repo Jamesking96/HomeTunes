@@ -5,7 +5,8 @@ but using music you already have. Point it at the folder where your music lives 
 library of artists, albums, songs and audiobooks. You can also stream from your own music server
 (Navidrome or another Subsonic server) if you have one.
 
-It runs on **Android phones** and **Windows PCs**. There's no iPhone or Mac download.
+It runs on **Android phones**, **Android TVs** (Google TV, from version 0.2.0) and **Windows PCs**.
+There's no iPhone or Mac download.
 
 ![The HomeTunes Home screen on a Windows PC, showing Continue listening, Shuffle all, Liked Songs and Recently added albums](images/home-pc.jpg)
 
@@ -19,6 +20,7 @@ marked **Latest**. Under **Assets**, pick the file for your device:
 | Your device | Download | What it is |
 | --- | --- | --- |
 | Android phone or tablet | `HomeTunes-<version>-android.apk` | The phone app |
+| Android TV / Google TV | `HomeTunes-<version>-android.apk` | The same file: on a TV it opens with screens made for the remote |
 | Windows PC (recommended) | `HomeTunes-Setup-<version>.exe` | Installer: adds HomeTunes to the Start menu |
 | Windows PC (no install) | `HomeTunes-<version>-windows.zip` | A folder you can run from anywhere, even a USB stick |
 
@@ -61,6 +63,22 @@ newer version, tap **Update…** then **Open download page** to go to it in your
 the `.apk` and open it to install over the top. (Or download the newer `.apk` from the Releases
 page yourself.) Don't uninstall first: your library, playlists, places in books and settings are
 all kept.
+
+### On an Android TV (Google TV)
+
+The TV uses the same `.apk` as a phone. A TV's browser usually can't download it, so bring it over
+on a USB stick:
+
+1. On a PC, download the `.apk` from the Releases page and copy it onto a USB stick.
+2. On the TV, install a file manager app from the Google Play Store (any one that can open files on
+   a USB drive), then plug in the stick.
+3. Open the `.apk` in the file manager. The first time, the TV asks whether that app may install
+   apps: turn it on, go back and open the file again, then choose **Install**.
+4. HomeTunes appears with the TV's other apps. Open it and allow access to **music and audio**.
+
+To update, copy the newer `.apk` to the stick and open it the same way: it installs over the top
+and keeps everything. If you have the phone app, a backup (see section 6) is the quickest way to
+bring your server details and playlists across without typing them on the TV.
 
 ---
 
@@ -358,6 +376,30 @@ again). Quick links only show on a computer, where there's a sidebar.
   15 seconds at most.
 - **Settings search:** type in the box at the top of Settings to find any option. The Settings
   tabs are in A–Z order; **Folders & scanning** has your music, audiobook and video folders.
+
+### On a TV with the remote
+
+On a TV, HomeTunes has its own screens, made to be used from the sofa with just the remote:
+
+- **Moving about:** the arrows move the highlight and **OK** opens or plays what's highlighted.
+  **Back** goes back. Press **←** at the left edge of a screen to open the menu (Home, Music,
+  Audiobooks, Videos, Search, Settings and what's playing).
+- **Options:** **hold OK** on a song, album, artist, playlist, audiobook, series, video or
+  collection for everything you can do with it (play next, add to a playlist, edit its details…).
+- **Long lists:** in Music, Audiobooks and Videos, press **→** at the right edge to jump through the
+  list by letter (A–Z).
+- **Videos:** press any button to bring up the controls. On the progress bar, **← →** move a marker
+  through the video (with a picture of that moment) and OK jumps there. **Hold OK** on the bar, or
+  on a video anywhere, for **Watch from the beginning**. The remote's play / pause and next buttons
+  work whenever a video is playing.
+- **Typing:** search and every box you type in use an on-screen keyboard: move to a letter and press
+  OK. **Shift** gives capitals and **#+=** symbols and accents; **Done** finishes. A keyboard
+  plugged into the TV types too.
+- **Settings:** the pages are listed on the left and the one you're on shows beside it. Press **→**
+  to go into it. OK flips a switch or opens a list of choices.
+- **TV mode** is chosen automatically. To change it, go to **Settings › Appearance › TV mode**
+  (**Automatic**, **On** or **Off**). On a PC, turning it on shows the TV screens, which you can use
+  with the keyboard's arrows and Enter.
 
 ---
 
