@@ -354,7 +354,7 @@ moved to `ui/widgets/video_card.dart` in the refactor.
   only. On Linux, `linux/runner/my_application.cc` needs to answer the same `hometunes/window` channel with GTK's
   keep-above setting (L2 in the plan doc). The other Windows-only calls are unchanged; only their line numbers moved.
 - Model/Android version of the TV still to confirm (Settings › Device Preferences › About), optional.
-- **Android TV progress (`feature/android-tv`, 0.2.0+99, pushed to GitHub 23 Oct):**
+- **Android TV progress (`feature/android-tv`, 0.2.0+100, pushed to GitHub 23 Oct):**
   - Done: T1 (TV launcher entry, banner, the C2 icon everywhere, the name "HomeTunes"), T2 (Settings › Appearance ›
     TV mode: Automatic / On / Off; `services/device_kind.dart` asks Android if it's a TV), T3a (the remote:
     `ui/tv/tv_focus.dart` TvFocus / TvRegion / tvTheme), and the seek preview's remote version (18 Oct: the
@@ -477,7 +477,27 @@ moved to `ui/widgets/video_card.dart` in the refactor.
       fading, the first press, Back twice, paused stays up, media keys, Audio › choosing a track, Up next);
       768 pass. Pictures: `tool/tv_player_preview_test.dart` (`tv-video-*.png`, `tv-now-playing.png`).
     - Not yet: the queue's own moves (move / remove in Up next), the equaliser on the TV, music videos on
-      Now Playing, and a long-press / OK-on-picture shortcut for the video's options.
+      Now Playing. (The shortcut for the video's options is done in step 6: hold OK on the bar.)
+  - **Step 6 done 23 Oct (0.2.0+100, pushed), waiting for the user to try it on the TV.** First, two things the
+    user asked for after trying step 5:
+    - Watch from the beginning: holding OK on a video (Home's Carry on card, a video tile, an episode row)
+      offers "Watch from the beginning" (always, started or not: marks it unwatched, then opens it at 0:00). In
+      the player, More's "From the start" is now "Watch from the beginning", and holding OK on the bar opens
+      More (TvSeekBar `onHold`: OK down starts a 500 ms timer; let go sooner = play / pause). The carry-on
+      notice says "Hold OK to watch from the beginning".
+    - Moving left from Audio & subtitles lost its way: the player is pushed on the root navigator, outside
+      the shell's TvRegion, so Flutter's own arrow handling met the edge of the buttons' scrolling part. The
+      buttons row is now its own `TvRegion` (← → by position). Now Playing has no scrolling row, so is fine.
+    - Search: `ui/tv/tv_search.dart` (TvSearchScreen, the Search tab's root in TvShell; the phone keeps
+      SearchScreen). Left: the typed text and a keyboard (a–z, 1–0 in rows of six; Space, Delete, Clear;
+      holding OK on Delete clears too). A real keyboard or the remote's number keys type while the keyboard has
+      focus (Backspace deletes). Right: `TvSearchResults`, updating with each key: Artists, Songs (up to 12;
+      OK plays all the songs found from there), Albums, Audiobooks, Video collections, Videos, Audiobook
+      chapters; the same matching as the phone. → off the keyboard goes to the results, ← comes back. Holding
+      OK on a result gives its options as everywhere.
+    - Tests: `test/tv_search_test.dart` (4), 2 more in `test/tv_players_test.dart` (← → along the buttons
+      both ways; hold OK on the bar); 774 pass. Pictures: `tv-search-empty.png`, `tv-search.png`,
+      `tv-search-results.png`.
   - On a new PC (the user, 22 Oct: carrying on from another PC without these restrictions): clone, then
     `git switch feature/android-tv`, and `flutter pub get`. The release key (keystore and `key.properties`) isn't
     in git: the user brings it across. On this PC `tool/build_release.ps1 -Android` stopped right after Gradle

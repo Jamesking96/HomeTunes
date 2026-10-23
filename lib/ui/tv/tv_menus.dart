@@ -310,11 +310,11 @@ List<TvOption> videoOptions(BuildContext context, VideoItem v) {
   final started = place?.inProgress ?? false;
   return [
     TvOption(started ? 'Carry on watching' : 'Play', Icons.play_arrow, () => nav.openVideo(v)),
-    if (started || watched)
-      TvOption('Play from the start', Icons.replay, () async {
-        await model.setWatched([v.id], false);
-        nav.openVideo(v);
-      }),
+    // Always offered (the user, 23 Oct): starts at 0:00 whether or not it was started before.
+    TvOption('Watch from the beginning', Icons.replay, () async {
+      await model.setWatched([v.id], false);
+      nav.openVideo(v);
+    }),
     TvOption(watched ? 'Mark as not watched' : 'Mark as watched', watched ? Icons.remove_done : Icons.done,
         () => model.setWatched([v.id], !watched)),
     TvOption('Go to the collection', Icons.video_library_outlined, () => nav.openVideoCollection(v.collection)),

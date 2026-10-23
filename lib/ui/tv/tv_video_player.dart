@@ -10,7 +10,7 @@
 //    it (the seek preview), OK jumps there (or it jumps when the remote rests), Back cancels; OK
 //    with no marker plays / pauses.
 //  * ↓ to the buttons: Play / Pause, back and forward by Settings › Videos' amounts, Audio &
-//    subtitles, Speed, Episodes, Next episode, and More (From the start, Previous episode, Mark
+//    subtitles, Speed, Episodes, Next episode, and More (Watch from the beginning, Previous, Mark
 //    as watched, Sleep timer, Details, Go to the collection). Each choice opens in the options
 //    panel.
 //  * The remote's play / pause, rewind / fast-forward and next / previous keys work at any time.
@@ -43,7 +43,7 @@ import '../screens/video_details_screen.dart' show openVideoDetails;
 import '../theme.dart';
 import 'tv_browse.dart';
 import 'tv_detail.dart' show TvIconButton;
-import 'tv_focus.dart' show tvActivateKeys;
+import 'tv_focus.dart' show TvRegion, tvActivateKeys;
 import 'tv_menus.dart' show tvNotice;
 import 'tv_options.dart';
 import 'tv_seek_bar.dart';
@@ -78,7 +78,7 @@ class _TvVideoPlayerPageState extends State<TvVideoPlayerPage> {
       equalizer: Provider.of<EqualizerModel?>(context, listen: false),
       stats: VideoStats.forPlayer(_engine.player, 'Video'),
       onCarryOn: (from) {
-        if (mounted) tvNotice(context, 'Carrying on from ${tvTime(from)} · From the start is under More');
+        if (mounted) tvNotice(context, 'Carrying on from ${tvTime(from)} · Hold OK to watch from the beginning');
       },
       onOpenPage: _bringBack,
     );
@@ -428,13 +428,17 @@ class _TvVideoViewState extends State<TvVideoView> {
                 positions: _engine.positionStream,
                 onSeek: _engine.seek,
                 onActivate: _engine.playOrPause,
+                // Holding OK in the player: its options, Watch from the beginning first (23 Oct).
+                onHold: () => _panel(() => _more(context, v)),
                 onMoved: _poke,
                 preview: widget.previewer == null
                     ? null
                     : (target, length) => _PreviewPicture(previewer: widget.previewer!, target: target, length: length),
               ),
               const SizedBox(height: 12),
-              Row(
+              // Its own region (23 Oct): ← → go by where the buttons are, so moving left out of the
+              // scrolling part on the right reaches +s, −s and Play instead of losing its way.
+              TvRegion(child: Row(
                 children: [
                   TvIconButton(
                     key: const ValueKey('tv-video-play'),
@@ -500,7 +504,7 @@ class _TvVideoViewState extends State<TvVideoView> {
                     ),
                   ),
                 ],
-              ),
+              )),
             ],
           ),
         ),
@@ -669,7 +673,7 @@ class _TvVideoViewState extends State<TvVideoView> {
       context,
       title: v?.title ?? 'Video',
       options: [
-        TvOption('From the start', Icons.replay, _s.startOver),
+        TvOption('Watch from the beginning', Icons.replay, _s.startOver),
         if (previous != null)
           TvOption('Previous: ${[?previous.episodeLabel, previous.title].join(' · ')}', Icons.skip_previous, () => _s.jump(forward: false)),
         if (v != null)

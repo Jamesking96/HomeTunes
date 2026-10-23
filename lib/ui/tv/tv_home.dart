@@ -199,6 +199,7 @@ class _CarryOnCard extends StatelessWidget {
     late final Widget picture;
     late final VoidCallback carryOn, open;
     late final String openLabel;
+    VoidCallback? fromStart; // videos: Watch from the beginning
     late final Object id;
     switch (jump) {
       case VideoJump(:final video, progress: final p):
@@ -211,6 +212,10 @@ class _CarryOnCard extends StatelessWidget {
         carryOn = () => nav.openVideo(video);
         open = () => nav.openVideoCollection(video.collection);
         openLabel = 'Go to the collection';
+        fromStart = () async {
+          await videos.setWatched([video.id], false);
+          nav.openVideo(video);
+        };
         id = 'video:${video.id}';
       case BookJump(:final book, progress: final p):
         final left = context.read<ListeningModel>().timeLeft(book);
@@ -231,6 +236,7 @@ class _CarryOnCard extends StatelessWidget {
       onPressed: carryOn,
       onHold: () => showTvOptions(context, title: title, subtitle: detail, options: [
         TvOption('Carry on', Icons.play_arrow, carryOn),
+        if (fromStart != null) TvOption('Watch from the beginning', Icons.replay, fromStart),
         TvOption(openLabel, Icons.open_in_new, open),
       ]),
       builder: (context, focused) => TvFocusFrame(

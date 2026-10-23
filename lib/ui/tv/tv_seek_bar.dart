@@ -51,6 +51,7 @@ class TvSeekBar extends StatefulWidget {
     this.autofocus = false,
     this.preview,
     this.onMoved,
+    this.onHold,
     this.light = false,
   });
 
@@ -73,6 +74,10 @@ class TvSeekBar extends StatefulWidget {
 
   /// Told about every press (the video player keeps its controls up meanwhile).
   final VoidCallback? onMoved;
+
+  /// OK held for half a second (with no marker out): the player's options. Without it OK acts
+  /// as soon as it's pressed.
+  final VoidCallback? onHold;
 
   /// Over a picture: the times in white with a shadow.
   final bool light;
@@ -98,6 +103,8 @@ class _TvSeekBarState extends State<TvSeekBar> {
   late TvSeekBarController _controller = widget.controller ?? TvSeekBarController();
   bool _ownController = true;
   Timer? _jumpTimer;
+  Timer? _holdTimer;
+  bool _okDown = false, _held = false;
   int _streak = 0;
   DateTime _lastPress = DateTime.fromMillisecondsSinceEpoch(0);
   bool _focused = false;
@@ -133,6 +140,7 @@ class _TvSeekBarState extends State<TvSeekBar> {
   @override
   void dispose() {
     _jumpTimer?.cancel();
+    _holdTimer?.cancel();
     _sub.cancel();
     _controller.removeListener(_changed);
     if (_ownController) _controller.dispose();
@@ -156,7 +164,16 @@ class _TvSeekBarState extends State<TvSeekBar> {
   }
 
   KeyEventResult _key(FocusNode node, KeyEvent e) {
-    if (e is! KeyDownEvent && e is! KeyRepeatEvent) return KeyEventResult.ignored;
+    if (e is KeyUpEvent) {
+      // OK let go before it counted as held: a press.
+      if (tvActivateKeys.contains(e.logicalKey) && _okDown) {
+        _okDown = false;
+        _holdTimer?.cancel();
+        if (!_held) widget.onActivate?.call();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
     final k = e.logicalKey;
     final back = k == LogicalKeyboardKey.arrowLeft;
     final ahead = k == LogicalKeyboardKey.arrowRight;
@@ -181,8 +198,17 @@ class _TvSeekBarState extends State<TvSeekBar> {
       widget.onMoved?.call();
       if (_controller.scrubbing) {
         _jump();
-      } else {
+      } else if (widget.onHold == null) {
         widget.onActivate?.call();
+      } else {
+        // Wait: a short press plays / pauses when let go, a long one opens the options.
+        _okDown = true;
+        _held = false;
+        _holdTimer?.cancel();
+        _holdTimer = Timer(const Duration(milliseconds: 500), () {
+          _held = true;
+          widget.onHold?.call();
+        });
       }
       return KeyEventResult.handled;
     }
