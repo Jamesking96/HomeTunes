@@ -297,5 +297,66 @@ void main() {
       expect(engine.openName, 'Coastline S01E02');
       await done(tester);
     });
+
+    // 23 Oct, on the TV: moving left from Audio & subtitles while a video played lost its way.
+    testWidgets('the buttons: ← and → go along the row, both ways, past Audio & subtitles', (tester) async {
+      await pumpPlayer(tester);
+      String? key() {
+        String? found;
+        FocusManager.instance.primaryFocus?.context?.visitAncestorElements((e) {
+          final k = e.widget.key;
+          if (k is ValueKey<String> && k.value.startsWith('tv-video-')) {
+            found = k.value;
+            return false;
+          }
+          return true;
+        });
+        return found;
+      }
+
+      await press(tester, LogicalKeyboardKey.arrowDown); // off the bar onto the buttons
+      expect(key(), 'tv-video-tracks'); // the one under the middle of the bar
+      // Left, past Audio & subtitles to the start of the row.
+      final left = <String?>[];
+      for (var i = 0; i < 4; i++) {
+        await press(tester, LogicalKeyboardKey.arrowLeft);
+        left.add(key());
+      }
+      expect(left, ['tv-video-ahead', 'tv-video-back', 'tv-video-play', 'tv-video-play']);
+      // Then right all the way along, and back.
+      final right = <String?>[];
+      for (var i = 0; i < 8; i++) {
+        await press(tester, LogicalKeyboardKey.arrowRight);
+        right.add(key());
+      }
+      expect(right, ['tv-video-back', 'tv-video-ahead', 'tv-video-tracks', 'tv-video-speed', 'tv-video-episodes', 'tv-video-next', 'tv-video-more', 'tv-video-more']);
+      for (var i = 0; i < 4; i++) {
+        await press(tester, LogicalKeyboardKey.arrowLeft);
+      }
+      expect(key(), 'tv-video-tracks');
+      await press(tester, LogicalKeyboardKey.arrowLeft);
+      expect(key(), 'tv-video-ahead');
+      expect(engine.isPlaying, isTrue); // still playing, and the controls still up
+      expect(FocusManager.instance.primaryFocus?.debugLabel, isNot('tv video (controls hidden)'));
+      await done(tester);
+    });
+
+    testWidgets('holding OK on the bar opens the options, Watch from the beginning first; a short press pauses', (tester) async {
+      await pumpPlayer(tester);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.select);
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.select);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byKey(const ValueKey('tv-option-Watch from the beginning')), findsOneWidget);
+      expect(engine.isPlaying, isTrue); // held: not paused
+      await tester.tap(find.byKey(const ValueKey('tv-option-Watch from the beginning')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(engine.calls.last, 'seek 0:00:00.000000');
+      await press(tester, LogicalKeyboardKey.select);
+      expect(engine.isPlaying, isFalse);
+      await done(tester);
+    });
   });
 }

@@ -26,6 +26,7 @@ import 'package:hometunes/ui/library_providers.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/theme.dart';
 import 'package:hometunes/ui/tv/tv_focus.dart';
+import 'package:hometunes/ui/tv/tv_widgets.dart';
 import 'package:hometunes/ui/tv/tv_shell.dart';
 import 'package:provider/provider.dart';
 
@@ -267,6 +268,23 @@ void main() {
     nav.selectTab(AppNav.videosTab);
     await tester.pumpAndSettle();
     await shoot('tv-videos');
+
+    // 4b. Search (step 6): the keyboard, empty; then "har" typed, the remote on R; then in the results.
+    nav.selectTab(1);
+    await tester.pumpAndSettle();
+    Focus.of(tester.element(find.descendant(of: find.byKey(const ValueKey('tv-key-a')), matching: find.byType(TvFocusFrame)))).requestFocus();
+    await tester.pumpAndSettle();
+    await shoot('tv-search-empty');
+    for (final k in [LogicalKeyboardKey.keyH, LogicalKeyboardKey.keyA]) {
+      await press(k);
+    }
+    await press(LogicalKeyboardKey.arrowDown, 2);
+    await press(LogicalKeyboardKey.arrowRight, 5);
+    await press(LogicalKeyboardKey.select); // R
+    await shoot('tv-search');
+    await press(LogicalKeyboardKey.arrowRight);
+    await press(LogicalKeyboardKey.arrowDown);
+    await shoot('tv-search-results');
 
     // 5. The rail open over Music.
     nav.selectTab(AppNav.libraryTab);
