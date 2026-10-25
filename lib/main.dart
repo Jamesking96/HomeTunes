@@ -33,6 +33,7 @@ import 'state/play_history.dart';
 import 'state/player_model.dart';
 import 'state/playlists_model.dart';
 import 'state/selection_model.dart';
+import 'state/server_videos.dart';
 import 'state/servers_model.dart';
 import 'state/sleep_timer.dart';
 import 'state/update_model.dart';
@@ -144,6 +145,15 @@ Future<void> main() async {
   // Your servers for music, audiobooks and videos (0.1.46); the main music server stays in LibraryModel.
   final servers = ServersModel(storage, library);
   await safely('servers', servers.load);
+  // Videos from Jellyfin servers (0.2.1): what was read last time shows at once (before the video
+  // folders are scanned below); the servers are read again once the app is up.
+  final serverVideos = ServerVideosModel(
+    storage: storage,
+    servers: servers,
+    videos: videos,
+    appVersion: updates.currentVersion ?? '0',
+  );
+  await safely('server videos', serverVideos.load);
   final session = await MediaSession.start(player, library, watching: watching);
   debugPrint(session == null
       ? 'HomeTunes: system media controls are off'
@@ -163,6 +173,7 @@ Future<void> main() async {
     watching: watching,
     history: history,
     servers: servers,
+    serverVideos: serverVideos,
   ));
 
   // Once the first screen has settled: is the internet reachable? If not, say which features
@@ -187,6 +198,8 @@ Future<void> main() async {
   // Pick up new / changed files in the background after start-up.
   if (library.folders.isNotEmpty) library.scanLocal(); // not awaited on purpose
   if (library.videoFolders.isNotEmpty) videos.scan(); // runs alongside; thumbnails follow
+  // Read the Jellyfin servers' videos again (0.2.1), and every half hour after.
+  serverVideos.start();
 }
 
 /// Watches the app going into / coming out of the background (a Flutter lifecycle observer).
@@ -228,6 +241,7 @@ class HomeTunesApp extends StatelessWidget {
   final NowWatching watching;
   final PlayHistory? history;
   final ServersModel? servers;
+  final ServerVideosModel? serverVideos;
   const HomeTunesApp({
     super.key,
     required this.library,
@@ -242,6 +256,7 @@ class HomeTunesApp extends StatelessWidget {
     required this.watching,
     this.history,
     this.servers,
+    this.serverVideos,
   });
 
   @override
@@ -263,6 +278,7 @@ class HomeTunesApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: watching),
         if (history != null) ChangeNotifierProvider<PlayHistory>.value(value: history!),
         if (servers != null) ChangeNotifierProvider<ServersModel>.value(value: servers!),
+        if (serverVideos != null) ChangeNotifierProvider<ServerVideosModel>.value(value: serverVideos!),
         // These only matter to the UI, so Provider creates (and owns) them itself.
         ChangeNotifierProvider(create: (_) => SleepTimer(player, library)),
         // The video sleep timer (0.1.63) works on the video in charge.
