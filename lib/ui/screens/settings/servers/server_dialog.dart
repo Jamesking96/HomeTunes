@@ -201,8 +201,13 @@ class _ServerDialogState extends State<_ServerDialog> {
                           Icon(serverIcon(t), size: 18),
                           const SizedBox(width: 8),
                           Expanded(child: Text(t.label)),
-                          if (!t.streams)
-                            Text('coming later', style: TextStyle(fontSize: 12, color: AppColors.textDim)),
+                          if (t.playsNow.isEmpty)
+                            Text('coming later', style: TextStyle(fontSize: 12, color: AppColors.textDim))
+                          else if (!t.streams)
+                            Text(
+                              '${[for (final k in t.playsNow) k.lower].join(', ')} now',
+                              style: TextStyle(fontSize: 12, color: AppColors.textDim),
+                            ),
                         ],
                       ),
                     ),
@@ -224,6 +229,10 @@ class _ServerDialogState extends State<_ServerDialog> {
                             ? '${_type.about} It becomes your main music server: its music (and audiobooks) show in HomeTunes.'
                             : '${_type.about} You already have a main music server; this one is saved, and you can '
                                   'switch to it any time with "Make this the main music server".')
+                      : _type.playsNow.isNotEmpty
+                      ? '${_type.about} HomeTunes plays its ${[for (final k in _type.playsNow) k.lower].join(' and ')} '
+                            'now: they show in the ${[for (final k in _type.playsNow) k.label].join(' and ')} tab. '
+                            'The rest is coming in a later update.'
                       : '${_type.about} HomeTunes can\'t play from it yet. Set it up now and it\'s used once that\'s added.',
                   style: TextStyle(fontSize: 12, color: AppColors.textDim),
                 ),

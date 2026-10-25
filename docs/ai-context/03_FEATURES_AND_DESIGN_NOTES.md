@@ -186,6 +186,73 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Jellyfin videos (25 Oct 2026, 0.2.1, branch `feature/jellyfin-videos`)
+- **The user asked (25 Oct, after v0.2.0):** make sure HomeTunes really supports Jellyfin for
+  streaming; then a Source filter, downloads and temporary copies (steps 2–4 of the plan "HomeTunes
+  Servers & Downloads Plan", https://claude.ai/artifact/HgXrQMQB5vnt3WVkwyxj2W). Their answers:
+  videos now, music and audiobooks later; places and watched marks synced **both ways**; download
+  quality chosen each time; extras Keep offline, Download next episodes, Wi-Fi only + storage limit,
+  Make it mine. Their server: Jellyfin 12.3.0 on the PC, `http://192.168.1.81:8096`.
+- **Client** (`services/jellyfin_client.dart`, `JellyfinClient`): signs in once with
+  `/Users/AuthenticateByName` (user name + password from Settings › Servers); every later request
+  carries the token in the `Authorization: MediaBrowser Client="HomeTunes", Device=…, DeviceId=…,
+  Version=…, Token=…` header, **never in an address** (so it can't reach logs, errors or the media
+  controls). Only the newer routes, checked against the server's own `/api-docs/openapi.json`:
+  `/UserViews`, `/Items?userId=…` (paged, `excludeLocationTypes=Virtual`, with UserData),
+  `/Videos/{id}/stream` (direct), `/Videos/{id}/stream.mkv?static=false…` (converted, H.264 + AAC,
+  `startTimeTicks` + `copyTimestamps`; this server has no HLS `master.m3u8` route), `/Items/{id}/Download`,
+  `/Items/{id}/Images/{type}`, subtitles `/Videos/{id}/{id}/Subtitles/{index}/Stream.{fmt}`,
+  `/Sessions/Playing` (+ `/Progress`, `/Stopped`), `/UserPlayedItems/{id}`, `/UserItems/{id}/UserData`,
+  `/Sessions/Logout`. Ticks = 10,000,000 a second.
+- **Server videos in the Videos tab** (`state/server_videos.dart`, `ServerVideosModel`; the shape in
+  `state/remote_videos.dart`): every Jellyfin server switched on for Videos is read at start-up,
+  every 30 min, on Sync now, and when switched on. Its video libraries (movies, tvshows, homevideos,
+  mixed, plain folders; not music / books / boxsets) become `VideoItem`s with id
+  `jf:<server entry id>:<item id>` and path `jellyfin://<server>/<item>.<container>` (never opened;
+  gives the Format). Episodes: collection = series, season / episode numbers, season title unless
+  it's just "Season n", category "TV", the series' overview as `showPlot`; films: their own
+  collection, category "Films"; home videos: the library's name. External text subtitles are kept
+  as `jfsub:{json}` in `VideoItem.subtitles` (picture subtitles can't be fetched alone).
+  Pictures (episode still / film Thumb or Backdrop, series or film poster) are downloaded into
+  `art/server-video/<server>/<item>-<type>-<tag>.jpg` (`coverFile` now accepts a poster inside the
+  art folder); unused ones are deleted after a sync. What was read is kept in `server_videos.json`
+  (device id, per server: working address, user id, libraries, left-out libraries, last read,
+  the videos, places waiting to be sent) so the tab isn't empty when the server is off. **Not in
+  backups** (it's read again); places live in videos.json as before, which is.
+- **VideoLibraryModel:** `_remote` beside `_scanned`, `setServerVideos` / `removeServerVideos`
+  (switched off: videos go, places kept; removed: forgotten). Scans never remove places or edits of
+  `jf:` ids. `playableFile` is null for server videos; `playableAddress` (async) gives a
+  `VideoAddress` (address, headers, converted, subtitles). `savePlace(…, paused:)`, `setWatched`,
+  `playbackStarted` / `playbackStopped` tell the server through `remote`.
+- **Places both ways:** the server's UserData (position, Played, LastPlayedDate) is used when newer
+  than HomeTunes' own. While playing: start, progress every 10 s or on pause / play, stopped (plus
+  Played when HomeTunes counts it watched). Marking watched / not watched sends
+  `/UserPlayedItems`. Anything that can't be sent waits in `pending` and goes at the next sync
+  (`/UserItems/{id}/UserData` with the time).
+- **Signing in:** the token goes to protected storage under `jellyfin-token:<user>@<url>`; a 401
+  signs in again once with the saved password; the password is never sent over plain http to an
+  internet address. **Sign out on this device** (card ⋮) forgets the token. Removing the server
+  signs out on the server and deletes its token, pictures and videos.
+- **Playing** (`VideoSession`): opens the address with `headers` (media_kit `Media.httpHeaders`;
+  `VideoEngine.open` gained `headers:`). If the engine can't open it, it asks once for a converted
+  copy from the same place before showing a problem. A converted stream starts at the place on the
+  server and the player keeps its clock (`rebase-start-time=no`); its length falls back to the
+  video's own. The seek preview is off for server streams (`session.file` is null). The server's
+  subtitle files are added with `sub-add`. Show in folder isn't offered; Details shows "Streams from
+  <server> (Jellyfin)" and what the server says (`_ServerVideoDetails`).
+- **Settings › Servers:** `ServerType` has `playsNow` / `playsKind` (Jellyfin: videos; `streams`
+  still means "can be the main music server"). A Jellyfin card in Videos shows "Signed in as …
+  · n videos · read 5 min ago" (or the problem) and ⋮ **Sync now**, **Libraries…**
+  (`showServerLibraries`, a box per library), **Sign out on this device**. "Coming later" only on
+  its Music and Audiobooks cards. **Test connection** on a Jellyfin server with a user name also
+  signs in, then straight out (device id `hometunes-connection-test`).
+- **Tests:** `test/jellyfin_test.dart` (a pretend Jellyfin server: client, sync into collections,
+  pictures, nothing secret in files, offline start, token re-sign-in, scans, switching off /
+  removing, libraries, places both ways, watched, playing with headers + reports, converted
+  fallback, sign-in problems, Test connection). `servers_test.dart` updated.
+- **Not checked yet:** a real sign-in and playback against the user's server (it needs their
+  password; they'll sign in themselves), and the TV with server videos.
+
 ## Edit series (8 Oct 2026, 0.1.76, branch `feature/edit-series`)
 - **Step 2 of the series work** (the user: "We might need a method to edit series like how we
   do with video collections"; "Go with your suggestions").

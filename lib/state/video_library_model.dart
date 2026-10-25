@@ -25,6 +25,7 @@ import 'book_index.dart' show isInside;
 import 'library_model.dart';
 import 'media_folders.dart';
 import 'custom_art_store.dart';
+import 'remote_videos.dart';
 import 'video_filters.dart';
 
 class VideoLibraryModel extends ChangeNotifier {
@@ -57,6 +58,53 @@ class VideoLibraryModel extends ChangeNotifier {
 
   // What the scan found (the files' own details), the user's edits and places, by video id.
   List<VideoItem> _scanned = [];
+
+  // Videos from servers (0.2.1), kept up to date by [remote]'s owner (state/server_videos.dart),
+  // which saves them in its own file. Scans never touch them, their places or their edits.
+  List<VideoItem> _remote = [];
+
+  /// What brings in server videos and plays them (null: no servers; tests).
+  RemoteVideoSource? remote;
+
+  /// Whether [v] comes from a server.
+  static bool isServerVideo(VideoItem v) => isRemoteVideoId(v.id);
+
+  /// The name of the server [v] comes from, or null for a file of your own.
+  String? serverNameOf(VideoItem v) => isServerVideo(v) ? remote?.serverNameOf(v) : null;
+
+  /// Replaces the videos that come from server [serverKey] (after it syncs). [places] are where
+  /// the server says you got to in each: each one is used when it's newer than the one here.
+  /// Places and edits of that server's videos that are no longer there are forgotten.
+  void setServerVideos(String serverKey, List<VideoItem> list, {Map<String, VideoPlace> places = const {}}) {
+    final prefix = 'jf:$serverKey:';
+    _remote = [for (final v in _remote) if (!v.id.startsWith(prefix)) v, ...list];
+    final ids = {for (final v in list) v.id};
+    _places.removeWhere((id, _) => id.startsWith(prefix) && !ids.contains(id));
+    _edits.removeWhere((id, _) => id.startsWith(prefix) && !ids.contains(id));
+    for (final e in places.entries) {
+      final mine = _places[e.key];
+      if (mine == null || e.value.updatedMs > mine.updatedMs) _places[e.key] = e.value;
+    }
+    _rebuild();
+    _saveSoon();
+  }
+
+  /// Takes away every video from server [serverKey] (it was removed or switched off for videos).
+  /// With [forget], their places and edits go too.
+  void removeServerVideos(String serverKey, {bool forget = false}) {
+    final prefix = 'jf:$serverKey:';
+    _remote = [for (final v in _remote) if (!v.id.startsWith(prefix)) v];
+    if (forget) {
+      _places.removeWhere((id, _) => id.startsWith(prefix));
+      _edits.removeWhere((id, _) => id.startsWith(prefix));
+    }
+    _rebuild();
+    _saveSoon();
+  }
+
+  /// The videos from server [serverKey], as the server gave them (before the user's edits).
+  List<VideoItem> serverVideosOf(String serverKey) => [for (final v in _remote) if (v.id.startsWith('jf:$serverKey:')) v];
+
   Map<String, VideoEdit> _edits = {};
   Map<String, VideoPlace> _places = {};
 
@@ -199,7 +247,10 @@ class VideoLibraryModel extends ChangeNotifier {
     final own = _ownPicture(_posters[c.key]);
     if (own != null) return own;
     final cover = c.cover;
-    if (cover != null && library.videoFolders.any((f) => isInsideAny(cover, [f]))) return cover;
+    // A poster in the collection's folder, or one downloaded from its server (0.2.1).
+    if (cover != null && (library.videoFolders.any((f) => isInsideAny(cover, [f])) || isInsideAny(cover, [storage.artDir]))) {
+      return cover;
+    }
     for (final v in c.main.isEmpty ? c.videos : c.main) {
       final t = thumbFile(v);
       if (t != null) return t;
@@ -279,8 +330,35 @@ class VideoLibraryModel extends ChangeNotifier {
 
   /// The file to play, if it's still there and inside a video folder (a restored backup could
   /// name any path; 0.1.21 security review #3).
-  String? playableFile(VideoItem v) =>
-      isUsableLocalFile(v.path, roots: library.videoFolders, extensions: videoFileExtensions) ? v.path : null;
+  String? playableFile(VideoItem v) => isServerVideo(v)
+      ? null
+      : (isUsableLocalFile(v.path, roots: library.videoFolders, extensions: videoFileExtensions) ? v.path : null);
+
+  /// Where to play [v] from: its file, or (0.2.1) its server's address with the sign-in in
+  /// headers. With [converted], a copy the server converts (for a device that can't play the
+  /// original), starting at [start]. Null when it can't be played now; [problemWith] says why.
+  Future<VideoAddress?> playableAddress(VideoItem v, {bool converted = false, Duration? start}) async {
+    if (isServerVideo(v)) return remote?.streamFor(v, converted: converted, start: start);
+    final file = playableFile(v);
+    return file == null ? null : VideoAddress(file);
+  }
+
+  /// Why [v] can't be played now, in a sentence.
+  String problemWith(VideoItem v) => isServerVideo(v)
+      ? (remote?.problemFor(v) ?? 'The server this video is on can\'t be reached right now.')
+      : 'This video isn\'t there any more. Rescan your video folders to tidy the list.';
+
+  /// The video page started playing [id] at [at] (a server video tells its server).
+  void playbackStarted(String id, Duration at, {bool converted = false}) {
+    final v = _byId[id];
+    if (v != null && isServerVideo(v)) remote?.started(v, at, converted: converted);
+  }
+
+  /// The video page stopped playing [id] at [at] (a server video tells its server).
+  void playbackStopped(String id, Duration at, Duration length) {
+    final v = _byId[id];
+    if (v != null && isServerVideo(v)) remote?.stopped(v, at, length);
+  }
 
   // ---- .nfo files (services/video_nfo.dart) ----
 
@@ -774,8 +852,9 @@ class VideoLibraryModel extends ChangeNotifier {
       ];
       offlineFolders = [for (final f in offlineFolders) if (f != folder) f];
       final ids = {for (final v in _scanned) v.id};
-      _places.removeWhere((id, _) => !ids.contains(id));
-      _edits.removeWhere((id, _) => !ids.contains(id));
+      // (Server videos' are looked after by setServerVideos.)
+      _places.removeWhere((id, _) => !isRemoteVideoId(id) && !ids.contains(id));
+      _edits.removeWhere((id, _) => !isRemoteVideoId(id) && !ids.contains(id));
       await _save();
     } catch (e) {
       error = 'Video scan failed: $e';
@@ -788,8 +867,9 @@ class VideoLibraryModel extends ChangeNotifier {
   }
 
   void _rebuild() {
-    _rawById = {for (final v in _scanned) v.id: v};
-    final all = [for (final v in _scanned) if (!_formatHidden(v)) _edits[v.id]?.applyTo(v) ?? v]
+    final everything = [..._scanned, ..._remote];
+    _rawById = {for (final v in everything) v.id: v};
+    final all = [for (final v in everything) if (!_formatHidden(v)) _edits[v.id]?.applyTo(v) ?? v]
       ..sort((a, b) {
         final t = a.title.toLowerCase().compareTo(b.title.toLowerCase());
         return t != 0 ? t : a.path.compareTo(b.path);
@@ -912,8 +992,9 @@ class VideoLibraryModel extends ChangeNotifier {
       _scanned = [...found, ...kept];
       // Places and edits of videos that have gone are forgotten, unless their folder is offline.
       final ids = {for (final v in _scanned) v.id};
-      _places.removeWhere((id, _) => !ids.contains(id));
-      _edits.removeWhere((id, _) => !ids.contains(id));
+      // (Server videos' are looked after by setServerVideos.)
+      _places.removeWhere((id, _) => !isRemoteVideoId(id) && !ids.contains(id));
+      _edits.removeWhere((id, _) => !isRemoteVideoId(id) && !ids.contains(id));
       if (offlineFolders.isNotEmpty) {
         error = 'Can\'t reach ${offlineFolders.join(', ')} right now, so its videos are shown as they were.';
       }
@@ -985,7 +1066,12 @@ class VideoLibraryModel extends ChangeNotifier {
 
   void _update(String id, VideoItem Function(VideoItem) change) {
     final i = _scanned.indexWhere((v) => v.id == id);
-    if (i >= 0) _scanned[i] = change(_scanned[i]);
+    if (i >= 0) {
+      _scanned[i] = change(_scanned[i]);
+      return;
+    }
+    final r = _remote.indexWhere((v) => v.id == id);
+    if (r >= 0) _remote[r] = change(_remote[r]);
   }
 
   Future<void> _removeUnusedThumbs() async {
@@ -1024,8 +1110,11 @@ class VideoLibraryModel extends ChangeNotifier {
 
   /// Remembers how far into video [id] the user got. Near the end counts as watched.
   /// Also learns the length if the scan didn't know it.
-  void savePlace(String id, Duration position, Duration length) {
+  void savePlace(String id, Duration position, Duration length, {bool paused = false}) {
     final old = _places[id];
+    // A server video tells its server where it's got to (0.2.1).
+    final shown = _byId[id];
+    if (shown != null && isServerVideo(shown)) remote?.progress(shown, position, length, paused: paused);
     final end = isNearEnd(position, length);
     _places[id] = VideoPlace(
       position: position,
@@ -1052,6 +1141,9 @@ class VideoLibraryModel extends ChangeNotifier {
         updatedMs: now,
       );
     }
+    // Server videos: the server is told too (0.2.1).
+    final fromServers = [for (final id in ids) if (_byId[id] case final v? when isServerVideo(v)) v];
+    if (fromServers.isNotEmpty) remote?.watchedChanged(fromServers, watched);
     notifyListeners();
     await _save();
   }

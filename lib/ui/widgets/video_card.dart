@@ -217,7 +217,8 @@ Future<void> showVideoMenu(BuildContext context, VideoItem video, {required Offs
       copyTitleMenuItem('copy'),
       // Where it comes from, and what's inside the file (0.1.44).
       const PopupMenuItem(value: 'details', child: ListTile(leading: Icon(Icons.info_outline), title: Text('Details…'))),
-      if (Platform.isWindows)
+      // (Not for a video streamed from a server: there's no file here.)
+      if (Platform.isWindows && !VideoLibraryModel.isServerVideo(video))
         const PopupMenuItem(value: 'folder', child: ListTile(leading: Icon(Icons.folder_open), title: Text('Show in folder'))),
       if (onSelect != null)
         const PopupMenuItem(value: 'select', child: ListTile(leading: Icon(Icons.check_box_outlined), title: Text('Select'))),

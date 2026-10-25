@@ -183,11 +183,21 @@ its switch off in the **Audiobooks** section to keep them out).
 The Servers page has a section each for **Music**, **Audiobooks** and **Videos**, and you can add
 as many servers as you like: Subsonic, Jellyfin, Plex, Emby, Audiobookshelf, or a HomeTunes
 server. A server that has all three kinds shows in all three sections, with a switch in each to
-use it for that kind. **Test connection** checks the server is there and what it is. For now
-HomeTunes plays from **one Subsonic server at a time**; any others are kept, ready for when
-playing from them is added (**Kinds of server** at the bottom of the page shows what works now).
-To switch to another Subsonic server you've added, use its **⋮** menu › **Make this the main music
-server**.
+use it for that kind. **Test connection** checks the server is there and what it is (and, for
+Jellyfin, that your user name and password work). Music and audiobooks play from **one Subsonic
+server at a time**; to switch to another Subsonic server you've added, use its **⋮** menu ›
+**Make this the main music server**. **Kinds of server** at the bottom of the page shows what
+works now.
+
+**Videos from Jellyfin.** Add your Jellyfin server under **Videos** (for example
+`http://192.168.1.81:8096`, with your Jellyfin user name and password) and leave its switch on.
+HomeTunes signs in and its films and series show in the **Videos** tab alongside your own, with
+their seasons, episodes and pictures. They play straight from the server; if a device can't play
+a file as it is, HomeTunes asks the server for a copy it can play. Where you stop, and what you've
+watched, is kept the same in HomeTunes and Jellyfin's own apps, both ways. The server's card says
+how many videos it has and when it was last read; its **⋮** menu has **Sync now**, **Libraries…**
+(to leave a library out) and **Sign out on this device**. When the server is off, its videos still
+show but won't play until it's back. Music and audiobooks from Jellyfin are coming later.
 
 If you type an address without `http://` or `https://`, HomeTunes tries a secure (https)
 connection first. If the server is on the internet and only answers over plain http, HomeTunes
