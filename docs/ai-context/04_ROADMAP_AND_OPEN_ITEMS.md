@@ -77,7 +77,7 @@ while commenting".
 | T: Android TV (0.2.0, the start of the next level) | First (reordered 13 Oct, the user's choice). Not started. See "Platforms plan" below |
 | A: Android Auto (0.2.1) | After T |
 | L: Linux build, incl. Steam Deck (0.2.2) | Last (13 Oct): WSL2 can't be installed on the current PC, so L1 (the Linux build) needs another PC. Paused 1 Oct; on hold 6 Oct. `feature/linux` was deleted. See "Platforms plan" below |
-| Servers & Downloads plan (25 Oct, https://claude.ai/artifact/HgXrQMQB5vnt3WVkwyxj2W): 1 Jellyfin videos (0.2.1), 2 Source filter (0.2.2), 3 downloads with Keep offline / next episodes / Wi-Fi only + limit / Make it mine (0.2.3), 4 temporary copies (0.2.4) | Step 1 built on `feature/jellyfin-videos` (25 Oct), waiting for the user to sign in and try it. See `03_…` → Jellyfin videos |
+| Servers & Downloads plan (25 Oct, https://claude.ai/artifact/HgXrQMQB5vnt3WVkwyxj2W): 1 Jellyfin videos (0.2.1), 2 Source filter (0.2.2), 3 downloads with Keep offline / next episodes / Wi-Fi only + limit / Make it mine (0.2.3), 4 temporary copies (0.2.4) | Step 1 built on `feature/jellyfin-videos` (25 Oct), waiting for the user to sign in and try it. See `03_…` → Jellyfin videos. Answers (27 Oct): downloads in the data folder by default, a setting to pick another folder; background Keep offline / next-episode downloads on the phone, with a message saying so and an off switch; all steps released together after step 4 |
 | D: offline copies of server songs (was phase 4) | Folded into step 3 of the Servers & Downloads plan (downloads cover Navidrome songs and books too) |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to D isn't decided |
 
