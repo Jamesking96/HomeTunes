@@ -186,6 +186,31 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Download progress, the queue, and "Download or Keep offline?" (27 Oct 2026, 0.2.4, `feature/temporary-copies`)
+- **The user, 27 Oct:** "we should probably provide visual ways of telling it's downloading and by
+  how much … a new button near the downloading settings that takes you to a list of all medias
+  being downloaded in a queue format … a bar at the top of each video or its collection if we
+  are downloading the whole thing, that shows the percentage of its download"; then "add the
+  description of what download vs keep offline are somewhere so people can refer to it".
+- **Bars:** `DownloadProgressBar(ids)` (download_ui.dart; a `ListenableBuilder`, so only the bar
+  redraws) along the top of a video card's picture, an episode row's, a collection card's and the
+  collection page header's (all its videos together), and the TV's video / collection tiles,
+  episode rows and collection header (`DownloadProgressOverlay`). `DownloadsModel.progressOf(ids)`:
+  null unless one is on its way (downloading, waiting, paused, waiting for room); done ones count
+  whole, so a collection fills as each arrives. Accent colour while one is running, grey while
+  waiting; tooltip "Downloading 45%".
+- **Queue:** `DownloadsModel.queue` (running first, then waiting oldest first, i.e. the order the
+  engine gets them; then waiting for room, paused, failed). `DownloadQueueScreen` (numbered rows
+  with bars, "n in the queue · m downloading now · about x to go", Pause all / Carry on with all)
+  opened by `AppNav.openDownloadQueue` from Settings › Servers › Downloads › Download queue (with a
+  count badge) and the Downloads page's queue button; on the TV `TvDownloadsPage(queueOnly: true)`
+  from the Downloads page's Queue button.
+- **Explainer:** `downloadHelp` / `showDownloadHelp` (download_ui.dart): Download, Keep offline,
+  Both, Temporary copies. Settings › Servers › Downloads › "Download or Keep offline?", the
+  Downloads page's ⋮, the TV Downloads page's More options; the same words in USER_GUIDE.
+- **Tests:** in `test/downloads_test.dart` (queue order, progressOf, the bar on a card, the queue
+  page, the explainer); `FakeEngine.progress` sends progress.
+
 ## Temporary copies (27 Oct 2026, 0.2.4, branch `feature/temporary-copies`, on top of `feature/downloads`)
 - **Step 4 of the Servers & Downloads plan** (the user, 27 Oct: "Ok I'll test this, you start on
   the next step"). The original ask (25 Oct): "allowing us to temporarily download the streamed

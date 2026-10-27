@@ -197,7 +197,9 @@ TvTile tvDownloadsTile(BuildContext context, {FocusNode? node, double width = 12
 }
 
 class TvDownloadsPage extends StatelessWidget {
-  const TvDownloadsPage({super.key});
+  /// The download queue alone (27 Oct): everything on its way, numbered in the order it'll go.
+  final bool queueOnly;
+  const TvDownloadsPage({super.key, this.queueOnly = false});
 
   @override
   Widget build(BuildContext context) {
@@ -207,7 +209,13 @@ class TvDownloadsPage extends StatelessWidget {
     final limit = dl.limitBytes;
     final anyRunning = waiting.any((e) => e.state == DownloadState.running || e.state == DownloadState.queued);
     final anyPaused = waiting.any((e) => e.state == DownloadState.paused);
-    final items = <Object>[
+    final queue = dl.queue;
+    final items = queueOnly
+        ? <Object>[
+            for (var i = 0; i < queue.length; i++) (i + 1, queue[i]),
+            if (queue.isEmpty) 'Nothing waiting to download.',
+          ]
+        : <Object>[
       if (waiting.isNotEmpty) ...['Downloading (${waiting.length})', ...waiting],
       if (kept.isNotEmpty) ...['Kept offline', ...kept],
       if (done.isNotEmpty) ...['Downloaded (${done.length})', ...done],
@@ -222,9 +230,12 @@ class TvDownloadsPage extends StatelessWidget {
         picture: TvColourPicture(colour: AppColors.accent, icon: Icons.download_for_offline),
         pictureWidth: 130,
         kind: 'Your servers',
-        title: 'Downloads',
+        title: queueOnly ? 'Download queue' : 'Downloads',
         lines: [
-          limit == null ? '${fileSizeText(dl.usedBytes)} used' : '${fileSizeText(dl.usedBytes)} of ${fileSizeText(limit)} used',
+          if (queueOnly)
+            '${queue.length} in the queue · ${queue.where((e) => e.state == DownloadState.running).length} downloading now'
+          else
+            limit == null ? '${fileSizeText(dl.usedBytes)} used' : '${fileSizeText(dl.usedBytes)} of ${fileSizeText(limit)} used',
           ?dl.status,
         ],
         buttons: [
@@ -232,12 +243,20 @@ class TvDownloadsPage extends StatelessWidget {
             TvButton(key: const ValueKey('tv-downloads-pause-all'), label: 'Pause all', icon: Icons.pause, onPressed: dl.pauseAll),
           if (anyPaused)
             TvButton(key: const ValueKey('tv-downloads-resume-all'), label: 'Carry on with all', icon: Icons.play_arrow, onPressed: dl.resumeAll),
+          if (!queueOnly)
+            TvButton(
+              key: const ValueKey('tv-downloads-queue'),
+              label: queue.isEmpty ? 'Queue' : 'Queue (${queue.length})',
+              icon: Icons.queue_outlined,
+              onPressed: () => context.read<AppNav>().openDownloadQueue(),
+            ),
           TvIconButton(
             icon: Icons.more_horiz,
             label: 'More options',
             onPressed: () => showTvOptions(context, title: 'Downloads', options: [
               TvOption('Download settings', Icons.tune,
                   () => context.read<AppNav>().openSettings('server', setting: 'downloads-folder')),
+              TvOption('Download or Keep offline?', Icons.help_outline, opensMore: true, () => showDownloadHelp(context)),
               if (dl.entries.isNotEmpty)
                 TvOption('Remove all downloads', Icons.delete_outline, opensMore: true, () {
                   tvConfirm(context,
@@ -255,6 +274,7 @@ class TvDownloadsPage extends StatelessWidget {
         String s => TvListHeading(s),
         KeepOffline k => _KeptRow(keep: k, node: node),
         DownloadEntry e => _DownloadRow(entry: e, node: node),
+        (int n, DownloadEntry e) => _DownloadRow(entry: e, node: node, position: n),
         _ => const SizedBox.shrink(),
       },
     );
@@ -262,9 +282,12 @@ class TvDownloadsPage extends StatelessWidget {
 }
 
 class _DownloadRow extends StatelessWidget {
-  const _DownloadRow({required this.entry, required this.node});
+  const _DownloadRow({required this.entry, required this.node, this.position});
   final DownloadEntry entry;
   final FocusNode node;
+
+  /// Its place in the queue (the queue page), shown instead of its kind's icon.
+  final int? position;
 
   @override
   Widget build(BuildContext context) {
@@ -272,19 +295,32 @@ class _DownloadRow extends StatelessWidget {
     final e = entry;
     final video = e.kind == DownloadKind.video;
     final problem = e.state == DownloadState.failed || e.state == DownloadState.noRoom;
+    final running = e.state == DownloadState.running;
+    // The queue page shows every waiting one's bar (grey until it starts).
+    final bar = !problem && !e.isDone && (running || position != null);
     return TvRow(
       key: ValueKey('tv-download:${e.id}'),
       focusNode: node,
       height: 60,
-      leading: Icon(video ? Icons.movie_outlined : (e.book ? Icons.menu_book_outlined : Icons.music_note_outlined)),
+      leading: position == null
+          ? Icon(video ? Icons.movie_outlined : (e.book ? Icons.menu_book_outlined : Icons.music_note_outlined))
+          : CircleAvatar(
+              radius: 14,
+              backgroundColor: running ? AppColors.accent : AppColors.surfaceHigh,
+              child: Text('$position', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+            ),
       title: e.title,
       subtitle: [if (e.subtitle.isNotEmpty) e.subtitle, dl.statusOf(e)].join(' · '),
       trailing: problem
           ? Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error)
-          : (e.state == DownloadState.running && e.expected != null && e.expected! > 0
+          : (bar
               ? SizedBox(
                   width: 80,
-                  child: LinearProgressIndicator(value: e.progress.clamp(0.0, 1.0), minHeight: 4, color: AppColors.accent),
+                  child: LinearProgressIndicator(
+                    value: e.expected != null && e.expected! > 0 ? e.progress.clamp(0.0, 1.0) : (running ? null : 0),
+                    minHeight: 4,
+                    color: running ? AppColors.accent : AppColors.textDim,
+                  ),
                 )
               : null),
       focusedHint: 'Hold OK for options',

@@ -18,7 +18,9 @@ import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/playlists_model.dart';
 import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/nav.dart';
-import 'package:hometunes/ui/widgets/video_card.dart' show showVideoMenu;
+import 'package:hometunes/ui/screens/downloads_screen.dart' show DownloadQueueScreen;
+import 'package:hometunes/ui/widgets/download_ui.dart' show showDownloadHelp;
+import 'package:hometunes/ui/widgets/video_card.dart' show showVideoMenu, VideoCard;
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -358,5 +360,66 @@ void main() {
       await tester.tapAt(const Offset(5, 500));
       await tester.pumpAndSettle();
     });
+  });
+
+  // 27 Oct, the user: a queue page, and "a bar at the top of each video or its collection".
+  test('the queue: what\'s downloading first, then the rest in the order they\'ll go; progress together', () async {
+    dl.download([DownloadItem.video(v('ep1'))], const DownloadQuality.original());
+    dl.download([DownloadItem.video(v('ep2'))], const DownloadQuality.original());
+    dl.download([DownloadItem.video(v('ep3'))], const DownloadQuality.original());
+    await pumpEvents();
+    await engine.progress(v('ep2').id, 0.5, expected: 1000);
+    expect([for (final e in dl.queue) e.id], [v('ep2').id, v('ep1').id, v('ep3').id]);
+    expect(dl.progressOf([v('ep2').id]), 0.5);
+    expect(dl.anyRunning([v('ep1').id, v('ep2').id]), isTrue);
+    await engine.finish(v('ep1').id, bytes: 1000);
+    expect(dl.progressOf([v('ep1').id]), isNull, reason: 'nothing on its way');
+    expect(dl.progressOf([v('ep1').id, v('ep2').id]), 0.75, reason: 'a done one counts as whole');
+    expect([for (final e in dl.queue) e.id], isNot(contains(v('ep1').id)));
+    expect(dl.progressOf([v('ep4').id]), isNull);
+  });
+
+  testWidgets('a downloading video shows its bar; the queue page numbers what\'s waiting; the explainer', (tester) async {
+    await tester.runAsync(() async {
+      dl.download([DownloadItem.video(v('ep1')), DownloadItem.video(v('ep2'))], const DownloadQuality.original());
+      await pumpEvents();
+      await engine.progress(v('ep1').id, 0.4, expected: 1000);
+    });
+    Widget app(Widget home) => MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: videos),
+            ChangeNotifierProvider<DownloadsModel?>.value(value: dl),
+            ChangeNotifierProvider(create: (_) => AppNav()),
+          ],
+          child: MaterialApp(home: home),
+        );
+    await tester.pumpWidget(app(Scaffold(
+      body: Row(children: [
+        SizedBox(width: 300, child: VideoCard(video: v('ep1'))),
+        SizedBox(width: 300, child: VideoCard(video: v('ep4'))),
+      ]),
+    )));
+    await tester.pump();
+    final bar = tester.widget<LinearProgressIndicator>(find.byKey(const ValueKey('download-progress')));
+    expect(bar.value, closeTo(0.4, 0.001));
+    expect(find.byKey(const ValueKey('download-progress')), findsOneWidget, reason: 'not on the one not downloading');
+
+    await tester.pumpWidget(app(const DownloadQueueScreen()));
+    await tester.pump();
+    expect(find.byKey(ValueKey('queue-position:${v('ep1').id}')), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+    expect(find.textContaining('2 in the queue'), findsOneWidget);
+
+    await tester.pumpWidget(app(Builder(
+        builder: (context) => TextButton(onPressed: () => showDownloadHelp(context), child: const Text('help')))));
+    await tester.tap(find.text('help'));
+    await tester.pumpAndSettle();
+    expect(find.text('Download or Keep offline?'), findsOneWidget);
+    expect(find.text('Keep offline'), findsOneWidget);
+    expect(find.textContaining('anything added to it later downloads by itself'), findsOneWidget);
+    await tester.tap(find.text('Got it'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 3));
   });
 }

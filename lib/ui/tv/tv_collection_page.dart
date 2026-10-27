@@ -11,6 +11,7 @@ import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../screens/video_collection_screen.dart' show collectionLength;
 import '../theme.dart';
+import '../widgets/download_ui.dart' show DownloadProgressBar, DownloadProgressOverlay;
 import 'tv_browse.dart';
 import 'tv_detail.dart';
 import 'tv_items.dart';
@@ -62,7 +63,8 @@ class _TvCollectionPageState extends State<TvCollectionPage> {
     return TvDetailPage<VideoItem>(
       itemHeight: 66,
       header: TvDetailHeader(
-        picture: tvFilePicture(model.coverFile(c), Icons.video_library_outlined),
+        picture: DownloadProgressOverlay(
+            ids: [for (final v in c.videos) v.id], child: tvFilePicture(model.coverFile(c), Icons.video_library_outlined)),
         pictureWidth: shape == PictureShape.wide ? 240 : 130,
         aspectRatio: shape.aspect,
         kind: c.category ?? 'Collection',
@@ -133,6 +135,8 @@ class _EpisodeRow extends StatelessWidget {
           height: 54,
           child: Stack(fit: StackFit.expand, children: [
             tvFilePicture(model.thumbFile(video), Icons.movie_outlined),
+            // Downloading: how far it's got, along the top (27 Oct).
+            Positioned(left: 0, right: 0, top: 0, child: DownloadProgressBar(ids: [video.id], height: 3)),
             if (started)
               Align(
                 alignment: Alignment.bottomCenter,

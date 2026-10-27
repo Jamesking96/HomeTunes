@@ -128,6 +128,16 @@ class AppNav extends ChangeNotifier {
     WidgetsBinding.instance.addPostFrameCallback((_) => push(tv ? const TvDownloadsPage() : const DownloadsScreen()));
   }
 
+  /// The download queue (27 Oct): everything on its way, in the order it'll download.
+  void openDownloadQueue() {
+    if (tab != libraryTab) {
+      tab = libraryTab;
+      notifyListeners();
+    }
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => push(tv ? const TvDownloadsPage(queueOnly: true) : const DownloadQueueScreen()));
+  }
+
   /// Opens a book's page on the Books tab.
   void openBook(Book b) {
     if (tab != booksTab) {

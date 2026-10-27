@@ -3,6 +3,9 @@
 // offline), and everything downloaded (play it, Make it mine…, remove it), plus how much space
 // they take against the limit. Opened from the sidebar, from Settings › Servers › Downloads and
 // from the Library tab. Everything comes from DownloadsModel (state/downloads_model.dart).
+import 'dart:io';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -65,22 +68,35 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
           if (anyPaused)
             IconButton(
                 key: const ValueKey('downloads-resume-all'), tooltip: 'Carry on with all', icon: const Icon(Icons.play_arrow), onPressed: dl.resumeAll),
+          // The queue: everything on its way, in the order it'll download (27 Oct).
+          IconButton(
+            key: const ValueKey('downloads-queue'),
+            tooltip: 'Download queue',
+            icon: Badge(
+              isLabelVisible: dl.queue.isNotEmpty,
+              label: Text('${dl.queue.length}'),
+              child: const Icon(Icons.queue_outlined),
+            ),
+            onPressed: () => context.read<AppNav>().openDownloadQueue(),
+          ),
           IconButton(
             key: const ValueKey('downloads-settings'),
             tooltip: 'Download settings',
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => context.read<AppNav>().openSettings('server', setting: 'downloads-folder'),
           ),
-          if (dl.entries.isNotEmpty)
-            PopupMenuButton<String>(
-              key: const ValueKey('downloads-menu'),
-              onSelected: (v) async {
-                if (v == 'remove-all') await _removeAll(context, dl);
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(key: ValueKey('downloads-remove-all'), value: 'remove-all', child: Text('Remove all downloads…')),
-              ],
-            ),
+          PopupMenuButton<String>(
+            key: const ValueKey('downloads-menu'),
+            onSelected: (v) async {
+              if (v == 'remove-all') await _removeAll(context, dl);
+              if (v == 'help' && context.mounted) await showDownloadHelp(context);
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(key: ValueKey('downloads-help-menu'), value: 'help', child: Text('Download or Keep offline?')),
+              if (dl.entries.isNotEmpty)
+                const PopupMenuItem(key: ValueKey('downloads-remove-all'), value: 'remove-all', child: Text('Remove all downloads…')),
+            ],
+          ),
         ],
       ),
       body: CustomScrollView(slivers: [
@@ -173,7 +189,10 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
 /// One download: what it is, where it's got to, and what can be done with it.
 class _Row extends StatelessWidget {
   final DownloadEntry entry;
-  const _Row({required this.entry});
+  const _Row({required this.entry, this.position});
+
+  /// Its place in the download queue (the queue page), shown instead of its kind's icon.
+  final int? position;
 
   @override
   Widget build(BuildContext context) {
@@ -181,12 +200,20 @@ class _Row extends StatelessWidget {
     final e = entry;
     final video = e.kind == DownloadKind.video;
     final icon = video ? Icons.movie_outlined : (e.book ? Icons.menu_book_outlined : Icons.music_note_outlined);
-    final running = e.state == DownloadState.running;
+    // On the queue page every waiting one shows its bar (grey until it starts).
+    final running = e.state == DownloadState.running || (position != null && !e.isDone && e.state != DownloadState.failed);
     final status = dl.statusOf(e);
     final problem = e.state == DownloadState.failed || e.state == DownloadState.noRoom;
     return ListTile(
       key: ValueKey('download:${e.id}'),
-      leading: Icon(icon),
+      leading: position == null
+          ? Icon(icon)
+          : CircleAvatar(
+              key: ValueKey('queue-position:${e.id}'),
+              radius: 14,
+              backgroundColor: e.state == DownloadState.running ? Theme.of(context).colorScheme.primary : AppColors.surfaceHigh,
+              child: Text('$position', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+            ),
       title: Text(e.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
         if (e.subtitle.isNotEmpty) Text(e.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -197,7 +224,11 @@ class _Row extends StatelessWidget {
         if (running)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: LinearProgressIndicator(value: e.expected != null && e.expected! > 0 ? e.progress.clamp(0.0, 1.0) : null, minHeight: 3),
+            child: LinearProgressIndicator(
+              value: e.expected != null && e.expected! > 0 ? e.progress.clamp(0.0, 1.0) : (e.state == DownloadState.running ? null : 0),
+              minHeight: 3,
+              color: e.state == DownloadState.running ? null : AppColors.textDim,
+            ),
           ),
       ]),
       onTap: e.isDone ? () => _play(context, e) : null,
@@ -263,6 +294,69 @@ class _KeptRow extends StatelessWidget {
         icon: const Icon(Icons.cloud_off_outlined),
         onPressed: () => toggleKeepOffline(context, (kind: keep.kind, key: keep.key, label: keep.label), video: video),
       ),
+    );
+  }
+}
+
+/// The download queue (27 Oct, the user: "a new button near the downloading settings that takes
+/// you to a list of all medias being downloaded in a queue format"): everything on its way,
+/// numbered in the order it'll download (what's downloading now first; two download at once),
+/// each with its bar, and pause, carry on, try again and stop. Opened from Settings › Servers ›
+/// Downloads › Download queue and the Downloads page's queue button.
+class DownloadQueueScreen extends StatelessWidget {
+  const DownloadQueueScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final dl = downloadsOf(context, listen: true);
+    if (dl == null) {
+      return Scaffold(appBar: AppBar(title: const Text('Download queue')), body: const SizedBox.shrink());
+    }
+    final queue = dl.queue;
+    final running = queue.where((e) => e.state == DownloadState.running).length;
+    final left = queue.fold<int>(0, (s, e) => s + math.max(0, (e.expected ?? 0) - e.bytes));
+    final anyGoing = queue.any((e) => e.state == DownloadState.running || e.state == DownloadState.queued);
+    final anyPaused = queue.any((e) => e.state == DownloadState.paused);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Download queue'),
+        actions: [
+          if (anyGoing)
+            IconButton(key: const ValueKey('queue-pause-all'), tooltip: 'Pause all', icon: const Icon(Icons.pause), onPressed: dl.pauseAll),
+          if (anyPaused)
+            IconButton(
+                key: const ValueKey('queue-resume-all'), tooltip: 'Carry on with all', icon: const Icon(Icons.play_arrow), onPressed: dl.resumeAll),
+          IconButton(
+            key: const ValueKey('queue-downloads'),
+            tooltip: 'All downloads',
+            icon: const Icon(Icons.download_for_offline_outlined),
+            onPressed: () => context.read<AppNav>().openDownloads(),
+          ),
+        ],
+      ),
+      body: queue.isEmpty
+          ? const EmptyState(
+              icon: Icons.download_done_outlined,
+              title: 'Nothing waiting to download',
+              message: 'Anything you download, keep offline or save while streaming lines up here until it\'s done.',
+            )
+          : ListView(children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Text(
+                  [
+                    '${queue.length} in the queue',
+                    if (running > 0) '$running downloading now',
+                    if (left > 0) 'about ${fileSizeText(left)} to go',
+                    if (Platform.isAndroid && dl.wifiOnly && dl.onWifi == false) 'waiting for Wi-Fi',
+                  ].join(' · '),
+                  key: const ValueKey('queue-summary'),
+                  style: TextStyle(color: AppColors.textDim),
+                ),
+              ),
+              for (var i = 0; i < queue.length; i++) _Row(entry: queue[i], position: i + 1),
+              const SizedBox(height: 24),
+            ]),
     );
   }
 }

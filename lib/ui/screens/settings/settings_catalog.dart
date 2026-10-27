@@ -110,6 +110,8 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('video-server', SettingsPage.server, 'Video servers', 'videos films movies tv stream'),
   // Downloads (0.2.3).
   SettingInfo('downloads', SettingsPage.server, 'Downloads', 'download offline keep offline see downloads remove'),
+  SettingInfo('downloads-queue', SettingsPage.server, 'Download queue', 'downloads queue waiting progress order list'),
+  SettingInfo('downloads-help', SettingsPage.server, 'Download or Keep offline?', 'downloads keep offline difference help explain what'),
   SettingInfo('downloads-folder', SettingsPage.server, 'Download folder', 'downloads where location move change'),
   SettingInfo('downloads-limit', SettingsPage.server, 'Space for downloads', 'downloads storage limit size gb full'),
   SettingInfo('downloads-ahead', SettingsPage.server, 'Download next episodes', 'downloads ahead episodes series offline'),

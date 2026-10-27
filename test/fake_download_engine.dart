@@ -57,6 +57,14 @@ class FakeEngine implements DownloadEngine {
     await pumpEvents();
   }
 
+  /// It starts, and has got [fraction] of the way through [expected] bytes.
+  Future<void> progress(String id, double fraction, {int? expected}) async {
+    final t = jobFor(id).taskId;
+    _updates.add(EngineUpdate(t, status: EngineStatus.running));
+    _updates.add(EngineUpdate(t, progress: fraction, expectedBytes: expected));
+    await pumpEvents();
+  }
+
   Future<void> fail(String id, {int? http}) async {
     _updates.add(EngineUpdate(jobFor(id).taskId, status: EngineStatus.failed, httpStatus: http));
     await pumpEvents();
