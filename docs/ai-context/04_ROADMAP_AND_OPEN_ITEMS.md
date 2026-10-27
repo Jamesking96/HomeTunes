@@ -554,7 +554,7 @@ moved to `ui/widgets/video_card.dart` in the refactor.
 ### D: Offline server songs
 - **Built 27 Oct as step 3 of the Servers & Downloads plan (0.2.3+104, `feature/downloads`):**
   everything below is in, for songs, audiobooks and Jellyfin videos (`03_…` → Downloads). Still
-  open: crossfade; downloads on the TV screens. The notes below are the original plan.
+  open: crossfade. The TV screens got their download options on 27 Oct too. The notes below are the original plan.
 - **Needs first:** the server review (below), including whether the Navidrome server can transcode.
 - **Downloading:** download a song, album, playlist or Liked Songs. A "Keep offline" option
   follows albums and playlists. The quality is either the original or a server-converted copy.

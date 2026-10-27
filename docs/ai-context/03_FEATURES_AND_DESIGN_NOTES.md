@@ -238,9 +238,22 @@ before changing that area.
 - **Security note:** background_downloader keeps its own task database in app data with each
   task's address and headers, so a Subsonic download's address (with its sign-in token) and a
   Jellyfin token sit there while a download runs. App-private, never in backups.
-- **Not done:** the TV screens have no download options yet; Search's cards have the menus but no
-  filter. Step 4 (temporary copies with auto-delete) is next.
-- **Tests:** `test/downloads_test.dart` (a pretend engine and servers).
+- **On the TV** (27 Oct, the user: "adding the download options to the TV before moving onto any
+  other steps"; `ui/tv/tv_downloads.dart`): the options panel (hold OK, or a page's More) has
+  Download ›, Stop downloading, Remove download(s) ›, Keep offline › / Stop keeping offline › and
+  Make it mine › for songs, albums, playlists, Liked Songs, audiobooks, videos, collections, and
+  Home's Carry on cards; a collection's page also offers the season tab showing ("Keep offline:
+  Season 1"). Download › and Keep offline › open a second panel to pick the copy, with sizes.
+  `TvDownloadsPage` (AppNav.openDownloads in TV mode; Music › Playlists' Downloads tile beside
+  Liked Songs; Settings › Servers › Downloads): Pause all / Carry on with all, OK plays a download,
+  holding OK gives Pause / Carry on / Try again / Make it mine / Remove; OK on something kept
+  offline stops keeping it. The download settings are the shared Servers page. The shared
+  quality list, labels and size estimate moved into `downloadQualityChoices`,
+  `downloadQualityLabel` and `downloadSizeEstimate` (download_ui.dart).
+- **Not done:** Search's cards have the menus but no filter. Step 4 (temporary copies with
+  auto-delete) is next.
+- **Tests:** `test/downloads_test.dart` (a pretend engine and servers, in `test/fake_download_engine.dart`),
+  `test/tv_downloads_test.dart`.
 
 ## Source filter and marks (27 Oct 2026, 0.2.2, branch `feature/source-filter`, on top of `feature/jellyfin-videos`)
 - **Step 2 of the Servers & Downloads plan** (the user, 27 Oct: "lets move to step 2").

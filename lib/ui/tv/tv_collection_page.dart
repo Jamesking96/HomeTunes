@@ -87,7 +87,12 @@ class _TvCollectionPageState extends State<TvCollectionPage> {
           TvIconButton(
             icon: Icons.more_horiz,
             label: 'More options',
-            onPressed: () => showCollectionOptions(context, c, onPage: true),
+            // With seasons, the one showing can be downloaded or kept offline on its own (0.2.3).
+            onPressed: () => showCollectionOptions(context, c,
+                onPage: true,
+                season: groups.length > 1 && groups[group].$1 != null
+                    ? (heading: groups[group].$1!, label: labels[group], videos: videos)
+                    : null),
           ),
         ],
         below: c.description == null ? null : TvDescription(c.description!, lines: 2),

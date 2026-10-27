@@ -383,7 +383,8 @@ Run these from the repo folder (`C:\Users\James.Miller\source\hometunes`). Probe
 | --- | --- |
 | `library_test.dart` | Album and artist grouping, search, guessing details from file names, Subsonic login |
 | `scan_test.dart` | The parallel scan finds every file once and in order; progress doesn't redraw the app |
-| `downloads_test.dart` | Downloads (0.2.3) with a pretend engine and servers: into the downloads folder and playing the copy, removing, Keep offline and skipped ones, the space limit, the sign-in tried again once, episodes ahead and tidied once watched, restart, phones (Wi-Fi only, in the background), backups, moving the folder, the video menu's Download… |
+| `downloads_test.dart` | Downloads (0.2.3) with a pretend engine and servers: into the downloads folder and playing the copy, removing, Keep offline and skipped ones, the space limit, the sign-in tried again once, episodes ahead and tidied once watched, restart, phones (Wi-Fi only, in the background), backups, moving the folder, the video menu's Download… (the pretend engine is `fake_download_engine.dart`) |
+| `tv_downloads_test.dart` | Downloads on the TV (0.2.3): a collection's More options (all of it, Keep offline, the season showing), a video's Download › which copy › Stop downloading › Remove download, the TV Downloads page (Pause all), nothing offered for your own files |
 | `services_test.dart` | Storage under many quick saves, damaged files kept as `.corrupt` copies, recovery from `.tmp`; Subsonic sync with failures (fake server) |
 | `data_safety_test.dart` | Every model loads a hand-edited or wrong-shaped data file without failing, keeps what it can, keeps a copy and reports it |
 | `library_safety_test.dart` | Offline music folders, failed saves, clearing details, the song editor keeping book details, the Audiobooks-folder rule, lyrics and book places following moved files, the imported-cover race, learned song lengths |
