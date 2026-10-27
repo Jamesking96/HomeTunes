@@ -229,6 +229,27 @@ so can whatever you've ticked in select mode. The same menu then has **Stop down
   with a notification; off: they wait until you come back).
 - Backups remember what's kept offline and these settings, not the downloaded files themselves.
 
+**Download or Keep offline?** (Also in the app: **Settings > Servers > Downloads > Download or
+Keep offline?**, or the Downloads page's ⋮ menu.)
+- **Download** copies exactly what you chose onto this device, as it is now: one song or
+  episode, or a whole album, playlist, season or collection. It then plays without the server.
+  Anything the server adds to it later isn't downloaded.
+- **Keep offline** is for an album, playlist, Liked Songs, audiobook, collection or season.
+  Everything in it downloads now, and anything added to it later downloads by itself, so it
+  stays complete. Remove one thing from it and that one is skipped from then on. Stop keeping it
+  offline and you choose whether to keep what it downloaded.
+- Both stay until you remove them (episodes downloaded ahead go once watched), and both ask which
+  copy you want. **Temporary copies** (below) are different again: saved as you stream, and
+  cleared away by themselves.
+
+**Seeing a download's progress.** While a video downloads, a thin bar along the top of its
+picture fills up; a collection (or series) shows one bar for everything of it that's
+downloading. The bar is your highlight colour while downloading and grey while waiting its
+turn. **Download queue** (Settings > Servers > Downloads, or the queue button on the Downloads
+page) lists everything on its way, numbered in the order it'll download (two at a time), each
+with its bar, with pause, carry on, try again and stop. On a TV it's on the Downloads page
+(Queue).
+
 **Temporary copies.** If you'd like what you stream to play again without the server, but don't
 want to manage downloads, turn on **Settings > Servers > Temporary copies > Save a copy while
 streaming**. Anything from a server then plays straight away and is saved in the background as

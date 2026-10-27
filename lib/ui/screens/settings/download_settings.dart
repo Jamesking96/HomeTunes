@@ -45,6 +45,38 @@ class DownloadSettings extends StatelessWidget {
           onTap: () => context.read<AppNav>().openDownloads(),
         ),
       ),
+      // The queue (27 Oct, the user: "a new button near the downloading settings that takes you
+      // to a list of all medias being downloaded in a queue format").
+      SettingTarget(
+        'downloads-queue',
+        child: ListTile(
+          key: const ValueKey('downloads-queue-open'),
+          leading: Badge(
+            isLabelVisible: dl.queue.isNotEmpty,
+            label: Text('${dl.queue.length}'),
+            child: const Icon(Icons.queue_outlined),
+          ),
+          title: const Text('Download queue'),
+          subtitle: Text(dl.queue.isEmpty
+              ? 'Nothing waiting to download'
+              : '${dl.queue.length} in the queue · ${dl.queue.where((e) => e.state == DownloadState.running).length} downloading now'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.read<AppNav>().openDownloadQueue(),
+        ),
+      ),
+      // What Download and Keep offline each do (27 Oct, the user: "add the description of what
+      // download vs keep offline are somewhere so people can refer to it").
+      SettingTarget(
+        'downloads-help',
+        child: ListTile(
+          key: const ValueKey('downloads-help'),
+          leading: const Icon(Icons.help_outline),
+          title: const Text('Download or Keep offline?'),
+          subtitle: const Text('What each one does, and how temporary copies differ'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => showDownloadHelp(context),
+        ),
+      ),
       SettingTarget(
         'downloads-folder',
         child: ListTile(

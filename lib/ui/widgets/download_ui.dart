@@ -171,6 +171,59 @@ class DownloadProgressOverlay extends StatelessWidget {
       ]);
 }
 
+/// What Download, Keep offline and temporary copies each do (27 Oct, the user: "be sure to add
+/// the description of what download vs keep offline are somewhere so people can refer to it").
+/// Shown from Settings › Servers › Downloads › Download or Keep offline? and the Downloads page.
+const downloadHelp = <({String title, String text})>[
+  (
+    title: 'Download',
+    text: 'Copies exactly what you chose onto this device, as it is now: one song or episode, or a '
+        'whole album, playlist, season or collection. It then plays without the server. Anything the '
+        'server adds to it later isn\'t downloaded.',
+  ),
+  (
+    title: 'Keep offline',
+    text: 'For an album, playlist, Liked Songs, audiobook, collection or season. Everything in it '
+        'downloads now, and anything added to it later downloads by itself, so it stays complete. '
+        'Remove one thing from it and that one is skipped from then on. Stop keeping it offline and '
+        'you choose whether to keep what it downloaded.',
+  ),
+  (
+    title: 'Both',
+    text: 'Downloads stay until you remove them (episodes downloaded ahead go once watched). Each '
+        'asks which copy you want: the original file, or a smaller one.',
+  ),
+  (
+    title: 'Temporary copies',
+    text: 'Different again: with Save a copy while streaming on (Settings › Servers › Temporary '
+        'copies), whatever you play from a server is saved as it plays and cleared away by itself '
+        'some days after you finish it. Keep this copy turns one into a normal download.',
+  ),
+];
+
+/// The explainer, in a dialog.
+Future<void> showDownloadHelp(BuildContext context) => showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const ValueKey('download-help'),
+        title: const Text('Download or Keep offline?'),
+        content: SizedBox(
+          width: 460,
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              for (final h in downloadHelp) ...[
+                Text(h.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text(h.text, style: TextStyle(color: AppColors.textDim)),
+                const SizedBox(height: 14),
+              ],
+            ]),
+          ),
+        ),
+        actions: [FilledButton(autofocus: true, onPressed: () => Navigator.pop(ctx), child: const Text('Got it'))],
+      ),
+    );
+
 /// Asks which copy, then downloads [items]. Says how many in a notice.
 Future<void> startDownload(BuildContext context, List<DownloadItem> items) async {
   final dl = downloadsOf(context);

@@ -22,6 +22,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/book_card.dart' show BookCover, bookCoverRatio;
+import '../widgets/download_ui.dart' show DownloadProgressOverlay;
 import '../widgets/playlist_art.dart';
 import '../widgets/series_card.dart' show SeriesCover, seriesProgress;
 import 'tv_browse.dart';
@@ -184,7 +185,9 @@ TvTile tvCollectionTile(BuildContext context, VideoCollection c, {FocusNode? nod
     focusNode: node,
     width: width,
     aspectRatio: aspectRatio ?? videos.collectionShapeOf(c).aspect,
-    picture: tvFilePicture(videos.coverFile(c), Icons.video_library_outlined),
+    // Downloading some or all of it: how far, along the top (27 Oct).
+    picture: DownloadProgressOverlay(
+        ids: [for (final v in c.videos) v.id], child: tvFilePicture(videos.coverFile(c), Icons.video_library_outlined)),
     title: c.name,
     subtitle: detail.isEmpty ? null : detail,
     onPressed: () => nav.openVideoCollection(c.name),
@@ -206,7 +209,7 @@ TvTile tvVideoTile(BuildContext context, VideoItem v, {FocusNode? node, double w
     focusNode: node,
     width: width,
     aspectRatio: aspectRatio ?? 16 / 9,
-    picture: tvFilePicture(videos.thumbFile(v), Icons.movie_outlined),
+    picture: DownloadProgressOverlay(ids: [v.id], child: tvFilePicture(videos.thumbFile(v), Icons.movie_outlined)),
     title: v.title,
     subtitle: detail.isEmpty ? null : detail,
     onPressed: () => nav.openVideo(v),
