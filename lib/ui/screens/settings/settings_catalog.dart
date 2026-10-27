@@ -113,6 +113,12 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('downloads-folder', SettingsPage.server, 'Download folder', 'downloads where location move change'),
   SettingInfo('downloads-limit', SettingsPage.server, 'Space for downloads', 'downloads storage limit size gb full'),
   SettingInfo('downloads-ahead', SettingsPage.server, 'Download next episodes', 'downloads ahead episodes series offline'),
+  // Temporary copies (0.2.4).
+  SettingInfo('temp-save', SettingsPage.server, 'Save a copy while streaming', 'temporary copies cache stream offline replay'),
+  SettingInfo('temp-days', SettingsPage.server, 'Delete temporary copies after', 'temporary copies auto delete days watched finished'),
+  SettingInfo('temp-keep', SettingsPage.server, 'Don\'t delete temporary copies automatically', 'temporary copies auto delete off keep'),
+  SettingInfo('temp-limit', SettingsPage.server, 'Space for temporary copies', 'temporary copies storage limit size gb cache'),
+  SettingInfo('temp-clear', SettingsPage.server, 'Clear temporary copies now', 'temporary copies clear delete cache'),
   SettingInfo('write-tags', SettingsPage.edits, 'Save edits into music files', 'write tags metadata'),
   SettingInfo('write-backup', SettingsPage.edits, 'Back up each file first', 'copy original'),
   SettingInfo('backup-export', SettingsPage.backup, 'Export backup', 'save backup file move'),

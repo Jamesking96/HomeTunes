@@ -363,6 +363,10 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// notice at the bottom of the window.
   void Function(String note)? onSkipped;
 
+  /// Told when a song plays through to its end by itself (not skipped): a temporary copy of it
+  /// counts as finished (0.2.4; main.dart passes it to the downloads).
+  void Function(Track t)? onPlayedThrough;
+
   /// The song to load ahead in the engine (and its file / stream), if any.
   (Track, String)? _songToLoadAhead() {
     // Repeat-one uses the engine's own "loop this file" instead (loading the
@@ -382,6 +386,8 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     // engine can't advance the queue twice.
     _engineEdits++;
     Track? next;
+    final finished = queue.current;
+    if (finished != null) onPlayedThrough?.call(finished);
     try {
       // Move our queue forward and check it agrees with the song the engine went to.
       final expected = _engineIds[1];
@@ -503,6 +509,7 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
   /// user pressed Next. Also handles the end of the queue and the end of a book.
   Future<void> _advance({required bool auto}) async {
     final prev = queue.current;
+    if (auto && prev != null) onPlayedThrough?.call(prev);
     final next = queue.next(auto: auto);
     if (next == null) {
       if (book != null && auto && prev != null) {

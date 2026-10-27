@@ -107,6 +107,8 @@ class ServerSettingsState extends State<ServerSettings> {
           ),
           // Downloading from the servers (0.2.3).
           const DownloadSettings(),
+          // Temporary copies of what streams (0.2.4).
+          const TemporaryCopySettings(),
           const _ServerTypesNote(),
         ],
       ),

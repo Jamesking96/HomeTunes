@@ -74,6 +74,11 @@ enum DownloadOrigin {
 
   /// An episode downloaded ahead while watching the one before (removed once watched).
   ahead,
+
+  /// A temporary copy (0.2.4, step 4): saved while it streamed, so it replays without the
+  /// server, and cleared away some days after it's finished (Settings › Servers › Temporary
+  /// copies). Keep turns it into a normal download.
+  temporary,
 }
 
 enum DownloadState {
@@ -122,6 +127,10 @@ class DownloadEntry {
   /// Is it an audiobook file (for the Downloads page's groups).
   final bool book;
 
+  /// A temporary copy: when it was finished (watched to the end, played through, or its book
+  /// finished), from which its days before it's cleared away count. Null while not finished.
+  final int? finishedMs;
+
   const DownloadEntry({
     required this.id,
     required this.kind,
@@ -139,9 +148,13 @@ class DownloadEntry {
     required this.addedMs,
     this.doneMs,
     this.book = false,
+    this.finishedMs,
   });
 
   bool get isDone => state == DownloadState.done;
+
+  /// A temporary copy (step 4), not a download asked for.
+  bool get isTemporary => origin == DownloadOrigin.temporary;
 
   /// Not finished, and not given up on.
   bool get isWaiting => state == DownloadState.queued || state == DownloadState.running || state == DownloadState.paused;
@@ -160,6 +173,8 @@ class DownloadEntry {
     DownloadQuality? quality,
     String? title,
     String? subtitle,
+    int? finishedMs,
+    bool clearFinished = false,
   }) =>
       DownloadEntry(
         id: id,
@@ -178,6 +193,7 @@ class DownloadEntry {
         addedMs: addedMs,
         doneMs: doneMs ?? this.doneMs,
         book: book,
+        finishedMs: clearFinished ? null : (finishedMs ?? this.finishedMs),
       );
 
   Map<String, dynamic> toJson() => {
@@ -197,6 +213,7 @@ class DownloadEntry {
         'addedMs': addedMs,
         if (doneMs != null) 'doneMs': doneMs,
         if (book) 'book': true,
+        if (finishedMs != null) 'finishedMs': finishedMs,
       };
 
   static DownloadEntry? fromJson(Object? j) {
@@ -218,6 +235,7 @@ class DownloadEntry {
       addedMs: j['addedMs'] is int ? j['addedMs'] as int : 0,
       doneMs: j['doneMs'] as int?,
       book: j['book'] == true,
+      finishedMs: j['finishedMs'] is int ? j['finishedMs'] as int : null,
     );
   }
 }

@@ -135,6 +135,8 @@ class VideoCard extends StatelessWidget {
                           color: selected ? accent : Colors.white70),
                     ),
                   if (selected) Container(color: accent.withValues(alpha: 0.25)),
+                  // Downloading: how far it's got, along the top (27 Oct).
+                  Positioned(left: 0, right: 0, top: 0, child: DownloadProgressBar(ids: [video.id])),
                 ]),
               ),
             ),

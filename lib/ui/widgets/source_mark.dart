@@ -10,22 +10,27 @@ import '../theme.dart';
 
 /// The mark for something made of [sources] (an album's songs, a collection's videos): null when
 /// it's all on this device; downloaded when every server part has a copy here; else streamed.
+/// Temporary copies (0.2.4) show a clock: when every server part is a temporary copy.
 MediaSource? markFor(Set<MediaSource> sources) {
   final remote = sources.where((s) => s != MediaSource.local).toSet();
   if (remote.isEmpty) return null;
-  return remote.contains(MediaSource.streamed) ? MediaSource.streamed : MediaSource.downloaded;
+  if (remote.contains(MediaSource.streamed)) return MediaSource.streamed;
+  return remote.contains(MediaSource.downloaded) ? MediaSource.downloaded : MediaSource.temporary;
 }
 
 IconData sourceIcon(MediaSource s) => switch (s) {
       MediaSource.local => Icons.folder_outlined,
       MediaSource.streamed => Icons.cloud_outlined,
       MediaSource.downloaded => Icons.cloud_done_outlined,
+      MediaSource.temporary => Icons.schedule,
     };
 
 String sourceTooltip(MediaSource s, {bool some = false}) => switch (s) {
       MediaSource.local => 'On this device',
       MediaSource.streamed => some ? 'Some of it streams from a server' : 'Streams from a server',
       MediaSource.downloaded => some ? 'Some of it is downloaded from a server' : 'Downloaded from a server',
+      MediaSource.temporary =>
+        some ? 'Some of it is a temporary copy from a server' : 'A temporary copy from a server (cleared once finished)',
     };
 
 /// A round dark mark over a picture (cards).

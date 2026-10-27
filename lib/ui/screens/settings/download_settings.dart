@@ -151,12 +151,12 @@ class DownloadSettings extends StatelessWidget {
   static Future<void> _change(BuildContext context, DownloadsModel dl, String? path) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
     var move = false;
-    if (dl.done.isNotEmpty) {
+    if (dl.done.isNotEmpty || dl.temporaries.isNotEmpty) {
       final answer = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Move your downloads?'),
-          content: Text('Move the ${dl.done.length} downloads already made to the new folder too?'),
+          content: Text('Move the ${dl.done.length + dl.temporaries.length} downloads already made to the new folder too?'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             TextButton(
@@ -172,5 +172,101 @@ class DownloadSettings extends StatelessWidget {
     if (failed > 0) {
       messenger?.showSnackBar(SnackBar(content: Text('$failed downloads couldn\'t be moved; they stay where they were.')));
     }
+  }
+}
+
+/// Settings › Servers › Temporary copies (0.2.4, step 4 of the Servers & Downloads plan): save
+/// what streams so it replays without the server, then clear it away some days after it's
+/// finished (or never, with Don't delete automatically), within its own space, and Clear now.
+/// Nothing when the app has no DownloadsModel.
+class TemporaryCopySettings extends StatelessWidget {
+  const TemporaryCopySettings({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final dl = downloadsOf(context, listen: true);
+    if (dl == null) return const SizedBox.shrink();
+    final n = dl.temporaryCount;
+    final used = fileSizeText(dl.tempUsedBytes);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const SettingsGroupTitle('Temporary copies',
+          'Save what you stream so it plays again without the server, then clear it away. Downloads are never cleared.'),
+      SettingTarget(
+        'temp-save',
+        child: SwitchListTile(
+          key: const ValueKey('temp-save'),
+          title: const Text('Save a copy while streaming'),
+          subtitle: const Text('Plays straight away, and saves the file in the background.'),
+          value: dl.tempSave,
+          onChanged: dl.setTempSave,
+        ),
+      ),
+      SettingTarget(
+        'temp-days',
+        child: ChoiceTile<int>(
+          key: const ValueKey('temp-days'),
+          title: 'Delete after',
+          subtitle: dl.tempKeep
+              ? 'Off while "Don\'t delete automatically" is on.'
+              : 'Counted from when it\'s finished: watched to the end, played through, or the book finished. '
+                  'Something part-played stays until it\'s finished.',
+          value: dl.tempDays,
+          options: DownloadsModel.tempDayChoices,
+          label: (d) => d == 1 ? '1 day' : '$d days',
+          onChanged: dl.setTempDays,
+        ),
+      ),
+      SettingTarget(
+        'temp-keep',
+        child: SwitchListTile(
+          key: const ValueKey('temp-keep'),
+          title: const Text('Don\'t delete automatically'),
+          subtitle: const Text('Temporary copies stay until you clear them. Once their space is full, no more are saved.'),
+          value: dl.tempKeep,
+          onChanged: dl.setTempKeep,
+        ),
+      ),
+      SettingTarget(
+        'temp-limit',
+        child: ChoiceTile<int>(
+          key: const ValueKey('temp-limit'),
+          title: 'Space for temporary copies',
+          subtitle: 'Using $used. When it\'s full, the oldest finished copies go first.',
+          value: dl.tempLimitGb,
+          options: DownloadsModel.tempLimitChoices,
+          label: (gb) => '$gb GB',
+          onChanged: dl.setTempLimitGb,
+        ),
+      ),
+      SettingTarget(
+        'temp-clear',
+        child: ListTile(
+          leading: const Icon(Icons.cleaning_services_outlined),
+          title: const Text('Clear now'),
+          subtitle: Text(n == 0 ? 'No temporary copies' : '$n temporary cop${n == 1 ? 'y' : 'ies'} · $used'),
+          trailing: TextButton(
+            key: const ValueKey('temp-clear'),
+            onPressed: n == 0
+                ? null
+                : () async {
+                    final ok = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text('Clear $n temporary cop${n == 1 ? 'y' : 'ies'}?'),
+                        content: const Text('They stream from the server again. Your downloads stay.'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                          FilledButton(
+                              key: const ValueKey('temp-clear-ok'), onPressed: () => Navigator.pop(ctx, true), child: const Text('Clear')),
+                        ],
+                      ),
+                    );
+                    if (ok == true) await dl.clearTemporary();
+                  },
+            child: const Text('Clear now'),
+          ),
+        ),
+      ),
+    ]);
   }
 }

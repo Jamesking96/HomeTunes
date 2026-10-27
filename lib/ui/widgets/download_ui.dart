@@ -44,7 +44,13 @@ List<DownloadOption> downloadOptions(
   final kept = keep != null && dl.isKept(keep.kind, keep.key);
   final n = server.length;
   final mine = n == 1 && done.length == 1 ? dl.entryOf(done.first) : null;
+  // Temporary copies (0.2.4), here or still being saved: Keep makes them downloads.
+  final temporary = [for (final it in server) if (dl.entryOf(it.id)?.isTemporary ?? false) it.id];
+  final allTemporary = done.isNotEmpty && done.every(temporary.contains);
   return [
+    if (temporary.isNotEmpty)
+      DownloadOption('keep-copy', Icons.push_pin_outlined,
+          temporary.length == 1 ? 'Keep this copy' : 'Keep ${temporary.length} temporary copies', () => dl.keepCopies(temporary)),
     if (notYet.isNotEmpty)
       DownloadOption('download', Icons.download_outlined,
           notYet.length == 1 && n == 1 ? 'Download…' : (notYet.length == n ? 'Download all $n…' : 'Download the other ${notYet.length}…'),
@@ -54,7 +60,10 @@ List<DownloadOption> downloadOptions(
           pending.length == 1 ? 'Stop downloading' : 'Stop downloading ${pending.length}', () => dl.remove(pending)),
     if (done.isNotEmpty)
       DownloadOption('download-remove', Icons.delete_outline,
-          done.length == 1 ? 'Remove download' : 'Remove ${done.length} downloads', () => removeDownloads(context, done)),
+          allTemporary
+              ? (done.length == 1 ? 'Remove temporary copy' : 'Remove ${done.length} temporary copies')
+              : (done.length == 1 ? 'Remove download' : 'Remove ${done.length} downloads'),
+          () => removeDownloads(context, done)),
     if (keep != null)
       DownloadOption(kept ? 'keep-off' : 'keep-on', kept ? Icons.cloud_off_outlined : Icons.offline_pin_outlined,
           kept ? 'Stop keeping offline' : 'Keep offline…', () => toggleKeepOffline(context, keep, video: video)),
@@ -108,6 +117,58 @@ class DownloadMenuButton extends StatelessWidget {
       ],
     );
   }
+}
+
+/// The bar along the top of a video's or a collection's picture while it downloads (27 Oct, the
+/// user: "a bar at the top of each video or its collection if we are downloading the whole thing,
+/// that shows the percentage of its download"). [ids]: the video, or every video in the
+/// collection. Nothing when none of them is on its way. Only the bar redraws as it fills.
+class DownloadProgressBar extends StatelessWidget {
+  final Iterable<String> ids;
+  final double height;
+  const DownloadProgressBar({super.key, required this.ids, this.height = 4});
+
+  @override
+  Widget build(BuildContext context) {
+    final dl = downloadsOf(context);
+    if (dl == null) return const SizedBox.shrink();
+    final list = ids.toList();
+    return ListenableBuilder(
+      listenable: dl,
+      builder: (context, _) {
+        final p = dl.progressOf(list);
+        if (p == null) return const SizedBox.shrink();
+        final pct = (p * 100).round();
+        final running = dl.anyRunning(list);
+        return Tooltip(
+          message: running ? 'Downloading $pct%' : 'Waiting to download ($pct%)',
+          child: Semantics(
+            label: running ? 'Downloading, $pct percent' : 'Waiting to download',
+            child: LinearProgressIndicator(
+              key: const ValueKey('download-progress'),
+              value: p,
+              minHeight: height,
+              color: running ? Theme.of(context).colorScheme.primary : Colors.white60,
+              backgroundColor: Colors.black54,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// [child] (a picture) with a [DownloadProgressBar] along its top (the TV's tiles).
+class DownloadProgressOverlay extends StatelessWidget {
+  final Iterable<String> ids;
+  final Widget child;
+  const DownloadProgressOverlay({super.key, required this.ids, required this.child});
+
+  @override
+  Widget build(BuildContext context) => Stack(fit: StackFit.passthrough, children: [
+        child,
+        Positioned(left: 0, right: 0, top: 0, child: DownloadProgressBar(ids: ids, height: 5)),
+      ]);
 }
 
 /// Asks which copy, then downloads [items]. Says how many in a notice.

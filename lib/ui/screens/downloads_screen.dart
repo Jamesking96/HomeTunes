@@ -44,6 +44,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
     }
     final waiting = [for (final e in dl.waiting) if (_shows(e)) e];
     final done = [for (final e in dl.done) if (_shows(e)) e];
+    final temporary = [for (final e in dl.temporaries) if (_shows(e)) e];
     final kept = [
       for (final k in dl.kept)
         if (_view == DownloadsView.all ||
@@ -114,7 +115,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
             ]),
           ),
         ),
-        if (waiting.isEmpty && done.isEmpty && kept.isEmpty)
+        if (waiting.isEmpty && done.isEmpty && kept.isEmpty && temporary.isEmpty)
           const SliverToBoxAdapter(
             child: EmptyState(
               icon: Icons.download_outlined,
@@ -134,6 +135,11 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
         if (done.isNotEmpty) ...[
           _heading('Downloaded (${done.length})'),
           SliverList.builder(itemCount: done.length, itemBuilder: (_, i) => _Row(entry: done[i])),
+        ],
+        // Saved while streaming (0.2.4): cleared away by themselves, unless kept.
+        if (temporary.isNotEmpty) ...[
+          _heading('Temporary copies (${temporary.length}) · ${fileSizeText(dl.tempUsedBytes)} of ${fileSizeText(dl.tempLimitBytes)}'),
+          SliverList.builder(itemCount: temporary.length, itemBuilder: (_, i) => _Row(entry: temporary[i])),
         ],
         const SliverToBoxAdapter(child: SizedBox(height: 24)),
       ]),
@@ -203,6 +209,13 @@ class _Row extends StatelessWidget {
               key: ValueKey('download-resume:${e.id}'), tooltip: 'Carry on', icon: const Icon(Icons.play_arrow), onPressed: () => dl.resume(e.id)),
         if (problem)
           IconButton(key: ValueKey('download-retry:${e.id}'), tooltip: 'Try again', icon: const Icon(Icons.refresh), onPressed: () => dl.retry(e.id)),
+        if (e.isTemporary)
+          IconButton(
+            key: ValueKey('download-keep:${e.id}'),
+            tooltip: 'Keep this copy',
+            icon: const Icon(Icons.push_pin_outlined),
+            onPressed: () => dl.keepCopies([e.id]),
+          ),
         if (e.isDone && dl.foldersFor(e).isNotEmpty)
           IconButton(
             key: ValueKey('download-mine:${e.id}'),
@@ -212,7 +225,7 @@ class _Row extends StatelessWidget {
           ),
         IconButton(
           key: ValueKey('download-remove:${e.id}'),
-          tooltip: e.isDone ? 'Remove download' : 'Stop downloading',
+          tooltip: e.isDone ? (e.isTemporary ? 'Remove temporary copy' : 'Remove download') : 'Stop downloading',
           icon: Icon(e.isDone ? Icons.delete_outline : Icons.close),
           onPressed: () => dl.remove([e.id]),
         ),
