@@ -13,6 +13,8 @@ import '../../state/library_index.dart' show sortKey;
 import '../../state/library_model.dart';
 import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
+import '../widgets/download_ui.dart' show downloadsOf;
+import 'tv_downloads.dart' show tvDownloadsTile;
 import '../nav.dart';
 import 'tv_browse.dart';
 import 'tv_items.dart';
@@ -161,9 +163,17 @@ class _TvMusicScreenState extends State<TvMusicScreen> {
         TvMusicTab.songs => _songs(lib),
         TvMusicTab.playlists => TvAzGrid<Object>(
             key: const ValueKey('playlists'),
-            items: ['liked', ...playlists.playlists],
-            itemBuilder: (context, x, i, node, w) =>
-                x is String ? tvLikedTile(context, node: node, width: w) : tvPlaylistTile(context, x as Playlist, node: node, width: w),
+            // Downloads (0.2.3) sits beside Liked Songs once there are any.
+            items: [
+              'liked',
+              if (downloadsOf(context, listen: true) case final dl? when dl.entries.isNotEmpty || dl.kept.isNotEmpty) 'downloads',
+              ...playlists.playlists,
+            ],
+            itemBuilder: (context, x, i, node, w) => switch (x) {
+              'liked' => tvLikedTile(context, node: node, width: w),
+              'downloads' => tvDownloadsTile(context, node: node, width: w),
+              _ => tvPlaylistTile(context, x as Playlist, node: node, width: w),
+            },
           ),
         TvMusicTab.genres => _genres(lib, nav),
         TvMusicTab.folders => _folders(lib, nav),

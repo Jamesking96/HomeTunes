@@ -35,7 +35,7 @@ List<DownloadOption> downloadOptions(
   ({KeepKind kind, String key, String label})? keep,
 }) {
   final dl = downloadsOf(context);
-  final server = [for (final it in items) if (_isServer(it.id)) it];
+  final server = [for (final it in items) if (isServerDownloadId(it.id)) it];
   if (dl == null || server.isEmpty) return const [];
   final video = server.first.kind == DownloadKind.video;
   final notYet = [for (final it in server) if (!dl.isDownloaded(it.id) && !dl.isPending(it.id)) it];
@@ -63,7 +63,8 @@ List<DownloadOption> downloadOptions(
   ];
 }
 
-bool _isServer(String id) => id.startsWith('server:') || id.startsWith('jf:');
+/// Whether [id] is something from a server (only those can be downloaded).
+bool isServerDownloadId(String id) => id.startsWith('server:') || id.startsWith('jf:');
 
 /// The options as popup menu items whose value is the action (song rows).
 List<PopupMenuEntry<VoidCallback>> downloadMenuItems(BuildContext context, List<DownloadItem> items,
@@ -205,6 +206,28 @@ Future<DownloadQuality?> askDownloadQuality(
       builder: (ctx) => _QualityDialog(video: video, what: what, originalBytes: originalBytes, length: length, keeping: keeping),
     );
 
+/// The copies offered: the original file, then the smaller ones (shared with the TV's panel).
+List<DownloadQuality> downloadQualityChoices({required bool video}) => [
+      DownloadQuality.original(video: video),
+      for (final h in video ? DownloadQuality.videoHeights : DownloadQuality.audioBitrates)
+        video ? DownloadQuality.videoHeight(h) : DownloadQuality.audioBitrate(h),
+    ];
+
+/// "Original file", "Smaller copy, 720p", "Smaller copy, 192 kbit/s MP3".
+String downloadQualityLabel(DownloadQuality q, {required bool video}) => q.isOriginal
+    ? 'Original file'
+    : video
+        ? 'Smaller copy, ${q.limit}p'
+        : 'Smaller copy, ${q.limit} kbit/s MP3';
+
+/// About how much space [q] takes for things [length] long ("about 1.2 GB"), or null when
+/// there's nothing to go on.
+String? downloadSizeEstimate(DownloadQuality q, {Duration length = Duration.zero, int? originalBytes}) {
+  if (length <= Duration.zero && (q.isOriginal ? originalBytes == null : true)) return null;
+  final b = q.estimate(length, originalBytes: originalBytes);
+  return b <= 0 ? null : '${q.isOriginal && originalBytes != null ? '' : 'about '}${fileSizeText(b)}';
+}
+
 class _QualityDialog extends StatefulWidget {
   final bool video, keeping;
   final String what;
@@ -219,24 +242,13 @@ class _QualityDialog extends StatefulWidget {
 class _QualityDialogState extends State<_QualityDialog> {
   late DownloadQuality _q = DownloadQuality.original(video: widget.video);
 
-  String? _size(DownloadQuality q) {
-    if (widget.length <= Duration.zero && (q.isOriginal ? widget.originalBytes == null : true)) return null;
-    final b = q.estimate(widget.length, originalBytes: widget.originalBytes);
-    return b <= 0 ? null : '${q.isOriginal && widget.originalBytes != null ? '' : 'about '}${fileSizeText(b)}';
-  }
+  String? _size(DownloadQuality q) =>
+      downloadSizeEstimate(q, length: widget.length, originalBytes: widget.originalBytes);
 
   @override
   Widget build(BuildContext context) {
-    final options = [
-      DownloadQuality.original(video: widget.video),
-      for (final h in widget.video ? DownloadQuality.videoHeights : DownloadQuality.audioBitrates)
-        widget.video ? DownloadQuality.videoHeight(h) : DownloadQuality.audioBitrate(h),
-    ];
-    String label(DownloadQuality q) => q.isOriginal
-        ? 'Original file'
-        : widget.video
-            ? 'Smaller copy, ${q.limit}p'
-            : 'Smaller copy, ${q.limit} kbit/s MP3';
+    final options = downloadQualityChoices(video: widget.video);
+    String label(DownloadQuality q) => downloadQualityLabel(q, video: widget.video);
     return AlertDialog(
       title: Text(widget.keeping ? 'Keep ${widget.what} offline' : 'Download ${widget.what}'),
       content: SizedBox(

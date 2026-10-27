@@ -11,11 +11,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/book.dart';
+import '../../models/download.dart' show KeepKind;
 import '../../models/playlist.dart';
 import '../../models/track.dart';
 import '../../models/track_edit.dart';
 import '../../models/video_item.dart';
 import '../../state/book_index.dart';
+import '../../state/downloads_model.dart' show DownloadItem, DownloadsModel;
 import '../../state/library_model.dart';
 import '../../state/listening_model.dart';
 import '../../state/player_model.dart';
@@ -36,6 +38,7 @@ import '../widgets/artwork.dart';
 import '../widgets/book_card.dart' show BookCover;
 import '../widgets/playlist_art.dart';
 import '../widgets/series_card.dart' show seriesProgress, playSeries, markSeriesFinished;
+import 'tv_downloads.dart' show tvDownloadOptions;
 import 'tv_keyboard.dart' show showTvTextInput;
 import 'tv_options.dart';
 
@@ -109,6 +112,8 @@ List<TvOption> songOptions(BuildContext context, Track t, {List<TvOption> extra 
     tvAddToPlaylist(context, [t]),
     TvOption(liked ? 'Remove from Liked Songs' : 'Add to Liked Songs', liked ? Icons.favorite : Icons.favorite_border, () => pl.toggleLike(t)),
     ...extra,
+    // From the music server: Download / Stop downloading / Remove download / Make it mine (0.2.3).
+    ...tvDownloadOptions(context, [DownloadItem.track(t, book: lib.bookOfTrack(t.id) != null)]),
     if (album != null) TvOption('Go to the album', Icons.album_outlined, () => nav.openAlbum(album)),
     TvOption('Go to the artist', Icons.person_outline, () => nav.openArtist(t.albumArtist.isEmpty ? t.artist : t.albumArtist)),
     TvOption('Lyrics', Icons.lyrics_outlined, () => showLyricsDialog(context, t)),
@@ -153,6 +158,8 @@ List<TvOption> albumOptions(BuildContext context, Album a, {bool onPage = false}
     tvAddToPlaylist(context, a.tracks, what: a.title),
     TvOption(fav ? 'Remove from favourites' : 'Add to favourites', fav ? Icons.favorite : Icons.favorite_border,
         () => pl.setFavouriteAlbums([a], !fav)),
+    ...tvDownloadOptions(context, [for (final t in a.tracks) DownloadItem.track(t)],
+        keep: (kind: KeepKind.album, key: a.key, label: a.title)),
     TvOption('Go to the artist', Icons.person_outline, () => nav.openArtist(a.artist)),
     ..._coverOptions(context, a.tracks, () => showCoverSearch(context, artist: a.artist, album: a.title)),
     TvOption('Details', Icons.info_outline, () => openDetails(context, kind: 'Album', title: a.title, tracks: a.tracks)),
@@ -227,6 +234,8 @@ List<TvOption> playlistOptions(BuildContext context, Playlist? p, {bool onPage =
         await player.addToQueue(t);
       }
     }),
+    ...tvDownloadOptions(context, [for (final t in songs()) DownloadItem.track(t)],
+        keep: p == null ? (kind: KeepKind.liked, key: '', label: 'Liked Songs') : (kind: KeepKind.playlist, key: p.id, label: p.name)),
     if (p != null)
       TvOption('Rename', Icons.drive_file_rename_outline, opensMore: true, () async {
         final to = await showTvTextInput(context, title: 'Rename the playlist', initial: p.name);
@@ -279,6 +288,8 @@ List<TvOption> bookOptions(BuildContext context, Book b, {bool onPage = false}) 
       TvOption('Mark as finished', Icons.done_all, () => listening.setFinished(b, true))
     else
       TvOption('Mark as not finished', Icons.remove_done, () => listening.setFinished(b, false)),
+    ...tvDownloadOptions(context, [for (final t in b.parts) DownloadItem.track(t, book: true)],
+        keep: (kind: KeepKind.book, key: b.id, label: b.title)),
     ..._coverOptions(context, b.parts, () => showBookCoverSearch(context, title: b.title, author: b.author)),
     TvOption('Details', Icons.info_outline, () => openDetails(context, kind: 'Audiobook', title: b.title, tracks: b.parts, book: b)),
     TvOption('Edit details', Icons.edit_outlined, opensMore: true, () => showEditBook(context, b)),
@@ -344,6 +355,7 @@ List<TvOption> videoOptions(BuildContext context, VideoItem v) {
     }),
     TvOption(watched ? 'Mark as not watched' : 'Mark as watched', watched ? Icons.remove_done : Icons.done,
         () => model.setWatched([v.id], !watched)),
+    ...tvDownloadOptions(context, [DownloadItem.video(v)]),
     TvOption('Go to the collection', Icons.video_library_outlined, () => nav.openVideoCollection(v.collection)),
     TvOption('Details', Icons.info_outline, () => openVideoDetails(context, v)),
     TvOption('Edit details', Icons.edit_outlined, opensMore: true, () => showEditVideos(context, [v])),
@@ -357,7 +369,10 @@ Future<void> showVideoOptions(BuildContext context, VideoItem v) => showTvOption
       options: videoOptions(context, v),
     );
 
-List<TvOption> collectionOptions(BuildContext context, VideoCollection c, {bool onPage = false}) {
+/// [season]: on the collection's page, the season tab showing (its heading and videos), which
+/// can be downloaded or kept offline on its own (0.2.3).
+List<TvOption> collectionOptions(BuildContext context, VideoCollection c,
+    {bool onPage = false, ({String heading, String label, List<VideoItem> videos})? season}) {
   final model = context.read<VideoLibraryModel>();
   final nav = context.read<AppNav>();
   final fav = model.isFavourite(c);
@@ -372,6 +387,13 @@ List<TvOption> collectionOptions(BuildContext context, VideoCollection c, {bool 
         () => model.setFavourite(c, !fav)),
     TvOption(allWatched ? 'Mark all as not watched' : 'Mark all as watched', allWatched ? Icons.remove_done : Icons.done_all,
         () => model.setWatched([for (final v in c.main) v.id], !allWatched)),
+    // From a server: the whole collection, and the season showing (0.2.3).
+    ...tvDownloadOptions(context, [for (final v in c.videos) DownloadItem.video(v)],
+        keep: (kind: KeepKind.collection, key: c.key, label: c.name)),
+    if (season != null)
+      for (final o in tvDownloadOptions(context, [for (final v in season.videos) DownloadItem.video(v)],
+          keep: (kind: KeepKind.season, key: DownloadsModel.seasonKey(c, season.heading), label: '${c.name} – ${season.label}')))
+        TvOption('${o.label}: ${season.label}', o.icon, o.onSelected, opensMore: o.opensMore),
     TvOption('Details', Icons.info_outline, () => openCollectionDetails(context, c)),
     TvOption('Edit details', Icons.edit_outlined, opensMore: true, () async {
       final renamed = await showEditCollection(context, c);
@@ -383,9 +405,11 @@ List<TvOption> collectionOptions(BuildContext context, VideoCollection c, {bool 
   ];
 }
 
-Future<void> showCollectionOptions(BuildContext context, VideoCollection c, {bool onPage = false}) => showTvOptions(
+Future<void> showCollectionOptions(BuildContext context, VideoCollection c,
+        {bool onPage = false, ({String heading, String label, List<VideoItem> videos})? season}) =>
+    showTvOptions(
       context,
       title: c.name,
       subtitle: [?c.category, '${c.videos.length} video${c.videos.length == 1 ? '' : 's'}'].join(' · '),
-      options: collectionOptions(context, c, onPage: onPage),
+      options: collectionOptions(context, c, onPage: onPage, season: season),
     );

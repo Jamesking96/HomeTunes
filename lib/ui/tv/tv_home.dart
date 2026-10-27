@@ -12,6 +12,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../state/downloads_model.dart' show DownloadItem;
 import '../../state/library_model.dart';
 import '../../state/listening_model.dart';
 import '../../state/play_history.dart';
@@ -23,6 +24,7 @@ import '../theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/jump_back_in.dart';
 import 'tv_browse.dart';
+import 'tv_downloads.dart' show tvDownloadOptions;
 import 'tv_items.dart';
 import 'tv_options.dart';
 import 'tv_widgets.dart';
@@ -200,6 +202,7 @@ class _CarryOnCard extends StatelessWidget {
     late final VoidCallback carryOn, open;
     late final String openLabel;
     VoidCallback? fromStart; // videos: Watch from the beginning
+    var downloads = const <TvOption>[]; // a video from a server: Download… (0.2.3)
     late final Object id;
     switch (jump) {
       case VideoJump(:final video, progress: final p):
@@ -216,6 +219,7 @@ class _CarryOnCard extends StatelessWidget {
           await videos.setWatched([video.id], false);
           nav.openVideo(video);
         };
+        downloads = tvDownloadOptions(context, [DownloadItem.video(video)]);
         id = 'video:${video.id}';
       case BookJump(:final book, progress: final p):
         final left = context.read<ListeningModel>().timeLeft(book);
@@ -238,6 +242,7 @@ class _CarryOnCard extends StatelessWidget {
         TvOption('Carry on', Icons.play_arrow, carryOn),
         if (fromStart != null) TvOption('Watch from the beginning', Icons.replay, fromStart),
         TvOption(openLabel, Icons.open_in_new, open),
+        ...downloads,
       ]),
       builder: (context, focused) => TvFocusFrame(
         focused: focused,

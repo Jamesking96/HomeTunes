@@ -22,6 +22,7 @@ import 'screens/settings/update_ui.dart' show appNavigatorKey;
 import 'screens/video_player_screen.dart';
 import 'tv/tv_book_pages.dart';
 import 'tv/tv_collection_page.dart';
+import 'tv/tv_downloads.dart' show TvDownloadsPage;
 import 'tv/tv_pages.dart';
 import 'tv/tv_video_player.dart';
 
@@ -122,7 +123,9 @@ class AppNav extends ChangeNotifier {
       tab = libraryTab;
       notifyListeners();
     }
-    push(const DownloadsScreen());
+    // TV mode: the TV's own page (tv/tv_downloads.dart). The tab's navigator may only now be
+    // shown, so wait a frame, as openBook does.
+    WidgetsBinding.instance.addPostFrameCallback((_) => push(tv ? const TvDownloadsPage() : const DownloadsScreen()));
   }
 
   /// Opens a book's page on the Books tab.
