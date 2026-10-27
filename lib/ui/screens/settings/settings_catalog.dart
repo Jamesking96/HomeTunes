@@ -108,6 +108,11 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('server', SettingsPage.server, 'Music servers', 'subsonic navidrome stream password username connect sync main'),
   SettingInfo('server-books', SettingsPage.server, 'Audiobook servers', 'audiobooks from the music server books stream audiobookshelf'),
   SettingInfo('video-server', SettingsPage.server, 'Video servers', 'videos films movies tv stream'),
+  // Downloads (0.2.3).
+  SettingInfo('downloads', SettingsPage.server, 'Downloads', 'download offline keep offline see downloads remove'),
+  SettingInfo('downloads-folder', SettingsPage.server, 'Download folder', 'downloads where location move change'),
+  SettingInfo('downloads-limit', SettingsPage.server, 'Space for downloads', 'downloads storage limit size gb full'),
+  SettingInfo('downloads-ahead', SettingsPage.server, 'Download next episodes', 'downloads ahead episodes series offline'),
   SettingInfo('write-tags', SettingsPage.edits, 'Save edits into music files', 'write tags metadata'),
   SettingInfo('write-backup', SettingsPage.edits, 'Back up each file first', 'copy original'),
   SettingInfo('backup-export', SettingsPage.backup, 'Export backup', 'save backup file move'),

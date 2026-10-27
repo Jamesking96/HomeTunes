@@ -14,6 +14,7 @@ import '../../state/library_model.dart';
 import '../../state/playlists_model.dart';
 import '../nav.dart';
 import '../theme.dart';
+import 'download_ui.dart' show downloadsOf;
 import 'quick_links.dart';
 import '../../state/settings/settings_groups.dart' as prefs;
 
@@ -218,6 +219,16 @@ class _SidebarContent extends StatelessWidget {
         dense: true,
         onTap: () => nav.openView(AppNav.videosTab, AppNav.favouriteVideosView),
       ),
+      // Downloads from the servers (0.2.3), once there are any.
+      if (downloadsOf(context, listen: true) case final dl? when dl.entries.isNotEmpty || dl.kept.isNotEmpty)
+        entry(
+          key: 'sidebar-downloads',
+          icon: Icons.download_for_offline,
+          iconColour: accent,
+          label: dl.waiting.isEmpty ? 'Downloads' : 'Downloads (${dl.waiting.length})',
+          dense: true,
+          onTap: nav.openDownloads,
+        ),
       // Quick links (0.1.64): albums, artists, audiobooks, collections, videos and playlists
       // pinned with "Add to sidebar". They scroll with the playlists so a long list never pushes
       // anything off.

@@ -18,12 +18,14 @@ import 'package:provider/provider.dart';
 
 import 'services/app_licences.dart';
 import 'services/device_kind.dart';
+import 'services/download_engine.dart';
 import 'services/internet_check.dart';
 import 'services/media_session.dart';
 import 'services/playback_log.dart';
 import 'services/storage.dart';
 import 'services/video_thumbnails.dart';
 import 'state/bookmarks_model.dart';
+import 'state/downloads_model.dart';
 import 'state/equalizer_model.dart';
 import 'state/library_model.dart';
 import 'state/listening_model.dart';
@@ -129,7 +131,8 @@ Future<void> main() async {
   // the window, wherever you are (12 Oct; before, only the full Now Playing screen said so).
   player.onSkipped = (note) => appMessengerKey.currentState?.showSnackBar(SnackBar(content: Text(note)));
   // Save the place in an audiobook whenever the app is put away.
-  WidgetsBinding.instance.addObserver(_SaveOnBackground(player, videos));
+  final saveOnBackground = _SaveOnBackground(player, videos);
+  WidgetsBinding.instance.addObserver(saveOnBackground);
   if (Platform.isWindows) {
     // Make sure the Windows media-controls plugin is the one audio_service uses.
     AudioServiceWin.registerWith();
@@ -154,6 +157,19 @@ Future<void> main() async {
     appVersion: updates.currentVersion ?? '0',
   );
   await safely('server videos', serverVideos.load);
+  // Downloads from the servers (0.2.3): what was downloaded plays from here, even with the
+  // server off. The engine (background_downloader) starts once the app is up.
+  final downloads = DownloadsModel(
+    storage: storage,
+    library: library,
+    playlists: playlists,
+    videos: videos,
+    engine: BackgroundDownloaderEngine(),
+    sources: AppDownloadSources(library, videos, serverVideos),
+  );
+  await safely('downloads', downloads.load);
+  saveOnBackground.downloads = downloads;
+  downloads.onNotice = (note) => appMessengerKey.currentState?.showSnackBar(SnackBar(content: Text(note)));
   final session = await MediaSession.start(player, library, watching: watching);
   debugPrint(session == null
       ? 'HomeTunes: system media controls are off'
@@ -174,6 +190,7 @@ Future<void> main() async {
     history: history,
     servers: servers,
     serverVideos: serverVideos,
+    downloads: downloads,
   ));
 
   // Once the first screen has settled: is the internet reachable? If not, say which features
@@ -200,6 +217,11 @@ Future<void> main() async {
   if (library.videoFolders.isNotEmpty) videos.scan(); // runs alongside; thumbnails follow
   // Read the Jellyfin servers' videos again (0.2.1), and every half hour after.
   serverVideos.start();
+  // Downloads carry on where they were (0.2.3).
+  unawaited(downloads.start().catchError((Object e) {
+    debugPrint('HomeTunes: downloads could not start: $e');
+    PlaybackLog.add('Downloads could not start: $e');
+  }));
 }
 
 /// Watches the app going into / coming out of the background (a Flutter lifecycle observer).
@@ -208,9 +230,15 @@ class _SaveOnBackground with WidgetsBindingObserver {
   final VideoLibraryModel videos;
   _SaveOnBackground(this.player, this.videos);
 
+  /// Set once downloads are loaded: told when the app goes into / comes out of the background
+  /// (Keep offline and episodes ahead pause there when that's switched off; 0.2.3).
+  DownloadsModel? downloads;
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     PlaybackLog.add('App ${state.name}${player.playing ? ' (playing)' : ''}');
+    if (state == AppLifecycleState.resumed) downloads?.appInBackground(false);
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) downloads?.appInBackground(true);
     if (state == AppLifecycleState.resumed) {
       // Back from the phone's Settings: music access may have been turned on.
       player.library.refreshMusicAccess();
@@ -242,6 +270,7 @@ class HomeTunesApp extends StatelessWidget {
   final PlayHistory? history;
   final ServersModel? servers;
   final ServerVideosModel? serverVideos;
+  final DownloadsModel? downloads;
   const HomeTunesApp({
     super.key,
     required this.library,
@@ -257,6 +286,7 @@ class HomeTunesApp extends StatelessWidget {
     this.history,
     this.servers,
     this.serverVideos,
+    this.downloads,
   });
 
   @override
@@ -279,6 +309,9 @@ class HomeTunesApp extends StatelessWidget {
         if (history != null) ChangeNotifierProvider<PlayHistory>.value(value: history!),
         if (servers != null) ChangeNotifierProvider<ServersModel>.value(value: servers!),
         if (serverVideos != null) ChangeNotifierProvider<ServerVideosModel>.value(value: serverVideos!),
+        // Downloads (0.2.3). Read as DownloadsModel? (download_ui.dart's downloadsOf), so it's
+        // provided under the nullable type and screens work without it in tests.
+        ChangeNotifierProvider<DownloadsModel?>.value(value: downloads),
         // These only matter to the UI, so Provider creates (and owns) them itself.
         ChangeNotifierProvider(create: (_) => SleepTimer(player, library)),
         // The video sleep timer (0.1.63) works on the video in charge.

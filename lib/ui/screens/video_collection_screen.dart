@@ -19,13 +19,16 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/download.dart' show KeepKind;
 import '../../models/video_item.dart';
+import '../../state/downloads_model.dart' show DownloadItem, DownloadsModel;
 import '../../state/range_select.dart';
 import '../../state/source_filter.dart' show sourcesOfVideos;
 import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/cards.dart' show HoverPlayCover;
+import '../widgets/download_ui.dart' show downloadOptions;
 import '../widgets/quick_links.dart';
 import '../widgets/source_mark.dart';
 import 'video_details_screen.dart' show openCollectionDetails;

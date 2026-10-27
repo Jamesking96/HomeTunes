@@ -321,7 +321,9 @@ class VideoSession extends ChangeNotifier {
     speed = videos.speedFor(v.collection);
     await engine.setRate(speed);
     if (_disposed) return;
-    if (address.remote) {
+    // A server video, streamed or (0.2.3) played from its downloaded copy: the server hears
+    // where you got to either way (when it can be reached).
+    if (address.remote || isRemoteVideoId(id)) {
       videos.playbackStarted(id, start, converted: address.converted);
       _reportedId = id;
     }

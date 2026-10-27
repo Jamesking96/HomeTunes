@@ -7,11 +7,13 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import '../../models/video_item.dart';
+import '../../state/downloads_model.dart' show DownloadItem;
 import '../../state/range_select.dart';
 import '../../state/source_filter.dart' show sourceOfVideo;
 import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
+import 'download_ui.dart';
 import 'quick_links.dart';
 import 'source_mark.dart';
 import '../screens/edit_video.dart';
@@ -190,12 +192,19 @@ Future<void> showVideoMenu(BuildContext context, VideoItem video, {required Offs
   final started = model.placeOf(video.id)?.inProgress ?? false;
   final link = QuickLink(QuickLinkKind.video, video.id, video.title);
   final linked = model.library.isQuickLink(link.kind, link.id);
+  // From a server: Download… / Stop downloading / Remove download / Make it mine… (0.2.3).
+  final downloads = downloadOptions(context, [DownloadItem.video(video)]);
   final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
   final choice = await showMenu<String>(
     context: context,
     position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
     items: [
       const PopupMenuItem(value: 'play', child: ListTile(leading: Icon(Icons.play_arrow), title: Text('Play'))),
+      for (final o in downloads)
+        PopupMenuItem(
+            key: ValueKey('menu-${o.key}'),
+            value: 'dl:${o.key}',
+            child: ListTile(leading: Icon(o.icon), title: Text(o.label))),
       if (started)
         const PopupMenuItem(value: 'restart', child: ListTile(leading: Icon(Icons.replay), title: Text('Play from the start'))),
       const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Edit details…'))),
@@ -230,6 +239,12 @@ Future<void> showVideoMenu(BuildContext context, VideoItem video, {required Offs
     ],
   );
   if (!context.mounted) return;
+  if (choice != null && choice.startsWith('dl:')) {
+    for (final o in downloads) {
+      if ('dl:${o.key}' == choice) await o.run();
+    }
+    return;
+  }
   switch (choice) {
     case 'copy':
       await copyTitle(context, video.title);

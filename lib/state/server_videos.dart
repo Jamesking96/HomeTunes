@@ -603,6 +603,36 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource {
     );
   }
 
+  /// Where to download [v] from (0.2.3): the original file, or with [maxHeight] a smaller copy
+  /// the server converts; the sign-in goes in the headers. Also its subtitle files. Null when the
+  /// server can't be signed in to ([problemFor] says why).
+  Future<({String url, Map<String, String> headers, String ext, List<({String url, String format})> subtitles})?>
+      downloadRequest(VideoItem v, {int? maxHeight}) async {
+    final key = remoteServerOf(v.id), item = remoteItemOf(v.id);
+    final s = key == null ? null : servers.byId(key);
+    if (s == null || item == null) {
+      _problems[v.id] = 'The server this video was on has been removed from Settings › Servers.';
+      return null;
+    }
+    JellyfinClient c;
+    try {
+      c = await _signedIn(s);
+    } on JellyfinException catch (e) {
+      _problems[v.id] = 'Can\'t download this from ${s.name}: ${e.message}';
+      return null;
+    }
+    final ext = maxHeight == null ? p.extension(v.path).replaceFirst('.', '') : 'mkv';
+    return (
+      url: (maxHeight == null ? c.downloadUri(item) : c.convertedUri(item, maxHeight: maxHeight)).toString(),
+      headers: c.mediaHeaders,
+      ext: ext.isEmpty ? 'mkv' : ext,
+      subtitles: [
+        for (final sub in v.subtitles)
+          if (serverSubtitle(sub) case final t?) (url: c.subtitleUri(item, t.index, t.format).toString(), format: t.format),
+      ],
+    );
+  }
+
   // One play session per video opened, so the server can tell them apart.
   final Map<String, String> _sessions = {};
   String _playSession(String id) => _sessions[id] ??= '${deviceId.hashCode.toRadixString(16)}${now().toRadixString(16)}';

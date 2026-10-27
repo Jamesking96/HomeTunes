@@ -14,6 +14,7 @@ import '../models/video_item.dart';
 import 'screens/album_screen.dart';
 import 'screens/artist_screen.dart';
 import 'screens/book_screen.dart';
+import 'screens/downloads_screen.dart';
 import 'screens/playlist_screen.dart';
 import 'screens/series_screen.dart';
 import 'screens/video_collection_screen.dart';
@@ -114,6 +115,15 @@ class AppNav extends ChangeNotifier {
   void openArtist(String name) => push(tv ? TvArtistPage(name: name) : ArtistScreen(name: name));
   void openPlaylist(Playlist p) => push(tv ? TvPlaylistPage(playlistId: p.id) : PlaylistScreen(playlistId: p.id));
   void openLiked() => push(tv ? const TvPlaylistPage.liked() : const PlaylistScreen.liked());
+
+  /// The Downloads page (0.2.3), on the Library tab.
+  void openDownloads() {
+    if (tab != libraryTab) {
+      tab = libraryTab;
+      notifyListeners();
+    }
+    push(const DownloadsScreen());
+  }
 
   /// Opens a book's page on the Books tab.
   void openBook(Book b) {

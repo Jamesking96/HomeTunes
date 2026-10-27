@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/track.dart';
+import '../../state/downloads_model.dart' show fileSizeText;
 import '../../state/library_model.dart';
 import '../../state/music_filters.dart';
 import '../../state/player_model.dart';
@@ -22,6 +23,7 @@ import '../theme.dart';
 import '../widgets/artist_picture.dart';
 import '../widgets/artwork.dart';
 import '../widgets/cards.dart';
+import '../widgets/download_ui.dart' show downloadsOf;
 import '../widgets/filter_sheet.dart';
 import '../widgets/playlist_art.dart';
 import '../widgets/quick_links.dart';
@@ -94,6 +96,17 @@ class _PlaylistsTab extends StatelessWidget {
         subtitle: Text('${pl.liked.length} songs'),
         onTap: nav.openLiked,
       ),
+      // Downloads from the servers (0.2.3), once there are any (phones have no sidebar).
+      if (downloadsOf(context, listen: true) case final dl? when dl.entries.isNotEmpty || dl.kept.isNotEmpty)
+        ListTile(
+          key: const ValueKey('library-downloads'),
+          leading: SizedBox(width: 52, height: 52, child: Icon(Icons.download_for_offline, color: accent, size: 32)),
+          title: const Text('Downloads', style: TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: Text(dl.waiting.isEmpty
+              ? '${dl.done.length} downloaded · ${fileSizeText(dl.usedBytes)}'
+              : '${dl.waiting.length} downloading · ${dl.done.length} downloaded'),
+          onTap: nav.openDownloads,
+        ),
       for (final p in pl.playlists)
         // Right-click / press and hold: "Add to sidebar" / "Remove from sidebar" (6 Oct).
         QuickLinkMenu(

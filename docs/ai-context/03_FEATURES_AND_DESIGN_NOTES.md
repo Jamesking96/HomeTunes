@@ -186,12 +186,68 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Downloads (27 Oct 2026, 0.2.3, branch `feature/downloads`, on top of `feature/source-filter`)
+- **Step 3 of the Servers & Downloads plan** (the user, 27 Oct: "Looks good, lets go to step 3").
+  Their answers: the copy is chosen **each time** (original, or a smaller one the server
+  converts); extras Keep offline, Download next episodes, Wi-Fi only + a storage limit, Make it
+  mine; downloads in HomeTunes' data folder by default (`<data>/downloads/videos|music`) with a
+  setting to pick another; on the phone, Keep offline and next episodes carry on in the
+  background, with a one-time message saying so and a switch to stop it.
+- **Pieces:** `models/download.dart` (DownloadQuality `original` / `v1080|v720|v480` /
+  `a320|a192|a128`, DownloadEntry, KeepOffline with kinds album / playlist / liked / book /
+  collection / season), `services/download_engine.dart` (the DownloadEngine interface and
+  BackgroundDownloaderEngine on **background_downloader 9.6.4**: two at a time, keeps 500 MB free,
+  Android foreground mode above 20 MB so big videos survive the 9-minute job limit, resumable,
+  3 retries, notifications; **connectivity_plus 7.3.2** for "Waiting for Wi-Fi"),
+  `state/downloads_model.dart` (the list, `downloads.json`), `ui/widgets/download_ui.dart` (the
+  menu options and dialogs), `ui/screens/downloads_screen.dart`,
+  `ui/screens/settings/download_settings.dart`.
+- **How it plugs in (hooks, so nothing else imports downloads):** `LibraryModel.downloadedFile`
+  (a server song plays its downloaded file first), `VideoLibraryModel.downloadedCopy` (a server
+  video plays the copy, with its subtitle files, unless a converted stream was asked for),
+  `VideoLibraryModel.onServerVideoStarted` (episodes ahead), `MediaSources.downloaded` (the
+  Source filter's "Downloaded" and the tick-cloud mark). Where the file comes from:
+  `AppDownloadSources` — Subsonic `download` (original) or `stream?maxBitRate=&format=mp3`;
+  Jellyfin `ServerVideosModel.downloadRequest` (`/Items/{id}/Download` or the converted
+  `stream.mkv` at a height, the token in a header, plus its text subtitles).
+- **The menus:** songs (⋮), albums and audiobooks (quick actions and the selection bar's ⋮),
+  playlists (⋮), Liked Songs (a download button in its bar), videos, collections, season headings,
+  and the song and video selection bars. Options: Download… (asks which copy), Stop downloading,
+  Remove download(s), Keep offline… / Stop keeping offline (asks whether to remove what it
+  downloaded), Make it mine… (one downloaded thing). Only server things count; nothing shows for
+  your own files.
+- **Rules:** a download removed from something kept offline is remembered as skipped (not
+  fetched again for it); asking for it again clears that. Episodes downloaded ahead (default 2)
+  are **deleted once watched** unless asked for or kept. When the space limit is full a download
+  waits ("Waiting for room"). A 401/403 asks for a fresh address once (signs in again), then
+  fails. A file deleted by hand is downloaded again. Make it mine copies into one of your music /
+  audiobook / video folders with a tidy name (`Artist/Album/01 Title.ext`, `Category/Series/Season
+  1/Series S01E02 - Title.ext` plus subtitles), removes the download, rescans that folder and moves
+  the video's place to the new file.
+- **Downloads page** (sidebar "Downloads", Library › Playlists, Settings › Servers › Downloads ›
+  See downloads): space used against the limit, All / Videos / Music & books, Downloading, Kept
+  offline, Downloaded; pause, carry on, try again, stop, remove, Make it mine; Pause all / Carry
+  on with all; Remove all downloads….
+- **Settings › Servers › Downloads:** See downloads, Download folder (Change… / Default, offers to
+  move what's there), Space for downloads (no limit / 5–500 GB), Download next episodes (off, 1–5),
+  Copy for next episodes; Android only: Download over Wi-Fi only (on), Keep downloading in the
+  background (on).
+- **Backups:** `downloads.json` goes in without its list of files or the folder (the files
+  aren't in a backup); restoring keeps this device's downloads and folder, takes (or merges) what's
+  kept offline and the settings.
+- **Security note:** background_downloader keeps its own task database in app data with each
+  task's address and headers, so a Subsonic download's address (with its sign-in token) and a
+  Jellyfin token sit there while a download runs. App-private, never in backups.
+- **Not done:** the TV screens have no download options yet; Search's cards have the menus but no
+  filter. Step 4 (temporary copies with auto-delete) is next.
+- **Tests:** `test/downloads_test.dart` (a pretend engine and servers).
+
 ## Source filter and marks (27 Oct 2026, 0.2.2, branch `feature/source-filter`, on top of `feature/jellyfin-videos`)
 - **Step 2 of the Servers & Downloads plan** (the user, 27 Oct: "lets move to step 2").
 - **Where something comes from** (`state/source_filter.dart`): `MediaSource` local ("On this
   device") / streamed ("Streamed") / downloaded ("Downloaded"); `sourceOfTrack`, `sourceOfVideo`,
   `sourcesOfTracks`, `sourcesOfVideos`. `MediaSources.downloaded(id)` is the hook step 3's downloads
-  set (returns false until then, so nothing is "Downloaded" yet).
+  set (DownloadsModel.isDownloaded since 0.2.3).
 - **The filter:** `sourceField<T>` is the first field of `songFields`, `albumFields`,
   `artistFields`, `bookFields`, `videoFilterFields` and `collectionFilterFields`, so every
   "Show only" sheet (Your Library's three tabs, Audiobooks, Videos › All videos and Collections)
