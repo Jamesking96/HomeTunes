@@ -15,7 +15,10 @@ import 'remote_videos.dart';
 enum MediaSource {
   local('On this device'),
   streamed('Streamed'),
-  downloaded('Downloaded');
+  downloaded('Downloaded'),
+
+  /// A temporary copy (0.2.4): the filter lists it under Downloaded (same label).
+  temporary('Downloaded');
 
   final String label;
   const MediaSource(this.label);
@@ -27,14 +30,19 @@ class MediaSources {
 
   /// Whether the server song or video [id] has a downloaded copy on this device.
   static bool Function(String id) downloaded = (_) => false;
+
+  /// Whether that copy is a temporary one (0.2.4, step 4): it counts as Downloaded in the
+  /// filter, with a clock on its mark.
+  static bool Function(String id) temporary = (_) => false;
 }
 
-MediaSource sourceOfTrack(Track t) =>
-    t.isLocal ? MediaSource.local : (MediaSources.downloaded(t.id) ? MediaSource.downloaded : MediaSource.streamed);
+MediaSource _remote(String id) => !MediaSources.downloaded(id)
+    ? MediaSource.streamed
+    : (MediaSources.temporary(id) ? MediaSource.temporary : MediaSource.downloaded);
 
-MediaSource sourceOfVideo(VideoItem v) => !isRemoteVideoId(v.id)
-    ? MediaSource.local
-    : (MediaSources.downloaded(v.id) ? MediaSource.downloaded : MediaSource.streamed);
+MediaSource sourceOfTrack(Track t) => t.isLocal ? MediaSource.local : _remote(t.id);
+
+MediaSource sourceOfVideo(VideoItem v) => !isRemoteVideoId(v.id) ? MediaSource.local : _remote(v.id);
 
 /// The label the Source filter is under.
 const sourceFieldLabel = 'Source';

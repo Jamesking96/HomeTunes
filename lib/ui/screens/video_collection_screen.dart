@@ -28,7 +28,7 @@ import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/cards.dart' show HoverPlayCover;
-import '../widgets/download_ui.dart' show downloadOptions;
+import '../widgets/download_ui.dart' show downloadOptions, DownloadProgressBar;
 import '../widgets/quick_links.dart';
 import '../widgets/source_mark.dart';
 import 'video_details_screen.dart' show openCollectionDetails;

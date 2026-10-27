@@ -186,6 +186,47 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Temporary copies (27 Oct 2026, 0.2.4, branch `feature/temporary-copies`, on top of `feature/downloads`)
+- **Step 4 of the Servers & Downloads plan** (the user, 27 Oct: "Ok I'll test this, you start on
+  the next step"). The original ask (25 Oct): "allowing us to temporarily download the streamed
+  content and play it, removing it after a period of time after it's been watched … add another
+  toggle that says to turn off the auto delete".
+- **How:** a temporary copy is a download whose `DownloadOrigin` is `temporary`
+  (`models/download.dart`, with `DownloadEntry.finishedMs`); the logic is the
+  `TemporaryCopies` extension in `state/downloads_model/temporary.dart` (a part file). With
+  **Save a copy while streaming** on, a server video that starts (`onServerVideoStarted`, which
+  now also does episodes ahead) or a server song / book file that starts (main.dart follows the
+  player → `startedPlaying`) is queued as the original file. It plays from here next time
+  through the same hooks as downloads.
+- **Finished:** a video watched (its place); a song played through (`PlayerModel.onPlayedThrough`,
+  called on an automatic move to the next song, not on Next); a book file once its book is
+  finished (`ListeningModel`, now passed to DownloadsModel). Marked not watched again (or Watch
+  from the beginning) → not finished. Checked on start, hourly, and two seconds after the
+  library, videos or listening places change.
+- **Cleared:** `tempDays` (1 / 3 / 7 default / 30) after `finishedMs`, unless **Don't delete
+  automatically** (`tempKeep`). **Space for temporary copies** (`tempLimitGb`, 1–100, default 10)
+  is separate from the downloads' limit (`usedBytes` leaves temporary copies out,
+  `tempUsedBytes` counts them): a new copy that doesn't fit makes room by clearing finished
+  copies (longest finished first), then part-played ones (oldest first); with tempKeep on, or
+  if clearing can't free enough, it simply isn't saved. Lowering the space clears down to it.
+  A copy that fails, or whose file vanished, is just forgotten (never fetched again, never a
+  problem on the Downloads page). **Clear now** removes them all (and stops any being saved).
+- **Keep** (menus, Downloads page, TV): `keepCopies` makes it a normal download (origin manual).
+  Asking to Download it, keeping its album / season offline, or it being wanted as an episode
+  ahead also stops it being temporary.
+- **Shown:** `MediaSource.temporary` (label "Downloaded", so the Source filter lists it there)
+  with `MediaSources.temporary`; the mark is a clock (`Icons.schedule`) when everything from a
+  server is a temporary copy. Downloads page (desktop and TV): a Temporary copies section with
+  space used; each says "Temporary copy, cleared in n days" (or "…after it's finished", "…kept
+  until you clear it"). Menus: Keep this copy, and Remove temporary copy.
+- **Settings › Servers › Temporary copies** (`TemporaryCopySettings` in
+  `settings/download_settings.dart`): Save a copy while streaming (off), Delete after, Don't delete
+  automatically (off), Space for temporary copies, Clear now (asks first). In downloads.json's
+  settings as tempSave / tempDays / tempKeep / tempLimitGb (in backups like the other settings;
+  the copies aren't).
+- **Tests:** `test/temporary_copies_test.dart` (`DownloadsModel.bytesPerGb` is shrunk so a "GB"
+  is 1000 bytes there).
+
 ## Downloads (27 Oct 2026, 0.2.3, branch `feature/downloads`, on top of `feature/source-filter`)
 - **Step 3 of the Servers & Downloads plan** (the user, 27 Oct: "Looks good, lets go to step 3").
   Their answers: the copy is chosen **each time** (original, or a smaller one the server
@@ -250,8 +291,7 @@ before changing that area.
   offline stops keeping it. The download settings are the shared Servers page. The shared
   quality list, labels and size estimate moved into `downloadQualityChoices`,
   `downloadQualityLabel` and `downloadSizeEstimate` (download_ui.dart).
-- **Not done:** Search's cards have the menus but no filter. Step 4 (temporary copies with
-  auto-delete) is next.
+- **Not done:** Search's cards have the menus but no filter. Step 4 (temporary copies) is above.
 - **Tests:** `test/downloads_test.dart` (a pretend engine and servers, in `test/fake_download_engine.dart`),
   `test/tv_downloads_test.dart`.
 

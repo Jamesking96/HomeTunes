@@ -30,7 +30,11 @@ Read the files in this order:
   (0.2.2+103), is on `feature/source-filter`, branched from `feature/jellyfin-videos`. Step 3,
   downloads (0.2.3+104: Download… with the copy chosen each time, Keep offline, next episodes,
   Wi-Fi only, a space limit, Make it mine, a Downloads page), is on `feature/downloads`, branched
-  from `feature/source-filter` (`03_…` → Downloads). Step 4 (temporary copies) is next.
+  from `feature/source-filter` (`03_…` → Downloads); the TV got its download options there too.
+  Step 4, temporary copies (0.2.4+105: Save a copy while streaming, cleared n days after it's
+  finished or never, its own space, Keep, Clear now), is on `feature/temporary-copies`, branched
+  from `feature/downloads` (`03_…` → Temporary copies). That's all four steps built; they're
+  released together once the user has tried them.
 - **Latest (13 Oct):** 0.1.82 (an album's or playlist's Play button shows when it's playing) 0.1.83 (the volume sliders fade evenly to silence; the EQ level is right) and 0.1.84 (a preview picture above a video's progress bar) are merged into `main` and pushed, not yet released; v0.1.81 (12 Oct) is the latest release. The Android TV work (0.2.0) is on `feature/android-tv`, with `main` merged in. See `04_`, Source control.
 - **Android TV (22 Oct):** the TV work (0.2.0+94) is on `feature/android-tv`, pushed to GitHub. The user tried it on the TV: the remote now stays on the open page; HomeTunes' own folder browser for Add folder isn't tried yet. The user is moving to another PC; see `04_`, Platforms plan, Android TV progress.
 - **Released:** the latest release is

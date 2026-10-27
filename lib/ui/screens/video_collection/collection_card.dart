@@ -107,6 +107,8 @@ class CollectionCard extends StatelessWidget {
                           color: selected ? accent : Colors.white70, shadows: const [Shadow(blurRadius: 4)]),
                     ),
                   if (selected) Container(color: accent.withValues(alpha: 0.25)),
+                  // Downloading some or all of it: how far, along the top (27 Oct).
+                  Positioned(left: 0, right: 0, top: 0, child: DownloadProgressBar(ids: [for (final v in c.videos) v.id])),
                   // Its contents are open under the row.
                   if (highlighted)
                     DecoratedBox(

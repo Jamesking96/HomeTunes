@@ -229,6 +229,18 @@ so can whatever you've ticked in select mode. The same menu then has **Stop down
   with a notification; off: they wait until you come back).
 - Backups remember what's kept offline and these settings, not the downloaded files themselves.
 
+**Temporary copies.** If you'd like what you stream to play again without the server, but don't
+want to manage downloads, turn on **Settings > Servers > Temporary copies > Save a copy while
+streaming**. Anything from a server then plays straight away and is saved in the background as
+it plays; next time it plays from this device. A temporary copy is cleared away by itself a
+while after you've finished it (watched to the end, played through, or the audiobook finished):
+choose **Delete after** 1, 3, 7 or 30 days, or turn on **Don't delete automatically** to keep
+them until you clear them. They have their own space (**Space for temporary copies**, 10 GB to
+start with): when it's full, the copies you finished longest ago go first. **Clear now**
+removes them all. Temporary copies show a small clock on their mark, count as **Downloaded** in
+the Source filter, and have their own section on the Downloads page. **Keep this copy** in a
+temporary copy's menu turns it into an ordinary download, which is never cleared by itself.
+
 If you type an address without `http://` or `https://`, HomeTunes tries a secure (https)
 connection first. If the server is on the internet and only answers over plain http, HomeTunes
 asks before using it, because your sign-in could then be read on the way. Addresses on your home

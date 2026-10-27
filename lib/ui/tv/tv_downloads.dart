@@ -44,7 +44,16 @@ List<TvOption> tvDownloadOptions(BuildContext context, List<DownloadItem> items,
   final n = server.length;
   final kept = keep != null && dl.isKept(keep.kind, keep.key);
   final mine = n == 1 && done.length == 1 ? dl.entryOf(done.first) : null;
+  // Temporary copies (0.2.4), here or still being saved: Keep makes them downloads.
+  final temporary = [for (final it in server) if (dl.entryOf(it.id)?.isTemporary ?? false) it.id];
+  final allTemporary = done.isNotEmpty && done.every(temporary.contains);
   return [
+    if (temporary.isNotEmpty)
+      TvOption(temporary.length == 1 ? 'Keep this copy' : 'Keep ${temporary.length} temporary copies', Icons.push_pin_outlined,
+          () async {
+        await dl.keepCopies(temporary);
+        if (context.mounted) tvNotice(context, temporary.length == 1 ? 'Kept: it\'s a download now' : 'Kept: they\'re downloads now');
+      }),
     if (notYet.isNotEmpty)
       TvOption(
         notYet.length == 1 && n == 1 ? 'Download' : (notYet.length == n ? 'Download all $n' : 'Download the other ${notYet.length}'),
@@ -58,14 +67,15 @@ List<TvOption> tvDownloadOptions(BuildContext context, List<DownloadItem> items,
         tvNotice(context, pending.length == 1 ? 'Download stopped' : 'Stopped ${pending.length} downloads');
       }),
     if (done.length == 1)
-      TvOption('Remove download', Icons.delete_outline, () {
+      TvOption(allTemporary ? 'Remove temporary copy' : 'Remove download', Icons.delete_outline, () {
         dl.remove(done);
-        tvNotice(context, 'Download removed. It streams from the server again');
+        tvNotice(context, '${allTemporary ? 'Copy' : 'Download'} removed. It streams from the server again');
       })
     else if (done.length > 1)
-      TvOption('Remove ${done.length} downloads', Icons.delete_outline, opensMore: true, () {
+      TvOption(allTemporary ? 'Remove ${done.length} temporary copies' : 'Remove ${done.length} downloads', Icons.delete_outline,
+          opensMore: true, () {
         tvConfirm(context,
-            title: 'Remove ${done.length} downloads?',
+            title: allTemporary ? 'Remove ${done.length} temporary copies?' : 'Remove ${done.length} downloads?',
             subtitle: 'They stay in your library and stream from the server again',
             yes: 'Remove them',
             run: () => dl.remove(done));
@@ -193,7 +203,7 @@ class TvDownloadsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final dl = downloadsOf(context, listen: true);
     if (dl == null) return const TvMissingPage(icon: Icons.download_outlined, title: 'Downloads aren\'t available here');
-    final waiting = dl.waiting, done = dl.done, kept = dl.kept;
+    final waiting = dl.waiting, done = dl.done, kept = dl.kept, temporary = dl.temporaries;
     final limit = dl.limitBytes;
     final anyRunning = waiting.any((e) => e.state == DownloadState.running || e.state == DownloadState.queued);
     final anyPaused = waiting.any((e) => e.state == DownloadState.paused);
@@ -201,7 +211,10 @@ class TvDownloadsPage extends StatelessWidget {
       if (waiting.isNotEmpty) ...['Downloading (${waiting.length})', ...waiting],
       if (kept.isNotEmpty) ...['Kept offline', ...kept],
       if (done.isNotEmpty) ...['Downloaded (${done.length})', ...done],
-      if (waiting.isEmpty && done.isEmpty && kept.isEmpty) 'Nothing downloaded yet. Hold OK on anything from a server and choose Download.',
+      // Saved while streaming (0.2.4).
+      if (temporary.isNotEmpty) ...['Temporary copies (${temporary.length})', ...temporary],
+      if (waiting.isEmpty && done.isEmpty && kept.isEmpty && temporary.isEmpty)
+        'Nothing downloaded yet. Hold OK on anything from a server and choose Download.',
     ];
     return TvDetailPage<Object>(
       itemHeight: 60,
@@ -299,9 +312,11 @@ class _DownloadRow extends StatelessWidget {
         TvOption('Pause', Icons.pause, () => dl.pause(e.id)),
       if (e.state == DownloadState.paused) TvOption('Carry on', Icons.play_arrow, () => dl.resume(e.id)),
       if (problem) TvOption('Try again', Icons.refresh, () => dl.retry(e.id)),
+      if (e.isTemporary) TvOption('Keep this copy', Icons.push_pin_outlined, () => dl.keepCopies([e.id])),
       if (e.isDone && dl.foldersFor(e).isNotEmpty)
         TvOption('Make it mine', Icons.drive_file_move_outline, opensMore: true, () => tvMakeItMine(context, e)),
-      TvOption(e.isDone ? 'Remove download' : 'Stop downloading', e.isDone ? Icons.delete_outline : Icons.close,
+      TvOption(e.isDone ? (e.isTemporary ? 'Remove temporary copy' : 'Remove download') : 'Stop downloading',
+          e.isDone ? Icons.delete_outline : Icons.close,
           () => dl.remove([e.id])),
     ]);
   }

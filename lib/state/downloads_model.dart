@@ -15,6 +15,11 @@
 // VideoLibraryModel.downloadedCopy), the Source filter knows what's downloaded
 // (MediaSources.downloaded), and starting a server episode downloads the next ones
 // (VideoLibraryModel.onServerVideoStarted).
+//
+// Temporary copies (0.2.4, step 4; downloads_model/temporary.dart): with "Save a copy while
+// streaming" on, whatever streams from a server is saved as it plays (a download whose origin is
+// temporary), replays from here, and is cleared away some days after it's finished, or when its
+// own space fills. They never count against the downloads' space, and Keep makes one a download.
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
@@ -29,12 +34,15 @@ import '../models/video_item.dart';
 import '../services/download_engine.dart';
 import '../services/storage.dart';
 import 'library_model.dart';
+import 'listening_model.dart';
 import 'playlists_model.dart';
 import 'remote_videos.dart';
 import 'server_videos.dart' show ServerVideosModel, serverSubtitle;
 import 'source_filter.dart';
 import 'video_library_model.dart';
 import 'video_tracks.dart' show languageCodeFor;
+
+part 'downloads_model/temporary.dart';
 
 /// Where a download comes from: its address, the headers it needs, the file type, and (videos)
 /// its subtitle files.
@@ -79,18 +87,25 @@ class DownloadsModel extends ChangeNotifier {
     required this.videos,
     required this.engine,
     required this.sources,
+    this.listening,
     http.Client Function()? httpClient,
     bool? android,
   })  : _http = httpClient ?? http.Client.new,
         android = android ?? Platform.isAndroid {
     library.downloadedFile = fileFor;
     videos.downloadedCopy = copyOf;
-    videos.onServerVideoStarted = _downloadAhead;
+    videos.onServerVideoStarted = _serverVideoStarted;
     MediaSources.downloaded = isDownloaded;
+    MediaSources.temporary = isTemporaryCopy;
     library.addListener(_soon);
     playlists.addListener(_soon);
     videos.addListener(_soon);
+    listening?.addListener(_soon);
   }
+
+  /// Audiobook places (0.2.4): a temporary copy of a book's file counts as finished once the
+  /// book is. Null in some tests.
+  final ListeningModel? listening;
 
   final Storage storage;
   final LibraryModel library;
@@ -122,10 +137,63 @@ class DownloadsModel extends ChangeNotifier {
   /// Downloads, newest first.
   List<DownloadEntry> get entries => _entries.values.toList()..sort((a, b) => b.addedMs.compareTo(a.addedMs));
   List<DownloadEntry> get waiting => [for (final e in entries) if (!e.isDone) e];
-  List<DownloadEntry> get done => [for (final e in entries) if (e.isDone) e];
+
+  /// Downloaded, not counting temporary copies.
+  List<DownloadEntry> get done => [for (final e in entries) if (e.isDone && !e.isTemporary) e];
+
+  /// Temporary copies that are here (0.2.4), newest first.
+  List<DownloadEntry> get temporaries => [for (final e in entries) if (e.isDone && e.isTemporary) e];
   List<KeepOffline> get kept => _kept.values.toList()..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
 
   DownloadEntry? entryOf(String id) => _entries[id];
+
+  /// The download queue (27 Oct, the user: "a list of all medias being downloaded in a queue
+  /// format"): what's downloading now, then what's waiting in the order it'll go (oldest asked
+  /// for first, as the engine is given them), then paused ones and ones that couldn't download.
+  List<DownloadEntry> get queue {
+    int rank(DownloadEntry e) => switch (e.state) {
+          DownloadState.running => 0,
+          DownloadState.queued => 1,
+          DownloadState.noRoom => 2,
+          DownloadState.paused => 3,
+          DownloadState.failed => 4,
+          DownloadState.done => 5,
+        };
+    return [for (final e in _entries.values) if (!e.isDone) e]
+      ..sort((a, b) {
+        final r = rank(a).compareTo(rank(b));
+        return r != 0 ? r : a.addedMs.compareTo(b.addedMs);
+      });
+  }
+
+  /// Whether [e] is on its way (downloading, waiting, paused or waiting for room).
+  static bool _onItsWay(DownloadEntry e) => e.state != DownloadState.done && e.state != DownloadState.failed;
+
+  /// How far [ids] have got together, 0–1, while any of them is on its way (the bar along the
+  /// top of a video or collection's picture, 27 Oct); null when none is. Ones already done
+  /// count as whole, so a collection's bar fills as each of its videos arrives.
+  double? progressOf(Iterable<String> ids) {
+    var total = 0, have = 0;
+    var any = false;
+    for (final id in ids) {
+      final e = _entries[id];
+      if (e == null || e.state == DownloadState.failed) continue;
+      if (_onItsWay(e)) {
+        any = true;
+        final whole = e.expected ?? 0;
+        total += whole > 0 ? whole : 1;
+        have += whole > 0 ? math.min(e.bytes, whole) : 0;
+      } else {
+        total += e.bytes;
+        have += e.bytes;
+      }
+    }
+    if (!any) return null;
+    return total <= 0 ? 0 : (have / total).clamp(0.0, 1.0);
+  }
+
+  /// Whether any of [ids] is downloading right now (rather than waiting or paused).
+  bool anyRunning(Iterable<String> ids) => ids.any((id) => _entries[id]?.state == DownloadState.running);
 
   /// Has a downloaded copy here.
   bool isDownloaded(String id) {
@@ -165,6 +233,15 @@ class DownloadsModel extends ChangeNotifier {
 
   // A downloaded file went missing (deleted by hand, drive gone): download it again.
   void _lost(DownloadEntry e) {
+    // A temporary copy isn't fetched again for that; it streams as before (0.2.4).
+    if (e.isTemporary) {
+      _entries.remove(e.id);
+      scheduleMicrotask(() {
+        notifyListeners();
+        _saveSoon();
+      });
+      return;
+    }
     _entries[e.id] = e.copyWith(state: DownloadState.queued, bytes: 0, progress: 0, clearError: true);
     scheduleMicrotask(() {
       notifyListeners();
@@ -195,6 +272,50 @@ class DownloadsModel extends ChangeNotifier {
 
   /// The copy downloaded ahead.
   DownloadQuality aheadQuality = const DownloadQuality.original(video: true);
+
+  // Temporary copies (0.2.4, Settings › Servers › Temporary copies).
+
+  /// Save a copy of what streams from a server while it plays (off to start with).
+  bool tempSave = false;
+
+  /// Days after it's finished before a temporary copy is cleared away.
+  int tempDays = 7;
+  static const tempDayChoices = [1, 3, 7, 30];
+
+  /// Don't delete temporary copies automatically: they stay until cleared (and none are saved
+  /// once their space is full).
+  bool tempKeep = false;
+
+  /// The space temporary copies may take, in GB.
+  int tempLimitGb = 10;
+  static const tempLimitChoices = [1, 2, 5, 10, 20, 50, 100];
+
+  Future<void> setTempSave(bool on) async {
+    tempSave = on;
+    notifyListeners();
+    await _save();
+  }
+
+  Future<void> setTempDays(int days) async {
+    tempDays = days.clamp(1, 365);
+    _tidyTemporary();
+    notifyListeners();
+    await _save();
+  }
+
+  Future<void> setTempKeep(bool on) async {
+    tempKeep = on;
+    _tidyTemporary();
+    notifyListeners();
+    await _save();
+  }
+
+  Future<void> setTempLimitGb(int gb) async {
+    tempLimitGb = gb.clamp(1, 10000);
+    _tidyTemporary();
+    notifyListeners();
+    await _save();
+  }
 
   /// HomeTunes' own downloads folder.
   String get defaultFolder => p.join(storage.root.path, 'downloads');
@@ -246,7 +367,7 @@ class DownloadsModel extends ChangeNotifier {
     if (move && !p.equals(before, folder)) {
       status = 'Moving your downloads…';
       notifyListeners();
-      for (final e in done) {
+      for (final e in [for (final x in entries) if (x.isDone) x]) {
         final f = e.file;
         if (f == null || !p.isWithin(before, f)) continue;
         final to = p.join(folder, p.relative(f, from: before));
@@ -289,18 +410,31 @@ class DownloadsModel extends ChangeNotifier {
 
   // ---- space ----
 
-  /// How much the downloads take now (finished ones, and what's arrived of the rest).
-  int get usedBytes => _entries.values.fold(0, (s, e) => s + e.bytes);
+  /// How much the downloads take now (finished ones, and what's arrived of the rest); temporary
+  /// copies have their own space ([tempUsedBytes]).
+  int get usedBytes => _entries.values.fold(0, (s, e) => e.isTemporary ? s : s + e.bytes);
 
-  int? get limitBytes => limitGb == null ? null : limitGb! * 1000 * 1000 * 1000;
+  /// How much the temporary copies take now (0.2.4).
+  int get tempUsedBytes => _entries.values.fold(0, (s, e) => e.isTemporary ? s + e.bytes : s);
 
-  /// Whether [e] fits in the space left (counting what's already waiting in the engine).
+  /// How many bytes a GB is in the space limits (tests make it small, so files stay tiny).
+  @visibleForTesting
+  static int bytesPerGb = 1000 * 1000 * 1000;
+
+  int? get limitBytes => limitGb == null ? null : limitGb! * bytesPerGb;
+
+  /// The space temporary copies may take (0.2.4).
+  int get tempLimitBytes => tempLimitGb * bytesPerGb;
+
+  /// Whether [e] fits in the space left (counting what's already waiting in the engine). A
+  /// temporary copy counts against the temporary copies' space, a download against the
+  /// downloads'.
   bool _fits(DownloadEntry e) {
-    final limit = limitBytes;
+    final limit = e.isTemporary ? tempLimitBytes : limitBytes;
     if (limit == null) return true;
     var taken = 0;
     for (final x in _entries.values) {
-      if (x.id == e.id) continue;
+      if (x.id == e.id || x.isTemporary != e.isTemporary) continue;
       if (x.isDone) {
         taken += x.bytes;
       } else if (_inEngine.contains(x.id)) {
@@ -340,13 +474,21 @@ class DownloadsModel extends ChangeNotifier {
         limitGb = s['limitGb'] is int && (s['limitGb'] as int) > 0 ? s['limitGb'] as int : null;
         ahead = s['ahead'] is int ? (s['ahead'] as int).clamp(0, 5) : 2;
         aheadQuality = DownloadQuality.parse(s['aheadQuality'], video: true);
+        tempSave = s['tempSave'] == true;
+        tempDays = s['tempDays'] is int && (s['tempDays'] as int) > 0 ? s['tempDays'] as int : 7;
+        tempKeep = s['tempKeep'] == true;
+        tempLimitGb = s['tempLimitGb'] is int && (s['tempLimitGb'] as int) > 0 ? s['tempLimitGb'] as int : 10;
       }
     }
     // A file deleted while HomeTunes was closed (or a backup from another device): download it
-    // again.
+    // again. A temporary copy that's gone is simply forgotten (0.2.4).
     for (final e in [..._entries.values]) {
       if (e.isDone && (e.file == null || !File(e.file!).existsSync())) {
-        _entries[e.id] = e.copyWith(state: DownloadState.queued, bytes: 0, progress: 0);
+        if (e.isTemporary) {
+          _entries.remove(e.id);
+        } else {
+          _entries[e.id] = e.copyWith(state: DownloadState.queued, bytes: 0, progress: 0);
+        }
       }
     }
     notifyListeners();
@@ -364,6 +506,10 @@ class DownloadsModel extends ChangeNotifier {
           if (limitGb != null) 'limitGb': limitGb,
           'ahead': ahead,
           if (!aheadQuality.isOriginal) 'aheadQuality': aheadQuality.code,
+          if (tempSave) 'tempSave': true,
+          if (tempDays != 7) 'tempDays': tempDays,
+          if (tempKeep) 'tempKeep': true,
+          if (tempLimitGb != 10) 'tempLimitGb': tempLimitGb,
         },
       });
 
@@ -390,9 +536,14 @@ class DownloadsModel extends ChangeNotifier {
       notifyListeners();
     });
     _started = true;
+    _tidyTemporary();
+    // Temporary copies' days run out while HomeTunes is open too (0.2.4).
+    _tempTimer = Timer.periodic(const Duration(hours: 1), (_) => _tidyTemporary());
     _pump();
     _soon();
   }
+
+  Timer? _tempTimer;
 
   bool _started = false;
 
@@ -426,7 +577,10 @@ class DownloadsModel extends ChangeNotifier {
           added++;
         } else if (origin == DownloadOrigin.manual && old.origin != DownloadOrigin.manual) {
           // Asked for now: it stays even when watched, or when no longer kept.
-          _entries[it.id] = old.copyWith(origin: DownloadOrigin.manual);
+          _entries[it.id] = old.copyWith(origin: DownloadOrigin.manual, clearFinished: true);
+        } else if (old.isTemporary && origin != DownloadOrigin.temporary) {
+          // A temporary copy that's now kept offline or wanted ahead stops being temporary.
+          _entries[it.id] = old.copyWith(origin: origin, clearFinished: true);
         }
         continue;
       }
@@ -451,7 +605,7 @@ class DownloadsModel extends ChangeNotifier {
       added++;
     }
     if (added > 0) {
-      if (origin != DownloadOrigin.manual) _sayBackground();
+      if (origin == DownloadOrigin.keep || origin == DownloadOrigin.ahead) _sayBackground();
       notifyListeners();
       _saveSoon();
       _pump();
@@ -482,6 +636,12 @@ class DownloadsModel extends ChangeNotifier {
           final cur = _entries[e.id];
           if (cur == null || cur.state != DownloadState.queued || _inEngine.contains(e.id)) continue;
           if (_heldBack.contains(e.id)) continue;
+          // A temporary copy makes room by clearing older ones, or isn't saved at all (0.2.4).
+          if (cur.isTemporary && !_fits(cur) && !_makeTemporaryRoom(cur)) {
+            _entries.remove(e.id);
+            notifyListeners();
+            continue;
+          }
           if (!_fits(cur)) {
             _entries[e.id] = cur.copyWith(state: DownloadState.noRoom);
             notifyListeners();
@@ -490,6 +650,12 @@ class DownloadsModel extends ChangeNotifier {
           final req = await sources.request(cur);
           final now2 = _entries[e.id];
           if (now2 == null || now2.state != DownloadState.queued) continue;
+          if (req == null && now2.isTemporary) {
+            // Not worth a problem on the Downloads page: it simply isn't saved.
+            _entries.remove(e.id);
+            notifyListeners();
+            continue;
+          }
           if (req == null) {
             _entries[e.id] = now2.copyWith(
                 state: DownloadState.failed, error: sources.problem(now2) ?? 'The server can\'t be reached right now.');
@@ -576,6 +742,18 @@ class DownloadsModel extends ChangeNotifier {
         _inEngine.remove(id);
         // Cancelled by us (removed, or held back while in the background).
         if (_heldBack.contains(id)) _entries[id] = e.copyWith(state: DownloadState.paused);
+    }
+    // A temporary copy that couldn't be saved is just let go; one that arrived may have taken
+    // its space past the limit (0.2.4).
+    final after = _entries[id];
+    if (after != null && after.isTemporary) {
+      if (after.state == DownloadState.failed) {
+        _entries.remove(id);
+        _deleteFiles(_jobs.remove(id)?.path, const []);
+        _requests.remove(id);
+      } else if (after.isDone) {
+        _tidyTemporary();
+      }
     }
     notifyListeners();
     _saveSoon();
@@ -839,13 +1017,18 @@ class DownloadsModel extends ChangeNotifier {
     _syncTimer = Timer(const Duration(seconds: 2), () {
       _syncKept();
       _tidyAhead();
+      _tidyTemporary();
     });
   }
 
   void _syncKept() {
     for (final k in _kept.values) {
       final skip = _skipped[k.id] ?? const <String>{};
-      final todo = [for (final it in _itemsOf(k)) if (!skip.contains(it.id) && !_entries.containsKey(it.id)) it];
+      // (A temporary copy of something now kept offline stops being temporary: download() does it.)
+      final todo = [
+        for (final it in _itemsOf(k))
+          if (!skip.contains(it.id) && (_entries[it.id] == null || _entries[it.id]!.isTemporary)) it,
+      ];
       if (todo.isNotEmpty) download(todo, k.quality, origin: DownloadOrigin.keep);
     }
   }
@@ -1008,6 +1191,7 @@ class DownloadsModel extends ChangeNotifier {
     String size(int b) => fileSizeText(b);
     switch (e.state) {
       case DownloadState.done:
+        if (e.isTemporary) return [size(e.bytes), temporaryNote(e)].join(' · ');
         return [size(e.bytes), e.quality.label, if (e.origin == DownloadOrigin.ahead) 'Downloaded ahead',
           if (e.origin == DownloadOrigin.keep) 'Kept offline'].join(' · ');
       case DownloadState.queued:
@@ -1043,13 +1227,16 @@ class DownloadsModel extends ChangeNotifier {
     _saveTimer?.cancel();
     _syncTimer?.cancel();
     _notifyTimer?.cancel();
+    _tempTimer?.cancel();
     library.removeListener(_soon);
     playlists.removeListener(_soon);
     videos.removeListener(_soon);
+    listening?.removeListener(_soon);
     if (library.downloadedFile == fileFor) library.downloadedFile = null;
     if (videos.downloadedCopy == copyOf) videos.downloadedCopy = null;
-    if (videos.onServerVideoStarted == _downloadAhead) videos.onServerVideoStarted = null;
+    if (videos.onServerVideoStarted == _serverVideoStarted) videos.onServerVideoStarted = null;
     MediaSources.downloaded = (_) => false;
+    MediaSources.temporary = (_) => false;
     super.dispose();
   }
 }

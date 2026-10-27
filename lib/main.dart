@@ -166,9 +166,20 @@ Future<void> main() async {
     videos: videos,
     engine: BackgroundDownloaderEngine(),
     sources: AppDownloadSources(library, videos, serverVideos),
+    listening: listening,
   );
   await safely('downloads', downloads.load);
   saveOnBackground.downloads = downloads;
+  // Temporary copies (0.2.4): a server song or book file that starts playing is saved as it
+  // plays (when that's on); one played through to its end counts as finished.
+  player.onPlayedThrough = downloads.playedThrough;
+  String? playingId;
+  player.addListener(() {
+    final t = player.current;
+    if (t?.id == playingId) return;
+    playingId = t?.id;
+    if (t != null) downloads.startedPlaying(t);
+  });
   downloads.onNotice = (note) => appMessengerKey.currentState?.showSnackBar(SnackBar(content: Text(note)));
   final session = await MediaSession.start(player, library, watching: watching);
   debugPrint(session == null
