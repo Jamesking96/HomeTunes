@@ -186,6 +186,29 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Source filter and marks (27 Oct 2026, 0.2.2, branch `feature/source-filter`, on top of `feature/jellyfin-videos`)
+- **Step 2 of the Servers & Downloads plan** (the user, 27 Oct: "lets move to step 2").
+- **Where something comes from** (`state/source_filter.dart`): `MediaSource` local ("On this
+  device") / streamed ("Streamed") / downloaded ("Downloaded"); `sourceOfTrack`, `sourceOfVideo`,
+  `sourcesOfTracks`, `sourcesOfVideos`. `MediaSources.downloaded(id)` is the hook step 3's downloads
+  set (returns false until then, so nothing is "Downloaded" yet).
+- **The filter:** `sourceField<T>` is the first field of `songFields`, `albumFields`,
+  `artistFields`, `bookFields`, `videoFilterFields` and `collectionFilterFields`, so every
+  "Show only" sheet (Your Library's three tabs, Audiobooks, Videos › All videos and Collections)
+  has **Source**. An album, artist, book or collection has every source its songs / videos have,
+  so it matches each. `FilterField.onlyWhenSeveral`: the sheet leaves the field out when the
+  whole tab has only one source (judged over all items, not the narrowed ones) and nothing is
+  picked, so people without servers never see it. Picks show as chips like the other filters.
+- **Marks** (`ui/widgets/source_mark.dart`): `SourceBadge` (round dark badge, cloud = streamed,
+  cloud with a tick = downloaded, none for your own; "Some of it streams…" in the tooltip for a
+  mix; `markFor`), `SourceInline` (song rows' grey icon, replaces the old cloud). Album and book
+  cards: top-left of the cover via `SelectableCard.sources` (hidden while selecting, when the
+  select box takes that corner). Video and collection cards: bottom-left of the picture, above
+  the progress bar.
+- **Not done:** Search has no filters, so no Source there (the marks still show on its cards);
+  the TV screens' own cards don't show marks yet.
+- **Tests:** `test/source_filter_test.dart`; `videos_test.dart` now finds Category by name.
+
 ## Jellyfin videos (25 Oct 2026, 0.2.1, branch `feature/jellyfin-videos`)
 - **The user asked (25 Oct, after v0.2.0):** make sure HomeTunes really supports Jellyfin for
   streaming; then a Source filter, downloads and temporary copies (steps 2–4 of the plan "HomeTunes

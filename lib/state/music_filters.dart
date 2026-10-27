@@ -9,20 +9,26 @@
 import '../models/track.dart';
 import 'filters.dart';
 import 'library_index.dart';
+import 'source_filter.dart';
 
 export 'filters.dart';
 
 /// Genres of a song (none when it has no genre).
 Iterable<String> _genres(Track t) => [if (t.genre != null && t.genre!.trim().isNotEmpty) t.genre!.trim()];
 
+// Every tab also has Source (0.2.2, source_filter.dart): on this device, streamed or downloaded;
+// only offered when the tab has more than one.
+
 /// What the Artists tab can filter by.
 final List<FilterField<Artist>> artistFields = [
+  sourceField<Artist>((a) => sourcesOfTracks(a.tracks)),
   FilterField('Genre', (a) => a.tracks.expand(_genres)),
   FilterField('Decade', (a) => a.albums.map((al) => decadeOf(al.year)).whereType<String>()),
 ];
 
 /// What the Albums tab can filter by.
 final List<FilterField<Album>> albumFields = [
+  sourceField<Album>((a) => sourcesOfTracks(a.tracks)),
   FilterField('Artist', (a) => [a.artist]),
   FilterField('Genre', (a) => a.tracks.expand(_genres)),
   FilterField('Decade', (a) => [?decadeOf(a.year)]),
@@ -30,6 +36,7 @@ final List<FilterField<Album>> albumFields = [
 
 /// What the Songs tab can filter by.
 final List<FilterField<Track>> songFields = [
+  sourceField<Track>((t) => [sourceOfTrack(t)]),
   FilterField('Artist', (t) => {t.artist, t.albumArtist}.where((s) => s.isNotEmpty)),
   FilterField('Album', (t) => [if (t.album.isNotEmpty) t.album]),
   FilterField('Genre', _genres),

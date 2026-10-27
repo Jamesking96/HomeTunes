@@ -9,6 +9,7 @@
 import '../models/book.dart';
 import '../models/track.dart';
 import 'filters.dart';
+import 'source_filter.dart';
 
 /// Pure helpers for audiobooks (no Flutter, easy to test): deciding which
 /// files are books, and grouping them into [Book]s.
@@ -409,6 +410,8 @@ List<(String?, List<Book>)> sortBooks(
 /// What the Audiobooks filter sheet can narrow by (filters.dart; refactor phase 12 moved this here from
 /// books_screen.dart and dropped the old BookFilters, which the tab no longer used).
 final List<FilterField<Book>> bookFields = [
+  // On this device / streamed / downloaded (0.2.2), only when the books come from more than one.
+  sourceField<Book>((b) => sourcesOfTracks(b.parts)),
   FilterField('Author', (b) => [if (b.author.isNotEmpty) b.author]),
   FilterField('Narrator', (b) => [?b.narrator]),
   FilterField('Series', (b) => [?b.series]),

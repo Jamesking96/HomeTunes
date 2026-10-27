@@ -654,7 +654,9 @@ void main() {
       expect(sortCollections(list, CollectionSort.mostVideos).single.$2.first.name, 'South Park');
       expect(sortCollections(list, CollectionSort.year).single.$2.first.name, 'Naruto');
       expect(searchCollections(list, 'tv 1997').single.name, 'South Park');
-      expect(Filters.none.withValue('Category', 'TV').choices(list, collectionFilterFields, collectionFilterFields.first),
+      // (Found by name: Source comes first since 0.2.2.)
+      final category = collectionFilterFields.firstWhere((f) => f.label == 'Category');
+      expect(Filters.none.withValue('Category', 'TV').choices(list, collectionFilterFields, category),
           {'Anime': 1, 'TV': 2});
     });
   });

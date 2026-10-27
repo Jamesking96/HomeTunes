@@ -21,11 +21,13 @@ import 'package:provider/provider.dart';
 
 import '../../models/video_item.dart';
 import '../../state/range_select.dart';
+import '../../state/source_filter.dart' show sourcesOfVideos;
 import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/cards.dart' show HoverPlayCover;
 import '../widgets/quick_links.dart';
+import '../widgets/source_mark.dart';
 import 'video_details_screen.dart' show openCollectionDetails;
 import 'special_seasons.dart';
 import 'video_pictures.dart';

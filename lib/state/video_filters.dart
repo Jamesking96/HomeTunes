@@ -4,6 +4,7 @@ import '../models/video_item.dart';
 import 'library_index.dart' show sortKey;
 import 'filters.dart';
 import 'sort_order.dart';
+import 'source_filter.dart';
 
 /// The chips along the top of the Videos tab.
 enum VideoShow { all, continueWatching, unwatched, watched }
@@ -194,6 +195,8 @@ int Function(String, String) _inOrder(List<String> order) => (a, b) => order.ind
 
 /// What the Videos tab can be filtered by.
 final videoFilterFields = <FilterField<VideoItem>>[
+  // On this device / streamed / downloaded (0.2.2), only when the videos come from more than one.
+  sourceField<VideoItem>((v) => [sourceOfVideo(v)]),
   FilterField('Category', (v) => [if (v.category != null && v.category!.trim().isNotEmpty) v.category!.trim()]),
   FilterField('Collection', (v) => [if (v.collection.trim().isNotEmpty) v.collection.trim()]),
   FilterField('Genre', (v) => [if (v.genre != null && v.genre!.trim().isNotEmpty) v.genre!.trim()]),
@@ -230,6 +233,7 @@ SortWords collectionSortWords(CollectionSort s) => switch (s) {
 
 /// What the Collections tab can be filtered by.
 final collectionFilterFields = <FilterField<VideoCollection>>[
+  sourceField<VideoCollection>((c) => sourcesOfVideos(c.videos)),
   FilterField('Category', (c) => [if (c.category != null && c.category!.trim().isNotEmpty) c.category!.trim()]),
   FilterField('Genre', (c) => {for (final v in c.videos) if (v.genre != null && v.genre!.trim().isNotEmpty) v.genre!.trim()}),
   FilterField('Decade', (c) => [?decadeOf(c.year)]),

@@ -88,6 +88,9 @@ class CollectionCard extends StatelessWidget {
                       top: 6,
                       child: Icon(Icons.favorite, color: accent, size: 20, shadows: const [Shadow(blurRadius: 4)]),
                     ),
+                  // Streamed from a server (or partly), or downloaded (0.2.2).
+                  if (SourceBadge.forSources(sourcesOfVideos(c.videos)) case final mark?)
+                    Positioned(left: 6, bottom: total > 0 && watched > 0 ? 10 : 6, child: mark),
                   if (total > 0 && watched > 0)
                     Positioned(
                       left: 0,
