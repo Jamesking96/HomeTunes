@@ -11,6 +11,7 @@ import '../../state/library_model.dart';
 import '../../state/listening_model.dart';
 import '../../state/playlists_model.dart';
 import '../../state/selection_model.dart';
+import '../../state/source_filter.dart' show sourcesOfTracks;
 import 'library_images.dart';
 import '../nav.dart';
 import '../theme.dart';
@@ -83,6 +84,7 @@ class BookCard extends StatelessWidget {
       kind: SelectKind.books,
       scope: scope,
       favourite: favourite,
+      sources: sourcesOfTracks(book.parts),
       actionsFor: (ids) {
         final lib = context.read<LibraryModel>();
         final books = ids.length == 1 && ids.first == book.id

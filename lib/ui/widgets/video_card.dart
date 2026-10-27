@@ -8,10 +8,12 @@ import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import '../../models/video_item.dart';
 import '../../state/range_select.dart';
+import '../../state/source_filter.dart' show sourceOfVideo;
 import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import 'quick_links.dart';
+import 'source_mark.dart';
 import '../screens/edit_video.dart';
 import '../screens/video_details_screen.dart' show openVideoDetails;
 import '../screens/video_pictures.dart';
@@ -107,6 +109,9 @@ class VideoCard extends StatelessWidget {
                       bottom: progress > 0 ? 10 : 6,
                       child: _Badge(videoLength(video.duration)),
                     ),
+                  // Streamed from a server, or downloaded from one (0.2.2).
+                  if (SourceBadge.forSources({sourceOfVideo(video)}) case final mark?)
+                    Positioned(left: 6, bottom: progress > 0 ? 10 : 6, child: mark),
                   if (place?.watched ?? false)
                     Positioned(
                       left: 6,

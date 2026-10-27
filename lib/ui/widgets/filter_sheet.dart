@@ -228,6 +228,13 @@ class _FilterSheetState<T> extends State<_FilterSheet<T>> {
   Widget _dropdown(FilterField<T> field) {
     final value = _f.picked[field.label];
     final options = {..._f.choices(widget.items, widget.fields, field)};
+    // The Source field (0.2.2) only when there's a choice to make.
+    // (Judged over everything on the tab, so other picks don't make it come and go.)
+    if (field.onlyWhenSeveral &&
+        value == null &&
+        Filters.none.choices(widget.items, widget.fields, field).length < 2) {
+      return const SizedBox.shrink();
+    }
     // Keep the current pick even if the other picks narrowed it away.
     if (value != null && !options.containsKey(value)) options[value] = 0;
     return Padding(

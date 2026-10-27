@@ -199,6 +199,11 @@ how many videos it has and when it was last read; its **⋮** menu has **Sync no
 (to leave a library out) and **Sign out on this device**. When the server is off, its videos still
 show but won't play until it's back. Music and audiobooks from Jellyfin are coming later.
 
+**What's streamed and what's yours.** Anything from a server has a small cloud mark on its card
+(a cloud with a tick once it's downloaded). When a tab has things from more than one place, its
+filter button's **Show only** sheet has a **Source** choice: **On this device**, **Streamed** or
+**Downloaded**.
+
 If you type an address without `http://` or `https://`, HomeTunes tries a secure (https)
 connection first. If the server is on the internet and only answers over plain http, HomeTunes
 asks before using it, because your sign-in could then be read on the way. Addresses on your home
