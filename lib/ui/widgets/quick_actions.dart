@@ -7,8 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/book.dart';
+import '../../models/download.dart' show KeepKind;
 import '../../models/track.dart';
 import '../../models/track_edit.dart';
+import '../../state/downloads_model.dart' show DownloadItem;
 import '../../state/library_model.dart';
 import '../../state/playlists_model.dart';
 import '../screens/book_lookup_dialog.dart';
@@ -16,6 +18,7 @@ import '../screens/cover_search_dialog.dart';
 import '../screens/details_screen.dart';
 import '../screens/edit_book.dart';
 import '../screens/edit_details.dart';
+import 'download_ui.dart';
 import 'quick_links.dart';
 import 'selectable_title.dart';
 
@@ -103,12 +106,20 @@ List<QuickAction> albumActions(BuildContext context, List<Album> albums) {
         () async => playlists.setFavouriteAlbums(albums, !allFavourite)),
     if (n == 1) _sidebarAction(lib, QuickLink(QuickLinkKind.album, albums.first.key, albums.first.title)),
     if (n == 1) QuickAction(Icons.content_copy, 'Copy title', () => copyTitle(context, albums.first.title)),
+    // From the music server: Download… / Remove downloads / Keep offline… (0.2.3).
+    ..._downloads(context, [for (final t in tracks) DownloadItem.track(t)],
+        keep: n == 1 ? (kind: KeepKind.album, key: albums.first.key, label: albums.first.title) : null),
     QuickAction(Icons.info_outline, 'Details…', () => openDetails(context,
         kind: n == 1 ? 'Album' : '$n albums',
         title: n == 1 ? albums.first.title : albums.map((a) => a.title).join(', '),
         tracks: tracks)),
   ];
 }
+
+/// The download options (0.2.3, download_ui.dart) as quick actions.
+List<QuickAction> _downloads(BuildContext context, List<DownloadItem> items,
+        {({KeepKind kind, String key, String label})? keep}) =>
+    [for (final o in downloadOptions(context, items, keep: keep)) QuickAction(o.icon, o.label, o.run)];
 
 /// "Add to sidebar" / "Remove from sidebar" for one album or audiobook (quick links, 0.1.64).
 QuickAction _sidebarAction(LibraryModel lib, QuickLink link) {
@@ -143,6 +154,8 @@ List<QuickAction> bookActions(BuildContext context, List<Book> books) {
         () async => playlists.setFavouriteBooks(books, !allFavourite)),
     if (n == 1) _sidebarAction(lib, QuickLink(QuickLinkKind.book, books.first.id, books.first.title)),
     if (n == 1) QuickAction(Icons.content_copy, 'Copy title', () => copyTitle(context, books.first.title)),
+    ..._downloads(context, [for (final t in parts) DownloadItem.track(t, book: true)],
+        keep: n == 1 ? (kind: KeepKind.book, key: books.first.id, label: books.first.title) : null),
     QuickAction(Icons.info_outline, 'Details…', () => openDetails(context,
         kind: n == 1 ? 'Audiobook' : '$n audiobooks',
         title: n == 1 ? books.first.title : books.map((b) => b.title).join(', '),

@@ -4,7 +4,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/video_item.dart';
+import '../../state/downloads_model.dart' show DownloadItem;
 import '../../state/video_library_model.dart';
+import 'download_ui.dart';
 import 'escape_cancels.dart';
 import '../screens/edit_video.dart';
 import 'selection_bar.dart';
@@ -57,6 +59,17 @@ class VideoSelectionBar extends StatelessWidget {
               onClear();
             },
           ),
+          // From a server: Download… / Remove downloads (0.2.3).
+          for (final o in downloadOptions(context, [for (final v in picked()) DownloadItem.video(v)]))
+            IconButton(
+              key: ValueKey('selection-${o.key}'),
+              tooltip: o.label.replaceAll('…', ''),
+              icon: Icon(o.icon),
+              onPressed: () async {
+                await o.run();
+                onClear();
+              },
+            ),
       ],
     ));
   }

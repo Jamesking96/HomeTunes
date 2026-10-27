@@ -1,16 +1,19 @@
 // The right-click / press-and-hold menu on a season or group heading (All videos and a
-// collection's page): Select all in it, Unselect, watched / not watched, Season title…, Fold.
-// Split out of screens/videos_screen.dart in refactor phase 6 (9 Oct 2026), unchanged.
+// collection's page): Select all in it, Unselect, watched / not watched, Season title…, Fold,
+// and (0.2.3) the season's download options.
+// Split out of screens/videos_screen.dart in refactor phase 6 (9 Oct 2026).
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/video_item.dart';
 import '../../state/video_library_model.dart';
+import 'download_ui.dart' show DownloadOption;
 
 enum _GroupAction { selectAll, unselect, watched, unwatched, rename, special, fold }
 
 /// The right-click (or long-press) menu on a season's heading (a collection's page, its in-place
 /// contents and All videos' group headings): Select all in the season, unselect it, mark it
 /// watched or not watched, and — where given — name the season and fold it up or open it.
+/// [downloads]: Download… / Keep offline… for the season (download_ui.dart's downloadOptions).
 Future<void> showVideoGroupMenu(
   BuildContext context, {
   required Offset at,
@@ -24,6 +27,7 @@ Future<void> showVideoGroupMenu(
   bool special = false,
   bool? folded,
   VoidCallback? onFold,
+  List<DownloadOption> downloads = const [],
 }) async {
   final model = context.read<VideoLibraryModel>();
   final ids = [for (final v in list) v.id];
@@ -31,13 +35,13 @@ Future<void> showVideoGroupMenu(
   final anyTicked = ids.any(selected.contains);
   final allWatched = list.every((v) => model.placeOf(v.id)?.watched ?? false);
   final anyWatched = list.any((v) => model.placeOf(v.id)?.watched ?? false);
-  PopupMenuItem<_GroupAction> item(_GroupAction a, String key, IconData icon, String text) => PopupMenuItem(
+  PopupMenuItem<Object> item(Object a, String key, IconData icon, String text) => PopupMenuItem(
         key: ValueKey(key),
         value: a,
         child: ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: Icon(icon), title: Text(text)),
       );
   final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-  final picked = await showMenu<_GroupAction>(
+  final picked = await showMenu<Object>(
     context: context,
     position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
     items: [
@@ -53,9 +57,12 @@ Future<void> showVideoGroupMenu(
             special ? 'Not special any more' : 'Mark as special…'),
       if (onFold != null && folded != null)
         item(_GroupAction.fold, 'group-fold', folded ? Icons.unfold_more : Icons.unfold_less, folded ? 'Open' : 'Fold up'),
+      for (final o in downloads) item(o, 'menu-${o.key}', o.icon, o.label),
     ],
   );
   switch (picked) {
+    case DownloadOption o:
+      await o.run();
     case _GroupAction.selectAll:
       onSelectAll();
     case _GroupAction.unselect:
@@ -70,6 +77,5 @@ Future<void> showVideoGroupMenu(
       onSpecial?.call();
     case _GroupAction.fold:
       onFold?.call();
-    case null:
   }
 }

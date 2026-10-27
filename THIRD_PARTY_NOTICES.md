@@ -89,6 +89,8 @@ and `HOMETUNES_CHANGES.md` in each folder describes what HomeTunes changed.
 | [media_kit](https://pub.dev/packages/media_kit), media_kit_video, media_kit_libs_video, media_kit_libs_windows_video, media_kit_libs_android_video | 1.2.6, 2.0.1, 1.0.7, 1.0.11, 1.3.8 | MIT | Hitesh Kumar Saini |
 | [image](https://pub.dev/packages/image) (video thumbnails) | 4.10.1 | MIT | Brendan Duncan |
 | [audio_service](https://pub.dev/packages/audio_service) | 0.18.19 | MIT | Ryan Heise and the project contributors |
+| [background_downloader](https://pub.dev/packages/background_downloader) (downloads from your servers, 0.2.3) | 9.6.4 | BSD 3-Clause | BBFlight LLC |
+| [connectivity_plus](https://pub.dev/packages/connectivity_plus) (Wi-Fi only downloads, 0.2.3) | 7.3.2 | BSD 3-Clause | The Chromium Authors |
 | [file_picker](https://pub.dev/packages/file_picker) | 13.1.0 | MIT | Miguel Ruivo |
 | [permission_handler_android](https://pub.dev/packages/permission_handler_android) | 14.1.0 | MIT | Baseflow |
 | [provider](https://pub.dev/packages/provider) | 6.1.5+1 | MIT | Remi Rousselet |

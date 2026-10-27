@@ -328,19 +328,43 @@ class VideoLibraryModel extends ChangeNotifier {
     await _save();
   }
 
+  /// A server video's downloaded copy here (downloads, 0.2.3; set by DownloadsModel): the file
+  /// and its subtitle files, as an address to play. Null when it isn't downloaded.
+  VideoAddress? Function(VideoItem v)? downloadedCopy;
+
+  /// A server video started playing (0.2.3: DownloadsModel downloads the next episodes ahead).
+  void Function(VideoItem v)? onServerVideoStarted;
+
   /// The file to play, if it's still there and inside a video folder (a restored backup could
-  /// name any path; 0.1.21 security review #3).
+  /// name any path; 0.1.21 security review #3). A server video's file is its downloaded copy.
   String? playableFile(VideoItem v) => isServerVideo(v)
-      ? null
+      ? downloadedCopy?.call(v)?.uri
       : (isUsableLocalFile(v.path, roots: library.videoFolders, extensions: videoFileExtensions) ? v.path : null);
 
   /// Where to play [v] from: its file, or (0.2.1) its server's address with the sign-in in
   /// headers. With [converted], a copy the server converts (for a device that can't play the
-  /// original), starting at [start]. Null when it can't be played now; [problemWith] says why.
+  /// original), starting at [start]. A downloaded copy plays first (0.2.3). Null when it can't be
+  /// played now; [problemWith] says why.
   Future<VideoAddress?> playableAddress(VideoItem v, {bool converted = false, Duration? start}) async {
-    if (isServerVideo(v)) return remote?.streamFor(v, converted: converted, start: start);
+    if (isServerVideo(v)) {
+      if (!converted) {
+        final copy = downloadedCopy?.call(v);
+        if (copy != null) return copy;
+      }
+      return remote?.streamFor(v, converted: converted, start: start);
+    }
     final file = playableFile(v);
     return file == null ? null : VideoAddress(file);
+  }
+
+  /// Gives [to] the place [from] had (Make it mine: the copy in your folder carries on where
+  /// the server one was; 0.2.3).
+  void adoptPlace(String from, String to) {
+    final place = _places[from];
+    if (place == null || _places.containsKey(to)) return;
+    _places[to] = place;
+    notifyListeners();
+    _saveSoon();
   }
 
   /// Why [v] can't be played now, in a sentence.
@@ -351,7 +375,10 @@ class VideoLibraryModel extends ChangeNotifier {
   /// The video page started playing [id] at [at] (a server video tells its server).
   void playbackStarted(String id, Duration at, {bool converted = false}) {
     final v = _byId[id];
-    if (v != null && isServerVideo(v)) remote?.started(v, at, converted: converted);
+    if (v != null && isServerVideo(v)) {
+      remote?.started(v, at, converted: converted);
+      onServerVideoStarted?.call(v);
+    }
   }
 
   /// The video page stopped playing [id] at [at] (a server video tells its server).

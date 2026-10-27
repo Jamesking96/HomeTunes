@@ -6,7 +6,7 @@ publish_to: 'none'
 # Format is <version>+<build number>: "0.1.9" is the human version (major.minor.patch);
 # "+9" is the build number, which Android uses to tell newer installs from older ones, so it
 # must go up with every release. tool/build_release.ps1 reads this line.
-version: 0.2.2+103
+version: 0.2.3+104
 
 # Minimum Dart and Flutter versions needed to build HomeTunes.
 environment:
@@ -70,6 +70,12 @@ dependencies:
   package_info_plus: ^10.2.1
   # image: shrinks a video's thumbnail to a small JPEG (Videos tab, 0.1.32; pure Dart, MIT).
   image: ^4.10.1
+  # Downloads from servers (0.2.3): resumable, Wi-Fi only on phones and TVs, and carry on in the
+  # background on Android (WorkManager). BSD-3 / MIT.
+  background_downloader: 9.6.4
+  # Whether the phone is on Wi-Fi, to say "Waiting for Wi-Fi" (0.2.3; also used by the
+  # downloader itself). BSD-3.
+  connectivity_plus: 7.3.2
 
 # Only needed while developing: the test framework and the recommended lint rules.
 dev_dependencies:

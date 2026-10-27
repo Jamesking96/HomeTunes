@@ -204,6 +204,31 @@ show but won't play until it's back. Music and audiobooks from Jellyfin are comi
 filter button's **Show only** sheet has a **Source** choice: **On this device**, **Streamed** or
 **Downloaded**.
 
+**Downloading from your servers.** Anything streamed from a server can be downloaded so it plays
+without the server (on a train, or with the server off). Open its menu (**⋮**, right-click, or
+press and hold) and choose **Download…**; HomeTunes asks which copy you want each time: the
+**original file**, or a **smaller copy** the server makes as it downloads (720p, say, for a video,
+or 192 kbit/s for music), with roughly how much space each takes. Songs, albums, audiobooks,
+playlists, Liked Songs, videos, whole collections and single seasons can all be downloaded, and
+so can whatever you've ticked in select mode. The same menu then has **Stop downloading** or
+**Remove download**.
+- **Keep offline…** (albums, audiobooks, playlists, Liked Songs, collections and seasons)
+  downloads everything in it now, and anything added to it later by itself. **Stop keeping
+  offline** asks whether to keep what it downloaded.
+- **Download next episodes:** while you watch a series from a server, the next two episodes
+  download, and each is removed again once you've watched it.
+- **Make it mine…** copies a downloaded song or video into one of your own folders, tidily named,
+  so it's one of your own files from then on (and where you got to in a video comes with it).
+- The **Downloads** page (in the sidebar, at the top of Your Library › Playlists, or Settings >
+  Servers > Downloads > See downloads) shows what's downloading, what's kept offline and
+  everything downloaded, with pause, carry on, try again and remove, and how much space it takes.
+- **Settings > Servers > Downloads:** where downloads go (HomeTunes' own data folder unless you
+  pick another), how much space they may take, how many next episodes to download and which copy.
+  On a phone or TV also **Download over Wi-Fi only** (on to start with) and **Keep downloading in
+  the background** (on: Keep offline and next episodes carry on while HomeTunes isn't on screen,
+  with a notification; off: they wait until you come back).
+- Backups remember what's kept offline and these settings, not the downloaded files themselves.
+
 If you type an address without `http://` or `https://`, HomeTunes tries a secure (https)
 connection first. If the server is on the internet and only answers over plain http, HomeTunes
 asks before using it, because your sign-in could then be read on the way. Addresses on your home

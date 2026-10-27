@@ -20,7 +20,9 @@ import '../screens/details_screen.dart';
 import '../screens/edit_details.dart';
 import '../screens/lyrics_dialogs.dart';
 import '../theme.dart';
+import '../../state/downloads_model.dart' show DownloadItem;
 import 'artwork.dart';
+import 'download_ui.dart';
 import 'selectable_title.dart';
 import 'source_mark.dart';
 import '../tv/tv_keyboard.dart' show TvTextField;
@@ -246,6 +248,8 @@ class TrackMenuButton extends StatelessWidget {
             value: () => context.read<SelectionModel>().toggle(track.id),
             child: _row(Icons.check_box_outlined, 'Select'),
           ),
+        // A server song: Download… / Remove download / Make it mine… (0.2.3).
+        ...downloadMenuItems(context, [DownloadItem.track(track, book: lib.bookOfTrack(track.id) != null)]),
         if (extraAction != null) ...[const PopupMenuDivider(), extraAction!],
       ];
   }

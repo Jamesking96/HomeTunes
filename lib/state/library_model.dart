@@ -809,6 +809,10 @@ class LibraryModel extends ChangeNotifier {
 
   // ---- playback helpers ----
 
+  /// A server song's downloaded copy on this device, if it has one (downloads, 0.2.3; set by
+  /// DownloadsModel). It plays instead of streaming, so it works without the server.
+  String? Function(String trackId)? downloadedFile;
+
   /// What the player should open for this track: a file path or a stream URL.
   String? playableUri(Track t) {
     // Null means "can't play this right now"; the player then skips the song.
@@ -818,9 +822,21 @@ class LibraryModel extends ChangeNotifier {
       final path = t.path;
       return path != null && isInsideAny(path, _scanFolders) && File(path).existsSync() ? path : null;
     }
+    // Downloaded: the copy here plays first (0.2.3).
+    final copy = downloadedFile?.call(t.id);
+    if (copy != null) return copy;
     final c = _client;
     if (c == null || t.remoteId == null) return null;
     return c.streamUrl(t.remoteId!);
+  }
+
+  /// The address to download a server song from (0.2.3): the original file, or with [kbps] a
+  /// smaller MP3 the server converts. Null when the server isn't connected.
+  String? serverDownloadUrl(Track t, {int? kbps}) {
+    final c = _client;
+    final id = t.remoteId;
+    if (c == null || id == null || t.isLocal) return null;
+    return kbps == null ? c.downloadUrl(id) : c.convertedUrl(id, kbps);
   }
 
   /// The song's music video file, if it has one that can be shown now (0.1.40): a local song,

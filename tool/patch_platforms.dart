@@ -42,6 +42,12 @@ void _android() {
     '<uses-permission android:name="android.permission.WAKE_LOCK"/>',
     '<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>',
     '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>',
+    // Downloads (0.2.3, background_downloader): long downloads run as a "data sync" foreground
+    // job with a notification, so Android doesn't stop them after 9 minutes; Wi-Fi only needs to
+    // see the network state.
+    '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>',
+    '<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>',
+    '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>',
   ];
   // Add each permission only if the manifest doesn't already mention it, inserting it just
   // above the <application> tag.
@@ -98,6 +104,14 @@ void _android() {
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>
         </receiver>
+    </application>''');
+  }
+  // Downloads (0.2.3): WorkManager's foreground service, as a data-sync one (background_downloader's
+  // "run in foreground" needs it declared by the app on Android 14+).
+  if (!s.contains('androidx.work.impl.foreground.SystemForegroundService')) {
+    s = s.replaceFirst('</application>', '''    <service android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
     </application>''');
   }
   // Android TV / Google TV (0.2.0): the TV only lists apps that don't require a touchscreen and

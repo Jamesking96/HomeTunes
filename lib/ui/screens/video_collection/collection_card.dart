@@ -166,6 +166,9 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c,
   final lib = model.library;
   final link = QuickLink(QuickLinkKind.collection, c.name, c.name);
   final linked = lib.isQuickLink(link.kind, link.id);
+  // From a server: Download… / Remove downloads / Keep offline… for the whole collection (0.2.3).
+  final downloads = downloadOptions(context, [for (final v in c.videos) DownloadItem.video(v)],
+      keep: (kind: KeepKind.collection, key: c.key, label: c.name));
   final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
   final choice = await showMenu<String>(
     context: context,
@@ -173,6 +176,11 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c,
     items: [
       const PopupMenuItem(
           value: 'open', child: ListTile(leading: Icon(Icons.open_in_new), title: Text('Open collection page'))),
+      for (final o in downloads)
+        PopupMenuItem(
+            key: ValueKey('menu-${o.key}'),
+            value: 'dl:${o.key}',
+            child: ListTile(leading: Icon(o.icon), title: Text(o.label))),
       if (next != null)
         PopupMenuItem(
           value: 'play',
@@ -210,6 +218,12 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c,
     ],
   );
   if (!context.mounted) return;
+  if (choice != null && choice.startsWith('dl:')) {
+    for (final o in downloads) {
+      if ('dl:${o.key}' == choice) await o.run();
+    }
+    return;
+  }
   switch (choice) {
     case 'copy':
       await copyTitle(context, c.name);

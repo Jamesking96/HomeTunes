@@ -21,6 +21,7 @@ import '../../../state/library_model.dart';
 import '../../../state/server_videos.dart';
 import '../../../state/servers_model.dart';
 import '../../theme.dart';
+import 'download_settings.dart';
 import 'settings_widgets.dart';
 import '../../tv/tv_keyboard.dart' show TvTextField;
 
@@ -104,6 +105,8 @@ class ServerSettingsState extends State<ServerSettings> {
             'video-server',
             child: _ServerSection(kind: MediaKind.videos, servers: servers),
           ),
+          // Downloading from the servers (0.2.3).
+          const DownloadSettings(),
           const _ServerTypesNote(),
         ],
       ),

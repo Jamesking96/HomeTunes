@@ -18,6 +18,7 @@ import '../services/window_pin.dart';
 import '../state/library_model.dart';
 import '../models/book.dart';
 import '../models/track.dart';
+import '../state/downloads_model.dart' show DownloadItem;
 import '../state/player_model.dart';
 import '../state/playlists_model.dart';
 import '../state/selection_model.dart';
@@ -33,6 +34,7 @@ import 'screens/videos_screen.dart';
 import 'theme.dart';
 import 'tv/tv_focus.dart';
 import 'widgets/always_on_top_button.dart';
+import 'widgets/download_ui.dart';
 import 'widgets/escape_cancels.dart';
 import 'widgets/player_controls.dart';
 import 'widgets/quick_actions.dart';
@@ -318,6 +320,18 @@ class _SelectionBar extends StatelessWidget {
                 sel.clear();
               },
             ),
+            // From the music server: Download… / Remove downloads (0.2.3).
+            for (final o in downloadOptions(context,
+                [for (final t in picked()) DownloadItem.track(t, book: lib.bookOfTrack(t.id) != null)]))
+              IconButton(
+                key: ValueKey('selection-${o.key}'),
+                tooltip: o.label.replaceAll('…', ''),
+                icon: Icon(o.icon),
+                onPressed: () async {
+                  await o.run();
+                  sel.clear();
+                },
+              ),
       ],
     );
   }
