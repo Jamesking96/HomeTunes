@@ -203,6 +203,37 @@ class VideoItem {
   VideoItem copyWith({String? thumb, Duration? duration, int? width, int? height}) =>
       _with(thumb: thumb, duration: duration, width: width, height: height);
 
+  /// A copy with other pictures: a server video's still and poster, once downloaded (0.2.1).
+  VideoItem withPictures({String? thumb, String? cover}) => VideoItem(
+        id: id,
+        path: path,
+        title: title,
+        collection: collection,
+        category: category,
+        season: season,
+        episode: episode,
+        subSeason: subSeason,
+        part: part,
+        seasonTitle: seasonTitle,
+        extra: extra,
+        specialTitle: specialTitle,
+        year: year,
+        genre: genre,
+        description: description,
+        duration: duration,
+        width: width,
+        height: height,
+        modifiedMs: modifiedMs,
+        sizeBytes: sizeBytes,
+        thumb: thumb ?? this.thumb,
+        cover: cover ?? this.cover,
+        subtitles: subtitles,
+        addedMs: addedMs,
+        scan: scan,
+        showPlot: showPlot,
+        nfoMs: nfoMs,
+      );
+
   /// A copy marked special with [title] (0.1.66), or not special when null.
   VideoItem withSpecial(String? title) =>
       title == specialTitle ? this : _with(specialTitle: title, clear: title == null ? const {'specialTitle'} : const {});

@@ -88,6 +88,9 @@ class CollectionCard extends StatelessWidget {
                       top: 6,
                       child: Icon(Icons.favorite, color: accent, size: 20, shadows: const [Shadow(blurRadius: 4)]),
                     ),
+                  // Streamed from a server (or partly), or downloaded (0.2.2).
+                  if (SourceBadge.forSources(sourcesOfVideos(c.videos)) case final mark?)
+                    Positioned(left: 6, bottom: total > 0 && watched > 0 ? 10 : 6, child: mark),
                   if (total > 0 && watched > 0)
                     Positioned(
                       left: 0,
@@ -104,6 +107,8 @@ class CollectionCard extends StatelessWidget {
                           color: selected ? accent : Colors.white70, shadows: const [Shadow(blurRadius: 4)]),
                     ),
                   if (selected) Container(color: accent.withValues(alpha: 0.25)),
+                  // Downloading some or all of it: how far, along the top (27 Oct).
+                  Positioned(left: 0, right: 0, top: 0, child: DownloadProgressBar(ids: [for (final v in c.videos) v.id])),
                   // Its contents are open under the row.
                   if (highlighted)
                     DecoratedBox(
@@ -163,6 +168,9 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c,
   final lib = model.library;
   final link = QuickLink(QuickLinkKind.collection, c.name, c.name);
   final linked = lib.isQuickLink(link.kind, link.id);
+  // From a server: Download… / Remove downloads / Keep offline… for the whole collection (0.2.3).
+  final downloads = downloadOptions(context, [for (final v in c.videos) DownloadItem.video(v)],
+      keep: (kind: KeepKind.collection, key: c.key, label: c.name));
   final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
   final choice = await showMenu<String>(
     context: context,
@@ -170,6 +178,11 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c,
     items: [
       const PopupMenuItem(
           value: 'open', child: ListTile(leading: Icon(Icons.open_in_new), title: Text('Open collection page'))),
+      for (final o in downloads)
+        PopupMenuItem(
+            key: ValueKey('menu-${o.key}'),
+            value: 'dl:${o.key}',
+            child: ListTile(leading: Icon(o.icon), title: Text(o.label))),
       if (next != null)
         PopupMenuItem(
           value: 'play',
@@ -207,6 +220,12 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c,
     ],
   );
   if (!context.mounted) return;
+  if (choice != null && choice.startsWith('dl:')) {
+    for (final o in downloads) {
+      if ('dl:${o.key}' == choice) await o.run();
+    }
+    return;
+  }
   switch (choice) {
     case 'copy':
       await copyTitle(context, c.name);

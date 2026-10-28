@@ -14,13 +14,17 @@ import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
 import '../../state/range_select.dart';
 import '../../state/selection_model.dart';
+import '../../state/source_filter.dart' show sourceOfTrack;
 import '../nav.dart';
 import '../screens/details_screen.dart';
 import '../screens/edit_details.dart';
 import '../screens/lyrics_dialogs.dart';
 import '../theme.dart';
+import '../../state/downloads_model.dart' show DownloadItem;
 import 'artwork.dart';
+import 'download_ui.dart';
 import 'selectable_title.dart';
+import 'source_mark.dart';
 import '../tv/tv_keyboard.dart' show TvTextField;
 
 /// One song row. Tapping plays [list] starting at [index].
@@ -93,14 +97,10 @@ class TrackTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(color: isCurrent ? accent : null, fontWeight: FontWeight.w500),
       ),
-      // Subtitle: a small cloud for server songs, then artist (and album, unless we're on the
-      // album's own page).
+      // Subtitle: a small cloud for server songs (with a tick once downloaded, 0.2.2), then artist
+      // (and album, unless we're on the album's own page).
       subtitle: Row(children: [
-        if (!track.isLocal)
-          Padding(
-            padding: EdgeInsets.only(right: 4),
-            child: Icon(Icons.cloud_outlined, size: 13, color: AppColors.textDim),
-          ),
+        if (!track.isLocal) SourceInline(sourceOfTrack(track)),
         Expanded(
           child: Text(
             showNumber ? track.artist : '${track.artist} · ${track.album}',
@@ -248,6 +248,8 @@ class TrackMenuButton extends StatelessWidget {
             value: () => context.read<SelectionModel>().toggle(track.id),
             child: _row(Icons.check_box_outlined, 'Select'),
           ),
+        // A server song: Download… / Remove download / Make it mine… (0.2.3).
+        ...downloadMenuItems(context, [DownloadItem.track(track, book: lib.bookOfTrack(track.id) != null)]),
         if (extraAction != null) ...[const PopupMenuDivider(), extraAction!],
       ];
   }

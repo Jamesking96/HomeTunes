@@ -14,6 +14,7 @@ import '../models/video_item.dart';
 import 'screens/album_screen.dart';
 import 'screens/artist_screen.dart';
 import 'screens/book_screen.dart';
+import 'screens/downloads_screen.dart';
 import 'screens/playlist_screen.dart';
 import 'screens/series_screen.dart';
 import 'screens/video_collection_screen.dart';
@@ -21,6 +22,7 @@ import 'screens/settings/update_ui.dart' show appNavigatorKey;
 import 'screens/video_player_screen.dart';
 import 'tv/tv_book_pages.dart';
 import 'tv/tv_collection_page.dart';
+import 'tv/tv_downloads.dart' show TvDownloadsPage;
 import 'tv/tv_pages.dart';
 import 'tv/tv_video_player.dart';
 
@@ -114,6 +116,27 @@ class AppNav extends ChangeNotifier {
   void openArtist(String name) => push(tv ? TvArtistPage(name: name) : ArtistScreen(name: name));
   void openPlaylist(Playlist p) => push(tv ? TvPlaylistPage(playlistId: p.id) : PlaylistScreen(playlistId: p.id));
   void openLiked() => push(tv ? const TvPlaylistPage.liked() : const PlaylistScreen.liked());
+
+  /// The Downloads page (0.2.3), on the Library tab.
+  void openDownloads() {
+    if (tab != libraryTab) {
+      tab = libraryTab;
+      notifyListeners();
+    }
+    // TV mode: the TV's own page (tv/tv_downloads.dart). The tab's navigator may only now be
+    // shown, so wait a frame, as openBook does.
+    WidgetsBinding.instance.addPostFrameCallback((_) => push(tv ? const TvDownloadsPage() : const DownloadsScreen()));
+  }
+
+  /// The download queue (27 Oct): everything on its way, in the order it'll download.
+  void openDownloadQueue() {
+    if (tab != libraryTab) {
+      tab = libraryTab;
+      notifyListeners();
+    }
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => push(tv ? const TvDownloadsPage(queueOnly: true) : const DownloadQueueScreen()));
+  }
 
   /// Opens a book's page on the Books tab.
   void openBook(Book b) {

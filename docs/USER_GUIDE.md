@@ -183,11 +183,90 @@ its switch off in the **Audiobooks** section to keep them out).
 The Servers page has a section each for **Music**, **Audiobooks** and **Videos**, and you can add
 as many servers as you like: Subsonic, Jellyfin, Plex, Emby, Audiobookshelf, or a HomeTunes
 server. A server that has all three kinds shows in all three sections, with a switch in each to
-use it for that kind. **Test connection** checks the server is there and what it is. For now
-HomeTunes plays from **one Subsonic server at a time**; any others are kept, ready for when
-playing from them is added (**Kinds of server** at the bottom of the page shows what works now).
-To switch to another Subsonic server you've added, use its **⋮** menu › **Make this the main music
-server**.
+use it for that kind. **Test connection** checks the server is there and what it is (and, for
+Jellyfin, that your user name and password work). Music and audiobooks play from **one Subsonic
+server at a time**; to switch to another Subsonic server you've added, use its **⋮** menu ›
+**Make this the main music server**. **Kinds of server** at the bottom of the page shows what
+works now.
+
+**Videos from Jellyfin.** Add your Jellyfin server under **Videos** (for example
+`http://192.168.1.81:8096`, with your Jellyfin user name and password) and leave its switch on.
+HomeTunes signs in and its films and series show in the **Videos** tab alongside your own, with
+their seasons, episodes and pictures. They play straight from the server; if a device can't play
+a file as it is, HomeTunes asks the server for a copy it can play. Where you stop, and what you've
+watched, is kept the same in HomeTunes and Jellyfin's own apps, both ways. The server's card says
+how many videos it has and when it was last read; its **⋮** menu has **Sync now**, **Libraries…**
+(to leave a library out) and **Sign out on this device**. When the server is off, its videos still
+show but won't play until it's back. Music and audiobooks from Jellyfin are coming later.
+
+**What's streamed and what's yours.** Anything from a server has a small cloud mark on its card
+(a cloud with a tick once it's downloaded). When a tab has things from more than one place, its
+filter button's **Show only** sheet has a **Source** choice: **On this device**, **Streamed** or
+**Downloaded**.
+
+**Downloading from your servers.** Anything streamed from a server can be downloaded so it plays
+without the server (on a train, or with the server off). Open its menu (**⋮**, right-click, or
+press and hold) and choose **Download…**; HomeTunes asks which copy you want each time: the
+**original file**, or a **smaller copy** the server makes as it downloads (720p, say, for a video,
+or 192 kbit/s for music), with roughly how much space each takes. Songs, albums, audiobooks,
+playlists, Liked Songs, videos, whole collections and single seasons can all be downloaded, and
+so can whatever you've ticked in select mode. The same menu then has **Stop downloading** or
+**Remove download**.
+- **Keep offline…** (albums, audiobooks, playlists, Liked Songs, collections and seasons)
+  downloads everything in it now, and anything added to it later by itself. **Stop keeping
+  offline** asks whether to keep what it downloaded.
+- **Download next episodes:** while you watch a series from a server, the next two episodes
+  download, and each is removed again once you've watched it.
+- **Remove downloaded videos once watched** (Settings > Servers > Downloads, off to start
+  with): a film or episode you downloaded is removed when you finish watching it, to free the
+  space. One you'd already watched before downloading it stays until you watch it again. If it
+  was part of something kept offline, it isn't downloaded again.
+- **Make it mine…** copies a downloaded song or video into one of your own folders, tidily named,
+  so it's one of your own files from then on (and where you got to in a video comes with it).
+- The **Downloads** page (in the sidebar, at the top of Your Library › Playlists, or Settings >
+  Servers > Downloads > See downloads) shows what's downloading, what's kept offline and
+  everything downloaded, with pause, carry on, try again and remove, and how much space it takes.
+- **Settings > Servers > Downloads:** where downloads go (HomeTunes' own data folder unless you
+  pick another: choose the **Download folder** row; once you've picked one, the same row offers
+  going back to HomeTunes' own, and a folder HomeTunes can't save in is turned down with a
+  message), how much space they may take, how many next episodes to download and which copy.
+  On a phone or TV also **Download over Wi-Fi only** (on to start with) and **Keep downloading in
+  the background** (on: Keep offline and next episodes carry on while HomeTunes isn't on screen,
+  with a notification; off: they wait until you come back).
+- Backups remember what's kept offline and these settings, not the downloaded files themselves.
+
+**Download or Keep offline?** (Also in the app: **Settings > Servers > Downloads > Download or
+Keep offline?**, or the Downloads page's ⋮ menu.)
+- **Download** copies exactly what you chose onto this device, as it is now: one song or
+  episode, or a whole album, playlist, season or collection. It then plays without the server.
+  Anything the server adds to it later isn't downloaded.
+- **Keep offline** is for an album, playlist, Liked Songs, audiobook, collection or season.
+  Everything in it downloads now, and anything added to it later downloads by itself, so it
+  stays complete. Remove one thing from it and that one is skipped from then on. Stop keeping it
+  offline and you choose whether to keep what it downloaded.
+- Both stay until you remove them (episodes downloaded ahead go once watched), and both ask which
+  copy you want. **Temporary copies** (below) are different again: saved as you stream, and
+  cleared away by themselves.
+
+**Seeing a download's progress.** While a video downloads, a thin bar along the top of its
+picture fills up; a collection (or series) shows one bar for everything of it that's
+downloading. The bar is your highlight colour while downloading and grey while waiting its
+turn. **Download queue** (Settings > Servers > Downloads, or the queue button on the Downloads
+page) lists everything on its way, numbered in the order it'll download (two at a time), each
+with its bar, with pause, carry on, try again and stop. On a TV it's on the Downloads page
+(Queue).
+
+**Temporary copies.** If you'd like what you stream to play again without the server, but don't
+want to manage downloads, turn on **Settings > Servers > Temporary copies > Save a copy while
+streaming**. Anything from a server then plays straight away and is saved in the background as
+it plays; next time it plays from this device. A temporary copy is cleared away by itself a
+while after you've finished it (watched to the end, played through, or the audiobook finished):
+choose **Delete after** 1, 3, 7 or 30 days, or turn on **Don't delete automatically** to keep
+them until you clear them. They have their own space (**Space for temporary copies**, 10 GB to
+start with): when it's full, the copies you finished longest ago go first. **Clear now**
+removes them all. Temporary copies show a small clock on their mark, count as **Downloaded** in
+the Source filter, and have their own section on the Downloads page. **Keep this copy** in a
+temporary copy's menu turns it into an ordinary download, which is never cleared by itself.
 
 If you type an address without `http://` or `https://`, HomeTunes tries a secure (https)
 connection first. If the server is on the internet and only answers over plain http, HomeTunes
@@ -384,6 +463,9 @@ On a TV, HomeTunes has its own screens, made to be used from the sofa with just 
 - **Moving about:** the arrows move the highlight and **OK** opens or plays what's highlighted.
   **Back** goes back. Press **←** at the left edge of a screen to open the menu (Home, Music,
   Audiobooks, Videos, Search, Settings and what's playing).
+- **Leaving HomeTunes:** when there's nowhere left to go back to, **Back** shows "Press Back
+  again to leave HomeTunes" at the bottom; press it again within a few seconds to leave (music
+  keeps playing). Otherwise the message goes and you stay.
 - **Options:** **hold OK** on a song, album, artist, playlist, audiobook, series, video or
   collection for everything you can do with it (play next, add to a playlist, edit its details…).
 - **Long lists:** in Music, Audiobooks and Videos, press **→** at the right edge to jump through the
@@ -391,7 +473,8 @@ On a TV, HomeTunes has its own screens, made to be used from the sofa with just 
 - **Videos:** press any button to bring up the controls. On the progress bar, **← →** move a marker
   through the video (with a picture of that moment) and OK jumps there. **Hold OK** on the bar, or
   on a video anywhere, for **Watch from the beginning**. The remote's play / pause and next buttons
-  work whenever a video is playing.
+  work whenever a video is playing. **Back** puts the marker away, then hides the controls
+  (playing or paused), and only then leaves the video.
 - **Typing:** search and every box you type in use an on-screen keyboard: move to a letter and press
   OK. **Shift** gives capitals and **#+=** symbols and accents; **Done** finishes. A keyboard
   plugged into the TV types too.

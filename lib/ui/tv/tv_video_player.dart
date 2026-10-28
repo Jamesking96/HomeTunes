@@ -234,20 +234,46 @@ class _TvVideoViewState extends State<TvVideoView> {
     if (focusCatcher) _catcher.requestFocus();
   }
 
-  /// Back: the marker, then the controls, then the player itself.
+  /// Back: the marker, then the controls, then the player itself. The controls go first whether
+  /// it's playing or paused (27 Oct, the user: "pressing back should first hide the overlay if
+  /// it's present, if not it back out of the video"; paused, Back used to close the player).
   void _back() {
     if (_bar.scrubbing) {
       _bar.cancel();
-    } else if (_shown && _engine.isPlaying && _s.problem == null) {
+    } else if (_canHide) {
       _hide();
     } else {
       Navigator.of(context).pop();
     }
   }
 
+  /// Back would hide the controls (rather than close the player).
+  bool get _canHide => _shown && _s.problem == null && _s.upNext == null;
+
+  /// A Back press was used here: its letting go is taken too (see [_key]).
+  bool _backTaken = false;
+
   KeyEventResult _key(FocusNode node, KeyEvent e) {
-    if (e is KeyUpEvent) return KeyEventResult.ignored;
     final k = e.logicalKey;
+    // The remote's Back: Android goes back when it's let go (the system's Back, PopScope
+    // below). So a press used here (the marker put away, the controls hidden) takes its letting
+    // go too, or one press did that and then closed the player (27 Oct, seen on the Family room
+    // TV). A press that would close the player is left to the system's Back, so its letting go
+    // doesn't land on the page underneath and go back there as well.
+    if (k == LogicalKeyboardKey.goBack) {
+      if (e is KeyUpEvent) {
+        final taken = _backTaken;
+        _backTaken = false;
+        return taken ? KeyEventResult.handled : KeyEventResult.ignored;
+      }
+      if (e is KeyDownEvent && (_bar.scrubbing || _canHide)) {
+        _backTaken = true;
+        _back();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+    if (e is KeyUpEvent) return KeyEventResult.ignored;
     // The remote's media keys, whatever has focus.
     if (e is KeyDownEvent) {
       if (k == LogicalKeyboardKey.mediaPlayPause) return _do(_engine.playOrPause);
@@ -257,7 +283,7 @@ class _TvVideoViewState extends State<TvVideoView> {
       if (k == LogicalKeyboardKey.mediaRewind) return _do(() => _s.skip(forward: false));
       if (k == LogicalKeyboardKey.mediaTrackNext) return _do(() => _s.jump(forward: true));
       if (k == LogicalKeyboardKey.mediaTrackPrevious) return _do(() => _s.jump(forward: false));
-      if (k == LogicalKeyboardKey.escape || k == LogicalKeyboardKey.goBack) {
+      if (k == LogicalKeyboardKey.escape) {
         _back();
         return KeyEventResult.handled;
       }

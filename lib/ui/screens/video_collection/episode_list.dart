@@ -54,6 +54,9 @@ mixin _EpisodeSelection<T extends StatefulWidget> on State<T> {
           : (s == null ? null : () => showSpecialSeasonDialog(context, c, s.season, s.sub)),
       folded: folded,
       onFold: onFold,
+      // From a server: download the season, or keep it offline (0.2.3).
+      downloads: downloadOptions(context, [for (final v in list) DownloadItem.video(v)],
+          keep: (kind: KeepKind.season, key: DownloadsModel.seasonKey(c, heading), label: '${c.name} – $heading')),
     );
   }
 
@@ -244,6 +247,8 @@ class EpisodeRow extends StatelessWidget {
                   borderRadius: AppShape.circular(6),
                   child: Stack(fit: StackFit.expand, children: [
                     _Picture(file: model.thumbFile(video), icon: Icons.movie_outlined),
+                    // Downloading: how far it's got, along the top (27 Oct).
+                    Positioned(left: 0, right: 0, top: 0, child: DownloadProgressBar(ids: [video.id], height: 3)),
                     if (progress > 0 && !(place?.watched ?? false))
                       Positioned(
                         left: 0,

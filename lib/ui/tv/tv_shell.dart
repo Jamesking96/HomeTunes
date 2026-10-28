@@ -85,6 +85,12 @@ class _TvShellState extends State<TvShell> {
     });
   }
 
+  /// When Back was last pressed with nowhere left to go back to (the leave message showing).
+  DateTime? _leaveAskedAt;
+
+  /// How long the "press Back again" message lasts, and the second press may come in.
+  static const leaveWindow = Duration(seconds: 3);
+
   Future<void> _back(AppNav nav) async {
     final pages = nav.current;
     if (pages != null && pages.canPop()) {
@@ -94,7 +100,26 @@ class _TvShellState extends State<TvShell> {
     } else if (nav.tab != 0) {
       nav.selectTab(0);
     } else {
-      await sendAppToBackground();
+      // Twice to leave (27 Oct, the user: "press the back button twice to leave the app with a
+      // message showing at the bottom"), so one press too many doesn't drop you out of the app.
+      final asked = _leaveAskedAt;
+      final now = DateTime.now();
+      if (asked != null && now.difference(asked) < leaveWindow) {
+        _leaveAskedAt = null;
+        ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+        await sendAppToBackground();
+        return;
+      }
+      _leaveAskedAt = now;
+      ScaffoldMessenger.maybeOf(context)
+        ?..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(
+          key: ValueKey('tv-leave-hint'),
+          duration: leaveWindow,
+          behavior: SnackBarBehavior.floating,
+          width: 460,
+          content: Text('Press Back again to leave HomeTunes', textAlign: TextAlign.center, style: TextStyle(fontSize: 16)),
+        ));
     }
   }
 

@@ -35,7 +35,11 @@ class FilterField<T> {
   /// The order the choices are listed in, when A–Z doesn't fit (e.g. lengths shortest first;
   /// the Videos tab, 0.1.40). Null: A–Z.
   final int Function(String a, String b)? order;
-  const FilterField(this.label, this.values, {this.order});
+
+  /// Only shown in the sheet when the items have two or more choices, or one is picked (the
+  /// Source field, 0.2.2: no point offering it when everything is on this device).
+  final bool onlyWhenSeveral;
+  const FilterField(this.label, this.values, {this.order, this.onlyWhenSeveral = false});
 }
 
 /// The choices picked in a filter sheet, by field label (e.g. {"Genre": "Jazz"}).

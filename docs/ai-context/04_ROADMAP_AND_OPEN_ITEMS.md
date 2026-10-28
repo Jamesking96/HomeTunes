@@ -77,7 +77,8 @@ while commenting".
 | T: Android TV (0.2.0, the start of the next level) | First (reordered 13 Oct, the user's choice). Not started. See "Platforms plan" below |
 | A: Android Auto (0.2.1) | After T |
 | L: Linux build, incl. Steam Deck (0.2.2) | Last (13 Oct): WSL2 can't be installed on the current PC, so L1 (the Linux build) needs another PC. Paused 1 Oct; on hold 6 Oct. `feature/linux` was deleted. See "Platforms plan" below |
-| D: offline copies of server songs (was phase 4) | After the server review |
+| Servers & Downloads plan (25 Oct, https://claude.ai/artifact/HgXrQMQB5vnt3WVkwyxj2W): 1 Jellyfin videos (0.2.1), 2 Source filter (0.2.2), 3 downloads with Keep offline / next episodes / Wi-Fi only + limit / Make it mine (0.2.3), 4 temporary copies (0.2.4) | Step 4 (temporary copies, 0.2.4+105) built 27 Oct on `feature/temporary-copies`, branched from step 3: all four steps built, to be released together once tried. 28 Oct, the user's fixes from the Family room TV, on the same branch (0.2.4+106, installed on the TV over the network): Remove downloaded videos once watched (a setting, off by default); the Download folder row is now the button (the remote couldn't reach "Change…") and write-tests the folder; on the TV Back twice to leave the app ("Press Back again to leave HomeTunes"); in the TV video player Back hides the controls first, paused too (and the remote's Back no longer counts twice: Android goes back on the key's release). Step 3 (downloads, 0.2.3+104) built 27 Oct on `feature/downloads`, branched from step 2 (TV download options added the same evening). Step 2 (Source filter, 0.2.2+103) built 27 Oct on `feature/source-filter`, branched from step 1. Step 1 built on `feature/jellyfin-videos` (25 Oct), waiting for the user to sign in and try it. See `03_…` → Jellyfin videos. Answers (27 Oct): downloads in the data folder by default, a setting to pick another folder; background Keep offline / next-episode downloads on the phone, with a message saying so and an off switch; all steps released together after step 4 |
+| D: offline copies of server songs (was phase 4) | Folded into step 3 of the Servers & Downloads plan (downloads cover Navidrome songs and books too) |
 | E: audiobook server (Audiobookshelf) | New 25 Sep. Needs a plan. The order relative to D isn't decided |
 
 ### Modular refactor (agreed 8 Oct)
@@ -380,7 +381,8 @@ moved to `ui/widgets/video_card.dart` in the refactor.
     6 search, 7 settings and edit forms. Replaces the rest of T3 and T4.
   - **Step 1 done 23 Oct (0.2.0+95, pushed), waiting for the user's TV test:** `ui/tv/tv_shell.dart` (TvShell:
     the rail + AppNav's same six tab navigators via Shell's now-public `TabPages`; `AppHome` picks TvShell or
-    Shell by `tvLayout`; Back: a page back, then onto the rail, then Home, then `sendAppToBackground`),
+    Shell by `tvLayout`; Back: a page back, then onto the rail, then Home, then (28 Oct) a "Press Back again to
+    leave HomeTunes" SnackBar, and a second Back within `TvShell.leaveWindow` (3 s) `sendAppToBackground`),
     `tv_rail.dart`, `tv_widgets.dart` (TvPressable: OK presses, holding OK 500 ms is hold; TvFocusFrame,
     TvTile, TvRow, TvHints), `tv_options.dart` (showTvOptions, the panel from the right). Tests:
     `test/tv_frame_test.dart`. The pages inside are still the old screens until steps 2-7. Paused there by the
@@ -461,7 +463,12 @@ moved to `ui/widgets/video_card.dart` in the refactor.
       Episodes, Next, More at the bottom), shown when it opens and with any press, hidden after 5 s of playing
       (not while paused, scrubbing, a panel is open or Up next shows). While hidden, the first press only shows
       them (`_catcher` holds focus). The remote's media keys work at any time. Back: marker → controls → close
-      (`Navigator.pop`, not `maybePop`: the page's PopScope would call Back again forever). Panels: Audio &
+      (`Navigator.pop`, not `maybePop`: the page's PopScope would call Back again forever). 28 Oct: the controls
+      go first paused too (the user), and the remote's Back (`goBack`) is only taken as a key when it's used
+      (marker / controls), its release taken with it (`_backTaken`; also in `tv_seek_bar.dart` and
+      `seek_preview_overlay.dart`): Android goes back on Back's release, so a used press then also closed the
+      player; a press that closes is left to the system's Back (PopScope), so its release doesn't land on the
+      page underneath. Escape (a keyboard) still goes through `_back()` directly. Panels: Audio &
       subtitles (Audio › and Subtitles › lists, remembered for the collection), Speed (0.5–2×), Episodes (the
       collection, the one playing first), More (From the start, Previous, Mark as watched, Sleep timer, Details,
       Go to the collection). Up next: a card with the countdown; Play now gets focus. In TV mode
@@ -551,6 +558,9 @@ moved to `ui/widgets/video_card.dart` in the refactor.
   - Jellyfin/Plex later.
 
 ### D: Offline server songs
+- **Built 27 Oct as step 3 of the Servers & Downloads plan (0.2.3+104, `feature/downloads`):**
+  everything below is in, for songs, audiobooks and Jellyfin videos (`03_…` → Downloads). Still
+  open: crossfade. The TV screens got their download options on 27 Oct too. The notes below are the original plan.
 - **Needs first:** the server review (below), including whether the Navidrome server can transcode.
 - **Downloading:** download a song, album, playlist or Liked Songs. A "Keep offline" option
   follows albums and playlists. The quality is either the original or a server-converted copy.

@@ -181,6 +181,14 @@ void main() {
             {'id': 's1', 'type': 'jellyfin', 'name': 'Den', 'url': 'http://den:8096', 'username': 'james', 'use': ['videos']},
           ],
         },
+        // 0.2.3: the list of downloaded files never goes in a backup, so this one has none.
+        'downloads.json': {
+          'entries': <Object>[],
+          'kept': [
+            {'kind': 'collection', 'key': 'silo', 'label': 'Silo', 'quality': 'v720'},
+          ],
+          'settings': {'ahead': 2, 'limitGb': 50},
+        },
       };
       expect(files.keys.toSet(), AppBackup.dataFiles.toSet(), reason: 'a data file was added: add it here too');
       for (final e in files.entries) {

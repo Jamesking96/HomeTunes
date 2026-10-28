@@ -45,7 +45,7 @@ enum ServerType {
     MediaKind.music,
     MediaKind.audiobooks,
     MediaKind.videos,
-  }, 'http://192.168.1.20:8096'),
+  }, 'http://192.168.1.20:8096', plays: {MediaKind.videos}),
   plex('Plex', 'Plex Media Server.', {
     MediaKind.music,
     MediaKind.audiobooks,
@@ -74,10 +74,21 @@ enum ServerType {
   /// An example address for the address box.
   final String example;
 
-  /// HomeTunes can stream from it now (the rest are saved, tested and used later).
+  /// It can be the main music server (Subsonic: LibraryModel streams its music and audiobooks).
   final bool streams;
 
-  const ServerType(this.label, this.about, this.can, this.example, {this.streams = false});
+  /// What HomeTunes can play from it now, besides the main music server's (0.2.1: Jellyfin's
+  /// videos). The rest are saved, tested and used once they're added.
+  final Set<MediaKind> _plays;
+
+  const ServerType(this.label, this.about, this.can, this.example, {this.streams = false, Set<MediaKind> plays = const {}})
+      : _plays = plays;
+
+  /// What HomeTunes can play from this kind of server now.
+  Set<MediaKind> get playsNow => streams ? can : _plays;
+
+  /// HomeTunes can play [kind] from this kind of server now.
+  bool playsKind(MediaKind kind) => playsNow.contains(kind);
 
   static ServerType? byName(Object? name) => name is String ? values.asNameMap()[name] : null;
 }

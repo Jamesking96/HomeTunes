@@ -21,6 +21,7 @@ import 'equalizer_model.dart';
 import 'library_model.dart';
 import 'now_watching.dart';
 import 'player_model.dart';
+import 'remote_videos.dart';
 import 'settings/settings_groups.dart' show PlaybackSettings, VideoSettings;
 import 'video_filters.dart';
 import 'video_library_model.dart';
@@ -64,6 +65,15 @@ class VideoSession extends ChangeNotifier {
         if (done) _finished();
       }),
       engine.errorStream.listen((e) {
+        // A server video that won't play as it is (0.2.1): ask the server for a converted copy,
+        // once, before saying it can't be played.
+        final address = _address;
+        if (!_disposed && engine.duration == Duration.zero && address != null && address.remote &&
+            !address.converted && !_triedConverted) {
+          _triedConverted = true;
+          open(_id, converted: true);
+          return;
+        }
         if (!_disposed && engine.duration == Duration.zero) {
           problem = 'Can\'t play this video: $e';
           notifyListeners();
@@ -213,12 +223,40 @@ class VideoSession extends ChangeNotifier {
   String? get file => _file;
   String? _file;
 
-  Future<void> open(String id) async {
+  /// Where the video on the page now is playing from (a file, or a server address; 0.2.1).
+  VideoAddress? get address => _address;
+  VideoAddress? _address;
+
+  /// The server video last told it had started, so it can be told it stopped.
+  String? _reportedId;
+
+  /// A server video that wouldn't play as it is was reopened as a converted copy (0.2.1).
+  bool _triedConverted = false;
+
+  /// The length to save places against: the engine's, or for a converted server stream (which
+  /// may not know its length) the video's own.
+  Duration _length() {
+    final d = engine.duration;
+    if (d > Duration.zero) return d;
+    return _address?.converted ?? false ? videos.byId(_id)?.duration ?? Duration.zero : Duration.zero;
+  }
+
+  /// Tells a server the video it was playing has stopped (closing, or moving on).
+  void _reportStopped({Duration? at, Duration? length}) {
+    final id = _reportedId;
+    if (id == null) return;
+    _reportedId = null;
+    videos.playbackStopped(id, at ?? engine.position, length ?? _length());
+  }
+
+  Future<void> open(String id, {bool converted = false}) async {
+    if (!converted) _reportStopped();
     final v = videos.byId(id);
-    final file = v == null ? null : videos.playableFile(v);
-    _file = file;
+    _file = null;
+    _address = null;
     shownId.value = id;
     _id = id;
+    if (!converted) _triedConverted = false;
     problem = null;
     tracksSetUp = false;
     upNext = null;
@@ -230,12 +268,35 @@ class VideoSession extends ChangeNotifier {
     // At the latest after 12 s: don't keep a spinner up for ever.
     _openingTimer?.cancel();
     _openingTimer = Timer(openingTimeout, shown);
-    if (v == null || file == null) {
+    if (v == null) {
       problem = 'This video isn\'t there any more. Rescan your video folders to tidy the list.';
       notifyListeners();
       shown();
       return;
     }
+    final place = videos.placeOf(v.id);
+    var start = resumeAt(place, v.duration);
+    // Settings › Videos: go back a little, more after a long break (like audiobooks).
+    if (start > Duration.zero && place != null && _video.videoRewindOnResume) {
+      final since = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(place.updatedMs));
+      start -= PlayerModel.resumeRewind(since);
+      if (start < Duration.zero) start = Duration.zero;
+    }
+    // A converted copy carries on from where the original stopped.
+    if (converted && engine.position > Duration.zero) start = engine.position;
+    // A file, or (0.2.1) a server's address with the sign-in in its headers.
+    final address = await videos.playableAddress(v, converted: converted, start: start);
+    if (_disposed || _id != id) return;
+    if (address == null) {
+      problem = videos.problemWith(v);
+      notifyListeners();
+      shown();
+      return;
+    }
+    _address = address;
+    // The seek preview opens the same video in a hidden player: files only (a server stream would
+    // be fetched twice).
+    _file = address.remote ? null : address.uri;
     final next = videos.after(v), previous = videos.before(v);
     watching?.showing(v,
         picture: videos.thumbFile(v),
@@ -246,22 +307,28 @@ class VideoSession extends ChangeNotifier {
         transport: transport);
     // One thing at a time: the music pauses while a video plays.
     if (music.playing) await music.pause();
-    final place = videos.placeOf(v.id);
-    var start = resumeAt(place, v.duration);
-    // Settings › Videos: go back a little, more after a long break (like audiobooks).
-    if (start > Duration.zero && place != null && _video.videoRewindOnResume) {
-      final since = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(place.updatedMs));
-      start -= PlayerModel.resumeRewind(since);
-      if (start < Duration.zero) start = Duration.zero;
-    }
     await _applyEqualizer();
     stats?.started(v.episodeLabel == null ? v.title : '${v.collection} ${v.episodeLabel}');
-    await engine.open(file, start: start > Duration.zero ? start : null);
+    // A converted server stream already begins at [start] (the server starts it there) and keeps
+    // the original's clock, so the player shouldn't move its times back to zero.
+    final startsThere = address.startsAt != null && address.startsAt! > Duration.zero;
+    if (engine.hasOptions) await engine.setOption('rebase-start-time', startsThere ? 'no' : 'yes');
+    await engine.open(
+      address.uri,
+      start: startsThere || start <= Duration.zero ? null : start,
+      headers: address.headers,
+    );
     speed = videos.speedFor(v.collection);
     await engine.setRate(speed);
     if (_disposed) return;
+    // A server video, streamed or (0.2.3) played from its downloaded copy: the server hears
+    // where you got to either way (when it can be reached).
+    if (address.remote || isRemoteVideoId(id)) {
+      videos.playbackStarted(id, start, converted: address.converted);
+      _reportedId = id;
+    }
     notifyListeners();
-    if (start > Duration.zero) onCarryOn?.call(start);
+    if (start > Duration.zero && !converted) onCarryOn?.call(start);
   }
 
   /// "Start over" after carrying on part-way through.
@@ -288,6 +355,12 @@ class VideoSession extends ChangeNotifier {
         final label = subtitleLabel(s, v.path);
         try {
           await engine.command(['sub-add', s, 'auto', '$label (file)', languageCodeFor(label) ?? '']);
+        } catch (_) {}
+      }
+      // A server video's subtitle files (0.2.1), fetched with the same sign-in as the video.
+      for (final s in _address?.subtitles ?? const <({String uri, String label, String? language})>[]) {
+        try {
+          await engine.command(['sub-add', s.uri, 'auto', '${s.label} (server)', s.language ?? '']);
         } catch (_) {}
       }
     }
@@ -391,11 +464,11 @@ class VideoSession extends ChangeNotifier {
   }
 
   void savePlace({bool end = false}) {
-    final length = engine.duration;
+    final length = _length();
     if (length <= Duration.zero) return;
     final at = end ? length : engine.position;
     if (at <= Duration.zero) return;
-    videos.savePlace(_id, at, length);
+    videos.savePlace(_id, at, length, paused: !engine.isPlaying);
   }
 
   /// The end: counts as watched, then the next video in the collection starts after a countdown.
@@ -438,9 +511,15 @@ class VideoSession extends ChangeNotifier {
     _disposed = true;
     // Save the place once this frame is done (telling the Videos tab during dispose would redraw
     // it while the widget tree is locked).
-    final length = engine.duration, at = engine.position;
+    final length = _length(), at = engine.position;
     final id = _id, library = videos;
-    if (length > Duration.zero && at > Duration.zero) Future.microtask(() => library.savePlace(id, at, length));
+    if (length > Duration.zero && at > Duration.zero) {
+      Future.microtask(() => library.savePlace(id, at, length, paused: true));
+    }
+    // A server video: the server hears that it stopped, and where (0.2.1).
+    final reported = _reportedId;
+    _reportedId = null;
+    if (reported != null) Future.microtask(() => library.playbackStopped(reported, at, length));
     _saveTimer?.cancel();
     _upNextTimer?.cancel();
     _openingTimer?.cancel();

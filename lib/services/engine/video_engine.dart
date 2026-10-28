@@ -46,7 +46,9 @@ abstract class VideoEngine {
   List<MediaTrack> get audioTracks;
   List<MediaTrack> get subtitleTracks;
 
-  Future<void> open(String path, {Duration? start});
+  /// Opens a file or a server address. [headers] go with every request for an address (a
+  /// server's sign-in, 0.2.1), so it never has to be part of the address.
+  Future<void> open(String path, {Duration? start, Map<String, String>? headers});
   Future<void> play();
   Future<void> pause();
   Future<void> playOrPause();
@@ -122,7 +124,8 @@ class MediaKitVideoEngine implements VideoEngine {
   List<MediaTrack> get subtitleTracks => [for (final t in player.state.tracks.subtitle) _subtitle(t)];
 
   @override
-  Future<void> open(String path, {Duration? start}) => player.open(Media(path, start: start));
+  Future<void> open(String path, {Duration? start, Map<String, String>? headers}) =>
+      player.open(Media(path, start: start, httpHeaders: headers));
   @override
   Future<void> play() => player.play();
   @override

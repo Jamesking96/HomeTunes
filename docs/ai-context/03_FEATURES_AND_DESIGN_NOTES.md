@@ -186,6 +186,238 @@ before changing that area.
   in this version** (0.1.28), **Playback log** (0.1.20) and **Licences** (0.1.31); see the
   sections below.
 
+## Download progress, the queue, and "Download or Keep offline?" (27 Oct 2026, 0.2.4, `feature/temporary-copies`)
+- **The user, 27 Oct:** "we should probably provide visual ways of telling it's downloading and by
+  how much … a new button near the downloading settings that takes you to a list of all medias
+  being downloaded in a queue format … a bar at the top of each video or its collection if we
+  are downloading the whole thing, that shows the percentage of its download"; then "add the
+  description of what download vs keep offline are somewhere so people can refer to it".
+- **Bars:** `DownloadProgressBar(ids)` (download_ui.dart; a `ListenableBuilder`, so only the bar
+  redraws) along the top of a video card's picture, an episode row's, a collection card's and the
+  collection page header's (all its videos together), and the TV's video / collection tiles,
+  episode rows and collection header (`DownloadProgressOverlay`). `DownloadsModel.progressOf(ids)`:
+  null unless one is on its way (downloading, waiting, paused, waiting for room); done ones count
+  whole, so a collection fills as each arrives. Accent colour while one is running, grey while
+  waiting; tooltip "Downloading 45%".
+- **Queue:** `DownloadsModel.queue` (running first, then waiting oldest first, i.e. the order the
+  engine gets them; then waiting for room, paused, failed). `DownloadQueueScreen` (numbered rows
+  with bars, "n in the queue · m downloading now · about x to go", Pause all / Carry on with all)
+  opened by `AppNav.openDownloadQueue` from Settings › Servers › Downloads › Download queue (with a
+  count badge) and the Downloads page's queue button; on the TV `TvDownloadsPage(queueOnly: true)`
+  from the Downloads page's Queue button.
+- **Explainer:** `downloadHelp` / `showDownloadHelp` (download_ui.dart): Download, Keep offline,
+  Both, Temporary copies. Settings › Servers › Downloads › "Download or Keep offline?", the
+  Downloads page's ⋮, the TV Downloads page's More options; the same words in USER_GUIDE.
+- **Tests:** in `test/downloads_test.dart` (queue order, progressOf, the bar on a card, the queue
+  page, the explainer); `FakeEngine.progress` sends progress.
+
+## Temporary copies (27 Oct 2026, 0.2.4, branch `feature/temporary-copies`, on top of `feature/downloads`)
+- **Step 4 of the Servers & Downloads plan** (the user, 27 Oct: "Ok I'll test this, you start on
+  the next step"). The original ask (25 Oct): "allowing us to temporarily download the streamed
+  content and play it, removing it after a period of time after it's been watched … add another
+  toggle that says to turn off the auto delete".
+- **How:** a temporary copy is a download whose `DownloadOrigin` is `temporary`
+  (`models/download.dart`, with `DownloadEntry.finishedMs`); the logic is the
+  `TemporaryCopies` extension in `state/downloads_model/temporary.dart` (a part file). With
+  **Save a copy while streaming** on, a server video that starts (`onServerVideoStarted`, which
+  now also does episodes ahead) or a server song / book file that starts (main.dart follows the
+  player → `startedPlaying`) is queued as the original file. It plays from here next time
+  through the same hooks as downloads.
+- **Finished:** a video watched (its place); a song played through (`PlayerModel.onPlayedThrough`,
+  called on an automatic move to the next song, not on Next); a book file once its book is
+  finished (`ListeningModel`, now passed to DownloadsModel). Marked not watched again (or Watch
+  from the beginning) → not finished. Checked on start, hourly, and two seconds after the
+  library, videos or listening places change.
+- **Cleared:** `tempDays` (1 / 3 / 7 default / 30) after `finishedMs`, unless **Don't delete
+  automatically** (`tempKeep`). **Space for temporary copies** (`tempLimitGb`, 1–100, default 10)
+  is separate from the downloads' limit (`usedBytes` leaves temporary copies out,
+  `tempUsedBytes` counts them): a new copy that doesn't fit makes room by clearing finished
+  copies (longest finished first), then part-played ones (oldest first); with tempKeep on, or
+  if clearing can't free enough, it simply isn't saved. Lowering the space clears down to it.
+  A copy that fails, or whose file vanished, is just forgotten (never fetched again, never a
+  problem on the Downloads page). **Clear now** removes them all (and stops any being saved).
+- **Keep** (menus, Downloads page, TV): `keepCopies` makes it a normal download (origin manual).
+  Asking to Download it, keeping its album / season offline, or it being wanted as an episode
+  ahead also stops it being temporary.
+- **Shown:** `MediaSource.temporary` (label "Downloaded", so the Source filter lists it there)
+  with `MediaSources.temporary`; the mark is a clock (`Icons.schedule`) when everything from a
+  server is a temporary copy. Downloads page (desktop and TV): a Temporary copies section with
+  space used; each says "Temporary copy, cleared in n days" (or "…after it's finished", "…kept
+  until you clear it"). Menus: Keep this copy, and Remove temporary copy.
+- **Settings › Servers › Temporary copies** (`TemporaryCopySettings` in
+  `settings/download_settings.dart`): Save a copy while streaming (off), Delete after, Don't delete
+  automatically (off), Space for temporary copies, Clear now (asks first). In downloads.json's
+  settings as tempSave / tempDays / tempKeep / tempLimitGb (in backups like the other settings;
+  the copies aren't).
+- **Tests:** `test/temporary_copies_test.dart` (`DownloadsModel.bytesPerGb` is shrunk so a "GB"
+  is 1000 bytes there).
+
+## Downloads (27 Oct 2026, 0.2.3, branch `feature/downloads`, on top of `feature/source-filter`)
+- **Step 3 of the Servers & Downloads plan** (the user, 27 Oct: "Looks good, lets go to step 3").
+  Their answers: the copy is chosen **each time** (original, or a smaller one the server
+  converts); extras Keep offline, Download next episodes, Wi-Fi only + a storage limit, Make it
+  mine; downloads in HomeTunes' data folder by default (`<data>/downloads/videos|music`) with a
+  setting to pick another; on the phone, Keep offline and next episodes carry on in the
+  background, with a one-time message saying so and a switch to stop it.
+- **Pieces:** `models/download.dart` (DownloadQuality `original` / `v1080|v720|v480` /
+  `a320|a192|a128`, DownloadEntry, KeepOffline with kinds album / playlist / liked / book /
+  collection / season), `services/download_engine.dart` (the DownloadEngine interface and
+  BackgroundDownloaderEngine on **background_downloader 9.6.4**: two at a time, keeps 500 MB free,
+  Android foreground mode above 20 MB so big videos survive the 9-minute job limit, resumable,
+  3 retries, notifications; **connectivity_plus 7.3.2** for "Waiting for Wi-Fi"),
+  `state/downloads_model.dart` (the list, `downloads.json`), `ui/widgets/download_ui.dart` (the
+  menu options and dialogs), `ui/screens/downloads_screen.dart`,
+  `ui/screens/settings/download_settings.dart`.
+- **How it plugs in (hooks, so nothing else imports downloads):** `LibraryModel.downloadedFile`
+  (a server song plays its downloaded file first), `VideoLibraryModel.downloadedCopy` (a server
+  video plays the copy, with its subtitle files, unless a converted stream was asked for),
+  `VideoLibraryModel.onServerVideoStarted` (episodes ahead), `MediaSources.downloaded` (the
+  Source filter's "Downloaded" and the tick-cloud mark). Where the file comes from:
+  `AppDownloadSources` — Subsonic `download` (original) or `stream?maxBitRate=&format=mp3`;
+  Jellyfin `ServerVideosModel.downloadRequest` (`/Items/{id}/Download` or the converted
+  `stream.mkv` at a height, the token in a header, plus its text subtitles).
+- **The menus:** songs (⋮), albums and audiobooks (quick actions and the selection bar's ⋮),
+  playlists (⋮), Liked Songs (a download button in its bar), videos, collections, season headings,
+  and the song and video selection bars. Options: Download… (asks which copy), Stop downloading,
+  Remove download(s), Keep offline… / Stop keeping offline (asks whether to remove what it
+  downloaded), Make it mine… (one downloaded thing). Only server things count; nothing shows for
+  your own files.
+- **Rules:** a download removed from something kept offline is remembered as skipped (not
+  fetched again for it); asking for it again clears that. Episodes downloaded ahead (default 2)
+  are **deleted once watched** unless asked for or kept. When the space limit is full a download
+  waits ("Waiting for room"). A 401/403 asks for a fresh address once (signs in again), then
+  fails. A file deleted by hand is downloaded again. Make it mine copies into one of your music /
+  audiobook / video folders with a tidy name (`Artist/Album/01 Title.ext`, `Category/Series/Season
+  1/Series S01E02 - Title.ext` plus subtitles), removes the download, rescans that folder and moves
+  the video's place to the new file.
+- **Downloads page** (sidebar "Downloads", Library › Playlists, Settings › Servers › Downloads ›
+  See downloads): space used against the limit, All / Videos / Music & books, Downloading, Kept
+  offline, Downloaded; pause, carry on, try again, stop, remove, Make it mine; Pause all / Carry
+  on with all; Remove all downloads….
+- **Settings › Servers › Downloads:** See downloads, Download folder (the whole row is the button,
+  27 Oct: the old "Change…" TextButton in its trailing corner couldn't be reached with the TV
+  remote, so OK did nothing; with a folder set the row asks "Choose another folder" / "Back to
+  HomeTunes' data folder"; a picked folder is write-tested (`DownloadSettings.canWriteTo`) and
+  turned down with a message if HomeTunes can't save there; then offers to move what's there),
+  Space for downloads (no limit / 5–500 GB), Download next episodes (off, 1–5), Copy for next
+  episodes, **Remove downloaded videos once watched** (27 Oct, off by default,
+  `DownloadsModel.removeWatched`, saved as `removeWatched`: a done, non-temporary,
+  non-ahead video entry whose VideoPlace is watched with `updatedMs > addedMs` goes through
+  `remove()` in `_tidyAhead`, so one in a kept collection is added to its skipped set; one watched
+  before it was downloaded stays); Android only: Download over Wi-Fi only (on), Keep downloading
+  in the background (on).
+- **Backups:** `downloads.json` goes in without its list of files or the folder (the files
+  aren't in a backup); restoring keeps this device's downloads and folder, takes (or merges) what's
+  kept offline and the settings.
+- **Security note:** background_downloader keeps its own task database in app data with each
+  task's address and headers, so a Subsonic download's address (with its sign-in token) and a
+  Jellyfin token sit there while a download runs. App-private, never in backups.
+- **On the TV** (27 Oct, the user: "adding the download options to the TV before moving onto any
+  other steps"; `ui/tv/tv_downloads.dart`): the options panel (hold OK, or a page's More) has
+  Download ›, Stop downloading, Remove download(s) ›, Keep offline › / Stop keeping offline › and
+  Make it mine › for songs, albums, playlists, Liked Songs, audiobooks, videos, collections, and
+  Home's Carry on cards; a collection's page also offers the season tab showing ("Keep offline:
+  Season 1"). Download › and Keep offline › open a second panel to pick the copy, with sizes.
+  `TvDownloadsPage` (AppNav.openDownloads in TV mode; Music › Playlists' Downloads tile beside
+  Liked Songs; Settings › Servers › Downloads): Pause all / Carry on with all, OK plays a download,
+  holding OK gives Pause / Carry on / Try again / Make it mine / Remove; OK on something kept
+  offline stops keeping it. The download settings are the shared Servers page. The shared
+  quality list, labels and size estimate moved into `downloadQualityChoices`,
+  `downloadQualityLabel` and `downloadSizeEstimate` (download_ui.dart).
+- **Not done:** Search's cards have the menus but no filter. Step 4 (temporary copies) is above.
+- **Tests:** `test/downloads_test.dart` (a pretend engine and servers, in `test/fake_download_engine.dart`),
+  `test/tv_downloads_test.dart`.
+
+## Source filter and marks (27 Oct 2026, 0.2.2, branch `feature/source-filter`, on top of `feature/jellyfin-videos`)
+- **Step 2 of the Servers & Downloads plan** (the user, 27 Oct: "lets move to step 2").
+- **Where something comes from** (`state/source_filter.dart`): `MediaSource` local ("On this
+  device") / streamed ("Streamed") / downloaded ("Downloaded"); `sourceOfTrack`, `sourceOfVideo`,
+  `sourcesOfTracks`, `sourcesOfVideos`. `MediaSources.downloaded(id)` is the hook step 3's downloads
+  set (DownloadsModel.isDownloaded since 0.2.3).
+- **The filter:** `sourceField<T>` is the first field of `songFields`, `albumFields`,
+  `artistFields`, `bookFields`, `videoFilterFields` and `collectionFilterFields`, so every
+  "Show only" sheet (Your Library's three tabs, Audiobooks, Videos › All videos and Collections)
+  has **Source**. An album, artist, book or collection has every source its songs / videos have,
+  so it matches each. `FilterField.onlyWhenSeveral`: the sheet leaves the field out when the
+  whole tab has only one source (judged over all items, not the narrowed ones) and nothing is
+  picked, so people without servers never see it. Picks show as chips like the other filters.
+- **Marks** (`ui/widgets/source_mark.dart`): `SourceBadge` (round dark badge, cloud = streamed,
+  cloud with a tick = downloaded, none for your own; "Some of it streams…" in the tooltip for a
+  mix; `markFor`), `SourceInline` (song rows' grey icon, replaces the old cloud). Album and book
+  cards: top-left of the cover via `SelectableCard.sources` (hidden while selecting, when the
+  select box takes that corner). Video and collection cards: bottom-left of the picture, above
+  the progress bar.
+- **Not done:** Search has no filters, so no Source there (the marks still show on its cards);
+  the TV screens' own cards don't show marks yet.
+- **Tests:** `test/source_filter_test.dart`; `videos_test.dart` now finds Category by name.
+
+## Jellyfin videos (25 Oct 2026, 0.2.1, branch `feature/jellyfin-videos`)
+- **The user asked (25 Oct, after v0.2.0):** make sure HomeTunes really supports Jellyfin for
+  streaming; then a Source filter, downloads and temporary copies (steps 2–4 of the plan "HomeTunes
+  Servers & Downloads Plan", https://claude.ai/artifact/HgXrQMQB5vnt3WVkwyxj2W). Their answers:
+  videos now, music and audiobooks later; places and watched marks synced **both ways**; download
+  quality chosen each time; extras Keep offline, Download next episodes, Wi-Fi only + storage limit,
+  Make it mine. Their server: Jellyfin 12.3.0 on the PC, `http://192.168.1.81:8096`.
+- **Client** (`services/jellyfin_client.dart`, `JellyfinClient`): signs in once with
+  `/Users/AuthenticateByName` (user name + password from Settings › Servers); every later request
+  carries the token in the `Authorization: MediaBrowser Client="HomeTunes", Device=…, DeviceId=…,
+  Version=…, Token=…` header, **never in an address** (so it can't reach logs, errors or the media
+  controls). Only the newer routes, checked against the server's own `/api-docs/openapi.json`:
+  `/UserViews`, `/Items?userId=…` (paged, `excludeLocationTypes=Virtual`, with UserData),
+  `/Videos/{id}/stream` (direct), `/Videos/{id}/stream.mkv?static=false…` (converted, H.264 + AAC,
+  `startTimeTicks` + `copyTimestamps`; this server has no HLS `master.m3u8` route), `/Items/{id}/Download`,
+  `/Items/{id}/Images/{type}`, subtitles `/Videos/{id}/{id}/Subtitles/{index}/Stream.{fmt}`,
+  `/Sessions/Playing` (+ `/Progress`, `/Stopped`), `/UserPlayedItems/{id}`, `/UserItems/{id}/UserData`,
+  `/Sessions/Logout`. Ticks = 10,000,000 a second.
+- **Server videos in the Videos tab** (`state/server_videos.dart`, `ServerVideosModel`; the shape in
+  `state/remote_videos.dart`): every Jellyfin server switched on for Videos is read at start-up,
+  every 30 min, on Sync now, and when switched on. Its video libraries (movies, tvshows, homevideos,
+  mixed, plain folders; not music / books / boxsets) become `VideoItem`s with id
+  `jf:<server entry id>:<item id>` and path `jellyfin://<server>/<item>.<container>` (never opened;
+  gives the Format). Episodes: collection = series, season / episode numbers, season title unless
+  it's just "Season n", category "TV", the series' overview as `showPlot`; films: their own
+  collection, category "Films"; home videos: the library's name. External text subtitles are kept
+  as `jfsub:{json}` in `VideoItem.subtitles` (picture subtitles can't be fetched alone).
+  Pictures (episode still / film Thumb or Backdrop, series or film poster) are downloaded into
+  `art/server-video/<server>/<item>-<type>-<tag>.jpg` (`coverFile` now accepts a poster inside the
+  art folder); unused ones are deleted after a sync. What was read is kept in `server_videos.json`
+  (device id, per server: working address, user id, libraries, left-out libraries, last read,
+  the videos, places waiting to be sent) so the tab isn't empty when the server is off. **Not in
+  backups** (it's read again); places live in videos.json as before, which is.
+- **VideoLibraryModel:** `_remote` beside `_scanned`, `setServerVideos` / `removeServerVideos`
+  (switched off: videos go, places kept; removed: forgotten). Scans never remove places or edits of
+  `jf:` ids. `playableFile` is null for server videos; `playableAddress` (async) gives a
+  `VideoAddress` (address, headers, converted, subtitles). `savePlace(…, paused:)`, `setWatched`,
+  `playbackStarted` / `playbackStopped` tell the server through `remote`.
+- **Places both ways:** the server's UserData (position, Played, LastPlayedDate) is used when newer
+  than HomeTunes' own. While playing: start, progress every 10 s or on pause / play, stopped (plus
+  Played when HomeTunes counts it watched). Marking watched / not watched sends
+  `/UserPlayedItems`. Anything that can't be sent waits in `pending` and goes at the next sync
+  (`/UserItems/{id}/UserData` with the time).
+- **Signing in:** the token goes to protected storage under `jellyfin-token:<user>@<url>`; a 401
+  signs in again once with the saved password; the password is never sent over plain http to an
+  internet address. **Sign out on this device** (card ⋮) forgets the token. Removing the server
+  signs out on the server and deletes its token, pictures and videos.
+- **Playing** (`VideoSession`): opens the address with `headers` (media_kit `Media.httpHeaders`;
+  `VideoEngine.open` gained `headers:`). If the engine can't open it, it asks once for a converted
+  copy from the same place before showing a problem. A converted stream starts at the place on the
+  server and the player keeps its clock (`rebase-start-time=no`); its length falls back to the
+  video's own. The seek preview is off for server streams (`session.file` is null). The server's
+  subtitle files are added with `sub-add`. Show in folder isn't offered; Details shows "Streams from
+  <server> (Jellyfin)" and what the server says (`_ServerVideoDetails`).
+- **Settings › Servers:** `ServerType` has `playsNow` / `playsKind` (Jellyfin: videos; `streams`
+  still means "can be the main music server"). A Jellyfin card in Videos shows "Signed in as …
+  · n videos · read 5 min ago" (or the problem) and ⋮ **Sync now**, **Libraries…**
+  (`showServerLibraries`, a box per library), **Sign out on this device**. "Coming later" only on
+  its Music and Audiobooks cards. **Test connection** on a Jellyfin server with a user name also
+  signs in, then straight out (device id `hometunes-connection-test`).
+- **Tests:** `test/jellyfin_test.dart` (a pretend Jellyfin server: client, sync into collections,
+  pictures, nothing secret in files, offline start, token re-sign-in, scans, switching off /
+  removing, libraries, places both ways, watched, playing with headers + reports, converted
+  fallback, sign-in problems, Test connection). `servers_test.dart` updated.
+- **Not checked yet:** a real sign-in and playback against the user's server (it needs their
+  password; they'll sign in themselves), and the TV with server videos.
+
 ## Edit series (8 Oct 2026, 0.1.76, branch `feature/edit-series`)
 - **Step 2 of the series work** (the user: "We might need a method to edit series like how we
   do with video collections"; "Go with your suggestions").

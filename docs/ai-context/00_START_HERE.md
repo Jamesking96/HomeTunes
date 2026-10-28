@@ -19,6 +19,31 @@ Read the files in this order:
 ## Status (6 Oct 2026)
 
 - **Released 23 Oct: [v0.2.0](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.0)** (0.2.0+101), covering 0.1.82–0.2.0: the Android TV interface (all seven steps), the app icon, Play buttons showing what's playing, the even volume fade and the video seek preview. `feature/android-tv` was merged into `main` and deleted: **`main` is the only branch.** The user has seen some TV issues still to fix (to be listed).
+- **Now (25 Oct):** the Servers & Downloads plan (see `04_`). Step 1, Jellyfin videos (0.2.1+102),
+  is on `feature/jellyfin-videos`: a Jellyfin server switched on for Videos fills the Videos tab,
+  plays from the server and keeps places in step both ways (`03_…` → Jellyfin videos). Versions
+  after 0.2.0 count on as 0.2.x. The user's answers (27 Oct): downloads go in HomeTunes' data
+  folder by default, with a setting to pick another folder; Keep offline and next-episode
+  downloads run in the background on the phone, with a message saying so and a setting to turn
+  it off; **all four steps are released together** once step 4 is done (no release per step).
+  The 0.2.1+102 APK was built 27 Oct (not installed anywhere yet). Step 2, the Source filter
+  (0.2.2+103), is on `feature/source-filter`, branched from `feature/jellyfin-videos`. Step 3,
+  downloads (0.2.3+104: Download… with the copy chosen each time, Keep offline, next episodes,
+  Wi-Fi only, a space limit, Make it mine, a Downloads page), is on `feature/downloads`, branched
+  from `feature/source-filter` (`03_…` → Downloads); the TV got its download options there too.
+  Step 4, temporary copies (0.2.4+105: Save a copy while streaming, cleared n days after it's
+  finished or never, its own space, Keep, Clear now), is on `feature/temporary-copies`, branched
+  from `feature/downloads` (`03_…` → Temporary copies). That's all four steps built; they're
+  released together once the user has tried them. 28 Oct (0.2.4+106, same branch): fixes the
+  user asked for after trying it on the Family room TV (Remove downloaded videos once watched;
+  the Download folder row; Back twice to leave on the TV; Back hides the video controls first).
+- **The TV over the network (28 Oct):** the Family room TV (Sony BRAVIA BF1, Google TV,
+  Android 12, armeabi-v7a) is at 192.168.1.82 with network debugging allowed for the PC, so
+  `adb connect 192.168.1.82:5555` then `adb install -r build\dist\HomeTunes-<v>-android.apk`
+  updates it (adb is in `%LOCALAPPDATA%\Android\Sdk\platform-tools`). `adb shell input keyevent`
+  presses remote keys and `screencap` takes screenshots; send one key per `adb shell` call with a
+  screenshot between, as several in one call get dropped. (192.168.1.106 is another Sony, a
+  KD-55XH8096, not the one to use.)
 - **Latest (13 Oct):** 0.1.82 (an album's or playlist's Play button shows when it's playing) 0.1.83 (the volume sliders fade evenly to silence; the EQ level is right) and 0.1.84 (a preview picture above a video's progress bar) are merged into `main` and pushed, not yet released; v0.1.81 (12 Oct) is the latest release. The Android TV work (0.2.0) is on `feature/android-tv`, with `main` merged in. See `04_`, Source control.
 - **Android TV (22 Oct):** the TV work (0.2.0+94) is on `feature/android-tv`, pushed to GitHub. The user tried it on the TV: the remote now stays on the open page; HomeTunes' own folder browser for Add folder isn't tried yet. The user is moving to another PC; see `04_`, Platforms plan, Android TV progress.
 - **Released:** the latest release is

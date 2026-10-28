@@ -125,7 +125,15 @@ class SeekPreviewOverlayState extends State<SeekPreviewOverlay> {
     return most > const Duration(seconds: 10) && step > most ? most : step;
   }
 
+  /// Back was pressed and used here (the marker put away): its letting go is taken too, as
+  /// Android goes back when Back is let go, and one press would also close the player (27 Oct).
+  bool _backTaken = false;
+
   KeyEventResult _key(FocusNode node, KeyEvent e) {
+    if (e is KeyUpEvent && e.logicalKey == LogicalKeyboardKey.goBack && _backTaken) {
+      _backTaken = false;
+      return KeyEventResult.handled;
+    }
     if (e is! KeyDownEvent && e is! KeyRepeatEvent) return KeyEventResult.ignored;
     final k = e.logicalKey;
     final back = k == LogicalKeyboardKey.arrowLeft || k == LogicalKeyboardKey.mediaRewind;
@@ -155,6 +163,7 @@ class SeekPreviewOverlayState extends State<SeekPreviewOverlay> {
     }
     if ((k == LogicalKeyboardKey.escape || k == LogicalKeyboardKey.goBack) && _target != null) {
       _drop();
+      _backTaken = k == LogicalKeyboardKey.goBack;
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;

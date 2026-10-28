@@ -8,7 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/track.dart';
 import 'package:hometunes/services/storage.dart';
+import 'package:hometunes/state/downloads_model.dart';
 import 'package:hometunes/state/equalizer_model.dart';
+import 'package:hometunes/state/playlists_model.dart';
 import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/update_model.dart';
@@ -18,6 +20,8 @@ import 'package:hometunes/ui/screens/settings/settings_screen.dart';
 import 'package:hometunes/ui/library_providers.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
+
+import 'fake_download_engine.dart';
 
 void main() {
   // The user asked for the tabs in A–Z order (29 Sep); a new page must slot in alphabetically.
@@ -139,6 +143,17 @@ void main() {
           // About has "Check for updates"; nothing here goes online unless it's pressed.
           ChangeNotifierProvider(
               create: (_) => UpdateModel(Storage.at(Directory.systemTemp), readVersion: () async => '9.9.9')),
+          // Servers has the Downloads section (0.2.3); nothing is downloaded here.
+          ChangeNotifierProvider<DownloadsModel?>(
+            create: (_) => DownloadsModel(
+              storage: Storage.at(Directory.systemTemp),
+              library: lib,
+              playlists: PlaylistsModel(Storage.at(Directory.systemTemp)),
+              videos: VideoLibraryModel(Storage.at(Directory.systemTemp), lib),
+              engine: FakeEngine(),
+              sources: FakeSources(),
+            ),
+          ),
         ],
         child: MaterialApp(home: child),
       ));

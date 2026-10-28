@@ -166,16 +166,15 @@ void main() {
           200,
         );
       });
+      // (With a user name, Test connection also signs in since 0.2.1: test/jellyfin_test.dart.)
       final r = await probeServer(
         ServerType.jellyfin,
         'http://den:8096',
-        username: 'me',
-        password: 'secret',
         client: jellyfin,
       );
       expect(r.ok, isTrue);
       expect(r.message, contains('Jellyfin server called "Den", version 10.9.1'));
-      expect(r.message, contains('can\'t play from Jellyfin yet'));
+      expect(r.message, contains('HomeTunes plays its videos now'));
       expect(seen.single.toString(), 'http://den:8096/System/Info/Public');
       expect(seen.single.toString(), isNot(contains('secret')));
 
@@ -288,11 +287,12 @@ void main() {
     expect(added.type, ServerType.jellyfin); // the first kind that holds videos
     expect(added.uses, {MediaKind.videos});
     expect(find.text('Den'), findsNWidgets(3)); // in Music, Audiobooks and Videos
+    // Jellyfin's videos play since 0.2.1; its music and audiobooks are still to come.
     for (final k in MediaKind.values) {
       final card = find.byKey(ValueKey('server-${added.id}-${k.name}'));
       expect(
         find.descendant(of: card, matching: find.text('Coming later')),
-        findsOneWidget,
+        k == MediaKind.videos ? findsNothing : findsOneWidget,
         reason: k.name,
       );
     }

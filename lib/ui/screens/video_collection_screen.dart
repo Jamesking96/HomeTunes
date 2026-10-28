@@ -19,13 +19,18 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/download.dart' show KeepKind;
 import '../../models/video_item.dart';
+import '../../state/downloads_model.dart' show DownloadItem, DownloadsModel;
 import '../../state/range_select.dart';
+import '../../state/source_filter.dart' show sourcesOfVideos;
 import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/cards.dart' show HoverPlayCover;
+import '../widgets/download_ui.dart' show downloadOptions, DownloadProgressBar, DownloadProgressOverlay;
 import '../widgets/quick_links.dart';
+import '../widgets/source_mark.dart';
 import 'video_details_screen.dart' show openCollectionDetails;
 import 'special_seasons.dart';
 import 'video_pictures.dart';
@@ -133,7 +138,8 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> with _Epi
           width: wide ? width : (shape == PictureShape.wide ? box.maxWidth : math.min(box.maxWidth, 260.0)),
           child: AspectRatio(
             aspectRatio: shape.aspect,
-            child: _PlayablePoster(collection: c),
+            // Downloading some or all of it: how far, along the top (27 Oct).
+            child: DownloadProgressOverlay(ids: [for (final v in c.videos) v.id], child: _PlayablePoster(collection: c)),
           ),
         ),
       );
