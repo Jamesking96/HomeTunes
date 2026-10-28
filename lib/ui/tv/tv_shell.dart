@@ -8,8 +8,9 @@
 // until step 3. Search and Settings come in steps 6 and 7. The page showing sets the hint
 // bubble's words (TvHintBoard).
 //
-// Back, in order: back a page in this tab; from a tab's first page, onto the rail; from the
-// rail, to Home; on Home, the app goes to the background (music keeps playing), as in Shell.
+// Back, in order: with the rail open over a page further in, back into that page (0.2.5); back
+// a page in this tab; from a tab's first page, onto the rail; from the rail, to Home; on Home,
+// twice to send the app to the background (music keeps playing), as in Shell.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -85,6 +86,18 @@ class _TvShellState extends State<TvShell> {
     });
   }
 
+  /// Moves the remote from the menu back into the page showing: onto what had focus there, or
+  /// its first item.
+  void _intoPage(NavigatorState pages) {
+    pages.focusNode.requestFocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final now = FocusManager.instance.primaryFocus;
+      if (now == null || now is FocusScopeNode || !now.ancestors.contains(_page)) tvFocusFirstIn(_page);
+    });
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
   /// When Back was last pressed with nowhere left to go back to (the leave message showing).
   DateTime? _leaveAskedAt;
 
@@ -93,7 +106,13 @@ class _TvShellState extends State<TvShell> {
 
   Future<void> _back(AppNav nav) async {
     final pages = nav.current;
-    if (pages != null && pages.canPop()) {
+    final railOpen = _rail.currentState?.isOpen ?? false;
+    if (railOpen && pages != null && pages.canPop()) {
+      // The menu is open over a page further in (0.2.5): Back closes the menu and goes back to
+      // where you were on that page; the next Back goes back a page. (28 Oct review: Back here
+      // closed Daria's page and the menu together.)
+      _intoPage(pages);
+    } else if (pages != null && pages.canPop()) {
       pages.pop();
     } else if (!(_rail.currentState?.isOpen ?? false)) {
       _rail.currentState?.focusSelected();

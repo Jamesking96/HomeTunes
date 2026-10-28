@@ -56,7 +56,7 @@ class TvDetailPage<T> extends StatelessWidget {
       child: Material(
         color: AppColors.bg,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(TvStyle.sideMargin, TvStyle.topMargin, 20, 0),
+          padding: const EdgeInsets.fromLTRB(TvStyle.sideMargin, TvStyle.topMargin, 20, TvStyle.bottomMargin),
           child: TvAzGrid<T>(
             items: items,
             itemHeight: itemHeight,

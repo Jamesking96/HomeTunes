@@ -182,15 +182,22 @@ class _RegionArrowAction extends DirectionalFocusAction {
       // In order: straight ahead in this part of the screen (along a row for ← →); straight ahead
       // in the next part (the page's edge to the sidebar); anything that way in this part (the
       // other column of a two-pane page); anything that way at all.
+      //
+      // ↑ ↓ only cross to another part of the screen in line with what has focus (0.2.5): ↑ from
+      // a page's Play button opened the menu on Music, the item nearest above it, though Videos
+      // was the page showing. With nothing that way, ↑ ↓ stay put, as on other TV apps; ← is the
+      // way into the menu.
+      final vertical = d == TraversalDirection.up || d == TraversalDirection.down;
       var next = nearestInDirection(from, d, here);
       List<FocusNode>? others;
-      next ??= nearestInDirection(from, d, others ??= elsewhere());
+      next ??= nearestInDirection(from, d, others ??= elsewhere(), inLineOnly: vertical);
       next ??= nearestInDirection(from, d, here, levelOnly: false);
-      next ??= nearestInDirection(from, d, others ??= elsewhere(), levelOnly: false);
+      if (!vertical) next ??= nearestInDirection(from, d, others ??= elsewhere(), levelOnly: false);
       if (next != null) {
         tvFocusOn(next, d);
         return;
       }
+      if (vertical) return;
     }
     super.invoke(intent);
   }
@@ -207,16 +214,71 @@ bool tvCanGo(FocusNode n) {
   return route == null || route.isCurrent;
 }
 
-/// Gives [n] focus and scrolls it into view (moving [direction]: it comes in at that edge).
+/// Gives [n] focus and scrolls it into view ([tvReveal]).
 void tvFocusOn(FocusNode n, TraversalDirection direction) {
-  FocusTraversalPolicy.defaultTraversalRequestFocusCallback(
-    n,
-    alignmentPolicy: switch (direction) {
-      TraversalDirection.up || TraversalDirection.left => ScrollPositionAlignmentPolicy.keepVisibleAtStart,
-      TraversalDirection.down || TraversalDirection.right => ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
-    },
-  );
+  n.requestFocus();
+  final context = n.context;
+  if (context != null) tvReveal(context);
 }
+
+/// How long [tvReveal]'s scrolling takes.
+const tvRevealDuration = Duration(milliseconds: 180);
+
+/// Scrolls whatever [context] is in so it's comfortably on screen (0.2.5). Up and down, it's
+/// kept between [tvRevealBand]'s edges, and moved to the nearer edge when it leaves them, so the
+/// focused row is never on the screen's bottom edge under the hint bubble, and you can see what
+/// comes next (28 Oct review: lists only scrolled until the focused item touched the edge). Near
+/// the start of a page, the page goes all the way back up, so its title and headings show.
+/// Sideways (a row of tiles), only as far as it takes to show the item.
+void tvReveal(BuildContext context) {
+  final target = context.findRenderObject();
+  if (target is! RenderBox || !target.attached || !target.hasSize) return;
+  final item = MatrixUtils.transformRect(target.getTransformTo(null), Offset.zero & target.size);
+  var at = context;
+  var scrollable = Scrollable.maybeOf(at);
+  while (scrollable != null) {
+    final object = at.findRenderObject();
+    final box = scrollable.context.findRenderObject();
+    final position = scrollable.position;
+    if (object != null && box is RenderBox && box.hasSize && position.hasContentDimensions) {
+      final view = MatrixUtils.transformRect(box.getTransformTo(null), Offset.zero & box.size);
+      final vertical = position.axis == Axis.vertical;
+      final (start, end, viewStart, viewEnd) =
+          vertical ? (item.top, item.bottom, view.top, view.bottom) : (item.left, item.right, view.left, view.right);
+      final space = (viewEnd - viewStart) - (end - start);
+      double? alignment;
+      if (!vertical || space <= 0) {
+        if (start < viewStart) alignment = 0;
+        if (end > viewEnd) alignment = 1;
+      } else if (start - viewStart + position.pixels - position.minScrollExtent + (end - start) <= (viewEnd - viewStart) * 0.85) {
+        // Near the top of the page (it fits well on screen with the page at its very top): show
+        // the page from the top.
+        if (position.pixels > position.minScrollExtent) {
+          position.animateTo(position.minScrollExtent, duration: tvRevealDuration, curve: Curves.easeOut);
+        }
+      } else {
+        final now = (start - viewStart) / space;
+        if (now < tvRevealBand.$1) alignment = tvRevealBand.$1;
+        if (now > tvRevealBand.$2) alignment = tvRevealBand.$2;
+      }
+      if (alignment != null) {
+        position.ensureVisible(
+          object,
+          alignment: alignment,
+          duration: tvRevealDuration,
+          curve: Curves.easeOut,
+          targetRenderObject: identical(object, target) ? null : target,
+        );
+      }
+    }
+    at = scrollable.context;
+    scrollable = Scrollable.maybeOf(at);
+  }
+}
+
+/// Where up and down keep what has focus, as a share of the space it can move in: 0 has it at
+/// the top of its list, 1 at the bottom.
+const tvRevealBand = (0.1, 0.6);
 
 /// Moves focus to the first thing (top left) that can take it inside [within], scrolled into
 /// view. For a pane whose content was just changed from elsewhere (Settings' list and page).
@@ -242,8 +304,10 @@ bool tvFocusFirstIn(FocusNode within) {
 /// Left / Right only consider items level with [from] ([levelOnly]; false: any that way); Up /
 /// Down prefer items in line with it (overlapping it across the direction of travel) over ones
 /// off to the side. Nearer beats further.
+/// [inLineOnly]: only items in line with [from], whichever way (crossing to another part of the
+/// screen with ↑ ↓).
 FocusNode? nearestInDirection(Rect from, TraversalDirection direction, Iterable<FocusNode> candidates,
-    {bool levelOnly = true}) {
+    {bool levelOnly = true, bool inLineOnly = false}) {
   const slack = 1.0; // rounding
   FocusNode? best;
   var bestScore = double.infinity;
@@ -261,6 +325,7 @@ FocusNode? nearestInDirection(Rect from, TraversalDirection direction, Iterable<
     // nearest row even when it doesn't line up exactly (a button under a row of cards).
     final sideways = direction == TraversalDirection.left || direction == TraversalDirection.right;
     if (sideways && levelOnly && across > 0) continue;
+    if (inLineOnly && across > 0) continue;
     // In line counts most; then distance.
     final score = (across > 0 ? 100000.0 : 0.0) + along.clamp(0, double.infinity) + 2 * across;
     if (score < bestScore) {

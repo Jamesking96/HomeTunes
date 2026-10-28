@@ -107,6 +107,15 @@ class AppNav extends ChangeNotifier {
     return r;
   }
 
+  /// Runs [f] once the next frame is drawn, and asks for that frame (0.2.5). Opening a page
+  /// waits a frame so a tab that has just been switched to has its navigator; but when the tab
+  /// was already showing nothing redraws, so on a still TV screen the page only opened at the
+  /// next key press (seen on the Family room TV, 28 Oct: OK on a collection did nothing for 16 s).
+  static void _afterFrame(VoidCallback f) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => f());
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
   /// Opens [page] on top of the current tab's stack.
   void push(Widget page) => current?.push(MaterialPageRoute(builder: (_) => page));
 
@@ -119,23 +128,32 @@ class AppNav extends ChangeNotifier {
 
   /// The Downloads page (0.2.3), on the Library tab.
   void openDownloads() {
+    // TV mode (0.2.5): over the tab that's showing, so the menu stays on it and Back returns
+    // there (from Settings, the Music tab used to light up and Back went to Music).
+    if (tv) {
+      push(const TvDownloadsPage());
+      return;
+    }
     if (tab != libraryTab) {
       tab = libraryTab;
       notifyListeners();
     }
     // TV mode: the TV's own page (tv/tv_downloads.dart). The tab's navigator may only now be
     // shown, so wait a frame, as openBook does.
-    WidgetsBinding.instance.addPostFrameCallback((_) => push(tv ? const TvDownloadsPage() : const DownloadsScreen()));
+    _afterFrame(() => push(tv ? const TvDownloadsPage() : const DownloadsScreen()));
   }
 
   /// The download queue (27 Oct): everything on its way, in the order it'll download.
   void openDownloadQueue() {
+    if (tv) {
+      push(const TvDownloadsPage(queueOnly: true));
+      return;
+    }
     if (tab != libraryTab) {
       tab = libraryTab;
       notifyListeners();
     }
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => push(tv ? const TvDownloadsPage(queueOnly: true) : const DownloadQueueScreen()));
+    _afterFrame(() => push(tv ? const TvDownloadsPage(queueOnly: true) : const DownloadQueueScreen()));
   }
 
   /// Opens a book's page on the Books tab.
@@ -145,7 +163,7 @@ class AppNav extends ChangeNotifier {
       notifyListeners();
     }
     // The Books tab's navigator may not exist until the tab is shown.
-    WidgetsBinding.instance.addPostFrameCallback((_) => push(tv ? TvBookPage(bookId: b.id) : BookScreen(bookId: b.id)));
+    _afterFrame(() => push(tv ? TvBookPage(bookId: b.id) : BookScreen(bookId: b.id)));
   }
 
   /// Opens an audiobook series' page on the Books tab (0.1.75).
@@ -154,7 +172,7 @@ class AppNav extends ChangeNotifier {
       tab = booksTab;
       notifyListeners();
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) => push(tv ? TvSeriesPage(name: name) : SeriesScreen(name: name)));
+    _afterFrame(() => push(tv ? TvSeriesPage(name: name) : SeriesScreen(name: name)));
   }
 
   /// Opens a video collection's page on the Videos tab (0.1.40).
@@ -163,8 +181,7 @@ class AppNav extends ChangeNotifier {
       tab = videosTab;
       notifyListeners();
     }
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => push(tv ? TvCollectionPage(name: name) : VideoCollectionScreen(name: name)));
+    _afterFrame(() => push(tv ? TvCollectionPage(name: name) : VideoCollectionScreen(name: name)));
   }
 
   /// Opens a video's player page on the Videos tab (0.1.40). On the TV (step 5) the TV player
@@ -179,6 +196,6 @@ class AppNav extends ChangeNotifier {
       tab = videosTab;
       notifyListeners();
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) => push(VideoPlayerScreen(videoId: v.id)));
+    _afterFrame(() => push(VideoPlayerScreen(videoId: v.id)));
   }
 }
