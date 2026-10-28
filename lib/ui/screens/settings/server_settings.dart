@@ -23,6 +23,7 @@ import '../../../state/servers_model.dart';
 import '../../theme.dart';
 import 'download_settings.dart';
 import 'settings_widgets.dart';
+import '../../tv/tv_focus.dart' show tvModeOf;
 import '../../tv/tv_keyboard.dart' show TvTextField;
 
 part 'servers/server_dialog.dart';
@@ -124,7 +125,10 @@ class _ServerSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final list = servers.serversFor(kind);
+    final all = servers.serversFor(kind);
+    // On a TV, a server that can't play this kind yet isn't listed under it (0.2.5): the one
+    // Jellyfin server showed three times, twice switched on but "Coming later".
+    final list = tvModeOf(context) ? [for (final s in all) if (s.type.playsKind(kind) || s.type.streams) s] : all;
     // "music", "audiobook", "video": for "No video servers yet." and "Add a video server".
     final noun = switch (kind) {
       MediaKind.music => 'music',
@@ -143,7 +147,10 @@ class _ServerSection extends StatelessWidget {
         if (list.isEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-            child: Text('No $noun servers yet.', style: TextStyle(color: AppColors.textDim)),
+            child: Text(
+              all.isEmpty ? 'No $noun servers yet.' : 'Playing ${kind.lower} from ${all.first.type.label} servers is coming in a later update.',
+              style: TextStyle(color: AppColors.textDim),
+            ),
           ),
         for (final s in list) _ServerCard(server: s, kind: kind, servers: servers),
         Padding(

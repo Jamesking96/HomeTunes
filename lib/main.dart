@@ -180,6 +180,8 @@ Future<void> main() async {
     playingId = t?.id;
     if (t != null) downloads.startedPlaying(t);
   });
+  // A temporary copy that's playing isn't cleared to make room (0.2.5).
+  downloads.inUse = (id) => player.current?.id == id || watching.video?.id == id;
   downloads.onNotice = (note) => appMessengerKey.currentState?.showSnackBar(SnackBar(content: Text(note)));
   final session = await MediaSession.start(player, library, watching: watching);
   debugPrint(session == null

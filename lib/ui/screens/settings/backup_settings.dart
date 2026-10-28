@@ -201,7 +201,7 @@ class BackupSettingsState extends State<BackupSettings> {
     return SettingsPageList(
       intro: 'Save everything HomeTunes keeps – music and audiobook folders, server (not its password), playlists, Liked Songs, song and '
             'book edits, covers, your place in each audiobook, bookmarks, equaliser presets, settings and the library – to one file, '
-            'to restore later or move to another PC or phone.',
+            'to restore later or move to another device.',
       children: [
       SettingTarget('backup-covers', child: SwitchListTile(
         title: const Text('Include cover images from music files'),

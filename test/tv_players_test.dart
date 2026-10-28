@@ -123,9 +123,10 @@ void main() {
 
     test('held down, each step goes further, but never more than a tenth', () {
       const length = Duration(hours: 2);
-      expect(TvSeekBar.step(length, 0), const Duration(seconds: 48)); // 1/150th of 2 h
-      expect(TvSeekBar.step(length, 3), const Duration(seconds: 96));
-      expect(TvSeekBar.step(length, 100), const Duration(minutes: 12));
+      expect(TvSeekBar.step(length, 0), const Duration(seconds: 10)); // 10 s to start, even in 2 h (0.2.5)
+      expect(TvSeekBar.step(length, 3), const Duration(seconds: 20));
+      expect(TvSeekBar.step(length, 100), const Duration(seconds: 340));
+      expect(TvSeekBar.step(length, 1000), const Duration(minutes: 12)); // at most a tenth
       expect(TvSeekBar.step(const Duration(minutes: 4), 0), const Duration(seconds: 10));
     });
   });

@@ -78,7 +78,7 @@ class _TvVideoPlayerPageState extends State<TvVideoPlayerPage> {
       equalizer: Provider.of<EqualizerModel?>(context, listen: false),
       stats: VideoStats.forPlayer(_engine.player, 'Video'),
       onCarryOn: (from) {
-        if (mounted) tvNotice(context, 'Carrying on from ${tvTime(from)} · Hold OK to watch from the beginning');
+        if (mounted) tvNotice(context, 'Carrying on from ${tvTime(from)} · Hold OK to watch from the beginning', aboveControls: true);
       },
       onOpenPage: _bringBack,
     );
@@ -139,6 +139,7 @@ class _TvVideoViewState extends State<TvVideoView> {
   final _barNode = FocusNode(debugLabel: 'tv video bar');
   final _catcher = FocusNode(debugLabel: 'tv video (controls hidden)');
   final _playNowNode = FocusNode(debugLabel: 'tv up next play now');
+  final _playNode = FocusNode(debugLabel: 'tv video play');
   bool _shown = true;
   bool _panelOpen = false;
   String? _upNextFor; // the Up next card that has had focus moved to it
@@ -170,6 +171,7 @@ class _TvVideoViewState extends State<TvVideoView> {
     _barNode.dispose();
     _catcher.dispose();
     _playNowNode.dispose();
+    _playNode.dispose();
     super.dispose();
   }
 
@@ -298,6 +300,13 @@ class _TvVideoViewState extends State<TvVideoView> {
       if (e is KeyDownEvent) _show();
       return KeyEventResult.handled;
     }
+    // ↓ from the progress bar: Play / Pause, at the left (0.2.5). The bar spans the screen, so
+    // every button was "below" it, and ↓ landed on Audio & subtitles.
+    if (k == LogicalKeyboardKey.arrowDown && e is KeyDownEvent && _barNode.hasPrimaryFocus && !_bar.scrubbing && _playNode.context != null) {
+      _playNode.requestFocus();
+      _poke();
+      return KeyEventResult.handled;
+    }
     _poke();
     return KeyEventResult.ignored;
   }
@@ -417,6 +426,8 @@ class _TvVideoViewState extends State<TvVideoView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // A film's collection is usually its own name: then just the one title (0.2.5).
+                if (v.collection != v.title || v.seasonLabel != null || v.episode != null)
                 Text(
                   [
                     v.collection,
@@ -457,7 +468,10 @@ class _TvVideoViewState extends State<TvVideoView> {
                 // Holding OK in the player: its options, Watch from the beginning first (23 Oct).
                 onHold: () => _panel(() => _more(context, v)),
                 onMoved: _poke,
-                preview: widget.previewer == null
+                // No picture box where there can't be a picture (0.2.5): a server's video isn't
+                // previewed (its stream would be fetched twice), and the box stood there empty
+                // and black over the bar.
+                preview: widget.previewer == null || _s.file == null || !_s.settings.settings.video.videoSeekPreview
                     ? null
                     : (target, length) => _PreviewPicture(previewer: widget.previewer!, target: target, length: length),
               ),
@@ -468,6 +482,7 @@ class _TvVideoViewState extends State<TvVideoView> {
                 children: [
                   TvIconButton(
                     key: const ValueKey('tv-video-play'),
+                    focusNode: _playNode,
                     icon: playing ? Icons.pause : Icons.play_arrow,
                     label: playing ? 'Pause' : 'Play',
                     onPressed: _engine.playOrPause,
@@ -738,10 +753,9 @@ class _PreviewPicture extends StatelessWidget {
       valueListenable: previewer.frame,
       builder: (context, frame, _) {
         final picture = kept ?? frame?.picture;
-        return ColoredBox(
-          color: Colors.black,
-          child: picture == null ? null : Image.memory(picture, fit: BoxFit.cover, gaplessPlayback: true),
-        );
+        // Nothing until the first picture comes, rather than a black box.
+        if (picture == null) return const SizedBox.shrink();
+        return ColoredBox(color: Colors.black, child: Image.memory(picture, fit: BoxFit.cover, gaplessPlayback: true));
       },
     );
   }

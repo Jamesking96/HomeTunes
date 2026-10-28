@@ -34,6 +34,7 @@ import '../screens/edit_video.dart' show showEditVideos;
 import '../screens/video_collection/edit_collection.dart' show showEditCollection;
 import '../screens/lyrics_dialogs.dart' show showLyricsDialog, findLyricsOnline;
 import '../screens/video_details_screen.dart' show openVideoDetails, openCollectionDetails;
+import '../theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/book_card.dart' show BookCover;
 import '../widgets/playlist_art.dart';
@@ -45,8 +46,26 @@ import 'tv_options.dart';
 String _songs(int n) => '$n song${n == 1 ? '' : 's'}';
 
 /// A short note at the bottom of the screen ("Added to Road trip").
-void tvNotice(BuildContext context, String text) =>
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(text), duration: const Duration(seconds: 3)));
+///
+/// [aboveControls]: raised over the video player's controls (0.2.5: "Carrying on from…" covered
+/// the player's buttons).
+void tvNotice(BuildContext context, String text, {bool aboveControls = false}) => ScaffoldMessenger.maybeOf(context)
+  ?..hideCurrentSnackBar()
+  ..showSnackBar(tvSnackBar(text, bottom: aboveControls ? 140 : 24));
+
+/// A notice in the TV's dark style, floating near the bottom: Material's own is a pale bar, bright
+/// on a dark TV screen, with a close button the remote can't reach (0.2.5).
+SnackBar tvSnackBar(String text, {Key? key, Duration duration = const Duration(seconds: 3), double bottom = 24}) => SnackBar(
+      key: key,
+      duration: duration,
+      behavior: SnackBarBehavior.floating,
+      showCloseIcon: false,
+      backgroundColor: AppColors.surfaceHigh,
+      elevation: 6,
+      margin: EdgeInsets.fromLTRB(160, 0, 160, bottom),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: AppColors.faded(0.12))),
+      content: Text(text, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: AppColors.text)),
+    );
 
 /// Asks before something that can't be undone: [yes] runs only when that row is chosen.
 Future<void> tvConfirm(BuildContext context, {required String title, String? subtitle, required String yes, required VoidCallback run}) =>

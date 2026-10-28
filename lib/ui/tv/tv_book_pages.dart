@@ -133,7 +133,7 @@ class TvBookPage extends StatelessWidget {
           if (state == BookState.inProgress) TvProgressBar(listening.fractionDone(book)),
           if (book.description != null) ...[
             if (state == BookState.inProgress) const SizedBox(height: 12),
-            TvDescription(book.description!),
+            TvDescription(book.description!, title: book.title),
           ],
         ]),
       ),
@@ -237,7 +237,7 @@ class TvSeriesPage extends StatelessWidget {
         ],
         below: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           if (progress.finished > 0 && !progress.allFinished) TvProgressBar(progress.finished / series.books.length),
-          if (description != null) ...[const SizedBox(height: 12), TvDescription(description)],
+          if (description != null) ...[const SizedBox(height: 12), TvDescription(description, title: series.name)],
         ]),
       ),
       items: series.books,

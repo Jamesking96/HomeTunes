@@ -14,7 +14,7 @@ import '../../state/playlists_model.dart';
 import '../nav.dart';
 import 'tv_browse.dart';
 import 'tv_items.dart';
-import 'tv_music.dart' show tvLibraryHints;
+import 'tv_music.dart' show tvEmptyLibraryHints, tvLibraryHints;
 import 'tv_options.dart';
 
 enum TvBookTab {
@@ -75,7 +75,7 @@ class _TvBooksScreenState extends State<TvBooksScreen> {
       body = TvEmpty(
         icon: Icons.menu_book_outlined,
         title: lib.busy ? 'Looking through your folders…' : 'No audiobooks yet',
-        message: lib.busy ? null : 'Choose the folders your audiobooks are in, in Settings › Audiobooks.',
+        message: lib.busy ? null : 'Choose the folders your audiobooks are in, on a USB drive or the TV itself, or connect a server.',
         action: lib.busy
             ? null
             : TvButton(label: 'Add audiobook folders', icon: Icons.folder_open, primary: true, onPressed: () => nav.openSettings('books')),
@@ -139,7 +139,7 @@ class _TvBooksScreenState extends State<TvBooksScreen> {
 
     return TvPageHints(
       tab: AppNav.booksTab,
-      hints: tvLibraryHints,
+      hints: lib.books.isEmpty && !lib.busy ? tvEmptyLibraryHints : tvLibraryHints,
       child: TvPage(
         title: 'Audiobooks',
         tabs: TvTabBar(

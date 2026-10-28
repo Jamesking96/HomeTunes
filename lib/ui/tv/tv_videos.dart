@@ -11,7 +11,7 @@ import '../../state/video_library_model.dart';
 import '../nav.dart';
 import 'tv_browse.dart';
 import 'tv_items.dart';
-import 'tv_music.dart' show tvLibraryHints;
+import 'tv_music.dart' show tvEmptyLibraryHints, tvLibraryHints;
 import 'tv_options.dart';
 
 enum TvVideoTab {
@@ -80,7 +80,7 @@ class _TvVideosScreenState extends State<TvVideosScreen> {
       body = TvEmpty(
         icon: Icons.video_library_outlined,
         title: videos.busy ? 'Looking through your folders…' : 'No videos yet',
-        message: videos.busy ? null : 'Choose the folders your videos are in, in Settings › Folders & scanning.',
+        message: videos.busy ? null : 'Choose the folders your videos are in, on a USB drive or the TV itself, or connect a server.',
         action: videos.busy
             ? null
             : TvButton(
@@ -119,7 +119,7 @@ class _TvVideosScreenState extends State<TvVideosScreen> {
 
     return TvPageHints(
       tab: AppNav.videosTab,
-      hints: tvLibraryHints,
+      hints: videos.videos.isEmpty && !videos.busy ? tvEmptyLibraryHints : tvLibraryHints,
       child: TvPage(
         title: 'Videos',
         tabs: TvTabBar(

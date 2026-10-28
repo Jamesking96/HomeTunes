@@ -27,7 +27,7 @@ import 'tv_widgets.dart';
 /// The Search tab's place in the menu.
 const tvSearchTab = 1;
 
-const tvSearchHints = <TvHint>[('OK', 'type'), ('→', 'results'), ('Hold OK', 'Options'), ('←', 'menu')];
+const tvSearchHints = <TvHint>[('OK', 'Type'), ('→', 'Results'), ('Hold OK', 'Options'), ('←', 'Menu')];
 
 class TvSearchScreen extends StatefulWidget {
   const TvSearchScreen({super.key});

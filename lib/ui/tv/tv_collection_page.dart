@@ -97,7 +97,7 @@ class _TvCollectionPageState extends State<TvCollectionPage> {
                     : null),
           ),
         ],
-        below: c.description == null ? null : TvDescription(c.description!, lines: 2),
+        below: c.description == null ? null : TvDescription(c.description!, lines: 2, title: c.name),
         after: groups.length > 1
             ? TvTabBar(labels: labels, selected: group, onSelect: (i) => setState(() => _group = i))
             : null,
