@@ -346,7 +346,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
-    expect(find.text('Test connection'), findsNothing);
+    expect(find.byType(PopupMenuItem<String>), findsNothing); // the menu closed
     expect(find.text('Edit Den'), findsOneWidget);
   });
 }
