@@ -34,7 +34,16 @@ Read the files in this order:
   Step 4, temporary copies (0.2.4+105: Save a copy while streaming, cleared n days after it's
   finished or never, its own space, Keep, Clear now), is on `feature/temporary-copies`, branched
   from `feature/downloads` (`03_…` → Temporary copies). That's all four steps built; they're
-  released together once the user has tried them.
+  released together once the user has tried them. 28 Oct (0.2.4+106, same branch): fixes the
+  user asked for after trying it on the Family room TV (Remove downloaded videos once watched;
+  the Download folder row; Back twice to leave on the TV; Back hides the video controls first).
+- **The TV over the network (28 Oct):** the Family room TV (Sony BRAVIA BF1, Google TV,
+  Android 12, armeabi-v7a) is at 192.168.1.82 with network debugging allowed for the PC, so
+  `adb connect 192.168.1.82:5555` then `adb install -r build\dist\HomeTunes-<v>-android.apk`
+  updates it (adb is in `%LOCALAPPDATA%\Android\Sdk\platform-tools`). `adb shell input keyevent`
+  presses remote keys and `screencap` takes screenshots; send one key per `adb shell` call with a
+  screenshot between, as several in one call get dropped. (192.168.1.106 is another Sony, a
+  KD-55XH8096, not the one to use.)
 - **Latest (13 Oct):** 0.1.82 (an album's or playlist's Play button shows when it's playing) 0.1.83 (the volume sliders fade evenly to silence; the EQ level is right) and 0.1.84 (a preview picture above a video's progress bar) are merged into `main` and pushed, not yet released; v0.1.81 (12 Oct) is the latest release. The Android TV work (0.2.0) is on `feature/android-tv`, with `main` merged in. See `04_`, Source control.
 - **Android TV (22 Oct):** the TV work (0.2.0+94) is on `feature/android-tv`, pushed to GitHub. The user tried it on the TV: the remote now stays on the open page; HomeTunes' own folder browser for Add folder isn't tried yet. The user is moving to another PC; see `04_`, Platforms plan, Android TV progress.
 - **Released:** the latest release is

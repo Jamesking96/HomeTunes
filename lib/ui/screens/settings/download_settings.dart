@@ -77,6 +77,9 @@ class DownloadSettings extends StatelessWidget {
           onTap: () => showDownloadHelp(context),
         ),
       ),
+      // The whole row is the button (27 Oct: "Change…" sat in the row's corner, which the TV
+      // remote couldn't reach, so pressing OK on it did nothing). Once another folder is chosen,
+      // the row offers going back to HomeTunes' own as well.
       SettingTarget(
         'downloads-folder',
         child: ListTile(
@@ -84,22 +87,8 @@ class DownloadSettings extends StatelessWidget {
           leading: const Icon(Icons.folder_outlined),
           title: const Text('Download folder'),
           subtitle: Text(dl.customFolder == null ? 'HomeTunes\' data folder (${dl.folder})' : dl.folder),
-          trailing: Wrap(spacing: 4, children: [
-            if (dl.customFolder != null)
-              TextButton(
-                key: const ValueKey('downloads-folder-default'),
-                onPressed: () => _change(context, dl, null),
-                child: const Text('Default'),
-              ),
-            TextButton(
-              key: const ValueKey('downloads-folder-change'),
-              onPressed: () async {
-                final path = await pickFolder(context, 'Where downloads go');
-                if (path != null && context.mounted) await _change(context, dl, path);
-              },
-              child: const Text('Change…'),
-            ),
-          ]),
+          trailing: Text('Change…', style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w600)),
+          onTap: () => chooseFolder(context, dl),
         ),
       ),
       SettingTarget(
@@ -145,6 +134,17 @@ class DownloadSettings extends StatelessWidget {
             onChanged: (c) => dl.setAheadQuality(DownloadQuality.parse(c, video: true)),
           ),
         ),
+      SettingTarget(
+        'downloads-remove-watched',
+        child: SwitchListTile(
+          key: const ValueKey('downloads-remove-watched'),
+          title: const Text('Remove downloaded videos once watched'),
+          subtitle: const Text('A film or episode you\'ve downloaded is removed when you finish watching it, '
+              'to free the space. One already watched before you downloaded it stays until you watch it again.'),
+          value: dl.removeWatched,
+          onChanged: dl.setRemoveWatched,
+        ),
+      ),
       if (android) ...[
         SettingTarget(
           'downloads-wifi',
@@ -177,6 +177,59 @@ class DownloadSettings extends StatelessWidget {
         ),
       ),
     ]);
+  }
+
+  /// The Download folder row: picks a folder (with HomeTunes' own as a choice once another is
+  /// set), checks HomeTunes can save there, then switches to it.
+  static Future<void> chooseFolder(BuildContext context, DownloadsModel dl,
+      {Future<String?> Function(BuildContext, String)? picker}) async {
+    if (dl.customFolder != null) {
+      final which = await showDialog<String>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: const Text('Download folder'),
+          children: [
+            SimpleDialogOption(
+              key: const ValueKey('downloads-folder-pick'),
+              onPressed: () => Navigator.pop(ctx, 'pick'),
+              child: const ListTile(leading: Icon(Icons.folder_open), title: Text('Choose another folder')),
+            ),
+            SimpleDialogOption(
+              key: const ValueKey('downloads-folder-default'),
+              onPressed: () => Navigator.pop(ctx, 'default'),
+              child: const ListTile(leading: Icon(Icons.restore), title: Text('Back to HomeTunes\' data folder')),
+            ),
+          ],
+        ),
+      );
+      if (which == null || !context.mounted) return;
+      if (which == 'default') return _change(context, dl, null);
+    }
+    final path = await (picker ?? pickFolder)(context, 'Where downloads go');
+    if (path == null || !context.mounted) return;
+    if (!await canWriteTo(path)) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+        duration: const Duration(seconds: 8),
+        content: Text('HomeTunes can\'t save files in $path. Choose another folder'
+            '${Platform.isAndroid ? ', such as one inside Download or Movies' : ''}.'),
+      ));
+      return;
+    }
+    if (context.mounted) await _change(context, dl, path);
+  }
+
+  /// Whether a file can be made in [dir] (made if it isn't there).
+  static Future<bool> canWriteTo(String dir) async {
+    try {
+      await Directory(dir).create(recursive: true);
+      final probe = File('$dir${Platform.pathSeparator}.hometunes-write-test');
+      await probe.writeAsString('ok', flush: true);
+      await probe.delete();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// A new folder: asks whether to move what's already downloaded.

@@ -294,10 +294,18 @@ before changing that area.
   See downloads): space used against the limit, All / Videos / Music & books, Downloading, Kept
   offline, Downloaded; pause, carry on, try again, stop, remove, Make it mine; Pause all / Carry
   on with all; Remove all downloads….
-- **Settings › Servers › Downloads:** See downloads, Download folder (Change… / Default, offers to
-  move what's there), Space for downloads (no limit / 5–500 GB), Download next episodes (off, 1–5),
-  Copy for next episodes; Android only: Download over Wi-Fi only (on), Keep downloading in the
-  background (on).
+- **Settings › Servers › Downloads:** See downloads, Download folder (the whole row is the button,
+  27 Oct: the old "Change…" TextButton in its trailing corner couldn't be reached with the TV
+  remote, so OK did nothing; with a folder set the row asks "Choose another folder" / "Back to
+  HomeTunes' data folder"; a picked folder is write-tested (`DownloadSettings.canWriteTo`) and
+  turned down with a message if HomeTunes can't save there; then offers to move what's there),
+  Space for downloads (no limit / 5–500 GB), Download next episodes (off, 1–5), Copy for next
+  episodes, **Remove downloaded videos once watched** (27 Oct, off by default,
+  `DownloadsModel.removeWatched`, saved as `removeWatched`: a done, non-temporary,
+  non-ahead video entry whose VideoPlace is watched with `updatedMs > addedMs` goes through
+  `remove()` in `_tidyAhead`, so one in a kept collection is added to its skipped set; one watched
+  before it was downloaded stays); Android only: Download over Wi-Fi only (on), Keep downloading
+  in the background (on).
 - **Backups:** `downloads.json` goes in without its list of files or the folder (the files
   aren't in a backup); restoring keeps this device's downloads and folder, takes (or merges) what's
   kept offline and the settings.

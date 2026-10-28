@@ -253,6 +253,27 @@ void main() {
       await done(tester);
     });
 
+    testWidgets('paused, Back hides the controls first, then closes (27 Oct)', (tester) async {
+      await pumpPlayer(tester);
+      await press(tester, LogicalKeyboardKey.select); // pause
+      expect(engine.isPlaying, isFalse);
+      // The remote's Back, pressed and let go: used here, both are taken (Android would otherwise
+      // go back on the letting go and close the player too).
+      expect(await tester.sendKeyDownEvent(LogicalKeyboardKey.goBack, physicalKey: PhysicalKeyboardKey.browserBack, platform: 'web'), isTrue);
+      expect(await tester.sendKeyUpEvent(LogicalKeyboardKey.goBack, physicalKey: PhysicalKeyboardKey.browserBack, platform: 'web'), isTrue);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(focused(), 'tv video (controls hidden)');
+      expect(find.byType(TvVideoView), findsOneWidget);
+      // With the controls hidden, the remote's Back is left to the system's Back, which closes it.
+      expect(await tester.sendKeyDownEvent(LogicalKeyboardKey.goBack, physicalKey: PhysicalKeyboardKey.browserBack, platform: 'web'), isFalse);
+      expect(await tester.sendKeyUpEvent(LogicalKeyboardKey.goBack, physicalKey: PhysicalKeyboardKey.browserBack, platform: 'web'), isFalse);
+      await tester.binding.handlePopRoute(); // Back, the system's
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(TvVideoView), findsNothing);
+      await done(tester);
+    });
+
     testWidgets('the remote\'s media keys work whatever has focus', (tester) async {
       await pumpPlayer(tester);
       await press(tester, LogicalKeyboardKey.mediaPlayPause);

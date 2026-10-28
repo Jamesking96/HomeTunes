@@ -217,13 +217,19 @@ so can whatever you've ticked in select mode. The same menu then has **Stop down
   offline** asks whether to keep what it downloaded.
 - **Download next episodes:** while you watch a series from a server, the next two episodes
   download, and each is removed again once you've watched it.
+- **Remove downloaded videos once watched** (Settings > Servers > Downloads, off to start
+  with): a film or episode you downloaded is removed when you finish watching it, to free the
+  space. One you'd already watched before downloading it stays until you watch it again. If it
+  was part of something kept offline, it isn't downloaded again.
 - **Make it mine…** copies a downloaded song or video into one of your own folders, tidily named,
   so it's one of your own files from then on (and where you got to in a video comes with it).
 - The **Downloads** page (in the sidebar, at the top of Your Library › Playlists, or Settings >
   Servers > Downloads > See downloads) shows what's downloading, what's kept offline and
   everything downloaded, with pause, carry on, try again and remove, and how much space it takes.
 - **Settings > Servers > Downloads:** where downloads go (HomeTunes' own data folder unless you
-  pick another), how much space they may take, how many next episodes to download and which copy.
+  pick another: choose the **Download folder** row; once you've picked one, the same row offers
+  going back to HomeTunes' own, and a folder HomeTunes can't save in is turned down with a
+  message), how much space they may take, how many next episodes to download and which copy.
   On a phone or TV also **Download over Wi-Fi only** (on to start with) and **Keep downloading in
   the background** (on: Keep offline and next episodes carry on while HomeTunes isn't on screen,
   with a notification; off: they wait until you come back).
@@ -457,6 +463,9 @@ On a TV, HomeTunes has its own screens, made to be used from the sofa with just 
 - **Moving about:** the arrows move the highlight and **OK** opens or plays what's highlighted.
   **Back** goes back. Press **←** at the left edge of a screen to open the menu (Home, Music,
   Audiobooks, Videos, Search, Settings and what's playing).
+- **Leaving HomeTunes:** when there's nowhere left to go back to, **Back** shows "Press Back
+  again to leave HomeTunes" at the bottom; press it again within a few seconds to leave (music
+  keeps playing). Otherwise the message goes and you stay.
 - **Options:** **hold OK** on a song, album, artist, playlist, audiobook, series, video or
   collection for everything you can do with it (play next, add to a playlist, edit its details…).
 - **Long lists:** in Music, Audiobooks and Videos, press **→** at the right edge to jump through the
@@ -464,7 +473,8 @@ On a TV, HomeTunes has its own screens, made to be used from the sofa with just 
 - **Videos:** press any button to bring up the controls. On the progress bar, **← →** move a marker
   through the video (with a picture of that moment) and OK jumps there. **Hold OK** on the bar, or
   on a video anywhere, for **Watch from the beginning**. The remote's play / pause and next buttons
-  work whenever a video is playing.
+  work whenever a video is playing. **Back** puts the marker away, then hides the controls
+  (playing or paused), and only then leaves the video.
 - **Typing:** search and every box you type in use an on-screen keyboard: move to a letter and press
   OK. **Shift** gives capitals and **#+=** symbols and accents; **Done** finishes. A keyboard
   plugged into the TV types too.

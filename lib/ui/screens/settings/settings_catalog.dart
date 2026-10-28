@@ -115,6 +115,8 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('downloads-folder', SettingsPage.server, 'Download folder', 'downloads where location move change'),
   SettingInfo('downloads-limit', SettingsPage.server, 'Space for downloads', 'downloads storage limit size gb full'),
   SettingInfo('downloads-ahead', SettingsPage.server, 'Download next episodes', 'downloads ahead episodes series offline'),
+  SettingInfo('downloads-remove-watched', SettingsPage.server, 'Remove downloaded videos once watched',
+      'downloads delete remove watched finished films movies episodes space free'),
   // Temporary copies (0.2.4).
   SettingInfo('temp-save', SettingsPage.server, 'Save a copy while streaming', 'temporary copies cache stream offline replay'),
   SettingInfo('temp-days', SettingsPage.server, 'Delete temporary copies after', 'temporary copies auto delete days watched finished'),

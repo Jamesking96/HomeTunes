@@ -172,6 +172,12 @@ class _TvSeekBarState extends State<TvSeekBar> {
         if (!_held) widget.onActivate?.call();
         return KeyEventResult.handled;
       }
+      // Back let go after it put the marker away: Android goes back when Back is let go, so
+      // that's taken too, or one press would also hide the controls (27 Oct).
+      if (e.logicalKey == LogicalKeyboardKey.goBack && _backTaken) {
+        _backTaken = false;
+        return KeyEventResult.handled;
+      }
       return KeyEventResult.ignored;
     }
     final k = e.logicalKey;
@@ -214,10 +220,14 @@ class _TvSeekBarState extends State<TvSeekBar> {
     }
     if ((k == LogicalKeyboardKey.escape || k == LogicalKeyboardKey.goBack) && _controller.scrubbing) {
       _controller.cancel();
+      _backTaken = k == LogicalKeyboardKey.goBack;
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
   }
+
+  /// Back was pressed and used here: its letting go is taken too (see [_key]).
+  bool _backTaken = false;
 
   @override
   Widget build(BuildContext context) {
