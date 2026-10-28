@@ -3,7 +3,7 @@
 HomeTunes is a Spotify-style music and audiobook player for the user's own files, written in
 Flutter. It runs on Windows (main desktop) and Android (a Pixel 8). It can also stream from a
 Subsonic/OpenSubsonic server. The repo is **github.com/Jamesking96/HomeTunes** (it used to be
-`…/hometunes`; GitHub redirects).
+`â€¦/hometunes`; GitHub redirects).
 
 Read the files in this order:
 
@@ -12,47 +12,47 @@ Read the files in this order:
 | `00_START_HERE.md` | Status right now, the rules that matter most, how to pick up a task |
 | `01_ARCHITECTURE.md` | Code map: models, state, services, UI, data files, vendored packages |
 | `02_ENVIRONMENT_AND_WORKFLOW.md` | The user's PC, paths, build/test/install/publish commands, release signing, git, known environment traps |
-| `03_FEATURES_AND_DESIGN_NOTES.md` | What each feature does and *why* it's built that way (gapless, books, lyrics, sidecars…) |
+| `03_FEATURES_AND_DESIGN_NOTES.md` | What each feature does and *why* it's built that way (gapless, books, lyrics, sidecarsâ€¦) |
 | `04_ROADMAP_AND_OPEN_ITEMS.md` | What's done and what's next (offline server songs, audiobook server), decisions, security, known issues |
 | `05_CODE_GUIDE.md` | A plain-English tour of the code for the user: every folder and file, how the main journeys flow, scripts, tests, where to make common changes, and probable bugs spotted |
 
 ## Status (28 Oct 2026)
 
 - **Now (28 Oct): `feature/tv-review-fixes`, 0.2.5+108, not merged.** Fixes from the code and TV
-  review (Claude Docs "HomeTunes 0.2.4 — Code & TV Review"; the user chose TV bugs & layout plus
+  review (Claude Docs "HomeTunes 0.2.4 â€” Code & TV Review"; the user chose TV bugs & layout plus
   downloads safety, not the title clean-up). OK on a collection/book/series opens at once (AppNav
   `_afterFrame` asks for a frame; before, a still screen waited for the next key press); Back with
-  the menu open goes back into the page; ↑ ↓ don't cross into the menu, and entering the menu lands
-  on the place showing; the focused row is kept 10–60 % down its list (`tvReveal`, instant
+  the menu open goes back into the page; â†‘ â†“ don't cross into the menu, and entering the menu lands
+  on the place showing; the focused row is kept 10â€“60 % down its list (`tvReveal`, instant
   scrolling) and pages scroll right up near their top; a bottom margin; the hint bubble fades after
   4 s (the user's choice) and comes back with any press; one hint wording style; dark TV notices
   (raised above the player's controls); Carry on shows the episode first; long descriptions open in
   full with OK; TV Settings hides Your edits and Swipe gestures (the user's choice) and servers that
   can't play a kind yet; a focus ring on filled buttons and switches; Downloads pages open over the
   tab showing; player: no empty preview box (server videos are never previewed), 10 s first seek
-  step, ↓ from the bar goes to Play, one title for films, "–:––" before the length is known;
+  step, â†“ from the bar goes to Play, one title for films, "â€“:â€“â€“" before the length is known;
   downloads: a size guess when the length isn't known, a playing temporary copy is never cleared, a
   folder move counts once copied. `flutter analyze` clean. The APK is in `build\dist` (signed,
-  108) but **not installed**: the user said to wait until they ask before sending it to the TV.
+  108), rebuilt 28 Oct 21:28 and installed on the Family room TV at the user's request (28 Oct 23:39).
   The PC's C: drive was full (250 MB free) on 28 Oct; Flutter's old temp folders were cleared with
   the user's OK (about 1.3 GB free after). Watch the space before builds.
-- **Released 28 Oct: [v0.2.4](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.4)** (0.2.4+106), covering 0.2.1–0.2.4: the whole Servers & Downloads plan (Jellyfin videos, the Source filter, downloads, temporary copies) and the TV fixes of 28 Oct (the user: "Everything here looks good to me"). All four step branches were merged into `main` (`--no-ff`) and deleted: **`main` is the only branch again.** Next: more TV work (the user: "We still have some things for TVs we want to work on"); the history of the four steps below is kept for reference.
-- **Released 23 Oct: [v0.2.0](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.0)** (0.2.0+101), covering 0.1.82–0.2.0: the Android TV interface (all seven steps), the app icon, Play buttons showing what's playing, the even volume fade and the video seek preview. `feature/android-tv` was merged into `main` and deleted: **`main` is the only branch.** The user has seen some TV issues still to fix (to be listed).
+- **Released 28 Oct: [v0.2.4](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.4)** (0.2.4+106), covering 0.2.1â€“0.2.4: the whole Servers & Downloads plan (Jellyfin videos, the Source filter, downloads, temporary copies) and the TV fixes of 28 Oct (the user: "Everything here looks good to me"). All four step branches were merged into `main` (`--no-ff`) and deleted: **`main` is the only branch again.** Next: more TV work (the user: "We still have some things for TVs we want to work on"); the history of the four steps below is kept for reference.
+- **Released 23 Oct: [v0.2.0](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.0)** (0.2.0+101), covering 0.1.82â€“0.2.0: the Android TV interface (all seven steps), the app icon, Play buttons showing what's playing, the even volume fade and the video seek preview. `feature/android-tv` was merged into `main` and deleted: **`main` is the only branch.** The user has seen some TV issues still to fix (to be listed).
 - **Now (25 Oct):** the Servers & Downloads plan (see `04_`). Step 1, Jellyfin videos (0.2.1+102),
   is on `feature/jellyfin-videos`: a Jellyfin server switched on for Videos fills the Videos tab,
-  plays from the server and keeps places in step both ways (`03_…` → Jellyfin videos). Versions
+  plays from the server and keeps places in step both ways (`03_â€¦` â†’ Jellyfin videos). Versions
   after 0.2.0 count on as 0.2.x. The user's answers (27 Oct): downloads go in HomeTunes' data
   folder by default, with a setting to pick another folder; Keep offline and next-episode
   downloads run in the background on the phone, with a message saying so and a setting to turn
   it off; **all four steps are released together** once step 4 is done (no release per step).
   The 0.2.1+102 APK was built 27 Oct (not installed anywhere yet). Step 2, the Source filter
   (0.2.2+103), is on `feature/source-filter`, branched from `feature/jellyfin-videos`. Step 3,
-  downloads (0.2.3+104: Download… with the copy chosen each time, Keep offline, next episodes,
+  downloads (0.2.3+104: Downloadâ€¦ with the copy chosen each time, Keep offline, next episodes,
   Wi-Fi only, a space limit, Make it mine, a Downloads page), is on `feature/downloads`, branched
-  from `feature/source-filter` (`03_…` → Downloads); the TV got its download options there too.
+  from `feature/source-filter` (`03_â€¦` â†’ Downloads); the TV got its download options there too.
   Step 4, temporary copies (0.2.4+105: Save a copy while streaming, cleared n days after it's
   finished or never, its own space, Keep, Clear now), is on `feature/temporary-copies`, branched
-  from `feature/downloads` (`03_…` → Temporary copies). That's all four steps built; they're
+  from `feature/downloads` (`03_â€¦` â†’ Temporary copies). That's all four steps built; they're
   released together once the user has tried them. 28 Oct (0.2.4+106, same branch): fixes the
   user asked for after trying it on the Family room TV (Remove downloaded videos once watched;
   the Download folder row; Back twice to leave on the TV; Back hides the video controls first).
@@ -67,22 +67,22 @@ Read the files in this order:
 - **Android TV (22 Oct):** the TV work (0.2.0+94) is on `feature/android-tv`, pushed to GitHub. The user tried it on the TV: the remote now stays on the open page; HomeTunes' own folder browser for Add folder isn't tried yet. The user is moving to another PC; see `04_`, Platforms plan, Android TV progress.
 - **Released:** the latest release is
   [v0.1.70](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.70) (6 Oct), which
-  covers 0.1.63–0.1.70 in one release: the video sleep timer, sidebar quick links (playlists
+  covers 0.1.63â€“0.1.70 in one release: the video sleep timer, sidebar quick links (playlists
   too), the volume % bubble, special seasons, playlist icons, a video's priority in small
   windows, Ascending / Descending on every sort, and the video volume sliders following the
   boost at once. Before it,
   [v0.1.62](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.62) (5 Oct), which
-  covers 0.1.59–0.1.62 in one release: Enlarge on the video picture and Leave full screen in
+  covers 0.1.59â€“0.1.62 in one release: Enlarge on the video picture and Leave full screen in
   full screen, full-screen music videos with a normal video's controls, an "Always on top" pin
   on the PC, and a volume boost (every volume slider can go up to 500 %). Before it,
   [v0.1.58](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.58) (5 Oct), which
-  covers 0.1.55–0.1.58 in one release: video playback stats in the Playback log, smoother music
+  covers 0.1.55â€“0.1.58 in one release: video playback stats in the Playback log, smoother music
   video syncing, and videos on phones drawn straight from the video chip (music videos keep the
   usual drawing). Before it,
   [v0.1.54](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.54) (5 Oct): editing one
   song's album name moves just that song instead of renaming the whole album. Before it,
   [v0.1.53](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.1.53) (3 Oct), which
-  covers 0.1.45–0.1.53 in one release: the Home revamp, Settings › Servers for several servers,
+  covers 0.1.45â€“0.1.53 in one release: the Home revamp, Settings â€º Servers for several servers,
   Shift + click and Esc in select mode, search boxes in the filter drop-downs, the no-internet
   warning, the update check at every start, the Artists tab's list / grid, and artist pictures.
   Before it,
@@ -101,8 +101,8 @@ Read the files in this order:
   the resizable / foldable sidebar, notices that close after 15 s, and 0.1.31's **MIT licence**
   ("Copyright (c) 2026 Jamesking96"). The engine is media_kit's video build; its licences
   (`THIRD_PARTY_NOTICES.md`, `licenses/ENGINE-COMPONENTS.txt`, the source in
-  `HomeTunes-audio-engine-source.zip` from `tool/engine_source.ps1`) are explained in `04_…`
-  (Music videos, "Done 1 Oct"). See `03_…` → Licence, which includes the rule about GPL
+  `HomeTunes-audio-engine-source.zip` from `tool/engine_source.ps1`) are explained in `04_â€¦`
+  (Music videos, "Done 1 Oct"). See `03_â€¦` â†’ Licence, which includes the rule about GPL
   libraries.
 - **Checks:** 592 tests passed on 0.1.70 (6 Oct), and `flutter analyze` is clean.
 - **Build script stall (6 Oct):** `tool\build_release.ps1 -Android` has stopped after Gradle
@@ -111,27 +111,27 @@ Read the files in this order:
   and check it with apksigner (JAVA_HOME = Android Studio's jbr), as the script would.
 - **Devices:** the phone had 0.1.58 on 5 Oct (the user tested the video builds on it). Installed Windows copies update
   themselves from GitHub releases, so the PC's copy may be newer.
-- **Publishing:** every release goes out with `tool/publish_release.ps1 -NotesFile …` (see `02_…`
-  → publishing builds). Installed copies look for its file names and checksum file to update
+- **Publishing:** every release goes out with `tool/publish_release.ps1 -NotesFile â€¦` (see `02_â€¦`
+  â†’ publishing builds). Installed copies look for its file names and checksum file to update
   themselves. When versions are released together, the notes must cover all of them, because
   "What's new" lists release pages, not versions.
 - **User-facing docs:** `docs/USER_GUIDE.md` is the download and how-to guide shown on every
   release, and `README.md` links to it. Update both when features or menu names change.
-- **What's built** (details and the *why* in `03_…`, per-release fixes in `05_…`):
-  - 0.1.0–0.1.9: music library, player, playlists, editing and backups; server streaming;
+- **What's built** (details and the *why* in `03_â€¦`, per-release fixes in `05_â€¦`):
+  - 0.1.0â€“0.1.9: music library, player, playlists, editing and backups; server streaming;
     audiobooks; gapless + ReplayGain; lyrics; audiobook sidecar files; the Settings tidy-up
-  - 0.1.10–0.1.13: equaliser, editing several albums or books at once, favourites, quick actions
+  - 0.1.10â€“0.1.13: equaliser, editing several albums or books at once, favourites, quick actions
     and the Details page
-  - 0.1.14–0.1.19: code-review fixes, Windows media keys, server password in protected storage,
+  - 0.1.14â€“0.1.19: code-review fixes, Windows media keys, server password in protected storage,
     swipe to skip, Library filters, the Windows accessibility crash fix
   - 0.1.20: keeps playing on a locked phone (confirmed by the user on 28 Sep), plus the Playback log
-  - 0.1.21: all ten security-review fixes (see `04_…` → Security)
-  - 0.1.22–0.1.24: volume everywhere, Check for updates (Windows installs itself, the phone opens
+  - 0.1.21: all ten security-review fixes (see `04_â€¦` â†’ Security)
+  - 0.1.22â€“0.1.24: volume everywhere, Check for updates (Windows installs itself, the phone opens
     the download page), colour themes
-  - 0.1.25–0.1.28: advanced appearance (saved themes, every colour, text size, corners), queue
-    drawer, Settings in A–Z order with Folders & scanning, folder options, mute, the What's new
+  - 0.1.25â€“0.1.28: advanced appearance (saved themes, every colour, text size, corners), queue
+    drawer, Settings in Aâ€“Z order with Folders & scanning, folder options, mute, the What's new
     pop-up
-  - 0.1.29–0.1.30: colour codes, sharing themes, a ✕ on every notice
+  - 0.1.29â€“0.1.30: colour codes, sharing themes, a âœ• on every notice
   - 0.1.31: MIT licence and third-party notices
   - 0.1.40: videos (Videos tab, collections, seasons, music videos), the resizable sidebar,
     notices that close after 15 s
@@ -140,22 +140,22 @@ Read the files in this order:
   - 0.1.43: the bottom bar follows the video again (confirmed by the user); single "What's new"
     heading on release pages
   - 0.1.44: Details pages for videos and collections
-  - 0.1.45–0.1.53 (released together as v0.1.53): Home revamp (videos, Jump back in, recently
-    played music), Settings › Servers with several servers per kind (a framework; only the main
+  - 0.1.45â€“0.1.53 (released together as v0.1.53): Home revamp (videos, Jump back in, recently
+    played music), Settings â€º Servers with several servers per kind (a framework; only the main
     Subsonic server streams), Shift + click ranges and Esc in select mode, search in the filter
     drop-downs, the no-internet warning, the update check at every start, the Artists tab's
     list / grid, and artist pictures
   - 0.1.54: one song's album edit moves just that song (the "also update the album" box starts
     unticked for album name / album artist changes)
-  - 0.1.55–0.1.58 (released together as v0.1.58): video playback stats in the Playback log,
+  - 0.1.55â€“0.1.58 (released together as v0.1.58): video playback stats in the Playback log,
     music videos kept in step by speed instead of jumps, videos on phones drawn straight from
-    the video chip (Settings › Videos › Smoother video on phones), music videos on the usual
+    the video chip (Settings â€º Videos â€º Smoother video on phones), music videos on the usual
     drawing. The user's logs showed no dropped pictures afterwards
-  - 0.1.59–0.1.62 (released together as v0.1.62): Enlarge on the video picture, Leave full
+  - 0.1.59â€“0.1.62 (released together as v0.1.62): Enlarge on the video picture, Leave full
     screen in full screen, full-screen music videos with a normal video's controls, the
-    "Always on top" pin (PC), and the volume boost (Settings › Playback sets how far every
+    "Always on top" pin (PC), and the volume boost (Settings â€º Playback sets how far every
     volume slider goes, up to 500 %)
-  - 0.1.63–0.1.70 (released together as v0.1.70, 6 Oct): sleep timer for videos,
+  - 0.1.63â€“0.1.70 (released together as v0.1.70, 6 Oct): sleep timer for videos,
     quick links in the sidebar (albums, artists, audiobooks, collections, videos, playlists),
     the volume % bubble, special seasons with titles from a list, playlist icons and pictures,
     the video first in small windows, Ascending / Descending on every sort, and the video
@@ -166,7 +166,7 @@ Read the files in this order:
   copy. Update them when things change.
 - **Next:** nothing agreed yet. The open phases are D (offline server songs, after the server
   review) and E (the Audiobookshelf connection, which needs a plan). The Platforms plan (Android TV, then
-  Android Auto, then Linux, reordered 13 Oct; see `04_…`) is agreed but paused; its phases are planned as 0.2.x (the next level of development), only
+  Android Auto, then Linux, reordered 13 Oct; see `04_â€¦`) is agreed but paused; its phases are planned as 0.2.x (the next level of development), only
   once the user starts them.
   Ask the user.
 
@@ -178,7 +178,7 @@ Read the files in this order:
    build and install over adb). Merge to `main` with `--no-ff` only when the user approves ("get it
    into github" = merge + push; "delete the others" = remove merged branches).
 3. **Always raise the build number** (the part after `+` in `pubspec.yaml`) for every build that
-   goes on the phone. Android refuses downgrades. Bump the version for each feature or fix: it stays on **0.1.x** (0.1.71, 0.1.72…) for
+   goes on the phone. Android refuses downgrades. Bump the version for each feature or fix: it stays on **0.1.x** (0.1.71, 0.1.72â€¦) for
    work on the app as it is. **0.2.0 is kept for the next level of development** (the user,
    7 Oct, correcting the 6 Oct note that the next release would be 0.2.0): don't move to 0.2.x
    until the user starts that stage. The build number keeps counting up (73 for 0.1.71).
@@ -188,12 +188,12 @@ Read the files in this order:
    the search pattern will match itself. Ignore your own PID.)
 5. **Ask before installing on the phone.** It's usually plugged in, but may have been removed.
 6. **Settings placement:**
-   - Audiobook-related settings go in **Settings → Audiobooks** (the audiobook folders also show
+   - Audiobook-related settings go in **Settings â†’ Audiobooks** (the audiobook folders also show
      in **Folders & scanning**, the user's choice on 29 Sep).
-   - Settings pages stay in **A–Z order** (0.1.26).
-   - Playback settings go in **Settings → Playback**.
-   - Online look-up switches go in **Settings → Online lookups**.
-   - The sleep timer has its own **Settings → Sleep timer** page.
+   - Settings pages stay in **Aâ€“Z order** (0.1.26).
+   - Playback settings go in **Settings â†’ Playback**.
+   - Online look-up switches go in **Settings â†’ Online lookups**.
+   - The sleep timer has its own **Settings â†’ Sleep timer** page.
    - Every new setting gets a `SettingTarget` and an entry in `settingsCatalog` so search finds it.
 7. **Backups never contain the server password** (since 0.1.21). After a restore on a new device,
    the user types it again. Don't add an option to include it.
@@ -222,5 +222,5 @@ Read the files in this order:
 2. For anything bigger than a small fix, write a **plan first** and agree it with the user. Past
    plans were published as artifacts: "HomeTunes Sound & Offline Plan" covers everything still
    planned. Ask the user the open questions from the plan before building.
-3. Create a branch from the right base, build, and verify (see `02_…`). Then report what the user
+3. Create a branch from the right base, build, and verify (see `02_â€¦`). Then report what the user
    will see and anything that couldn't be verified.
