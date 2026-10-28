@@ -268,47 +268,41 @@ class _ServerCard extends StatelessWidget {
                 itemBuilder: (_) => [
                   const PopupMenuItem(
                     value: 'edit',
-                    child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Edit…')),
+                    child: _MenuRow(Icons.edit_outlined, 'Edit…'),
                   ),
                   const PopupMenuItem(
                     value: 'test',
-                    child: ListTile(leading: Icon(Icons.network_check), title: Text('Test connection')),
+                    child: _MenuRow(Icons.network_check, 'Test connection'),
                   ),
                   if (s.isMain && lib.serverEnabled)
                     PopupMenuItem(
                       value: 'sync',
                       enabled: !lib.busy,
-                      child: const ListTile(leading: Icon(Icons.sync), title: Text('Sync now')),
+                      child: const _MenuRow(Icons.sync, 'Sync now'),
                     ),
                   if (readsVideos) ...[
                     PopupMenuItem(
                       value: 'video-sync',
                       enabled: !serverVideos.isSyncing(s),
-                      child: const ListTile(leading: Icon(Icons.sync), title: Text('Sync now')),
+                      child: const _MenuRow(Icons.sync, 'Sync now'),
                     ),
                     const PopupMenuItem(
                       value: 'libraries',
-                      child: ListTile(leading: Icon(Icons.video_library_outlined), title: Text('Libraries…')),
+                      child: _MenuRow(Icons.video_library_outlined, 'Libraries…'),
                     ),
                     const PopupMenuItem(
                       value: 'sign-out',
-                      child: ListTile(leading: Icon(Icons.logout), title: Text('Sign out on this device')),
+                      child: _MenuRow(Icons.logout, 'Sign out on this device'),
                     ),
                   ],
                   if (!s.isMain && s.type == ServerType.subsonic)
                     const PopupMenuItem(
                       value: 'main',
-                      child: ListTile(
-                        leading: Icon(Icons.star_outline),
-                        title: Text('Make this the main music server'),
-                      ),
+                      child: _MenuRow(Icons.star_outline, 'Make this the main music server'),
                     ),
                   PopupMenuItem(
                     value: 'remove',
-                    child: ListTile(
-                      leading: const Icon(Icons.delete_outline),
-                      title: Text(s.isMain ? 'Forget this server' : 'Remove'),
-                    ),
+                    child: _MenuRow(Icons.delete_outline, s.isMain ? 'Forget this server' : 'Remove'),
                   ),
                 ],
               ),
@@ -367,6 +361,19 @@ class _ServerCard extends StatelessWidget {
         if (yes == true) await servers.remove(server);
     }
   }
+}
+
+/// A server menu item's icon and words (0.2.5). It was a ListTile; with the TV's remote (which
+/// lets anything that could be tapped take focus) the remote stopped on that inner row, and OK
+/// pressed the row, which does nothing, instead of the menu item: no choice in the menu worked
+/// on the TV. ExcludeFocus keeps the remote on the menu item itself.
+class _MenuRow extends StatelessWidget {
+  const _MenuRow(this.icon, this.label);
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => ExcludeFocus(child: ListTile(leading: Icon(icon), title: Text(label)));
 }
 
 /// A small rounded label: "Main music server", "Coming later".
