@@ -546,7 +546,7 @@ class _VideoPageState extends State<_VideoPage> {
                   label: Text(watched ? 'Mark as not watched' : 'Mark as watched'),
                   onPressed: () => context.read<VideoLibraryModel>().setWatched([v.id], !watched),
                 ),
-                if (Platform.isWindows)
+                if (Platform.isWindows && !VideoLibraryModel.isServerVideo(v))
                   OutlinedButton.icon(
                     icon: const Icon(Icons.folder_open),
                     label: const Text('Show in folder'),

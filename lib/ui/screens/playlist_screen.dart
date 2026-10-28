@@ -7,12 +7,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/download.dart' show KeepKind;
 import '../../models/track.dart';
+import '../../state/downloads_model.dart' show DownloadItem;
 import '../../state/library_model.dart';
 import '../../state/playlists_model.dart';
 import '../theme.dart';
 import '../widgets/cards.dart';
 import '../widgets/collection_header.dart';
+import '../widgets/download_ui.dart';
 import '../widgets/playlist_art.dart';
 import '../widgets/quick_links.dart';
 import '../widgets/track_tile.dart';
@@ -36,7 +39,13 @@ class PlaylistScreen extends StatelessWidget {
       // Liked Songs
       final tracks = [for (final id in pl.liked) lib.byId(id)].whereType<Track>().toList();
       return Scaffold(
-        appBar: AppBar(),
+        appBar: AppBar(actions: [
+          // Songs from the music server: download them, or keep Liked Songs offline (0.2.3).
+          DownloadMenuButton(
+            items: () => [for (final t in tracks) DownloadItem.track(t)],
+            keep: (kind: KeepKind.liked, key: '', label: 'Liked Songs'),
+          ),
+        ]),
         // Rows are built lazily as you scroll, so a long Liked list stays fast.
         body: CustomScrollView(slivers: [
           SliverToBoxAdapter(
@@ -97,6 +106,10 @@ class PlaylistScreen extends StatelessWidget {
     final missing = playlist.trackIds.length - tracks.length;
     final total = tracks.fold(Duration.zero, (a, t) => a + t.duration);
     final label = 'Playlist · ${playlist.name}';
+    // Songs from the music server: Download… / Remove downloads / Keep offline… (0.2.3).
+    // (Worked out when the menu opens, so it's never stale.)
+    List<DownloadOption> downloads() => downloadOptions(context, [for (final t in tracks) DownloadItem.track(t)],
+        keep: (kind: KeepKind.playlist, key: playlist.id, label: playlist.name));
 
     // App bar with a ⋮ menu for Rename and Delete.
     return Scaffold(
@@ -105,6 +118,9 @@ class PlaylistScreen extends StatelessWidget {
         QuickLinkButton(link: QuickLink(QuickLinkKind.playlist, playlist.id, playlist.name)),
         PopupMenuButton<String>(
           onSelected: (v) async {
+            for (final o in downloads()) {
+              if (v == 'dl:${o.key}') return o.run();
+            }
             if (v == 'icon') {
               await showPlaylistIconPicker(context, playlist);
             } else if (v == 'rename') {
@@ -131,12 +147,17 @@ class PlaylistScreen extends StatelessWidget {
               }
             }
           },
-          itemBuilder: (_) => const [
-            // Its own icon or picture (0.1.67).
-            PopupMenuItem(key: ValueKey('playlist-change-icon'), value: 'icon', child: Text('Change icon…')),
-            PopupMenuItem(value: 'rename', child: Text('Rename')),
-            PopupMenuItem(value: 'delete', child: Text('Delete playlist')),
-          ],
+          itemBuilder: (_) {
+            final dl = downloads();
+            return [
+              // Its own icon or picture (0.1.67).
+              const PopupMenuItem(key: ValueKey('playlist-change-icon'), value: 'icon', child: Text('Change icon…')),
+              const PopupMenuItem(value: 'rename', child: Text('Rename')),
+              const PopupMenuItem(value: 'delete', child: Text('Delete playlist')),
+              if (dl.isNotEmpty) const PopupMenuDivider(),
+              for (final o in dl) PopupMenuItem(key: ValueKey('menu-${o.key}'), value: 'dl:${o.key}', child: Text(o.label)),
+            ];
+          },
         ),
       ]),
       // Header, an "empty" hint if needed, then the draggable song list.

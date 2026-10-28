@@ -39,6 +39,7 @@ class AppBackup {
     'videos.json',  // 0.1.40: the Videos tab (edits and watched places)
     'history.json', // 0.1.45: recently played music (Home's "Jump back in")
     'servers.json', // 0.1.46: the other servers (never their passwords)
+    'downloads.json', // 0.2.3: what's kept offline and the download settings (not the files)
   ];
 
   /// Marks a path inside the app's folder in a backup.
@@ -74,6 +75,15 @@ class AppBackup {
     final settings = files['settings.json'];
     if (settings is Map && settings['server'] is Map) {
       (settings['server'] as Map).remove('password');
+    }
+    // Downloads (0.2.3): the downloaded files aren't in a backup, so neither is the list of them
+    // (it holds the files' places on this device) or the folder; what's kept offline and the
+    // settings are.
+    final downloads = files['downloads.json'];
+    if (downloads is Map) {
+      downloads.remove('entries');
+      final s = downloads['settings'];
+      if (s is Map) s..remove('folder')..remove('backgroundNoticeShown');
     }
 
     // 3. Cover images, stored as text (base64) keyed by their path under the app folder.
@@ -406,6 +416,40 @@ class AppBackup {
       }
     } else if (bsv.isNotEmpty) {
       await put('servers.json', bsv);
+    }
+
+    // ---- downloads (0.2.3): this device's downloads always stay (their files are here). What's
+    //      kept offline: merging keeps both; replacing takes the backup's. The settings: merging
+    //      keeps this device's (the backup's if there are none); replacing takes the backup's,
+    //      but the folder stays this device's. ----
+    final bd = backupFile('downloads.json');
+    if (bd.isNotEmpty) {
+      final cd = await currentFile('downloads.json');
+      Map<String, dynamic> settingsOf(Map<String, dynamic> m) =>
+          m['settings'] is Map ? Map<String, dynamic>.from(m['settings'] as Map) : <String, dynamic>{};
+      final here = settingsOf(cd), theirs = settingsOf(bd)..remove('folder');
+      final kept = merge
+          ? (() {
+              final seen = <String>{};
+              String id(Object? k) => k is Map ? '${k['kind']}:${k['key']}' : '';
+              return [
+                for (final k in [...(cd['kept'] as List? ?? const []), ...(bd['kept'] as List? ?? const [])])
+                  if (k is Map && seen.add(id(k))) k,
+              ];
+            })()
+          : [...(bd['kept'] as List? ?? const [])];
+      final skipped = <String, dynamic>{
+        ...?(cd['skipped'] as Map?)?.cast<String, dynamic>(),
+        if (!merge) ...?(bd['skipped'] as Map?)?.cast<String, dynamic>(),
+      };
+      await put('downloads.json', {
+        'entries': cd['entries'] as List? ?? const [],
+        if (kept.isNotEmpty) 'kept': kept,
+        if (skipped.isNotEmpty) 'skipped': skipped,
+        'settings': merge && here.isNotEmpty
+            ? here
+            : {...theirs, if (here['folder'] != null) 'folder': here['folder'], if (here['backgroundNoticeShown'] == true) 'backgroundNoticeShown': true},
+      });
     }
 
     return RestoreResult(missingFolders: missingFolders, needsPassword: needsPassword);

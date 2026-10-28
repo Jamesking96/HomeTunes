@@ -171,8 +171,63 @@ class VideoDetailsScreen extends StatelessWidget {
               kind: 'Video',
               title: v.title,
               subtitle: [v.collection, ?v.episodeLabel].join(' · '),
-              children: [_VideoDetailsBody(key: ValueKey(v.id), video: v)],
+              children: [
+                VideoLibraryModel.isServerVideo(v)
+                    ? _ServerVideoDetails(key: ValueKey(v.id), video: v)
+                    : _VideoDetailsBody(key: ValueKey(v.id), video: v),
+              ],
             ),
+    );
+  }
+}
+
+/// A video from a server (0.2.1): which server, and the details it gave. There's no file here to
+/// look inside.
+class _ServerVideoDetails extends StatelessWidget {
+  final VideoItem video;
+  final bool flat;
+  const _ServerVideoDetails({super.key, required this.video, this.flat = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final model = context.watch<VideoLibraryModel>();
+    final v = video;
+    final server = model.serverNameOf(v) ?? 'a server that has been removed';
+    final file = [
+      v.format,
+      ?v.resolution,
+      if (v.sizeBytes != null) fileSize(v.sizeBytes!),
+      if (v.duration > Duration.zero) videoLength(v.duration),
+      ?overallBitRate(v.sizeBytes, v.duration),
+    ].join(' · ');
+    final details = [
+      DetailsPair('Collection', v.collection),
+      if (v.category != null) DetailsPair('Category', v.category!),
+      if (v.season != null) DetailsPair('Season', v.season == 0 ? 'Specials' : v.seasonLabel!),
+      if (v.seasonTitle != null) DetailsPair('Season title', v.seasonTitle!),
+      if (v.episode != null) DetailsPair('Episode', '${v.episode}'),
+      if (v.year != null) DetailsPair('Year', '${v.year}'),
+      if (v.genre != null) DetailsPair('Genre', v.genre!),
+      if (v.addedMs != null) DetailsPair('Added to the server', _date(DateTime.fromMillisecondsSinceEpoch(v.addedMs!))),
+      if (v.description != null)
+        DetailsPair('Description', v.description!.length > 160 ? '${v.description!.substring(0, 160)}…' : v.description!),
+    ];
+    final edited = model.editOf(v.id) != null;
+    final where = [
+      DetailsLine(Icons.cloud_outlined, 'Streams from $server (Jellyfin)'),
+      DetailsLine(Icons.insert_drive_file_outlined, file),
+      if (edited) const DetailsLine(Icons.edit_outlined, 'Your edits are kept in HomeTunes; the server isn\'t changed.'),
+    ];
+    if (flat) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [...where, const SizedBox(height: 8), ...details]);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DetailsCard(title: 'Where it is', children: where),
+        const SizedBox(height: 16),
+        DetailsCard(title: 'What the server says', children: details),
+      ],
     );
   }
 }
@@ -434,7 +489,10 @@ class _CollectionBodyState extends State<_CollectionBody> {
   Widget build(BuildContext context) {
     final model = context.read<VideoLibraryModel>();
     final c = widget.collection;
-    final folders = {for (final v in c.videos) p.dirname(v.path)}.toList()..sort();
+    // Files in folders here, and (0.2.1) videos streamed from servers.
+    final folders = {for (final v in c.videos) if (!VideoLibraryModel.isServerVideo(v)) p.dirname(v.path)}.toList()..sort();
+    final servers = {for (final v in c.videos) if (VideoLibraryModel.isServerVideo(v)) model.serverNameOf(v) ?? 'a removed server'}
+        .toList()..sort();
     final size = c.videos.fold<int>(0, (s, v) => s + (v.sizeBytes ?? 0));
     final formats = {for (final v in c.videos) v.format}.toList()..sort();
     final n = c.videos.length;
@@ -461,6 +519,7 @@ class _CollectionBodyState extends State<_CollectionBody> {
               ),
             if (folders.length > shownFolders)
               DetailsLine(Icons.folder_outlined, 'and ${folders.length - shownFolders} more folders'),
+            for (final s in servers) DetailsLine(Icons.cloud_outlined, 'Streams from $s (Jellyfin)'),
             DetailsLine(Icons.insert_drive_file_outlined, summary),
           ],
         ),
@@ -494,12 +553,16 @@ class _CollectionBodyState extends State<_CollectionBody> {
                 childrenPadding: const EdgeInsets.only(bottom: 12),
                 title: Text([?v.episodeLabel, v.title].join(' · '), maxLines: 2, overflow: TextOverflow.ellipsis),
                 subtitle: Text(
-                  p.basename(v.path),
+                  VideoLibraryModel.isServerVideo(v) ? 'On ${model.serverNameOf(v) ?? 'a server'}' : p.basename(v.path),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: AppColors.textDim, fontSize: 12),
                 ),
-                children: [_VideoDetailsBody(video: v, flat: true)],
+                children: [
+                  VideoLibraryModel.isServerVideo(v)
+                      ? _ServerVideoDetails(video: v, flat: true)
+                      : _VideoDetailsBody(video: v, flat: true),
+                ],
               ),
           ],
         ),

@@ -105,9 +105,15 @@ class FakeVideoEngine implements VideoEngine {
   @override
   Stream<void> get trackStream => _track.stream;
 
+  /// The address and headers last opened (server videos, 0.2.1).
+  String? openPath;
+  Map<String, String>? openHeaders;
+
   @override
-  Future<void> open(String path, {Duration? start}) async {
-    openName = nameOf(path);
+  Future<void> open(String path, {Duration? start, Map<String, String>? headers}) async {
+    openPath = path;
+    openHeaders = headers;
+    openName = nameOf(path.split('?').first);
     calls.add('open $openName${start != null ? ' at $start' : ''}');
     position = start ?? Duration.zero;
     duration = Duration.zero;

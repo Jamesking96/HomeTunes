@@ -16,6 +16,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../state/servers_model.dart' show ServerType;
+import 'jellyfin_client.dart';
 import 'subsonic_client.dart';
 
 /// What a test found.
@@ -61,10 +62,28 @@ Future<ProbeResult> probeServer(
       try {
         final found = await _identify(type, base, c, timeout);
         if (found != null) {
-          final later = type.streams
-              ? ''
+          final plays = type.playsNow;
+          final later = plays.isNotEmpty
+              ? (plays.length == type.can.length
+                    ? ''
+                    : ' HomeTunes plays its ${[for (final k in plays) k.lower].join(' and ')} now.')
               : ' HomeTunes can\'t play from ${type.label} yet; it\'s saved and will be '
                     'used once that\'s added.';
+          // Jellyfin (0.2.1): check the sign-in too, then sign straight out again.
+          if (type == ServerType.jellyfin && username.trim().isNotEmpty) {
+            if (base.startsWith('http://') && isPlainHttpToInternet(base)) {
+              return ProbeResult(true, 'Found $found, but it only answered over plain http, so the sign-in '
+                  'wasn\'t tried. Use https, or connect over your home network or Tailscale.', url: base);
+            }
+            final j = JellyfinClient(baseUrl: base, deviceId: 'hometunes-connection-test', httpClient: c, timeout: timeout);
+            try {
+              await j.signIn(username.trim(), password);
+              await j.signOut();
+              return ProbeResult(true, 'Signed in to $found.$later', url: base);
+            } on JellyfinException catch (e) {
+              return ProbeResult(false, 'Found $found, but couldn\'t sign in: ${e.message}', url: base);
+            }
+          }
           return ProbeResult(true, 'Found $found.$later', url: base);
         }
         lastProblem = 'Something answered at $base, but it doesn\'t look like a ${type.label} server.';

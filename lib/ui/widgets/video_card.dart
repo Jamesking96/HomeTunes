@@ -7,11 +7,15 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import '../../models/video_item.dart';
+import '../../state/downloads_model.dart' show DownloadItem;
 import '../../state/range_select.dart';
+import '../../state/source_filter.dart' show sourceOfVideo;
 import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
+import 'download_ui.dart';
 import 'quick_links.dart';
+import 'source_mark.dart';
 import '../screens/edit_video.dart';
 import '../screens/video_details_screen.dart' show openVideoDetails;
 import '../screens/video_pictures.dart';
@@ -107,6 +111,9 @@ class VideoCard extends StatelessWidget {
                       bottom: progress > 0 ? 10 : 6,
                       child: _Badge(videoLength(video.duration)),
                     ),
+                  // Streamed from a server, or downloaded from one (0.2.2).
+                  if (SourceBadge.forSources({sourceOfVideo(video)}) case final mark?)
+                    Positioned(left: 6, bottom: progress > 0 ? 10 : 6, child: mark),
                   if (place?.watched ?? false)
                     Positioned(
                       left: 6,
@@ -128,6 +135,8 @@ class VideoCard extends StatelessWidget {
                           color: selected ? accent : Colors.white70),
                     ),
                   if (selected) Container(color: accent.withValues(alpha: 0.25)),
+                  // Downloading: how far it's got, along the top (27 Oct).
+                  Positioned(left: 0, right: 0, top: 0, child: DownloadProgressBar(ids: [video.id])),
                 ]),
               ),
             ),
@@ -185,12 +194,19 @@ Future<void> showVideoMenu(BuildContext context, VideoItem video, {required Offs
   final started = model.placeOf(video.id)?.inProgress ?? false;
   final link = QuickLink(QuickLinkKind.video, video.id, video.title);
   final linked = model.library.isQuickLink(link.kind, link.id);
+  // From a server: Download… / Stop downloading / Remove download / Make it mine… (0.2.3).
+  final downloads = downloadOptions(context, [DownloadItem.video(video)]);
   final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
   final choice = await showMenu<String>(
     context: context,
     position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
     items: [
       const PopupMenuItem(value: 'play', child: ListTile(leading: Icon(Icons.play_arrow), title: Text('Play'))),
+      for (final o in downloads)
+        PopupMenuItem(
+            key: ValueKey('menu-${o.key}'),
+            value: 'dl:${o.key}',
+            child: ListTile(leading: Icon(o.icon), title: Text(o.label))),
       if (started)
         const PopupMenuItem(value: 'restart', child: ListTile(leading: Icon(Icons.replay), title: Text('Play from the start'))),
       const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Edit details…'))),
@@ -217,13 +233,20 @@ Future<void> showVideoMenu(BuildContext context, VideoItem video, {required Offs
       copyTitleMenuItem('copy'),
       // Where it comes from, and what's inside the file (0.1.44).
       const PopupMenuItem(value: 'details', child: ListTile(leading: Icon(Icons.info_outline), title: Text('Details…'))),
-      if (Platform.isWindows)
+      // (Not for a video streamed from a server: there's no file here.)
+      if (Platform.isWindows && !VideoLibraryModel.isServerVideo(video))
         const PopupMenuItem(value: 'folder', child: ListTile(leading: Icon(Icons.folder_open), title: Text('Show in folder'))),
       if (onSelect != null)
         const PopupMenuItem(value: 'select', child: ListTile(leading: Icon(Icons.check_box_outlined), title: Text('Select'))),
     ],
   );
   if (!context.mounted) return;
+  if (choice != null && choice.startsWith('dl:')) {
+    for (final o in downloads) {
+      if ('dl:${o.key}' == choice) await o.run();
+    }
+    return;
+  }
   switch (choice) {
     case 'copy':
       await copyTitle(context, video.title);

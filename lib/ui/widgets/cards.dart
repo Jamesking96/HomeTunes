@@ -11,12 +11,14 @@ import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
 import '../../state/range_select.dart';
 import '../../state/selection_model.dart';
+import '../../state/source_filter.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../../state/library_model.dart';
 import 'artist_picture.dart';
 import 'artwork.dart';
 import 'quick_actions.dart';
+import 'source_mark.dart';
 
 /// Album tile for grids and carousels. Hovering over the cover with a mouse shows a round
 /// play button that plays the album straight away (0.1.26). While the album is the one playing,
@@ -55,6 +57,7 @@ class AlbumCard extends StatelessWidget {
       kind: SelectKind.albums,
       scope: scope,
       favourite: favourite,
+      sources: sourcesOfTracks(album.tracks),
       highlighted: highlighted,
       actionsFor: (keys) {
         final lib = context.read<LibraryModel>();
@@ -120,6 +123,10 @@ class SelectableCard extends StatefulWidget {
   final String openPageLabel;
   /// Outlined in the highlight colour without being selected (e.g. its songs are showing).
   final bool highlighted;
+
+  /// Where its songs come from (0.2.2): a cloud mark in the top-left corner when any streams
+  /// from a server (the select box takes that corner while selecting).
+  final Set<MediaSource> sources;
   const SelectableCard({
     super.key,
     required this.id,
@@ -127,6 +134,7 @@ class SelectableCard extends StatefulWidget {
     required this.scope,
     required this.onOpen,
     required this.child,
+    this.sources = const {},
     this.favourite = false,
     this.actionsFor,
     this.onOpenPage,
@@ -226,6 +234,9 @@ class _SelectableCardState extends State<SelectableCard> {
             ),
           ),
         ),
+      if (!selecting)
+        if (SourceBadge.forSources(widget.sources) case final mark?)
+          Positioned(left: 12, top: 12, child: mark),
       if (selecting)
         Positioned(
           left: 12,

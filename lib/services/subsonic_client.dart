@@ -117,6 +117,13 @@ class SubsonicClient {
   /// URL the player opens to stream a song.
   String streamUrl(String songId) => buildUri('stream', {'id': songId}, _mediaSalt).toString();
 
+  /// The original file, for keeping on this device (downloads, 0.2.3).
+  String downloadUrl(String songId) => buildUri('download', {'id': songId}, _mediaSalt).toString();
+
+  /// A smaller copy the server converts to MP3 at [kbps] (downloads, 0.2.3).
+  String convertedUrl(String songId, int kbps) =>
+      buildUri('stream', {'id': songId, 'maxBitRate': '$kbps', 'format': 'mp3'}, _mediaSalt).toString();
+
   /// URL for cover art.
   String coverArtUrl(String coverId, {int size = 512}) =>
       buildUri('getCoverArt', {'id': coverId, 'size': '$size'}, _mediaSalt).toString();
