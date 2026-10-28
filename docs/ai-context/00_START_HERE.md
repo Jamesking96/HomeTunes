@@ -16,8 +16,9 @@ Read the files in this order:
 | `04_ROADMAP_AND_OPEN_ITEMS.md` | What's done and what's next (offline server songs, audiobook server), decisions, security, known issues |
 | `05_CODE_GUIDE.md` | A plain-English tour of the code for the user: every folder and file, how the main journeys flow, scripts, tests, where to make common changes, and probable bugs spotted |
 
-## Status (6 Oct 2026)
+## Status (28 Oct 2026)
 
+- **Released 28 Oct: [v0.2.4](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.4)** (0.2.4+106), covering 0.2.1–0.2.4: the whole Servers & Downloads plan (Jellyfin videos, the Source filter, downloads, temporary copies) and the TV fixes of 28 Oct (the user: "Everything here looks good to me"). All four step branches were merged into `main` (`--no-ff`) and deleted: **`main` is the only branch again.** Next: more TV work (the user: "We still have some things for TVs we want to work on"); the history of the four steps below is kept for reference.
 - **Released 23 Oct: [v0.2.0](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.0)** (0.2.0+101), covering 0.1.82–0.2.0: the Android TV interface (all seven steps), the app icon, Play buttons showing what's playing, the even volume fade and the video seek preview. `feature/android-tv` was merged into `main` and deleted: **`main` is the only branch.** The user has seen some TV issues still to fix (to be listed).
 - **Now (25 Oct):** the Servers & Downloads plan (see `04_`). Step 1, Jellyfin videos (0.2.1+102),
   is on `feature/jellyfin-videos`: a Jellyfin server switched on for Videos fills the Videos tab,
