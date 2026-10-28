@@ -116,7 +116,7 @@ class _TvPageState extends State<TvPage> {
     return Material(
       color: AppColors.bg,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(TvStyle.sideMargin, TvStyle.topMargin, 20, 0),
+        padding: const EdgeInsets.fromLTRB(TvStyle.sideMargin, TvStyle.topMargin, 20, TvStyle.bottomMargin),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           SizedBox(
             height: 44,

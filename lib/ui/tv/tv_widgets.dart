@@ -34,8 +34,9 @@ abstract final class TvStyle {
   /// Rounded corners of tiles and rows.
   static const radius = 12.0;
 
-  /// The space kept clear at the screen's edges (TVs can crop them).
-  static const sideMargin = 32.0, topMargin = 24.0;
+  /// The space kept clear at the screen's edges (TVs can crop them). The bottom one since 0.2.5:
+  /// lists ran to the very edge, where some TVs cut lines off.
+  static const sideMargin = 32.0, topMargin = 24.0, bottomMargin = 16.0;
 }
 
 /// Something the remote can press. [builder] draws it, told whether it has focus. With neither
