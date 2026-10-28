@@ -4,6 +4,7 @@
 // book, series and video collection pages are all made of these (tv_pages.dart,
 // tv_book_pages.dart, tv_collection_page.dart).
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../nav.dart';
@@ -12,7 +13,7 @@ import 'tv_browse.dart';
 import 'tv_widgets.dart';
 
 /// The hints on a page: what OK and holding OK do on its rows.
-const tvPageHints = <TvHint>[('OK', 'Play'), ('Hold OK', 'Options'), ('Back', 'Back')];
+const tvPageHints = <TvHint>[('OK', 'Play'), ('Hold OK', 'Options'), ('Back', 'Go back')];
 
 /// Sets the hint bubble's words for the tab this page was opened in, while it's the page showing.
 class TvPageHintsHere extends StatefulWidget {
@@ -77,7 +78,7 @@ class TvMissingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TvPageHintsHere(
-        hints: const [('Back', 'Back')],
+        hints: const [('Back', 'Go back')],
         child: Material(color: AppColors.bg, child: TvEmpty(icon: icon, title: title)),
       );
 }
@@ -155,18 +156,20 @@ class TvDetailHeader extends StatelessWidget {
 
 /// A round button with only an icon (the heart, More), named for the remote's screen reader.
 class TvIconButton extends StatelessWidget {
-  const TvIconButton({super.key, required this.icon, required this.label, required this.onPressed, this.on = false});
+  const TvIconButton({super.key, required this.icon, required this.label, required this.onPressed, this.on = false, this.focusNode});
   final IconData icon;
   final String label;
   final VoidCallback? onPressed;
 
   /// Shown in the accent colour (a favourite).
   final bool on;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
     return TvPressable(
       onPressed: onPressed,
+      focusNode: focusNode,
       semanticLabel: label,
       builder: (context, focused) => TvFocusFrame(
         focused: focused,
@@ -196,15 +199,123 @@ class TvListHeading extends StatelessWidget {
       );
 }
 
-/// A short description under a header, folded to a few lines.
+/// A short description under a header, folded to a few lines. When it doesn't fit, the remote
+/// can move onto it and OK shows all of it (0.2.5: the rest couldn't be read on the TV).
 class TvDescription extends StatelessWidget {
-  const TvDescription(this.text, {super.key, this.lines = 3});
+  const TvDescription(this.text, {super.key, this.lines = 3, this.title});
   final String text;
   final int lines;
 
+  /// The heading over the whole text (the collection's or book's name).
+  final String? title;
+
+  static TextStyle get _style => TextStyle(fontSize: 14, height: 1.35, color: AppColors.text.withValues(alpha: 0.85));
+
   @override
-  Widget build(BuildContext context) => Text(text.trim(),
-      maxLines: lines, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, height: 1.35, color: AppColors.text.withValues(alpha: 0.85)));
+  Widget build(BuildContext context) {
+    final body = text.trim();
+    return LayoutBuilder(builder: (context, c) {
+      final painter = TextPainter(
+        text: TextSpan(text: body, style: _style),
+        maxLines: lines,
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(maxWidth: c.maxWidth);
+      final folded = Text(body, maxLines: lines, overflow: TextOverflow.ellipsis, style: _style);
+      if (!painter.didExceedMaxLines) return folded;
+      return TvPressable(
+        key: const ValueKey('tv-description'),
+        semanticLabel: 'Read all of the description',
+        onPressed: () => showTvText(context, title: title ?? 'Description', text: body),
+        builder: (context, focused) => AnimatedContainer(
+          duration: TvStyle.animation,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            color: focused ? AppColors.surfaceHigh : Colors.transparent,
+            border: Border.all(color: focused ? AppColors.accent : Colors.transparent, width: 2),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            folded,
+            if (focused)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('OK to read it all', style: TextStyle(fontSize: 12, color: AppColors.textDim)),
+              ),
+          ]),
+        ),
+      );
+    });
+  }
+}
+
+/// A panel with [text] in full, scrolled with ↑ ↓; Back or Close puts it away.
+Future<void> showTvText(BuildContext context, {required String title, required String text}) => showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Close',
+      barrierColor: const Color(0xA8050608),
+      pageBuilder: (context, _, _) => Center(
+        child: Material(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620, maxHeight: 420),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(28, 24, 28, 20),
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 12),
+                Flexible(child: _TvScrollingText(text)),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TvButton(label: 'Close', autofocus: true, onPressed: () => Navigator.of(context).pop()),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+
+/// Long text the remote's ↑ ↓ scroll while the Close button under it has focus.
+class _TvScrollingText extends StatefulWidget {
+  const _TvScrollingText(this.text);
+  final String text;
+
+  @override
+  State<_TvScrollingText> createState() => _TvScrollingTextState();
+}
+
+class _TvScrollingTextState extends State<_TvScrollingText> {
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.arrowDown): () => _by(120),
+        const SingleActivator(LogicalKeyboardKey.arrowUp): () => _by(-120),
+      },
+      child: SingleChildScrollView(
+        controller: _scroll,
+        child: Text(widget.text, style: TextStyle(fontSize: 16, height: 1.45, color: AppColors.text)),
+      ),
+    );
+  }
+
+  void _by(double d) {
+    if (!_scroll.hasClients) return;
+    final p = _scroll.position;
+    _scroll.animateTo((p.pixels + d).clamp(p.minScrollExtent, p.maxScrollExtent), duration: const Duration(milliseconds: 160), curve: Curves.easeOut);
+  }
 }
 
 /// A thin bar showing how far through something you are.

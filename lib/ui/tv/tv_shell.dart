@@ -26,6 +26,7 @@ import 'tv_books.dart';
 import 'tv_browse.dart';
 import 'tv_focus.dart';
 import 'tv_home.dart';
+import 'tv_menus.dart' show tvSnackBar;
 import 'tv_music.dart';
 import 'tv_rail.dart';
 import 'tv_search.dart';
@@ -132,13 +133,7 @@ class _TvShellState extends State<TvShell> {
       _leaveAskedAt = now;
       ScaffoldMessenger.maybeOf(context)
         ?..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(
-          key: ValueKey('tv-leave-hint'),
-          duration: leaveWindow,
-          behavior: SnackBarBehavior.floating,
-          width: 460,
-          content: Text('Press Back again to leave HomeTunes', textAlign: TextAlign.center, style: TextStyle(fontSize: 16)),
-        ));
+        ..showSnackBar(tvSnackBar('Press Back again to leave HomeTunes', key: const ValueKey('tv-leave-hint'), duration: leaveWindow, bottom: 64));
     }
   }
 

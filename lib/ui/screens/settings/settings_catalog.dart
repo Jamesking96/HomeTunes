@@ -13,7 +13,7 @@ enum SettingsPage {
   about('About', 'Version, updates and where your data is kept', Icons.info_outline),
   appearance('Appearance', 'Colour themes, text size, corners and the video player', Icons.palette_outlined),
   audiobooks('Audiobooks', 'Book folders, skipping, speed and covers', Icons.menu_book_outlined),
-  backup('Backup & restore', 'Move everything to another PC or phone', Icons.settings_backup_restore),
+  backup('Backup & restore', 'Move everything to another device', Icons.settings_backup_restore),
   library('Folders & scanning', 'Music and audiobook folders, and rescanning', Icons.folder_outlined),
   music('Music', 'Listening to music: music videos', Icons.music_note_outlined),
   onlineLookups('Online lookups', 'Covers, song details and lyrics', Icons.travel_explore),

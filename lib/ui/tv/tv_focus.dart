@@ -351,8 +351,29 @@ ThemeData tvTheme(ThemeData theme, Color accent) {
     return null;
   });
   final buttons = ButtonStyle(overlayColor: overlay);
-  ButtonStyle withFocus(ButtonStyle? style) => (style ?? const ButtonStyle()).merge(buttons);
+  // A ring in the text colour too (0.2.5): on a button already filled in the accent colour, the
+  // accent shade alone didn't show (Settings › Servers' "Add a server" had focus, invisibly).
+  final ring = BorderSide(color: theme.colorScheme.onSurface, width: 3);
+  ButtonStyle withFocus(ButtonStyle? style) {
+    final base = (style ?? const ButtonStyle()).merge(buttons);
+    final side = base.side;
+    return base.copyWith(
+      side: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.focused) ? ring : side?.resolve(states)),
+    );
+  }
+
+  // Switches: a ring round the track and a clear halo, whichever way they're set.
+  final switches = theme.switchTheme;
   return theme.copyWith(
+    switchTheme: switches.copyWith(
+      trackOutlineColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.focused) ? theme.colorScheme.onSurface : switches.trackOutlineColor?.resolve(states)),
+      trackOutlineWidth: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.focused) ? 3 : switches.trackOutlineWidth?.resolve(states)),
+      overlayColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.focused)
+          ? theme.colorScheme.onSurface.withValues(alpha: 0.28)
+          : switches.overlayColor?.resolve(states)),
+    ),
     focusColor: focused,
     iconButtonTheme: IconButtonThemeData(style: withFocus(theme.iconButtonTheme.style)),
     textButtonTheme: TextButtonThemeData(style: withFocus(theme.textButtonTheme.style)),

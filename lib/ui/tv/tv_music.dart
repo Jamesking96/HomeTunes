@@ -63,7 +63,11 @@ enum TvSongSort {
 }
 
 /// The hints while browsing a library tab.
-const tvLibraryHints = <TvHint>[('→', 'at the edge: jump A–Z'), ('↑', 'tabs'), ('Hold OK', 'Options'), ('←', 'menu')];
+/// The hints on a library with nothing in it yet (0.2.5: the A–Z and Options hints showed
+/// with nothing to jump through or hold).
+const tvEmptyLibraryHints = <TvHint>[('OK', 'Add folders'), ('←', 'Menu')];
+
+const tvLibraryHints = <TvHint>[('→', 'At the edge: jump A–Z'), ('↑', 'Tabs'), ('Hold OK', 'Options'), ('←', 'Menu')];
 
 /// The albums in [sort] order.
 List<Album> tvSortAlbums(LibraryModel lib, TvAlbumSort sort) => switch (sort) {
@@ -182,7 +186,7 @@ class _TvMusicScreenState extends State<TvMusicScreen> {
 
     return TvPageHints(
       tab: AppNav.libraryTab,
-      hints: tvLibraryHints,
+      hints: lib.tracks.isEmpty && _tab != TvMusicTab.playlists && !lib.busy ? tvEmptyLibraryHints : tvLibraryHints,
       child: TvPage(
         title: 'Music',
         tabs: TvTabBar(

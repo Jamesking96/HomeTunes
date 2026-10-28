@@ -142,7 +142,7 @@ class _TvPageState extends State<TvPage> {
 
 /// A rounded button: [label], with an [icon] before it.
 class TvButton extends StatelessWidget {
-  const TvButton({super.key, required this.label, this.icon, required this.onPressed, this.primary = false, this.focusNode});
+  const TvButton({super.key, required this.label, this.icon, required this.onPressed, this.primary = false, this.focusNode, this.autofocus = false});
   final String label;
   final IconData? icon;
   final VoidCallback? onPressed;
@@ -150,12 +150,14 @@ class TvButton extends StatelessWidget {
   /// The main button (Play): filled in the accent colour.
   final bool primary;
   final FocusNode? focusNode;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
     return TvPressable(
       onPressed: onPressed,
       focusNode: focusNode,
+      autofocus: autofocus,
       semanticLabel: label,
       builder: (context, focused) {
         final bg = primary ? AppColors.accent : (focused ? Colors.white : AppColors.surfaceHigh);
