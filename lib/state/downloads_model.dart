@@ -273,6 +273,19 @@ class DownloadsModel extends ChangeNotifier {
   /// The copy downloaded ahead.
   DownloadQuality aheadQuality = const DownloadQuality.original(video: true);
 
+  /// Remove a downloaded video (a film, an episode) once it's been watched (27 Oct, the user:
+  /// "a toggle option that's off by default"). Only one watched after it was downloaded, so a
+  /// film downloaded to watch again isn't removed straight away. Temporary copies have their
+  /// own rules; episodes downloaded ahead always go once watched.
+  bool removeWatched = false;
+
+  Future<void> setRemoveWatched(bool on) async {
+    removeWatched = on;
+    notifyListeners();
+    await _save();
+    _tidyAhead();
+  }
+
   // Temporary copies (0.2.4, Settings › Servers › Temporary copies).
 
   /// Save a copy of what streams from a server while it plays (off to start with).
@@ -474,6 +487,7 @@ class DownloadsModel extends ChangeNotifier {
         limitGb = s['limitGb'] is int && (s['limitGb'] as int) > 0 ? s['limitGb'] as int : null;
         ahead = s['ahead'] is int ? (s['ahead'] as int).clamp(0, 5) : 2;
         aheadQuality = DownloadQuality.parse(s['aheadQuality'], video: true);
+        removeWatched = s['removeWatched'] == true;
         tempSave = s['tempSave'] == true;
         tempDays = s['tempDays'] is int && (s['tempDays'] as int) > 0 ? s['tempDays'] as int : 7;
         tempKeep = s['tempKeep'] == true;
@@ -506,6 +520,7 @@ class DownloadsModel extends ChangeNotifier {
           if (limitGb != null) 'limitGb': limitGb,
           'ahead': ahead,
           if (!aheadQuality.isOriginal) 'aheadQuality': aheadQuality.code,
+          if (removeWatched) 'removeWatched': true,
           if (tempSave) 'tempSave': true,
           if (tempDays != 7) 'tempDays': tempDays,
           if (tempKeep) 'tempKeep': true,
@@ -1050,19 +1065,36 @@ class DownloadsModel extends ChangeNotifier {
     if (next.isNotEmpty) download(next, aheadQuality, origin: DownloadOrigin.ahead);
   }
 
-  /// Episodes downloaded ahead go once they're watched (unless something keeps them).
+  /// Episodes downloaded ahead go once they're watched (unless something keeps them). With
+  /// [removeWatched], so do downloaded videos watched since they were downloaded: through
+  /// [remove], so one in something kept offline isn't downloaded again for it.
   void _tidyAhead() {
     final gone = [
       for (final e in _entries.values)
         if (e.origin == DownloadOrigin.ahead && e.isDone && (videos.placeOf(e.id)?.watched ?? false)) e.id,
     ];
-    if (gone.isEmpty) return;
-    for (final id in gone) {
-      final e = _entries.remove(id)!;
-      _deleteFiles(e.file, e.subtitles);
+    final watched = [
+      if (removeWatched)
+        for (final e in _entries.values)
+          if (_watchedSinceDownload(e)) e.id,
+    ];
+    if (gone.isNotEmpty) {
+      for (final id in gone) {
+        final e = _entries.remove(id)!;
+        _deleteFiles(e.file, e.subtitles);
+      }
+      notifyListeners();
+      _saveSoon();
     }
-    notifyListeners();
-    _saveSoon();
+    if (watched.isNotEmpty) remove(watched);
+  }
+
+  /// A downloaded video (not a temporary copy, nor one downloaded ahead) watched to the end
+  /// after it was added to the downloads.
+  bool _watchedSinceDownload(DownloadEntry e) {
+    if (e.kind != DownloadKind.video || e.isTemporary || e.origin == DownloadOrigin.ahead || !e.isDone) return false;
+    final place = videos.placeOf(e.id);
+    return place != null && place.watched && place.updatedMs > e.addedMs;
   }
 
   // ---- in the background (phones and TVs) ----

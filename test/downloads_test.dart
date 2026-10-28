@@ -18,6 +18,7 @@ import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/playlists_model.dart';
 import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/nav.dart';
+import 'package:hometunes/ui/screens/settings/download_settings.dart' show DownloadSettings;
 import 'package:hometunes/ui/screens/downloads_screen.dart' show DownloadQueueScreen;
 import 'package:hometunes/ui/widgets/download_ui.dart' show showDownloadHelp;
 import 'package:hometunes/ui/widgets/video_card.dart' show showVideoMenu, VideoCard;
@@ -225,6 +226,64 @@ void main() {
     videos.onServerVideoStarted!(v('ep3'));
     await pumpEvents();
     expect(dl.entryOf(v('ep4').id), isNull);
+  });
+
+  test('Remove downloaded videos once watched: off to start with; on, one watched since it was downloaded goes', () async {
+    // ep3 was watched before it was downloaded (to watch again).
+    await videos.setWatched([v('ep3').id], true);
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    dl.download([for (final id in ['ep1', 'ep2', 'ep3']) DownloadItem.video(v(id))], const DownloadQuality.original());
+    await pumpEvents();
+    for (final id in ['ep1', 'ep2', 'ep3']) {
+      await engine.finish(v(id).id);
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    expect(dl.removeWatched, isFalse);
+    await videos.setWatched([v('ep1').id], true);
+    await Future<void>.delayed(const Duration(milliseconds: 2300));
+    expect(dl.isDownloaded(v('ep1').id), isTrue, reason: 'off: watched downloads stay');
+
+    await dl.setRemoveWatched(true);
+    await pumpEvents();
+    expect(dl.entryOf(v('ep1').id), isNull, reason: 'watched since it was downloaded');
+    expect(dl.isDownloaded(v('ep3').id), isTrue, reason: 'watched before it was downloaded');
+    final file2 = dl.entryOf(v('ep2').id)!.file!;
+    await videos.setWatched([v('ep2').id], true);
+    await Future<void>.delayed(const Duration(milliseconds: 2300));
+    expect(dl.entryOf(v('ep2').id), isNull);
+    expect(File(file2).existsSync(), isFalse);
+
+    // Kept with the other settings.
+    final again = await makeModel();
+    expect(again.removeWatched, isTrue);
+    again.dispose();
+  });
+
+  testWidgets('the Download folder row picks a folder, and won\'t take one HomeTunes can\'t save in', (tester) async {
+    late BuildContext ctx;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: Builder(builder: (c) {
+        ctx = c;
+        return const SizedBox();
+      })),
+    ));
+    final good = p.join(dir.path, 'elsewhere');
+    // A "folder" inside a file can't be made.
+    final blocker = File(p.join(dir.path, 'a-file'))..writeAsStringSync('x');
+    final bad = p.join(blocker.path, 'inside');
+    await tester.runAsync(() async {
+      await DownloadSettings.chooseFolder(ctx, dl, picker: (_, _) async => bad);
+    });
+    await tester.pump();
+    expect(dl.customFolder, isNull);
+    expect(find.textContaining('can\'t save files in'), findsOneWidget);
+    await tester.runAsync(() async {
+      await DownloadSettings.chooseFolder(ctx, dl, picker: (_, _) async => good);
+    });
+    await tester.pump();
+    expect(dl.customFolder, good);
+    expect(Directory(good).existsSync(), isTrue);
+    await tester.pump(const Duration(seconds: 10)); // the message goes
   });
 
   test('what was downloading carries on after a restart; a lost file downloads again', () async {
