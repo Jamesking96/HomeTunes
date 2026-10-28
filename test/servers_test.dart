@@ -311,14 +311,15 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     addTearDown(() => FocusManager.instance.highlightStrategy = FocusHighlightStrategy.automatic);
-    final s = await servers.add(
-      type: ServerType.jellyfin,
-      name: 'Den',
-      url: 'http://192.168.1.20:8096',
-      username: 'me',
-      password: 'pw',
-      uses: {MediaKind.videos},
-    );
+    // Saving the server writes real files: outside the test's pretend clock.
+    final s = (await tester.runAsync(() => servers.add(
+          type: ServerType.jellyfin,
+          name: 'Den',
+          url: 'http://192.168.1.20:8096',
+          username: 'me',
+          password: 'pw',
+          uses: {MediaKind.videos},
+        )))!;
     await tester.pumpWidget(
       MultiProvider(
         providers: [...libraryProviders(lib), ChangeNotifierProvider.value(value: servers)],
@@ -343,7 +344,8 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
     expect(find.text('Test connection'), findsNothing);
     expect(find.text('Edit Den'), findsOneWidget);
   });
