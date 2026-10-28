@@ -88,6 +88,34 @@ void main() {
     expect(focusedName(), isIn(['Home', 'Search', 'Library']));
   });
 
+  testWidgets('↑ on a page\'s top row stays there rather than jumping into the sidebar (0.2.5)', (tester) async {
+    // A page whose only button sits a little lower than the sidebar's first item: ↑ used to land
+    // on that item (on the TV, Play on a collection page opened the menu on Music).
+    Widget item(String name) => InkWell(key: ValueKey(name), onTap: () {}, child: SizedBox(width: 160, height: 48, child: Center(child: Text(name))));
+    await tester.pumpWidget(MaterialApp(
+      theme: tvTheme(ThemeData(), Colors.deepOrange),
+      home: TvFocus(
+        enabled: true,
+        child: Scaffold(
+          body: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            TvRegion(child: Column(children: [item('Home'), item('Videos')])),
+            Expanded(child: TvRegion(child: Column(children: [const SizedBox(height: 60), item('Play')]))),
+          ]),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await press(tester, LogicalKeyboardKey.arrowRight);
+    expect(focusedName(), 'Play');
+    await press(tester, LogicalKeyboardKey.arrowUp);
+    expect(focusedName(), 'Play');
+    await press(tester, LogicalKeyboardKey.arrowDown);
+    expect(focusedName(), 'Play');
+    // ← is still the way to the sidebar.
+    await press(tester, LogicalKeyboardKey.arrowLeft);
+    expect(focusedName(), isIn(['Home', 'Videos']));
+  });
+
   testWidgets('OK / Select on the remote presses the focused thing', (tester) async {
     final pressed = <String>[];
     await tester.pumpWidget(screen(tv: true, pressed: pressed));
