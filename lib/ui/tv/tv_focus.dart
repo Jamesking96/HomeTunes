@@ -221,9 +221,6 @@ void tvFocusOn(FocusNode n, TraversalDirection direction) {
   if (context != null) tvReveal(context);
 }
 
-/// How long [tvReveal]'s scrolling takes.
-const tvRevealDuration = Duration(milliseconds: 180);
-
 /// Scrolls whatever [context] is in so it's comfortably on screen (0.2.5). Up and down, it's
 /// kept between [tvRevealBand]'s edges, and moved to the nearer edge when it leaves them, so the
 /// focused row is never on the screen's bottom edge under the hint bubble, and you can see what
@@ -254,7 +251,7 @@ void tvReveal(BuildContext context) {
         // Near the top of the page (it fits well on screen with the page at its very top): show
         // the page from the top.
         if (position.pixels > position.minScrollExtent) {
-          position.animateTo(position.minScrollExtent, duration: tvRevealDuration, curve: Curves.easeOut);
+          position.jumpTo(position.minScrollExtent);
         }
       } else {
         final now = (start - viewStart) / space;
@@ -262,13 +259,9 @@ void tvReveal(BuildContext context) {
         if (now > tvRevealBand.$2) alignment = tvRevealBand.$2;
       }
       if (alignment != null) {
-        position.ensureVisible(
-          object,
-          alignment: alignment,
-          duration: tvRevealDuration,
-          curve: Curves.easeOut,
-          targetRenderObject: identical(object, target) ? null : target,
-        );
+        // At once, as before: a press that comes while a list is still gliding would measure
+        // where things are mid-way (found by tests: ← then skipped past buttons).
+        position.ensureVisible(object, alignment: alignment, targetRenderObject: identical(object, target) ? null : target);
       }
     }
     at = scrollable.context;
