@@ -325,6 +325,9 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource {
       final dir = Directory(_pictureDir(s.id));
       if (await dir.exists()) await dir.delete(recursive: true);
     } catch (_) {}
+    // Deleting the pictures can take a while; if this was closed down meanwhile (the app
+    // closing; a test ending), there's nothing left to tell (0.2.5).
+    if (_disposed) return;
     notifyListeners();
     await _save();
   }
