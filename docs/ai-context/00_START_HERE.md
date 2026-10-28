@@ -18,6 +18,24 @@ Read the files in this order:
 
 ## Status (28 Oct 2026)
 
+- **Now (28 Oct): `feature/tv-review-fixes`, 0.2.5+108, not merged.** Fixes from the code and TV
+  review (Claude Docs "HomeTunes 0.2.4 — Code & TV Review"; the user chose TV bugs & layout plus
+  downloads safety, not the title clean-up). OK on a collection/book/series opens at once (AppNav
+  `_afterFrame` asks for a frame; before, a still screen waited for the next key press); Back with
+  the menu open goes back into the page; ↑ ↓ don't cross into the menu, and entering the menu lands
+  on the place showing; the focused row is kept 10–60 % down its list (`tvReveal`, instant
+  scrolling) and pages scroll right up near their top; a bottom margin; the hint bubble fades after
+  4 s (the user's choice) and comes back with any press; one hint wording style; dark TV notices
+  (raised above the player's controls); Carry on shows the episode first; long descriptions open in
+  full with OK; TV Settings hides Your edits and Swipe gestures (the user's choice) and servers that
+  can't play a kind yet; a focus ring on filled buttons and switches; Downloads pages open over the
+  tab showing; player: no empty preview box (server videos are never previewed), 10 s first seek
+  step, ↓ from the bar goes to Play, one title for films, "–:––" before the length is known;
+  downloads: a size guess when the length isn't known, a playing temporary copy is never cleared, a
+  folder move counts once copied. `flutter analyze` clean. The APK is in `build\dist` (signed,
+  108) but **not installed**: the user said to wait until they ask before sending it to the TV.
+  The PC's C: drive was full (250 MB free) on 28 Oct; Flutter's old temp folders were cleared with
+  the user's OK (about 1.3 GB free after). Watch the space before builds.
 - **Released 28 Oct: [v0.2.4](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.4)** (0.2.4+106), covering 0.2.1–0.2.4: the whole Servers & Downloads plan (Jellyfin videos, the Source filter, downloads, temporary copies) and the TV fixes of 28 Oct (the user: "Everything here looks good to me"). All four step branches were merged into `main` (`--no-ff`) and deleted: **`main` is the only branch again.** Next: more TV work (the user: "We still have some things for TVs we want to work on"); the history of the four steps below is kept for reference.
 - **Released 23 Oct: [v0.2.0](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.0)** (0.2.0+101), covering 0.1.82–0.2.0: the Android TV interface (all seven steps), the app icon, Play buttons showing what's playing, the even volume fade and the video seek preview. `feature/android-tv` was merged into `main` and deleted: **`main` is the only branch.** The user has seen some TV issues still to fix (to be listed).
 - **Now (25 Oct):** the Servers & Downloads plan (see `04_`). Step 1, Jellyfin videos (0.2.1+102),
