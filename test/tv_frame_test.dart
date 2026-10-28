@@ -173,6 +173,25 @@ void main() {
       expect(picked, [2]);
     });
 
+    testWidgets('← from the page lands on the place showing, not the nearest item (0.2.5)', (tester) async {
+      final page = FocusNode();
+      addTearDown(page.dispose);
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            TvRail(items: items, selected: 1, onSelect: (_) {}),
+            // A button level with Settings, the rail's last item.
+            Expanded(child: Column(children: [const SizedBox(height: 125), TextButton(focusNode: page, onPressed: () {}, child: const Text('Clear'))])),
+          ]),
+        ),
+      ));
+      page.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(FocusManager.instance.primaryFocus?.debugLabel, 'rail Music');
+    });
+
     testWidgets('what\'s playing sits at the bottom and opens it', (tester) async {
       var opened = 0;
       await tester.pumpWidget(MaterialApp(
