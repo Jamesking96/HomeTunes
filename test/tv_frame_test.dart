@@ -86,6 +86,21 @@ void main() {
     expect((box.decoration! as BoxDecoration).boxShadow, isNotEmpty); // the ring
   });
 
+  testWidgets('the hint bubble fades after a few seconds and comes back with the next press (0.2.5)', (tester) async {
+    await tester.pumpWidget(app(const TvHints([('OK', 'Open'), ('←', 'Menu')])));
+    double opacity() => tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity;
+    expect(find.text('OK Open', findRichText: true), findsOneWidget);
+    expect(opacity(), 1);
+    await tester.pump(TvHints.showFor);
+    await tester.pumpAndSettle();
+    expect(opacity(), 0);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(opacity(), 1);
+    await tester.pump(TvHints.showFor);
+    expect(opacity(), 0);
+  });
+
   group('the options panel', () {
     Future<List<String>> open(WidgetTester tester) async {
       final did = <String>[];

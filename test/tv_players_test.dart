@@ -337,8 +337,12 @@ void main() {
       }
 
       await press(tester, LogicalKeyboardKey.arrowDown); // off the bar onto the buttons
-      expect(key(), 'tv-video-tracks'); // the one under the middle of the bar
-      // Left, past Audio & subtitles to the start of the row.
+      expect(key(), 'tv-video-play'); // Play / Pause, at the start of the row (0.2.5)
+      // Along to Audio & subtitles, then left, past it, to the start of the row.
+      for (var i = 0; i < 3; i++) {
+        await press(tester, LogicalKeyboardKey.arrowRight);
+      }
+      expect(key(), 'tv-video-tracks');
       final left = <String?>[];
       for (var i = 0; i < 4; i++) {
         await press(tester, LogicalKeyboardKey.arrowLeft);
