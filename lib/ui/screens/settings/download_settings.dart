@@ -15,6 +15,7 @@ import '../../widgets/download_ui.dart';
 import '../../widgets/folder_browser.dart';
 import 'package:provider/provider.dart';
 import 'settings_widgets.dart';
+import '../../tv/tv_focus.dart' show tvModeOf;
 
 /// The Downloads section (nothing when the app has no DownloadsModel, as in some tests).
 class DownloadSettings extends StatelessWidget {
@@ -33,6 +34,8 @@ class DownloadSettings extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SettingsGroupTitle('Downloads',
           'Download from your servers to play without them (Download… in any streamed thing\'s menu).'),
+      // Where and how (29 Oct, the user: "add a note … that where & how they are used by the user").
+      HowItWorks(key: const ValueKey('downloads-how'), lines: downloadsHow(HelpDevice.of(context))),
       SettingTarget(
         'downloads',
         child: ListTile(
@@ -276,6 +279,7 @@ class TemporaryCopySettings extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SettingsGroupTitle('Temporary copies',
           'Save what you stream so it plays again without the server, then clear it away. Downloads are never cleared.'),
+      HowItWorks(key: const ValueKey('temp-how'), lines: temporaryHow(HelpDevice.of(context), days: dl.tempKeep ? null : dl.tempDays)),
       SettingTarget(
         'temp-save',
         child: SwitchListTile(
@@ -353,5 +357,106 @@ class TemporaryCopySettings extends StatelessWidget {
         ),
       ),
     ]);
+  }
+}
+
+
+// ---- Where and how (0.2.5) ----
+
+/// The kind of device, for saying how to open a thing's menu there.
+enum HelpDevice {
+  tv,
+  phone,
+  computer;
+
+  static HelpDevice of(BuildContext context) => tvModeOf(context) ? tv : (Platform.isAndroid || Platform.isIOS ? phone : computer);
+
+  /// How to open the menu of a film, song or book here.
+  String get menu => switch (this) {
+        tv => 'Hold OK on',
+        phone => 'Press and hold',
+        computer => 'Right-click (or use the ⋮ menu of)',
+      };
+}
+
+/// What the Downloads section's note says on [d] (29 Oct): how to download, and where
+/// downloads are used.
+List<(String, String)> downloadsHow(HelpDevice d) {
+  return [
+    (
+      'How to download',
+      '${d.menu} a film, episode, season, collection, song, album or audiobook from a server, and choose '
+          'Download. You pick the copy each time: the original file, or a smaller one.',
+    ),
+    (
+      'Keep offline',
+      'In the same menu, for a whole collection, season, album or playlist: everything in it downloads, and '
+          'anything added to it later downloads by itself.',
+    ),
+    (
+      'Where they\'re used',
+      'Something downloaded plays from this device first, even when the server is off or there\'s no '
+          'internet.${d == HelpDevice.tv ? '' : ' A small cloud-and-tick mark shows on it, and the Filter button\'s Source › Downloaded shows just those.'}',
+    ),
+    (
+      'Finding and removing them',
+      'See downloads below lists them all, with the space they take. Remove one there, or with Remove download '
+          'in its menu: it then streams from the server again.',
+    ),
+  ];
+}
+
+/// What the Temporary copies section's note says on [d] (29 Oct). [days]: how long a copy
+/// stays once finished (null: kept until cleared).
+List<(String, String)> temporaryHow(HelpDevice d, {int? days}) {
+  return [
+    (
+      'How they\'re made',
+      'Nothing to do: with Save a copy while streaming on, whatever you play from a server is saved on this '
+          'device as it plays.',
+    ),
+    (
+      'Where they\'re used',
+      'Play it again and it plays from the copy: it starts quicker, and works when the server is off.',
+    ),
+    (
+      'When they go',
+      days == null
+          ? 'Don\'t delete automatically is on, so they stay until you use Clear now below.'
+          : 'Each is cleared $days day${days == 1 ? '' : 's'} after you finish it (a video watched, a song played '
+              'through, a book finished), or sooner when their space is full. Downloads are never cleared.',
+    ),
+    (
+      'Keeping one',
+      'They show in See downloads as Temporary copy. Keep this copy there, or in its menu (${d.menu.toLowerCase()} it), '
+          'turns it into a normal download.',
+    ),
+  ];
+}
+
+/// A small panel of short headed lines saying where and how a section's feature is used.
+class HowItWorks extends StatelessWidget {
+  const HowItWorks({super.key, required this.lines});
+  final List<(String, String)> lines;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: AppShape.circular(10)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            for (var i = 0; i < lines.length; i++) ...[
+              if (i > 0) const SizedBox(height: 8),
+              Text(lines[i].$1, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const SizedBox(height: 2),
+              Text(lines[i].$2, style: TextStyle(color: AppColors.textDim, fontSize: 13, height: 1.35)),
+            ],
+          ]),
+        ),
+      ),
+    );
   }
 }

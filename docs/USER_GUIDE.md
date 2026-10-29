@@ -235,6 +235,10 @@ so can whatever you've ticked in select mode. The same menu then has **Stop down
   with a notification; off: they wait until you come back).
 - Backups remember what's kept offline and these settings, not the downloaded files themselves.
 
+**In the app, too:** the **Downloads** and **Temporary copies** sections of **Settings > Servers**
+each start with a short note on how to use them and where they're used, worded for the device
+you're on (hold OK on a TV, right-click on a PC, press and hold on a phone).
+
 **Download or Keep offline?** (Also in the app: **Settings > Servers > Downloads > Download or
 Keep offline?**, or the Downloads page's ⋮ menu.)
 - **Download** copies exactly what you chose onto this device, as it is now: one song or
@@ -468,6 +472,14 @@ On a TV, HomeTunes has its own screens, made to be used from the sofa with just 
   keeps playing). Otherwise the message goes and you stay.
 - **Options:** **hold OK** on a song, album, artist, playlist, audiobook, series, video or
   collection for everything you can do with it (play next, add to a playlist, edit its details…).
+- **Posters and pictures:** **hold OK** on a collection and choose **Change poster**, or on a video
+  and choose **Change picture**. **Search online** finds posters and stills on TVmaze, AniList and
+  Wikipedia and shows them as big tiles: move to one and press OK to use it (**Search for another
+  name** if the name didn't find the right show). **Choose a picture file** uses a picture on the TV
+  or a USB stick. Once you've chosen one, **Use the automatic poster** goes back. A poster you choose
+  shows instead of the server's own too. (Picking a frame from the video is only on a PC or phone.)
+- **Sounds:** moving around and pressing OK or Back make the TV's own soft sounds. Turn them off in
+  **Settings › Appearance › Sounds on the TV**.
 - **Long lists:** in Music, Audiobooks and Videos, press **→** at the right edge to jump through the
   list by letter (A–Z).
 - **Videos:** press any button to bring up the controls. On the progress bar, **← →** move a marker

@@ -138,6 +138,8 @@ const settingsCatalog = <SettingInfo>[
       'scale scaling zoom window size small smaller resize buttons widgets fit'),
   SettingInfo('tv-mode', SettingsPage.appearance, 'TV mode',
       'tv television android tv google tv remote arrow keys d-pad sofa big screen layout'),
+  SettingInfo('tv-sounds', SettingsPage.appearance, 'Sounds on the TV',
+      'sound sounds effects click beep noise navigation remote tv quiet silent mute'),
   SettingInfo('video-player-preview', SettingsPage.appearance, 'Video player look', 'video player controls buttons appearance theme preview'),
   SettingInfo('video-button-colour', SettingsPage.appearance, 'Video player button colour', 'video controls buttons colour color icons'),
   SettingInfo('video-button-size', SettingsPage.appearance, 'Video player button size', 'video controls buttons size bigger smaller'),
