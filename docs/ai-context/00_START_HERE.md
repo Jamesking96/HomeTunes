@@ -54,6 +54,13 @@ Read the files in this order:
   saved only when off); Settings › Servers' Downloads and Temporary copies start with a where-and-how
   note worded per device (`HowItWorks`). 853 tests pass. 112's APK and PC installer are in
   `build\dist` (29 Oct 10:56–11:0x); the APK went on the TV at the user's request (29 Oct 11:11).
+  Then 0.2.5+113 (29 Oct, the user's asks): Jellyfin videos take their **type** from their library's
+  name (the user's server has Anime / Shows / Movies; Anime was filed as TV) via `state/video_types.dart`
+  (`videoType`: Film(s)/Movies → Films, TV/Shows/TV Shows/Series → TV, "anime" → Anime, others keep
+  their name). The TV's Videos tab has a type row under the tabs (All · Anime · TV · Films, the user's
+  choice of layout) applying in every tab, a **Filter** button (Watched, Genre, Source; the user's
+  picks) and sorts **Most episodes**, **Not watched first** and **Reverse the order**. 858 tests pass.
+  113's APK and PC installer are in `build\dist` (29 Oct 12:14–12:16); the APK is **not on the TV yet**.
   The PC's C: drive was full (250 MB free) on 28 Oct; Flutter's old temp folders were cleared with
   the user's OK (about 1.3 GB free after). Watch the space before builds.
 - **Released 28 Oct: [v0.2.4](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.4)** (0.2.4+106), covering 0.2.1–0.2.4: the whole Servers & Downloads plan (Jellyfin videos, the Source filter, downloads, temporary copies) and the TV fixes of 28 Oct (the user: "Everything here looks good to me"). All four step branches were merged into `main` (`--no-ff`) and deleted: **`main` is the only branch again.** Next: more TV work (the user: "We still have some things for TVs we want to work on"); the history of the four steps below is kept for reference.
