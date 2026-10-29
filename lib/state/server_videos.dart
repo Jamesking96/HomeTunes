@@ -36,6 +36,7 @@ import '../services/subsonic_client.dart' show isPlainHttpToInternet;
 import 'remote_videos.dart';
 import 'servers_model.dart';
 import 'video_library_model.dart';
+import 'video_types.dart' show videoType;
 
 /// What HomeTunes remembers about one Jellyfin server (never its token or password).
 class _ServerState {
@@ -839,9 +840,13 @@ String? _seasonTitle(Object? name) {
       : type == 'Movie'
           ? (name ?? 'Film')
           : (view.name.isEmpty ? 'Home videos' : view.name);
+  // The library's own name when it says what kind of thing it is (0.2.5: the user's "Anime"
+  // library was filed as TV, so anime couldn't be told apart); "Shows" / "Movies" and the like
+  // come out as TV and Films (video_types.dart).
+  final named = videoType(view.name);
   final category = switch (view.collectionType) {
-    'tvshows' => 'TV',
-    'movies' => 'Films',
+    'tvshows' => named == null || named == 'Films' ? 'TV' : named,
+    'movies' => named == null || named == 'TV' ? 'Films' : named,
     _ => episode ? 'TV' : (type == 'Movie' ? 'Films' : null),
   };
   final subtitles = <String>[];

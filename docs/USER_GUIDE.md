@@ -482,6 +482,13 @@ On a TV, HomeTunes has its own screens, made to be used from the sofa with just 
   **Settings › Appearance › Sounds on the TV**.
 - **Long lists:** in Music, Audiobooks and Videos, press **→** at the right edge to jump through the
   list by letter (A–Z).
+- **Videos by type:** under the Videos tabs is a row **All · Anime · TV · Films** (and any other kind
+  your libraries name). Rest on one, or press OK, to see just that type, in whichever tab you're on.
+  The type comes from the folder a video is in, or for a Jellyfin server from its library ("Anime",
+  "Shows" or "TV Shows" for TV, "Movies" or "Films"). **Filter**, at the end of that row, narrows it
+  down by **Watched** (not started, in progress, watched), **Genre** and **Source** (on this device,
+  streamed or downloaded); **Clear filters** puts it back. **Sort** also has **Most episodes** and
+  **Not watched first**, and **Reverse the order** turns any sort round.
 - **Videos:** press any button to bring up the controls. On the progress bar, **← →** move a marker
   through the video (with a picture of that moment) and OK jumps there. **Hold OK** on the bar, or
   on a video anywhere, for **Watch from the beginning**. The remote's play / pause and next buttons
