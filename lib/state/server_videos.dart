@@ -325,9 +325,7 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource {
       final dir = Directory(_pictureDir(s.id));
       if (await dir.exists()) await dir.delete(recursive: true);
     } catch (_) {}
-    // Deleting the pictures can take a while; if this was closed down meanwhile (the app
-    // closing; a test ending), there's nothing left to tell (0.2.5).
-    if (_disposed) return;
+    if (_disposed) return; // closed down meanwhile: don't save either
     notifyListeners();
     await _save();
   }
@@ -736,6 +734,13 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource {
       }
     }
     await _save();
+  }
+
+  /// Reads and syncs finish in the background; one that finishes after this was closed down
+  /// (the app closing, a test ending) has no one left to tell (0.2.5: seen in tests on a busy PC).
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
   }
 
   @override
