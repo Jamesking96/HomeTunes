@@ -465,15 +465,17 @@ Future<void> showTvShuffleSeasons(BuildContext context, VideoCollection c, {int 
           g.label,
           g.included ? Icons.check_box : Icons.check_box_outline_blank,
           subtitle: '${g.included ? 'In the shuffle' : 'Not in the shuffle'} · ${g.videos.length} video${g.videos.length == 1 ? '' : 's'}',
-          () async {
-            await model.setInShuffle(now, g.heading!, !g.included);
+          () {
+            // The choice is made at once (saving carries on behind), so the panel opens again
+            // straight away.
+            model.setInShuffle(now, g.heading!, !g.included);
             again(i);
           },
         ),
       if (count > 0) TvOption('Shuffle now', Icons.shuffle, () => tvPlayShuffled(context, now)),
       if (!usual)
-        TvOption('Back to the usual', Icons.restart_alt, subtitle: 'Every season in; Specials and Extras out', () async {
-          await model.resetShuffle(now);
+        TvOption('Back to the usual', Icons.restart_alt, subtitle: 'Every season in; Specials and Extras out', () {
+          model.resetShuffle(now);
           again(0);
         }),
     ],
