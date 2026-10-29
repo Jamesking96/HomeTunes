@@ -33,7 +33,11 @@ Read the files in this order:
   step, ↓ from the bar goes to Play, one title for films, "–:––" before the length is known;
   downloads: a size guess when the length isn't known, a playing temporary copy is never cleared, a
   folder move counts once copied. `flutter analyze` clean. The APK is in `build\dist` (signed,
-  108), rebuilt 28 Oct 21:28 and installed on the Family room TV at the user's request (28 Oct 23:39).
+  108) was installed on the Family room TV on 28 Oct 23:39. Then 0.2.5+109 (29 Oct): the server
+  card's ⋮ menu works with the remote (each item was a ListTile the remote stopped on, so OK did
+  nothing; now `_MenuRow` with ExcludeFocus); ServerVideosModel ignores updates once closed down
+  (a test race). 846 tests pass. Built 29 Oct 00:08–00:11: `HomeTunes-Setup-0.2.5.exe`, the
+  Windows zip and the APK (109, not yet on the TV) in `build\dist`.
   The PC's C: drive was full (250 MB free) on 28 Oct; Flutter's old temp folders were cleared with
   the user's OK (about 1.3 GB free after). Watch the space before builds.
 - **Released 28 Oct: [v0.2.4](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.4)** (0.2.4+106), covering 0.2.1–0.2.4: the whole Servers & Downloads plan (Jellyfin videos, the Source filter, downloads, temporary copies) and the TV fixes of 28 Oct (the user: "Everything here looks good to me"). All four step branches were merged into `main` (`--no-ff`) and deleted: **`main` is the only branch again.** Next: more TV work (the user: "We still have some things for TVs we want to work on"); the history of the four steps below is kept for reference.
