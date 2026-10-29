@@ -208,8 +208,12 @@ class _CarryOnCard extends StatelessWidget {
       case VideoJump(:final video, progress: final p):
         final videos = context.read<VideoLibraryModel>();
         final left = video.duration * (1 - p.clamp(0.0, 1.0));
-        title = video.collection == video.title ? video.title : '${video.collection}${video.episodeLabel == null ? '' : ' · ${video.episodeLabel}'}';
-        detail = ['Video', if (video.collection != video.title) video.title, if (video.duration > Duration.zero) '${_left(left)} left'].join(' · ');
+        // The episode first, so a long show name doesn't cut it off ("S18 E10 · South Park"), and
+        // no "Video" in front of the line under it (0.2.5).
+        title = video.collection == video.title
+            ? video.title
+            : (video.episodeLabel == null ? video.collection : '${video.episodeLabel} · ${video.collection}');
+        detail = [if (video.collection != video.title) video.title, if (video.duration > Duration.zero) '${_left(left)} left'].join(' · ');
         progress = p;
         picture = SizedBox(width: 142, height: 80, child: tvFilePicture(videos.thumbFile(video), Icons.movie_outlined));
         carryOn = () => nav.openVideo(video);
@@ -224,7 +228,7 @@ class _CarryOnCard extends StatelessWidget {
       case BookJump(:final book, progress: final p):
         final left = context.read<ListeningModel>().timeLeft(book);
         title = book.title;
-        detail = ['Audiobook', book.author, if (left > Duration.zero) '${_left(left)} left'].join(' · ');
+        detail = [book.author, if (left > Duration.zero) '${_left(left)} left'].join(' · ');
         progress = p;
         picture = SizedBox(width: 80, height: 80, child: ArtworkFill(track: book.artTrack, radius: 0, placeholder: Icons.menu_book));
         carryOn = () => player.playBook(book);

@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../../../services/app_backup.dart';
 import '../../../state/bookmarks_model.dart';
+import '../../../state/downloads_model.dart';
 import '../../../state/equalizer_model.dart';
 import '../../../state/library_model.dart';
 import '../../../state/listening_model.dart';
@@ -19,6 +20,7 @@ import '../../../state/lyrics_model.dart';
 import '../../../state/play_history.dart';
 import '../../../state/playlists_model.dart';
 import '../../../state/servers_model.dart';
+import '../../../state/video_library_model.dart';
 import '../../theme.dart';
 import 'settings_widgets.dart';
 
@@ -79,7 +81,12 @@ class BackupSettingsState extends State<BackupSettings> {
     final equalizer = context.read<EqualizerModel>();
     final history = Provider.of<PlayHistory?>(context, listen: false);
     final servers = Provider.of<ServersModel?>(context, listen: false);
+    final videos = Provider.of<VideoLibraryModel?>(context, listen: false);
+    final downloads = Provider.of<DownloadsModel?>(context, listen: false);
     final messenger = ScaffoldMessenger.of(context);
+    // The page can be rebuilt while the restore runs (on the TV, Settings redraws as the
+    // settings reload), so the result is shown over the whole app, not from this page (0.2.5).
+    final appContext = Navigator.of(context, rootNavigator: true).context;
 
     // 1. Pick and read the file. A file that isn't a backup (or is from a newer HomeTunes)
     //    throws a FormatException whose message is already written for the user.
@@ -145,10 +152,14 @@ class BackupSettingsState extends State<BackupSettings> {
         await equalizer.load();
         await history?.load();
         await servers?.load();
+        // Videos and downloads too (0.2.5): they weren't reloaded, so their old data stayed in
+        // memory and was saved back over what had just been restored (seen on the TV, 29 Oct).
+        await videos?.load();
+        await downloads?.load();
       });
-      if (!mounted) return;
+      if (!appContext.mounted) return;
       await showDialog<void>(
-        context: context,
+        context: appContext,
         builder: (ctx) => AlertDialog(
           title: const Text('Backup restored'),
           content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -201,7 +212,7 @@ class BackupSettingsState extends State<BackupSettings> {
     return SettingsPageList(
       intro: 'Save everything HomeTunes keeps – music and audiobook folders, server (not its password), playlists, Liked Songs, song and '
             'book edits, covers, your place in each audiobook, bookmarks, equaliser presets, settings and the library – to one file, '
-            'to restore later or move to another PC or phone.',
+            'to restore later or move to another device.',
       children: [
       SettingTarget('backup-covers', child: SwitchListTile(
         title: const Text('Include cover images from music files'),

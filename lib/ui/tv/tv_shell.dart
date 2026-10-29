@@ -8,8 +8,9 @@
 // until step 3. Search and Settings come in steps 6 and 7. The page showing sets the hint
 // bubble's words (TvHintBoard).
 //
-// Back, in order: back a page in this tab; from a tab's first page, onto the rail; from the
-// rail, to Home; on Home, the app goes to the background (music keeps playing), as in Shell.
+// Back, in order: with the rail open over a page further in, back into that page (0.2.5); back
+// a page in this tab; from a tab's first page, onto the rail; from the rail, to Home; on Home,
+// twice to send the app to the background (music keeps playing), as in Shell.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -25,6 +26,7 @@ import 'tv_books.dart';
 import 'tv_browse.dart';
 import 'tv_focus.dart';
 import 'tv_home.dart';
+import 'tv_menus.dart' show tvSnackBar;
 import 'tv_music.dart';
 import 'tv_rail.dart';
 import 'tv_search.dart';
@@ -85,6 +87,18 @@ class _TvShellState extends State<TvShell> {
     });
   }
 
+  /// Moves the remote from the menu back into the page showing: onto what had focus there, or
+  /// its first item.
+  void _intoPage(NavigatorState pages) {
+    pages.focusNode.requestFocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final now = FocusManager.instance.primaryFocus;
+      if (now == null || now is FocusScopeNode || !now.ancestors.contains(_page)) tvFocusFirstIn(_page);
+    });
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
   /// When Back was last pressed with nowhere left to go back to (the leave message showing).
   DateTime? _leaveAskedAt;
 
@@ -93,7 +107,13 @@ class _TvShellState extends State<TvShell> {
 
   Future<void> _back(AppNav nav) async {
     final pages = nav.current;
-    if (pages != null && pages.canPop()) {
+    final railOpen = _rail.currentState?.isOpen ?? false;
+    if (railOpen && pages != null && pages.canPop()) {
+      // The menu is open over a page further in (0.2.5): Back closes the menu and goes back to
+      // where you were on that page; the next Back goes back a page. (28 Oct review: Back here
+      // closed Daria's page and the menu together.)
+      _intoPage(pages);
+    } else if (pages != null && pages.canPop()) {
       pages.pop();
     } else if (!(_rail.currentState?.isOpen ?? false)) {
       _rail.currentState?.focusSelected();
@@ -113,13 +133,7 @@ class _TvShellState extends State<TvShell> {
       _leaveAskedAt = now;
       ScaffoldMessenger.maybeOf(context)
         ?..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(
-          key: ValueKey('tv-leave-hint'),
-          duration: leaveWindow,
-          behavior: SnackBarBehavior.floating,
-          width: 460,
-          content: Text('Press Back again to leave HomeTunes', textAlign: TextAlign.center, style: TextStyle(fontSize: 16)),
-        ));
+        ..showSnackBar(tvSnackBar('Press Back again to leave HomeTunes', key: const ValueKey('tv-leave-hint'), duration: leaveWindow, bottom: 64));
     }
   }
 

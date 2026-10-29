@@ -25,6 +25,7 @@ import 'remote_videos.dart';
 import 'settings/settings_groups.dart' show PlaybackSettings, VideoSettings;
 import 'video_filters.dart';
 import 'video_library_model.dart';
+import 'video_shuffle.dart';
 import 'video_tracks.dart';
 
 /// What the video player sends the engine for [preset]: the equaliser filter (bands at or above
@@ -46,6 +47,7 @@ class VideoSession extends ChangeNotifier {
     this.stats,
     this.onReady,
     this.onCarryOn,
+    this.shuffle,
     VoidCallback? onOpenPage,
     this.upNextTick = const Duration(seconds: 1),
     this.tracksSettle = const Duration(milliseconds: 200),
@@ -128,6 +130,18 @@ class VideoSession extends ChangeNotifier {
 
   late final VideoEngineTransport transport;
 
+  /// Playing a collection shuffled (0.2.6): next / previous and Up next follow this order
+  /// instead of the collection's, and it stops at the end. Null: the collection's own order.
+  VideoShuffle? shuffle;
+
+  /// Stops shuffling: from the video playing now, it plays on in the collection's own order.
+  void stopShuffle() {
+    if (shuffle == null) return;
+    shuffle = null;
+    _showInBar();
+    notifyListeners();
+  }
+
   LibraryModel get settings => videos.library;
   PlaybackSettings get _playback => videos.library.settings.playback;
   VideoSettings get _video => videos.library.settings.video;
@@ -205,10 +219,21 @@ class VideoSession extends ChangeNotifier {
     open(id);
   }
 
-  /// The video before / after [id] in its collection, or null at either end.
+  /// The video before / after [id] in its collection (or in the [shuffle]), or null at either end.
   VideoItem? neighbour(String id, {required bool forward}) {
     final v = videos.byId(id);
     if (v == null) return null;
+    final s = shuffle;
+    if (s != null && s.contains(id)) {
+      // Videos gone since the shuffle started (a rescan) are passed over.
+      for (var at = id;;) {
+        final n = forward ? s.after(at) : s.before(at);
+        if (n == null) return null;
+        final found = videos.byId(n);
+        if (found != null) return found;
+        at = n;
+      }
+    }
     return forward ? videos.after(v) : videos.before(v);
   }
 
@@ -297,14 +322,7 @@ class VideoSession extends ChangeNotifier {
     // The seek preview opens the same video in a hidden player: files only (a server stream would
     // be fetched twice).
     _file = address.remote ? null : address.uri;
-    final next = videos.after(v), previous = videos.before(v);
-    watching?.showing(v,
-        picture: videos.thumbFile(v),
-        skipBack: _video.videoSkipBackSeconds,
-        skipForward: _video.videoSkipForwardSeconds,
-        onNext: next == null ? null : () => jump(forward: true),
-        onPrevious: previous == null ? null : () => jump(forward: false),
-        transport: transport);
+    _showInBar();
     // One thing at a time: the music pauses while a video plays.
     if (music.playing) await music.pause();
     await _applyEqualizer();
@@ -463,6 +481,21 @@ class VideoSession extends ChangeNotifier {
     if (music.playing && engine.isPlaying) engine.pause();
   }
 
+  /// The bottom bar and media keys show the video playing now, with next / previous where there
+  /// are some (in the shuffle, when shuffling).
+  void _showInBar() {
+    final v = videos.byId(_id);
+    if (v == null) return;
+    final next = neighbour(v.id, forward: true), previous = neighbour(v.id, forward: false);
+    watching?.showing(v,
+        picture: videos.thumbFile(v),
+        skipBack: _video.videoSkipBackSeconds,
+        skipForward: _video.videoSkipForwardSeconds,
+        onNext: next == null ? null : () => jump(forward: true),
+        onPrevious: previous == null ? null : () => jump(forward: false),
+        transport: transport);
+  }
+
   void savePlace({bool end = false}) {
     final length = _length();
     if (length <= Duration.zero) return;
@@ -474,8 +507,7 @@ class VideoSession extends ChangeNotifier {
   /// The end: counts as watched, then the next video in the collection starts after a countdown.
   void _finished() {
     savePlace(end: true);
-    final v = videos.byId(_id);
-    final next = v == null ? null : videos.after(v);
+    final next = neighbour(_id, forward: true);
     if (next == null || _disposed) return;
     upNext = next;
     countdown = 10;

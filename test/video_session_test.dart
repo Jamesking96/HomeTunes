@@ -11,6 +11,7 @@ import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/player_model.dart';
 import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/state/video_session.dart';
+import 'package:hometunes/state/video_shuffle.dart';
 import 'package:path/path.dart' as p;
 
 import 'fake_audio_engine.dart';
@@ -57,12 +58,13 @@ void main() {
   String idOf(String name) => videos.videos.firstWhere((v) => p.basenameWithoutExtension(v.path) == name).id;
   VideoItem item(String name) => videos.byId(idOf(name))!;
 
-  VideoSession start(String name, {void Function(Duration)? onCarryOn}) => session = VideoSession(
+  VideoSession start(String name, {void Function(Duration)? onCarryOn, VideoShuffle? shuffle}) => session = VideoSession(
         engine: engine,
         videos: videos,
         music: music,
         videoId: idOf(name),
         onCarryOn: onCarryOn,
+        shuffle: shuffle,
         upNextTick: const Duration(milliseconds: 1),
         tracksSettle: Duration.zero,
         openingTimeout: const Duration(seconds: 1),
@@ -231,5 +233,38 @@ void main() {
     s.jump(forward: true);
     await settle();
     expect(engine.calls.last, 'rate 1.25');
+  });
+
+  // Shuffle (0.2.6): next, previous and Up next follow the shuffle's order, and it stops at its end.
+  test('shuffled: next / previous and Up next go by the shuffle, and Stop shuffling goes back to the usual order', () async {
+    final order = ['Silo S02E01', 'Silo S01E02', 'Silo S02E02', 'Silo S01E01'];
+    final shuffle = VideoShuffle(collection: 'Silo', order: [for (final n in order) idOf(n)], label: 'Whole collection');
+    final s = start('Silo S02E01', shuffle: shuffle);
+    await settle();
+    expect(s.neighbour(s.id, forward: false), isNull); // the shuffle's first
+    s.jump(forward: true);
+    await settle();
+    expect(engine.openName, 'Silo S01E02');
+    s.jump(forward: false);
+    await settle();
+    expect(engine.openName, 'Silo S02E01');
+
+    // Up next after the end is the shuffle's next.
+    s.goTo(idOf('Silo S02E02'));
+    await settle();
+    engine.loaded();
+    engine.finish();
+    expect(s.upNext?.id, idOf('Silo S01E01'));
+    await until(() => engine.openName == 'Silo S01E01');
+    // The last in the shuffle: no Up next, though S01E02 follows it in the collection.
+    await settle();
+    engine.loaded();
+    engine.finish();
+    expect(s.upNext, isNull);
+
+    // Stop shuffling: the collection's own order from here.
+    s.stopShuffle();
+    expect(s.shuffle, isNull);
+    expect(s.neighbour(s.id, forward: true)?.id, idOf('Silo S01E02'));
   });
 }

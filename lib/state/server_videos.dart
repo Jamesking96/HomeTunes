@@ -36,6 +36,7 @@ import '../services/subsonic_client.dart' show isPlainHttpToInternet;
 import 'remote_videos.dart';
 import 'servers_model.dart';
 import 'video_library_model.dart';
+import 'video_types.dart' show videoType;
 
 /// What HomeTunes remembers about one Jellyfin server (never its token or password).
 class _ServerState {
@@ -325,6 +326,7 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource {
       final dir = Directory(_pictureDir(s.id));
       if (await dir.exists()) await dir.delete(recursive: true);
     } catch (_) {}
+    if (_disposed) return; // closed down meanwhile: don't save either
     notifyListeners();
     await _save();
   }
@@ -735,6 +737,13 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource {
     await _save();
   }
 
+  /// Reads and syncs finish in the background; one that finishes after this was closed down
+  /// (the app closing, a test ending) has no one left to tell (0.2.5: seen in tests on a busy PC).
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   @override
   void dispose() {
     _disposed = true;
@@ -831,9 +840,13 @@ String? _seasonTitle(Object? name) {
       : type == 'Movie'
           ? (name ?? 'Film')
           : (view.name.isEmpty ? 'Home videos' : view.name);
+  // The library's own name when it says what kind of thing it is (0.2.5: the user's "Anime"
+  // library was filed as TV, so anime couldn't be told apart); "Shows" / "Movies" and the like
+  // come out as TV and Films (video_types.dart).
+  final named = videoType(view.name);
   final category = switch (view.collectionType) {
-    'tvshows' => 'TV',
-    'movies' => 'Films',
+    'tvshows' => named == null || named == 'Films' ? 'TV' : named,
+    'movies' => named == null || named == 'TV' ? 'Films' : named,
     _ => episode ? 'TV' : (type == 'Movie' ? 'Films' : null),
   };
   final subtitles = <String>[];

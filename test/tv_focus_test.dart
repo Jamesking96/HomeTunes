@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hometunes/services/tv_sounds.dart';
 import 'package:hometunes/ui/tv/tv_focus.dart';
 
 void main() {
@@ -86,6 +87,68 @@ void main() {
     await press(tester, LogicalKeyboardKey.arrowDown);
     await press(tester, LogicalKeyboardKey.arrowLeft);
     expect(focusedName(), isIn(['Home', 'Search', 'Library']));
+  });
+
+  testWidgets('↑ on a page\'s top row stays there rather than jumping into the sidebar (0.2.5)', (tester) async {
+    // A page whose only button sits a little lower than the sidebar's first item: ↑ used to land
+    // on that item (on the TV, Play on a collection page opened the menu on Music).
+    Widget item(String name) => InkWell(key: ValueKey(name), onTap: () {}, child: SizedBox(width: 160, height: 48, child: Center(child: Text(name))));
+    await tester.pumpWidget(MaterialApp(
+      theme: tvTheme(ThemeData(), Colors.deepOrange),
+      home: TvFocus(
+        enabled: true,
+        child: Scaffold(
+          body: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            TvRegion(child: Column(children: [item('Home'), item('Videos')])),
+            Expanded(child: TvRegion(child: Column(children: [const SizedBox(height: 60), item('Play')]))),
+          ]),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await press(tester, LogicalKeyboardKey.arrowRight);
+    expect(focusedName(), 'Play');
+    await press(tester, LogicalKeyboardKey.arrowUp);
+    expect(focusedName(), 'Play');
+    await press(tester, LogicalKeyboardKey.arrowDown);
+    expect(focusedName(), 'Play');
+    // ← is still the way to the sidebar.
+    await press(tester, LogicalKeyboardKey.arrowLeft);
+    expect(focusedName(), isIn(['Home', 'Videos']));
+  });
+
+  testWidgets('sounds: a move plays one, a press at the edge doesn\'t, OK and Back click (0.2.5)', (tester) async {
+    final played = <TvSound>[];
+    TvSounds.debugPlayed = played.add;
+    addTearDown(() => TvSounds.debugPlayed = null);
+    Widget item(String name) => InkWell(key: ValueKey(name), onTap: () {}, child: SizedBox(width: 160, height: 48, child: Center(child: Text(name))));
+    Future<void> app({required bool sounds}) => tester.pumpWidget(MaterialApp(
+          home: TvFocus(
+            enabled: true,
+            sounds: sounds,
+            child: Scaffold(body: TvRegion(child: Column(children: [item('One'), item('Two')]))),
+          ),
+        ));
+    Future<void> key(LogicalKeyboardKey k) async {
+      TvSounds.debugReset();
+      await press(tester, k);
+    }
+
+    await app(sounds: true);
+    await tester.pumpAndSettle();
+    await key(LogicalKeyboardKey.arrowDown); // One → Two
+    expect(played, [TvSound.down]);
+    await key(LogicalKeyboardKey.arrowDown); // nothing further down: silent
+    expect(played, [TvSound.down]);
+    await key(LogicalKeyboardKey.arrowUp);
+    await key(LogicalKeyboardKey.select);
+    expect(played, [TvSound.down, TvSound.up, TvSound.select]);
+    // Switched off: nothing.
+    await app(sounds: false);
+    await tester.pumpAndSettle();
+    await key(LogicalKeyboardKey.arrowDown);
+    await key(LogicalKeyboardKey.select);
+    expect(played, [TvSound.down, TvSound.up, TvSound.select]);
   });
 
   testWidgets('OK / Select on the remote presses the focused thing', (tester) async {

@@ -25,7 +25,15 @@ import 'tv_keyboard.dart';
 import 'tv_options.dart';
 import 'tv_widgets.dart';
 
-const tvSettingsHints = <TvHint>[('OK', 'choose · switch'), ('→', 'into the page'), ('←', 'back / menu')];
+const tvSettingsHints = <TvHint>[('OK', 'Choose or switch'), ('→', 'Into the page'), ('←', 'Back / Menu')];
+
+/// Settings pages that mean nothing on a TV, left out of its list and search (0.2.5, the user's
+/// choice on 28 Oct): Your edits writes tags into music files, a job for the PC.
+const tvHiddenPages = {SettingsPage.edits};
+
+/// Single settings left out on a TV (the pages hide them too, with [tvModeOf]): swiping is for
+/// touch screens.
+const tvHiddenSettings = {'swipe-to-skip', 'write-tags', 'write-backup'};
 
 class TvSettingsScreen extends StatefulWidget {
   const TvSettingsScreen({super.key});
@@ -133,7 +141,7 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
       hint: 'A word from the setting: gap, theme, folder…',
     );
     if (typed == null || typed.trim().isEmpty || !mounted) return;
-    final found = searchSettings(typed);
+    final found = [for (final s in searchSettings(typed)) if (!tvHiddenPages.contains(s.page) && !tvHiddenSettings.contains(s.id)) s];
     await showTvOptions(
       context,
       title: found.isEmpty ? 'No settings match "${typed.trim()}"' : 'Settings matching "${typed.trim()}"',
@@ -198,6 +206,7 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
                     ),
                     const SizedBox(height: 8),
                     for (final p in SettingsPage.values)
+                      if (!tvHiddenPages.contains(p))
                       _ListRow(
                         key: ValueKey('tv-settings-${p.name}'),
                         focusNode: _rows[p],

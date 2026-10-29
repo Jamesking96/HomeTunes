@@ -12,6 +12,7 @@
 // The sizes are in the units the app lays out in; the TV is 960 x 540 of them.
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -34,8 +35,9 @@ abstract final class TvStyle {
   /// Rounded corners of tiles and rows.
   static const radius = 12.0;
 
-  /// The space kept clear at the screen's edges (TVs can crop them).
-  static const sideMargin = 32.0, topMargin = 24.0;
+  /// The space kept clear at the screen's edges (TVs can crop them). The bottom one since 0.2.5:
+  /// lists ran to the very edge, where some TVs cut lines off.
+  static const sideMargin = 32.0, topMargin = 24.0, bottomMargin = 16.0;
 }
 
 /// Something the remote can press. [builder] draws it, told whether it has focus. With neither
@@ -330,17 +332,69 @@ class TvRow extends StatelessWidget {
 typedef TvHint = (String button, String does);
 
 /// The small bubble saying what the remote's buttons do here.
-class TvHints extends StatelessWidget {
+///
+/// It fades away [showFor] after the page's hints appear or a remote button is pressed, and comes
+/// back with the next press (0.2.5, the user's choice on 28 Oct): it sits over the bottom of the
+/// page, where it covered tile titles and buttons.
+class TvHints extends StatefulWidget {
   const TvHints(this.hints, {super.key});
   final List<TvHint> hints;
 
   /// The hints most screens show.
   static const browsing = <TvHint>[('OK', 'Open'), ('Hold OK', 'Options'), ('←', 'Menu')];
 
+  /// How long the bubble stays after the last press.
+  static const showFor = Duration(seconds: 4);
+
+  @override
+  State<TvHints> createState() => _TvHintsState();
+}
+
+class _TvHintsState extends State<TvHints> {
+  bool _shown = true;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_onKey);
+    _wake();
+  }
+
+  @override
+  void didUpdateWidget(TvHints old) {
+    super.didUpdateWidget(old);
+    if (!listEquals(old.hints, widget.hints)) _wake();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    HardwareKeyboard.instance.removeHandler(_onKey);
+    super.dispose();
+  }
+
+  bool _onKey(KeyEvent e) {
+    if (e is KeyDownEvent) _wake();
+    return false; // only watching: the press goes on to the page
+  }
+
+  void _wake() {
+    _timer?.cancel();
+    if (!_shown && mounted) setState(() => _shown = true);
+    _timer = Timer(TvHints.showFor, () {
+      if (mounted) setState(() => _shown = false);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hints = widget.hints;
     return IgnorePointer(
-      child: Container(
+      child: AnimatedOpacity(
+       opacity: _shown ? 1 : 0,
+       duration: const Duration(milliseconds: 300),
+       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
           color: const Color(0xDB0B0C0E),
@@ -356,6 +410,7 @@ class TvHints extends StatelessWidget {
             ])),
           ],
         ]),
+       ),
       ),
     );
   }

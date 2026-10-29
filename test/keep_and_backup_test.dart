@@ -276,6 +276,27 @@ void main() {
       expect(pl.playlists.single.name, 'Road trip');
       expect(File(lib.beforeRestorePath).existsSync(), isTrue);
     });
+
+    test('server pictures are left out of a backup, and skipped in an older one (0.2.5)', () async {
+      // Thousands of pictures downloaded from the Jellyfin server made a PC's backup 121 MB, and
+      // the TV ran out of memory restoring it. They're downloaded again when needed.
+      final pic = File(p.join(storage.artDir, 'server-video', 's1', 'poster.jpg'))..createSync(recursive: true);
+      pic.writeAsBytesSync([1, 2, 3]);
+      final music = File(p.join(storage.artDir, 'server', 'cover.jpg'))..createSync(recursive: true);
+      music.writeAsBytesSync([4, 5, 6]);
+      final mine = await lib.importCoverBytes(Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE0, 7, 8, 9]));
+      await lib.editMany([id('one.wav')], TrackEdit(art: mine));
+
+      final backup = AppBackup.read(await lib.createBackup());
+      expect(backup.art.keys.where((k) => k.startsWith('art/server')), isEmpty);
+      expect(backup.art.keys.where((k) => k.startsWith('art/custom')), isNotEmpty); // chosen covers stay
+
+      // An older backup that still holds them: they aren't written back.
+      pic.deleteSync();
+      final older = AppBackup.read(await lib.createBackup())..art['art/server-video/s1/poster.jpg'] = 'AQID';
+      await lib.restoreBackup(older, merge: true, reloadOthers: () async {});
+      expect(pic.existsSync(), isFalse);
+    });
   });
 
   group('Backup file', () {

@@ -8,7 +8,7 @@ import '../../models/video_item.dart';
 import '../../state/video_library_model.dart';
 import 'download_ui.dart' show DownloadOption;
 
-enum _GroupAction { selectAll, unselect, watched, unwatched, rename, special, fold }
+enum _GroupAction { selectAll, unselect, watched, unwatched, rename, special, fold, shuffle, inShuffle }
 
 /// The right-click (or long-press) menu on a season's heading (a collection's page, its in-place
 /// contents and All videos' group headings): Select all in the season, unselect it, mark it
@@ -28,6 +28,9 @@ Future<void> showVideoGroupMenu(
   bool? folded,
   VoidCallback? onFold,
   List<DownloadOption> downloads = const [],
+  VoidCallback? onShuffle,
+  bool? inShuffle,
+  ValueChanged<bool>? onInShuffle,
 }) async {
   final model = context.read<VideoLibraryModel>();
   final ids = [for (final v in list) v.id];
@@ -55,6 +58,11 @@ Future<void> showVideoGroupMenu(
       if (onSpecial != null)
         item(_GroupAction.special, 'group-special', special ? Icons.star_outline : Icons.auto_awesome_outlined,
             special ? 'Not special any more' : 'Mark as special…'),
+      // Shuffle (0.2.6): just this season, and putting it in or out of the collection's shuffle.
+      if (onShuffle != null) item(_GroupAction.shuffle, 'group-shuffle', Icons.shuffle, 'Shuffle $heading'),
+      if (inShuffle != null && onInShuffle != null)
+        item(_GroupAction.inShuffle, 'group-in-shuffle', inShuffle ? Icons.remove_circle_outline : Icons.add_circle_outline,
+            inShuffle ? 'Take out of the shuffle' : 'Put in the shuffle'),
       if (onFold != null && folded != null)
         item(_GroupAction.fold, 'group-fold', folded ? Icons.unfold_more : Icons.unfold_less, folded ? 'Open' : 'Fold up'),
       for (final o in downloads) item(o, 'menu-${o.key}', o.icon, o.label),
@@ -77,5 +85,9 @@ Future<void> showVideoGroupMenu(
       onSpecial?.call();
     case _GroupAction.fold:
       onFold?.call();
+    case _GroupAction.shuffle:
+      onShuffle?.call();
+    case _GroupAction.inShuffle:
+      if (inShuffle != null) onInShuffle?.call(!inShuffle);
   }
 }

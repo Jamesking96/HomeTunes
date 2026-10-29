@@ -13,6 +13,7 @@ import '../../../state/library_model.dart';
 import '../../../state/play_history.dart';
 import '../equalizer_screen.dart';
 import '../../theme.dart';
+import '../../tv/tv_focus.dart' show tvModeOf;
 import 'settings_widgets.dart';
 import '../../../state/settings/settings_groups.dart' as prefs;
 
@@ -58,6 +59,8 @@ class PlaybackSettings extends StatelessWidget {
             onChanged: (v) => lib.updatePlaybackSettings(gaplessPlayback: v),
           ),
         ),
+        // Not on a TV, which has no touch screen (0.2.5).
+        if (!tvModeOf(context))
         SettingTarget(
           'swipe-to-skip',
           child: SwitchListTile(

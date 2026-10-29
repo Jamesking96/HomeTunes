@@ -180,6 +180,8 @@ Future<void> main() async {
     playingId = t?.id;
     if (t != null) downloads.startedPlaying(t);
   });
+  // A temporary copy that's playing isn't cleared to make room (0.2.5).
+  downloads.inUse = (id) => player.current?.id == id || watching.video?.id == id;
   downloads.onNotice = (note) => appMessengerKey.currentState?.showSnackBar(SnackBar(content: Text(note)));
   final session = await MediaSession.start(player, library, watching: watching);
   debugPrint(session == null
@@ -361,7 +363,11 @@ class HomeTunesApp extends StatelessWidget {
                   builder: (context) => WindowScale(
                     enabled: context.select<prefs.AppearanceSettings, bool>((s) => s.scaleWithWindow),
                     child: Builder(
-                      builder: (context) => TvFocus(enabled: tv, child: withTextSize(context, look.textSize, child!)),
+                      builder: (context) => TvFocus(
+                        enabled: tv,
+                        sounds: context.select<prefs.AppearanceSettings, bool>((s) => s.tvSounds),
+                        child: withTextSize(context, look.textSize, child!),
+                      ),
                     ),
                   ),
                 ),
