@@ -162,6 +162,10 @@ void main() {
       expect(find.text('Sort: Z–A'), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
+      // The type buttons' "rest to show" delay, started by the taps, runs out.
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
     });
   });
 }
