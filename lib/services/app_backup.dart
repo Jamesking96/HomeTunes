@@ -42,6 +42,9 @@ class AppBackup {
     'downloads.json', // 0.2.3: what's kept offline and the download settings (not the files)
   ];
 
+  /// Folders under art/ holding pictures downloaded from servers, which backups leave out.
+  static const serverArt = {'server', 'server-video'};
+
   /// Marks a path inside the app's folder in a backup.
   static const appPrefix = '@app/';
 
@@ -95,7 +98,10 @@ class AppBackup {
         if (e is! File) continue;
         final rel = p.relative(e.path, from: root);
         final parts = p.split(rel);
-        if (parts.length > 1 && parts[1] == 'server') continue;  // art/server: downloaded again
+        // art/server and art/server-video: pictures from the servers, downloaded again when
+        // needed. The videos' ones (0.2.5) were thousands of files, most of a backup's size: the
+        // TV ran out of memory restoring one (and making its own copy first).
+        if (parts.length > 1 && serverArt.contains(parts[1])) continue;
         final custom = parts.contains('custom');
         if (!custom && !includeCoverCache) continue;
         art[p.split(rel).join('/')] = base64Encode(await e.readAsBytes());
@@ -161,8 +167,11 @@ class AppBackup {
       }
     }
 
-    // Cover images first, so the data never points at a picture that isn't there.
+    // Cover images first, so the data never points at a picture that isn't there. Server
+    // pictures in older backups are skipped: they're downloaded again (0.2.5).
     for (final e in backup.art.entries) {
+      final top = e.key.split('/');
+      if (top.length > 1 && serverArt.contains(top[1])) continue;
       final dest = safeArtDestination(root, e.key);
       // Safety: anything that wouldn't land inside art/ is skipped (see safeArtDestination).
       if (dest == null) continue;
