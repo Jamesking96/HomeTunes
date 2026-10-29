@@ -11,6 +11,7 @@ import '../models/book.dart';
 import '../models/playlist.dart';
 import '../models/track.dart';
 import '../models/video_item.dart';
+import '../state/video_shuffle.dart';
 import 'screens/album_screen.dart';
 import 'screens/artist_screen.dart';
 import 'screens/book_screen.dart';
@@ -186,16 +187,18 @@ class AppNav extends ChangeNotifier {
 
   /// Opens a video's player page on the Videos tab (0.1.40). On the TV (step 5) the TV player
   /// opens full screen over everything instead.
-  void openVideo(VideoItem v) {
+  ///
+  /// [shuffle] (0.2.6): playing its collection shuffled, in that order.
+  void openVideo(VideoItem v, {VideoShuffle? shuffle}) {
     final root = appNavigatorKey.currentState;
     if (tv && root != null) {
-      root.push(MaterialPageRoute(builder: (_) => TvVideoPlayerPage(videoId: v.id)));
+      root.push(MaterialPageRoute(builder: (_) => TvVideoPlayerPage(videoId: v.id, shuffle: shuffle)));
       return;
     }
     if (tab != videosTab) {
       tab = videosTab;
       notifyListeners();
     }
-    _afterFrame(() => push(VideoPlayerScreen(videoId: v.id)));
+    _afterFrame(() => push(VideoPlayerScreen(videoId: v.id, shuffle: shuffle)));
   }
 }

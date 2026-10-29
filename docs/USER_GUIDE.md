@@ -173,6 +173,15 @@ A song with a video of the same name beside it (for example `Song.m4a` and `Song
 **music video**: Now Playing shows it in place of the cover. **Settings › Music** can turn music
 videos off, or keep the cover until you press the video button.
 
+**Shuffle a series:** on a collection's page, **Shuffle** plays its episodes in a random order
+(each once; next, previous and Up next follow the shuffle, and it stops at the end). The shuffle
+button on a season's heading (or **Shuffle Season 2** in its right-click menu) shuffles just that
+season. To choose which seasons the page's Shuffle uses, click the ⚙ beside it (**Seasons in the
+shuffle**) and tick or untick them; HomeTunes remembers the choice for that collection. Normal
+seasons are in to start with; Specials, seasons marked special and Extras are out until you tick
+them. While shuffling, the player says so ("Shuffling Season 2 · 3 of 10"); the × on that label
+stops shuffling and carries on in the usual order.
+
 ### Your own servers (optional)
 If you run a music server such as Navidrome, go to **Settings › Servers**, choose **Add a server**,
 pick **Subsonic** as the kind, enter its address (for example `http://192.168.1.20:4533`), your
@@ -489,6 +498,10 @@ On a TV, HomeTunes has its own screens, made to be used from the sofa with just 
   down by **Watched** (not started, in progress, watched), **Genre** and **Source** (on this device,
   streamed or downloaded); **Clear filters** puts it back. **Sort** also has **Most episodes** and
   **Not watched first**, and **Reverse the order** turns any sort round.
+- **Shuffle:** on a collection's page, **Shuffle** (beside Play) plays it in a random order.
+  **More options** has **Shuffle Season 2** (the season tab showing) and **Seasons in the
+  shuffle**: OK on a season puts it in or takes it out, then **Shuffle now**. While a video plays
+  shuffled, the top says so; **Stop shuffling** in the player's options goes back to the usual order.
 - **Videos:** press any button to bring up the controls. On the progress bar, **← →** move a marker
   through the video (with a picture of that moment) and OK jumps there. **Hold OK** on the bar, or
   on a video anywhere, for **Watch from the beginning**. The remote's play / pause and next buttons

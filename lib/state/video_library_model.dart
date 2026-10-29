@@ -9,6 +9,7 @@
 // Like LibraryModel, a folder that can't be reached (unplugged drive) keeps its videos as they were.
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' show Random;
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -27,6 +28,7 @@ import 'media_folders.dart';
 import 'custom_art_store.dart';
 import 'remote_videos.dart';
 import 'video_filters.dart';
+import 'video_shuffle.dart';
 
 class VideoLibraryModel extends ChangeNotifier {
   final Storage storage;
@@ -323,6 +325,8 @@ class VideoLibraryModel extends ChangeNotifier {
       if (titles != null) _seasonTitles[newKey] = titles;
       final specials = _specialSeasons.remove(oldKey);
       if (specials != null) _specialSeasons[newKey] = specials;
+      final shuffle = _shuffleChoices.remove(oldKey);
+      if (shuffle != null) _shuffleChoices[newKey] = shuffle;
     }
     _rebuild();
     await _save();
@@ -598,6 +602,59 @@ class VideoLibraryModel extends ChangeNotifier {
     return title == null ? heading : '$heading – $title';
   }
 
+  // ---- shuffle (0.2.6, state/video_shuffle.dart) ----
+
+  // Seasons put in or taken out of a collection's shuffle, by collection key then heading
+  // ("Season 2": false). Headings not here go by shuffledByDefault.
+  Map<String, Map<String, bool>> _shuffleChoices = {};
+
+  /// [c]'s headings as the shuffle sees them, in page order, each with whether it's in the whole
+  /// collection's shuffle.
+  List<ShuffleGroup> shuffleGroups(VideoCollection c) {
+    final own = _shuffleChoices[c.key] ?? const {};
+    return [
+      for (final (h, list) in c.groups)
+        ShuffleGroup(
+          heading: h,
+          label: h == null ? c.name : groupLabel(c, h, list),
+          videos: list,
+          included: h == null ? true : own[h] ?? shuffledByDefault(h, list),
+        ),
+    ];
+  }
+
+  /// Puts season [heading] in [c]'s shuffle, or takes it out.
+  Future<void> setInShuffle(VideoCollection c, String heading, bool included) async {
+    final list = [for (final (h, l) in c.groups) if (h == heading) l].firstOrNull ?? const <VideoItem>[];
+    final own = _shuffleChoices[c.key] ??= {};
+    // The usual choice for that heading isn't kept, so it follows the usual one later.
+    included == shuffledByDefault(heading, list) ? own.remove(heading) : own[heading] = included;
+    if (own.isEmpty) _shuffleChoices.remove(c.key);
+    notifyListeners();
+    await _save();
+  }
+
+  /// Puts every heading of [c] back to the usual choice.
+  Future<void> resetShuffle(VideoCollection c) async {
+    if (_shuffleChoices.remove(c.key) == null) return;
+    notifyListeners();
+    await _save();
+  }
+
+  /// A new shuffle of [c]: of season [heading] alone, else of the seasons in its shuffle. Null
+  /// when there's nothing to shuffle (every season taken out).
+  VideoShuffle? shuffleOf(VideoCollection c, {String? heading, Random? random}) {
+    final groups = shuffleGroups(c);
+    if (heading != null) {
+      final g = groups.where((g) => g.heading == heading).firstOrNull;
+      if (g == null || g.videos.isEmpty) return null;
+      return VideoShuffle.of(c.name, g.videos, label: g.label, random: random);
+    }
+    final videos = [for (final g in groups) if (g.included) ...g.videos];
+    if (videos.isEmpty) return null;
+    return VideoShuffle.of(c.name, videos, label: shuffleLabel(groups), random: random);
+  }
+
   /// The speed videos in [collection] play at: the last one chosen there, else the usual one.
   double speedFor(String collection) => _speeds[VideoCollection.keyFor(collection)] ?? library.settings.video.defaultVideoSpeed;
 
@@ -772,6 +829,17 @@ class VideoLibraryModel extends ChangeNotifier {
                   s.key as String: (s.value as String).trim(),
             },
     }..removeWhere((_, v) => v.isEmpty);
+    // Shuffle (0.2.6): {"silo": {"Season 2": false, "Specials": true}}.
+    final sh = j['shuffle'];
+    _shuffleChoices = {
+      if (sh is Map)
+        for (final e in sh.entries)
+          if (e.key is String && e.value is Map)
+            e.key as String: {
+              for (final s in (e.value as Map).entries)
+                if (s.key is String && s.value is bool) s.key as String: s.value as bool,
+            },
+    }..removeWhere((_, v) => v.isEmpty);
     _rebuild();
   }
 
@@ -797,6 +865,10 @@ class VideoLibraryModel extends ChangeNotifier {
       if (_specialSeasons.isNotEmpty)
         'specialSeasons': {
           for (final e in _specialSeasons.entries) e.key: {for (final s in e.value.entries) s.key: s.value},
+        },
+      if (_shuffleChoices.isNotEmpty)
+        'shuffle': {
+          for (final e in _shuffleChoices.entries) e.key: {for (final s in e.value.entries) s.key: s.value},
         },
       if (_favourites.isNotEmpty) 'favourites': _favourites.toList()..sort(),
       if (_descriptions.isNotEmpty) 'descriptions': _descriptions,

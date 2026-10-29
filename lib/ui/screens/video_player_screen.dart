@@ -39,6 +39,7 @@ import '../../state/now_watching.dart';
 import '../../state/player_model.dart';
 import '../../state/video_library_model.dart';
 import '../../state/video_session.dart';
+import '../../state/video_shuffle.dart';
 import '../../state/video_tracks.dart';
 import '../nav.dart';
 import '../theme.dart';
@@ -71,7 +72,10 @@ part 'video_player/video_controls.dart';
 /// the latest). Before, the app could look frozen for a moment while a big file opened.
 class VideoPlayerScreen extends StatefulWidget {
   final String videoId;
-  const VideoPlayerScreen({super.key, required this.videoId});
+
+  /// Playing the collection shuffled (0.2.6): plays on through this order.
+  final VideoShuffle? shuffle;
+  const VideoPlayerScreen({super.key, required this.videoId, this.shuffle});
 
   /// Tests: build this instead of the real page (which needs the video engine).
   @visibleForTesting
@@ -139,7 +143,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final page = !_started
         ? null
         : VideoPlayerScreen.debugPage?.call(widget.videoId, _onReady) ??
-            _VideoPage(videoId: widget.videoId, onReady: _onReady);
+            _VideoPage(videoId: widget.videoId, shuffle: widget.shuffle, onReady: _onReady);
     return Stack(children: [
       if (page != null) Positioned.fill(child: page),
       if (!_gone)
@@ -219,7 +223,8 @@ class _VideoPage extends StatefulWidget {
 
   /// Called once, when the first video is showing (or can't be played).
   final VoidCallback? onReady;
-  const _VideoPage({required this.videoId, this.onReady});
+  final VideoShuffle? shuffle;
+  const _VideoPage({required this.videoId, this.shuffle, this.onReady});
 
   @override
   State<_VideoPage> createState() => _VideoPageState();
@@ -265,6 +270,7 @@ class _VideoPageState extends State<_VideoPage> {
       stats: VideoStats.forPlayer(_engine.player, 'Video'),
       onReady: widget.onReady,
       onCarryOn: _carryOn,
+      shuffle: widget.shuffle,
       onOpenPage: _bringBack,
     )..addListener(_redraw);
     _preview.setVideo(_session.file);
@@ -367,7 +373,8 @@ class _VideoPageState extends State<_VideoPage> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
               child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Up next in ${s.countdown} s', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                Text(s.shuffle == null ? 'Up next in ${s.countdown} s' : 'Up next (shuffled) in ${s.countdown} s',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 320),
                   child: Text(
@@ -481,6 +488,18 @@ class _VideoPageState extends State<_VideoPage> {
                 child: Text(v.collection,
                     style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600)),
               ),
+              // Shuffling (0.2.6): what's shuffled and how far through; × goes back to the usual order.
+              if (s.shuffle case final shuffle?) ...[
+                const SizedBox(height: 6),
+                InputChip(
+                  key: const ValueKey('video-shuffle-chip'),
+                  avatar: const Icon(Icons.shuffle, size: 18),
+                  label: Text('Shuffling ${shuffle.label} · ${shuffle.placeOf(v.id)}'),
+                  tooltip: 'Stop shuffling: carry on in the usual order',
+                  deleteButtonTooltipMessage: 'Stop shuffling',
+                  onDeleted: s.stopShuffle,
+                ),
+              ],
               const SizedBox(height: 4),
               Text(facts, style: TextStyle(color: AppColors.textDim)),
               if (s.tracksSetUp) Text(tracksSummary, style: TextStyle(color: AppColors.textDim, fontSize: 12)),
