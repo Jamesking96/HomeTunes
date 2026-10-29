@@ -60,7 +60,7 @@ Read the files in this order:
   their name). The TV's Videos tab has a type row under the tabs (All · Anime · TV · Films, the user's
   choice of layout) applying in every tab, a **Filter** button (Watched, Genre, Source; the user's
   picks) and sorts **Most episodes**, **Not watched first** and **Reverse the order**. 858 tests pass.
-  113's APK and PC installer are in `build\dist` (29 Oct 12:14–12:16); the APK is **not on the TV yet**.
+  113's APK and PC installer are in `build\dist` (29 Oct 12:14–12:16); the APK went on the TV at the user's request (29 Oct 13:59).
   The PC's C: drive was full (250 MB free) on 28 Oct; Flutter's old temp folders were cleared with
   the user's OK (about 1.3 GB free after). Watch the space before builds.
 - **Released 28 Oct: [v0.2.4](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.4)** (0.2.4+106), covering 0.2.1–0.2.4: the whole Servers & Downloads plan (Jellyfin videos, the Source filter, downloads, temporary copies) and the TV fixes of 28 Oct (the user: "Everything here looks good to me"). All four step branches were merged into `main` (`--no-ff`) and deleted: **`main` is the only branch again.** Next: more TV work (the user: "We still have some things for TVs we want to work on"); the history of the four steps below is kept for reference.
