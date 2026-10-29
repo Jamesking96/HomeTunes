@@ -61,6 +61,18 @@ Read the files in this order:
   choice of layout) applying in every tab, a **Filter** button (Watched, Genre, Source; the user's
   picks) and sorts **Most episodes**, **Not watched first** and **Reverse the order**. 858 tests pass.
   113's APK and PC installer are in `build\dist` (29 Oct 12:14–12:16); the APK went on the TV at the user's request (29 Oct 13:59).
+  Then 0.2.6+114 (29 Oct evening, the user's ask, "for all platforms"): **video shuffle**
+  (`state/video_shuffle.dart`, `ui/widgets/video_shuffle_ui.dart`). Shuffle on a collection's page
+  (PC/phone: button beside Play, the card / contents panel menus; TV: button beside Play) plays
+  the seasons "in the shuffle" in a random order, each once, stopping at the end; a season's
+  heading (PC/phone) or More options › Shuffle <season tab> (TV) shuffles just that season.
+  **Seasons in the shuffle** (⚙ beside Shuffle; TV: More options) ticks seasons in/out, kept per
+  collection in videos.json `shuffle` (only differences from the default; default in: seasons,
+  parts, loose episodes; out: Specials, special-marked seasons, Extras); merged from backups, follows
+  renames. `VideoSession.shuffle` drives next/previous/Up next/the bottom bar; the player shows
+  "Shuffling <label> · n of m" with × (PC/phone) or Stop shuffling (TV options). 866 tests pass.
+  114's APK, PC installer and zip are in `build\dist` (29 Oct 21:29–21:36); the APK went on **both
+  TVs** at the user's request (29 Oct 21:37).
   The PC's C: drive was full (250 MB free) on 28 Oct; Flutter's old temp folders were cleared with
   the user's OK (about 1.3 GB free after). Watch the space before builds.
 - **Released 28 Oct: [v0.2.4](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.4)** (0.2.4+106), covering 0.2.1–0.2.4: the whole Servers & Downloads plan (Jellyfin videos, the Source filter, downloads, temporary copies) and the TV fixes of 28 Oct (the user: "Everything here looks good to me"). All four step branches were merged into `main` (`--no-ff`) and deleted: **`main` is the only branch again.** Next: more TV work (the user: "We still have some things for TVs we want to work on"); the history of the four steps below is kept for reference.
@@ -88,8 +100,12 @@ Read the files in this order:
   `adb connect 192.168.1.82:5555` then `adb install -r build\dist\HomeTunes-<v>-android.apk`
   updates it (adb is in `%LOCALAPPDATA%\Android\Sdk\platform-tools`). `adb shell input keyevent`
   presses remote keys and `screencap` takes screenshots; send one key per `adb shell` call with a
-  screenshot between, as several in one call get dropped. (192.168.1.106 is another Sony, a
-  KD-55XH8096, not the one to use.)
+  screenshot between, as several in one call get dropped. **Second TV (29 Oct):** 192.168.1.106:5555
+  is a Sony KD-55XH8096 ("BRAVIA 4K UR3", Android 10, armeabi-v7a, 1920×1080), network debugging
+  allowed for the PC; the user asked for HomeTunes on it too, so builds go to **both TVs** when the
+  user says. Scripts `C:\Temp\ht\tv2_shot.ps1` / `tv2_seq.ps1` (`-Dev`). The Jellyfin server
+  ("test", http://192.168.1.81:8096, OrangeKnight) was filled in on it except the password (never
+  read from storage; the user types it), and wasn't saved; the 114 install closed that dialog.
 - **Latest (13 Oct):** 0.1.82 (an album's or playlist's Play button shows when it's playing) 0.1.83 (the volume sliders fade evenly to silence; the EQ level is right) and 0.1.84 (a preview picture above a video's progress bar) are merged into `main` and pushed, not yet released; v0.1.81 (12 Oct) is the latest release. The Android TV work (0.2.0) is on `feature/android-tv`, with `main` merged in. See `04_`, Source control.
 - **Android TV (22 Oct):** the TV work (0.2.0+94) is on `feature/android-tv`, pushed to GitHub. The user tried it on the TV: the remote now stays on the open page; HomeTunes' own folder browser for Add folder isn't tried yet. The user is moving to another PC; see `04_`, Platforms plan, Android TV progress.
 - **Released:** the latest release is
