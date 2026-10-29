@@ -226,7 +226,9 @@ void main() {
       // OK on a season takes it out; the panel opens again with it ticked off.
       await tester.tap(find.text('Season 2').last); // in the panel, not the season tab under it
       await tester.pumpAndSettle();
-      await tester.runAsync(model.settle);
+      // Saving is real file work: let it finish, then the panel opens again.
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await tester.pumpAndSettle();
       expect(find.text('8 videos in the shuffle · OK puts a season in or takes it out'), findsOneWidget);
       await tester.tap(find.text('Shuffle now'));
       await tester.pumpAndSettle();
