@@ -42,6 +42,7 @@ import '../widgets/series_card.dart' show seriesProgress, playSeries, markSeries
 import 'tv_downloads.dart' show tvDownloadOptions;
 import 'tv_keyboard.dart' show showTvTextInput;
 import 'tv_options.dart';
+import 'tv_pictures.dart' show tvChangePictureOption, tvChangePosterOption;
 
 String _songs(int n) => '$n song${n == 1 ? '' : 's'}';
 
@@ -378,6 +379,7 @@ List<TvOption> videoOptions(BuildContext context, VideoItem v) {
     TvOption('Go to the collection', Icons.video_library_outlined, () => nav.openVideoCollection(v.collection)),
     TvOption('Details', Icons.info_outline, () => openVideoDetails(context, v)),
     TvOption('Edit details', Icons.edit_outlined, opensMore: true, () => showEditVideos(context, [v])),
+    tvChangePictureOption(context, v), // 0.2.5
   ];
 }
 
@@ -421,6 +423,7 @@ List<TvOption> collectionOptions(BuildContext context, VideoCollection c,
         nav.openVideoCollection(renamed);
       }
     }),
+    tvChangePosterOption(context, c), // 0.2.5
   ];
 }
 

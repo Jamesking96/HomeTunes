@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -57,6 +58,22 @@ class MainActivity : AudioServiceActivity() {
                     // storage and any USB drive or SD card plugged in. Google TV has no system
                     // folder picker, so "Add folder" there uses the app's own.
                     "storageVolumes" -> result.success(storageVolumes())
+                    // TV sounds (0.2.5): the TV's own navigation and click sounds as the remote moves
+                    // around HomeTunes and presses things. Settings › Appearance turns them off. The
+                    // volume form plays whatever the TV's own "sound effects" setting says (HomeTunes'
+                    // switch decides); -1 follows the media volume.
+                    "playSound" -> {
+                        val effect = when (call.argument<String>("sound")) {
+                            "up" -> AudioManager.FX_FOCUS_NAVIGATION_UP
+                            "down" -> AudioManager.FX_FOCUS_NAVIGATION_DOWN
+                            "left" -> AudioManager.FX_FOCUS_NAVIGATION_LEFT
+                            "right" -> AudioManager.FX_FOCUS_NAVIGATION_RIGHT
+                            else -> AudioManager.FX_KEY_CLICK
+                        }
+                        val volume = (call.argument<Double>("volume") ?: -1.0).toFloat()
+                        (getSystemService(Context.AUDIO_SERVICE) as AudioManager).playSoundEffect(effect, volume)
+                        result.success(null)
+                    }
                     else -> result.notImplemented()
                 }
             }

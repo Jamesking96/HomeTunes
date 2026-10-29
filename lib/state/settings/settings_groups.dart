@@ -489,6 +489,9 @@ class AppearanceSettings extends SettingsGroup {
   /// TV mode (0.2.0): automatic (on when running on a TV), on or off.
   TvMode tvMode = TvMode.automatic;
 
+  /// Sounds as the remote moves around and presses things in TV mode (0.2.5).
+  bool tvSounds = true;
+
   /// Whether the TV layout and remote navigation are in use right now.
   bool get tvLayout => tvMode == TvMode.on || (tvMode == TvMode.automatic && DeviceKind.isTv);
 
@@ -537,6 +540,9 @@ class AppearanceSettings extends SettingsGroup {
         write: (v) => v.name,
         writeIf: (v) => v != TvMode.automatic,
         read: (r) => TvMode.values.firstWhere((m) => m.name == r['tvMode'], orElse: () => TvMode.automatic)),
+    // Only written once turned off, so settings.json stays as it was for everyone else.
+    Setting<bool>('tvSounds',
+        fallback: () => true, get: () => tvSounds, set: (v) => tvSounds = v, writeIf: (v) => !v, read: (r) => r.get('tvSounds', true)),
   ];
 
   /// Adds a saved theme, or replaces the one with the same id (Settings › Appearance ›
@@ -599,6 +605,12 @@ class AppearanceSettings extends SettingsGroup {
   /// Settings › Appearance › Shrink to fit small windows.
   Future<void> setScaleWithWindow(bool on) {
     scaleWithWindow = on;
+    return commit();
+  }
+
+  /// Settings › Appearance › Sounds on the TV (0.2.5).
+  Future<void> setTvSounds(bool on) {
+    tvSounds = on;
     return commit();
   }
 

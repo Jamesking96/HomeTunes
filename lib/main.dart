@@ -363,7 +363,11 @@ class HomeTunesApp extends StatelessWidget {
                   builder: (context) => WindowScale(
                     enabled: context.select<prefs.AppearanceSettings, bool>((s) => s.scaleWithWindow),
                     child: Builder(
-                      builder: (context) => TvFocus(enabled: tv, child: withTextSize(context, look.textSize, child!)),
+                      builder: (context) => TvFocus(
+                        enabled: tv,
+                        sounds: context.select<prefs.AppearanceSettings, bool>((s) => s.tvSounds),
+                        child: withTextSize(context, look.textSize, child!),
+                      ),
                     ),
                   ),
                 ),

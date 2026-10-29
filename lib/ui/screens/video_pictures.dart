@@ -39,7 +39,7 @@ Future<List<int>> preparePicture(List<int> bytes) async {
 }
 
 /// What to add to a Wikipedia search for this category, and whether to ask AniList first.
-({String? hint, bool anime}) _searchHints(String? category) {
+({String? hint, bool anime}) pictureSearchHints(String? category) {
   final c = (category ?? '').toLowerCase();
   if (c.contains('anime')) return (hint: 'anime', anime: true);
   if (c.contains('film') || c.contains('movie')) return (hint: 'film', anime: false);
@@ -63,7 +63,7 @@ Future<void> showVideoPictureOptions(BuildContext context, VideoItem v) async {
     messenger?.showSnackBar(const SnackBar(content: Text('Back to the automatic picture')));
     return;
   }
-  final hints = _searchHints(v.category);
+  final hints = pictureSearchHints(v.category);
   final bytes = await _getPicture(context, choice,
       frameOf: v,
       query: v.collection,
@@ -94,7 +94,7 @@ Future<void> showCollectionPosterOptions(BuildContext context, VideoCollection c
     return;
   }
   final bytes = await _getPicture(context, choice,
-      frameOf: frameOf, query: c.name, hints: _searchHints(c.category), forPoster: true);
+      frameOf: frameOf, query: c.name, hints: pictureSearchHints(c.category), forPoster: true);
   if (bytes == null) return;
   // The collection may have been renamed meanwhile: find it again by one of its videos.
   final now = frameOf != null ? (model.collectionOf(model.byId(frameOf.id) ?? frameOf) ?? c) : c;

@@ -19,6 +19,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../services/tv_sounds.dart';
+
 /// The remote's OK button and its equivalents. Enter and Space already press things in Flutter;
 /// Select (most TV remotes) and a game controller's A are added for TV mode.
 const tvActivateKeys = <LogicalKeyboardKey>[
@@ -29,10 +31,13 @@ const tvActivateKeys = <LogicalKeyboardKey>[
 ];
 
 class TvFocus extends StatefulWidget {
-  const TvFocus({super.key, required this.enabled, required this.child});
+  const TvFocus({super.key, required this.enabled, required this.child, this.sounds = false});
 
   final bool enabled;
   final Widget child;
+
+  /// Sounds as the remote moves around and presses things (0.2.5, services/tv_sounds.dart).
+  final bool sounds;
 
   @override
   State<TvFocus> createState() => _TvFocusState();
@@ -53,12 +58,43 @@ class _TvFocusState extends State<TvFocus> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_soundFor);
     FocusManager.instance.removeListener(_focusChanged);
     if (widget.enabled) FocusManager.instance.highlightStrategy = FocusHighlightStrategy.automatic;
     super.dispose();
   }
 
+  /// Plays the sound for a remote press (only watching: the press carries on as usual). An arrow
+  /// sounds once the frame after it has moved focus somewhere new, so a press at a list's edge, or
+  /// one that moves through a video, is silent.
+  bool _soundFor(KeyEvent e) {
+    if (!widget.enabled || !widget.sounds || e is KeyUpEvent) return false;
+    final k = e.logicalKey;
+    final arrow = switch (k) {
+      LogicalKeyboardKey.arrowUp => TvSound.up,
+      LogicalKeyboardKey.arrowDown => TvSound.down,
+      LogicalKeyboardKey.arrowLeft => TvSound.left,
+      LogicalKeyboardKey.arrowRight => TvSound.right,
+      _ => null,
+    };
+    if (arrow != null) {
+      final before = FocusManager.instance.primaryFocus;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final now = FocusManager.instance.primaryFocus;
+        if (mounted && now != null && now != before) TvSounds.play(arrow);
+      });
+      WidgetsBinding.instance.scheduleFrame();
+    } else if (e is KeyDownEvent && tvActivateKeys.contains(k)) {
+      TvSounds.play(TvSound.select);
+    } else if (e is KeyDownEvent && (k == LogicalKeyboardKey.goBack || k == LogicalKeyboardKey.escape)) {
+      TvSounds.play(TvSound.back);
+    }
+    return false;
+  }
+
   void _apply() {
+    HardwareKeyboard.instance.removeHandler(_soundFor);
+    if (widget.enabled) HardwareKeyboard.instance.addHandler(_soundFor);
     FocusManager.instance.highlightStrategy =
         widget.enabled ? FocusHighlightStrategy.alwaysTraditional : FocusHighlightStrategy.automatic;
     FocusManager.instance.removeListener(_focusChanged);
