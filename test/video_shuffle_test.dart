@@ -183,9 +183,9 @@ void main() {
       expect(nav.shuffle!.length, 12);
       expect(nav.opened!.id, nav.shuffle!.first); // starts at the shuffle's first video
 
-      await tester.tap(find.byKey(const ValueKey('season-shuffle:Season 3')));
+      await tester.tap(find.byKey(const ValueKey('season-shuffle:Season 1')));
       await tester.pump();
-      expect(seasonsIn(nav.shuffle!), {'Season 3'});
+      expect(seasonsIn(nav.shuffle!), {'Season 1'});
 
       // Take Season 1 out, put Specials in: the next Shuffle plays those.
       await tester.tap(find.byKey(const ValueKey('collection-shuffle-seasons')));
@@ -224,7 +224,7 @@ void main() {
       await tester.tap(find.text('Seasons in the shuffle'));
       await tester.pumpAndSettle();
       // OK on a season takes it out; the panel opens again with it ticked off.
-      await tester.tap(find.text('Season 2'));
+      await tester.tap(find.text('Season 2').last); // in the panel, not the season tab under it
       await tester.pumpAndSettle();
       await tester.runAsync(model.settle);
       expect(find.text('8 videos in the shuffle · OK puts a season in or takes it out'), findsOneWidget);
