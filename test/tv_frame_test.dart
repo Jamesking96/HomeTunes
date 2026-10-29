@@ -86,6 +86,21 @@ void main() {
     expect((box.decoration! as BoxDecoration).boxShadow, isNotEmpty); // the ring
   });
 
+  testWidgets('the hint bubble fades after a few seconds and comes back with the next press (0.2.5)', (tester) async {
+    await tester.pumpWidget(app(const TvHints([('OK', 'Open'), ('←', 'Menu')])));
+    double opacity() => tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity;
+    expect(find.text('OK Open', findRichText: true), findsOneWidget);
+    expect(opacity(), 1);
+    await tester.pump(TvHints.showFor);
+    await tester.pumpAndSettle();
+    expect(opacity(), 0);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(opacity(), 1);
+    await tester.pump(TvHints.showFor);
+    expect(opacity(), 0);
+  });
+
   group('the options panel', () {
     Future<List<String>> open(WidgetTester tester) async {
       final did = <String>[];
@@ -156,6 +171,25 @@ void main() {
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.select);
       expect(picked, [2]);
+    });
+
+    testWidgets('← from the page lands on the place showing, not the nearest item (0.2.5)', (tester) async {
+      final page = FocusNode();
+      addTearDown(page.dispose);
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            TvRail(items: items, selected: 1, onSelect: (_) {}),
+            // A button level with Settings, the rail's last item.
+            Expanded(child: Column(children: [const SizedBox(height: 125), TextButton(focusNode: page, onPressed: () {}, child: const Text('Clear'))])),
+          ]),
+        ),
+      ));
+      page.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(FocusManager.instance.primaryFocus?.debugLabel, 'rail Music');
     });
 
     testWidgets('what\'s playing sits at the bottom and opens it', (tester) async {

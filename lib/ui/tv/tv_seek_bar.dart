@@ -85,11 +85,11 @@ class TvSeekBar extends StatefulWidget {
   /// How long the remote rests before it jumps to the marker.
   static const jumpAfter = Duration(milliseconds: 1500);
 
-  /// How far one press moves in something [length] long: 10 s (a long video's 1/150th, if more),
-  /// more the longer a key is held, at most a tenth of it. As the video page's remote version.
+  /// How far one press moves in something [length] long: 10 s, more the longer a key is held
+  /// (or the faster it's pressed), at most a tenth of it. 0.2.5: the first press used to move a
+  /// long video's 1/150th (40 s in a 1 h 41 min film), too far to find a spot.
   static Duration step(Duration length, int streak) {
-    var base = length ~/ 150;
-    if (base < const Duration(seconds: 10)) base = const Duration(seconds: 10);
+    const base = Duration(seconds: 10);
     final step = base * (1 + streak ~/ 3);
     final most = length ~/ 10;
     return most > const Duration(seconds: 10) && step > most ? most : step;
@@ -348,7 +348,9 @@ class _TvSeekBarState extends State<TvSeekBar> {
                     children: [
                       Text(tvTime(at), style: textStyle),
                       const Spacer(),
-                      Text(tvTime(length), style: textStyle),
+                      // Not "0:00" before the length is known (0.2.5: it read 0:00 while a
+                      // stream opened).
+                      Text(length > Duration.zero ? tvTime(length) : '–:––', style: textStyle),
                     ],
                   ),
                 ),

@@ -508,6 +508,9 @@ class LibraryModel extends ChangeNotifier {
   /// Settings › Appearance › TV mode (0.2.0).
   Future<void> setTvMode(TvMode mode) => settings.appearance.setTvMode(mode);
 
+  /// Settings › Appearance › Sounds on the TV (0.2.5).
+  Future<void> setTvSounds(bool on) => settings.appearance.setTvSounds(on);
+
   /// Changes the playback settings (Settings > Playback).
   Future<void> updatePlaybackSettings({
     bool? gaplessPlayback,

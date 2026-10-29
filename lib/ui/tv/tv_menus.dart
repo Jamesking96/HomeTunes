@@ -23,6 +23,7 @@ import '../../state/listening_model.dart';
 import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
 import '../../state/video_library_model.dart';
+import '../../state/video_shuffle.dart' show shuffledByDefault;
 import '../nav.dart';
 import '../screens/book_lookup_dialog.dart' show showBookCoverSearch;
 import '../screens/cover_search_dialog.dart' show showCoverSearch;
@@ -34,19 +35,40 @@ import '../screens/edit_video.dart' show showEditVideos;
 import '../screens/video_collection/edit_collection.dart' show showEditCollection;
 import '../screens/lyrics_dialogs.dart' show showLyricsDialog, findLyricsOnline;
 import '../screens/video_details_screen.dart' show openVideoDetails, openCollectionDetails;
+import '../theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/book_card.dart' show BookCover;
 import '../widgets/playlist_art.dart';
 import '../widgets/series_card.dart' show seriesProgress, playSeries, markSeriesFinished;
+import '../widgets/video_shuffle_ui.dart';
 import 'tv_downloads.dart' show tvDownloadOptions;
 import 'tv_keyboard.dart' show showTvTextInput;
 import 'tv_options.dart';
+import 'tv_pictures.dart' show tvChangePictureOption, tvChangePosterOption;
 
 String _songs(int n) => '$n song${n == 1 ? '' : 's'}';
 
 /// A short note at the bottom of the screen ("Added to Road trip").
-void tvNotice(BuildContext context, String text) =>
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(text), duration: const Duration(seconds: 3)));
+///
+/// [aboveControls]: raised over the video player's controls (0.2.5: "Carrying on from…" covered
+/// the player's buttons).
+void tvNotice(BuildContext context, String text, {bool aboveControls = false}) => ScaffoldMessenger.maybeOf(context)
+  ?..hideCurrentSnackBar()
+  ..showSnackBar(tvSnackBar(text, bottom: aboveControls ? 140 : 24));
+
+/// A notice in the TV's dark style, floating near the bottom: Material's own is a pale bar, bright
+/// on a dark TV screen, with a close button the remote can't reach (0.2.5).
+SnackBar tvSnackBar(String text, {Key? key, Duration duration = const Duration(seconds: 3), double bottom = 24}) => SnackBar(
+      key: key,
+      duration: duration,
+      behavior: SnackBarBehavior.floating,
+      showCloseIcon: false,
+      backgroundColor: AppColors.surfaceHigh,
+      elevation: 6,
+      margin: EdgeInsets.fromLTRB(160, 0, 160, bottom),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: AppColors.faded(0.12))),
+      content: Text(text, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: AppColors.text)),
+    );
 
 /// Asks before something that can't be undone: [yes] runs only when that row is chosen.
 Future<void> tvConfirm(BuildContext context, {required String title, String? subtitle, required String yes, required VoidCallback run}) =>
@@ -359,6 +381,7 @@ List<TvOption> videoOptions(BuildContext context, VideoItem v) {
     TvOption('Go to the collection', Icons.video_library_outlined, () => nav.openVideoCollection(v.collection)),
     TvOption('Details', Icons.info_outline, () => openVideoDetails(context, v)),
     TvOption('Edit details', Icons.edit_outlined, opensMore: true, () => showEditVideos(context, [v])),
+    tvChangePictureOption(context, v), // 0.2.5
   ];
 }
 
@@ -381,8 +404,15 @@ List<TvOption> collectionOptions(BuildContext context, VideoCollection c,
   return [
     if (!onPage) ...[
       if (next != null) TvOption('Play ${next.episodeLabel ?? next.title}', Icons.play_arrow, () => nav.openVideo(next)),
+      if (c.videos.length > 1) TvOption('Shuffle', Icons.shuffle, () => tvPlayShuffled(context, c)),
       TvOption('Open the collection', Icons.video_library_outlined, () => nav.openVideoCollection(c.name)),
     ],
+    // Shuffle (0.2.6): the season showing on its own, and which seasons the collection's
+    // Shuffle plays.
+    if (season != null && season.videos.length > 1)
+      TvOption('Shuffle ${season.label}', Icons.shuffle, () => tvPlayShuffled(context, c, heading: season.heading)),
+    if (c.videos.length > 1 && hasShuffleSeasons(c))
+      TvOption('Seasons in the shuffle', Icons.tune, opensMore: true, () => showTvShuffleSeasons(context, c)),
     TvOption(fav ? 'Remove from favourites' : 'Add to favourites', fav ? Icons.favorite : Icons.favorite_border,
         () => model.setFavourite(c, !fav)),
     TvOption(allWatched ? 'Mark all as not watched' : 'Mark all as watched', allWatched ? Icons.remove_done : Icons.done_all,
@@ -402,7 +432,54 @@ List<TvOption> collectionOptions(BuildContext context, VideoCollection c,
         nav.openVideoCollection(renamed);
       }
     }),
+    tvChangePosterOption(context, c), // 0.2.5
   ];
+}
+
+/// Plays [c] shuffled on the TV (0.2.6): season [heading] alone, else the seasons in its shuffle.
+void tvPlayShuffled(BuildContext context, VideoCollection c, {String? heading}) =>
+    playShuffled(context, c, heading: heading, onEmpty: (m) => tvNotice(context, m));
+
+/// "Seasons in the shuffle" on the TV (0.2.6): OK on a season puts it in or takes it out (the
+/// panel opens again on it), then Shuffle now.
+Future<void> showTvShuffleSeasons(BuildContext context, VideoCollection c, {int focus = 0}) {
+  final model = context.read<VideoLibraryModel>();
+  final now = model.collectionNamed(c.name) ?? c;
+  final groups = [for (final g in model.shuffleGroups(now)) if (g.heading != null) g];
+  final count = groups.where((g) => g.included).fold<int>(0, (n, g) => n + g.videos.length);
+  final usual = groups.every((g) => g.included == shuffledByDefault(g.heading, g.videos));
+  void again(int i) {
+    if (context.mounted) showTvShuffleSeasons(context, now, focus: i);
+  }
+
+  return showTvOptions(
+    context,
+    title: 'Seasons in the shuffle',
+    subtitle: count == 0
+        ? 'Nothing is in the shuffle · OK puts a season in'
+        : '$count video${count == 1 ? '' : 's'} in the shuffle · OK puts a season in or takes it out',
+    focusIndex: focus,
+    options: [
+      for (final (i, g) in groups.indexed)
+        TvOption(
+          g.label,
+          g.included ? Icons.check_box : Icons.check_box_outline_blank,
+          subtitle: '${g.included ? 'In the shuffle' : 'Not in the shuffle'} · ${g.videos.length} video${g.videos.length == 1 ? '' : 's'}',
+          () {
+            // The choice is made at once (saving carries on behind), so the panel opens again
+            // straight away.
+            model.setInShuffle(now, g.heading!, !g.included);
+            again(i);
+          },
+        ),
+      if (count > 0) TvOption('Shuffle now', Icons.shuffle, () => tvPlayShuffled(context, now)),
+      if (!usual)
+        TvOption('Back to the usual', Icons.restart_alt, subtitle: 'Every season in; Specials and Extras out', () {
+          model.resetShuffle(now);
+          again(0);
+        }),
+    ],
+  );
 }
 
 Future<void> showCollectionOptions(BuildContext context, VideoCollection c,

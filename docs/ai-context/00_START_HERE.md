@@ -18,6 +18,63 @@ Read the files in this order:
 
 ## Status (28 Oct 2026)
 
+- **Now (28 Oct): `feature/tv-review-fixes`, 0.2.5+108, not merged.** Fixes from the code and TV
+  review (Claude Docs "HomeTunes 0.2.4 — Code & TV Review"; the user chose TV bugs & layout plus
+  downloads safety, not the title clean-up). OK on a collection/book/series opens at once (AppNav
+  `_afterFrame` asks for a frame; before, a still screen waited for the next key press); Back with
+  the menu open goes back into the page; ↑ ↓ don't cross into the menu, and entering the menu lands
+  on the place showing; the focused row is kept 10–60 % down its list (`tvReveal`, instant
+  scrolling) and pages scroll right up near their top; a bottom margin; the hint bubble fades after
+  4 s (the user's choice) and comes back with any press; one hint wording style; dark TV notices
+  (raised above the player's controls); Carry on shows the episode first; long descriptions open in
+  full with OK; TV Settings hides Your edits and Swipe gestures (the user's choice) and servers that
+  can't play a kind yet; a focus ring on filled buttons and switches; Downloads pages open over the
+  tab showing; player: no empty preview box (server videos are never previewed), 10 s first seek
+  step, ↓ from the bar goes to Play, one title for films, "–:––" before the length is known;
+  downloads: a size guess when the length isn't known, a playing temporary copy is never cleared, a
+  folder move counts once copied. `flutter analyze` clean. The APK is in `build\dist` (signed,
+  108) was installed on the Family room TV on 28 Oct 23:39. Then 0.2.5+109 (29 Oct): the server
+  card's ⋮ menu works with the remote (each item was a ListTile the remote stopped on, so OK did
+  nothing; now `_MenuRow` with ExcludeFocus); ServerVideosModel ignores updates once closed down
+  (a test race). 846 tests pass. Built 29 Oct 00:08–00:11: `HomeTunes-Setup-0.2.5.exe`, the
+  Windows zip and the APK in `build\dist`. 109 went on the TV at 00:14. Then (29 Oct, the user's
+  PC backup `E:\Applications\HomeTunes\downloads\HomeTunes-backup-2026-10-29.htbackup` merged into
+  the TV): 0.2.5+110 reloads Videos and Downloads after a restore (they weren't, so the old data was
+  saved back over it) and shows "Backup restored" over the app; 0.2.5+111 leaves server pictures
+  (art/server-video, ~5,400 files, nearly all of the 121 MB) out of backups and skips them in old
+  ones: the TV ran out of memory ("Exhausted heap space") and the restore failed silently. 111 is on
+  the TV; the backup merged (the PC's posters show), and the TV stayed signed in to the PC's Jellyfin
+  (Sync now worked). On the TV, Import uses File Manager + as the file chooser (no system one).
+  847 tests pass. Then 0.2.5+112 (29 Oct, the user's asks):
+  the TV's Hold-OK menus have **Change poster** (collections) and **Change picture** (videos):
+  Search online on a full-screen TV page (`tv/tv_pictures.dart`), Choose a picture file, Use the
+  automatic one (no Pick a frame on the TV: local files only, and its window doesn't fit); **TV
+  sounds** (the TV's own navigation/click effects via MainActivity `playSound`, `services/tv_sounds.dart`,
+  played from TvFocus only when focus moves, plus OK/Back; Settings › Appearance › Sounds on the TV,
+  saved only when off); Settings › Servers' Downloads and Temporary copies start with a where-and-how
+  note worded per device (`HowItWorks`). 853 tests pass. 112's APK and PC installer are in
+  `build\dist` (29 Oct 10:56–11:0x); the APK went on the TV at the user's request (29 Oct 11:11).
+  Then 0.2.5+113 (29 Oct, the user's asks): Jellyfin videos take their **type** from their library's
+  name (the user's server has Anime / Shows / Movies; Anime was filed as TV) via `state/video_types.dart`
+  (`videoType`: Film(s)/Movies → Films, TV/Shows/TV Shows/Series → TV, "anime" → Anime, others keep
+  their name). The TV's Videos tab has a type row under the tabs (All · Anime · TV · Films, the user's
+  choice of layout) applying in every tab, a **Filter** button (Watched, Genre, Source; the user's
+  picks) and sorts **Most episodes**, **Not watched first** and **Reverse the order**. 858 tests pass.
+  113's APK and PC installer are in `build\dist` (29 Oct 12:14–12:16); the APK went on the TV at the user's request (29 Oct 13:59).
+  Then 0.2.6+114 (29 Oct evening, the user's ask, "for all platforms"): **video shuffle**
+  (`state/video_shuffle.dart`, `ui/widgets/video_shuffle_ui.dart`). Shuffle on a collection's page
+  (PC/phone: button beside Play, the card / contents panel menus; TV: button beside Play) plays
+  the seasons "in the shuffle" in a random order, each once, stopping at the end; a season's
+  heading (PC/phone) or More options › Shuffle <season tab> (TV) shuffles just that season.
+  **Seasons in the shuffle** (⚙ beside Shuffle; TV: More options) ticks seasons in/out, kept per
+  collection in videos.json `shuffle` (only differences from the default; default in: seasons,
+  parts, loose episodes; out: Specials, special-marked seasons, Extras); merged from backups, follows
+  renames. `VideoSession.shuffle` drives next/previous/Up next/the bottom bar; the player shows
+  "Shuffling <label> · n of m" with × (PC/phone) or Stop shuffling (TV options). 866 tests pass.
+  114's APK, PC installer and zip are in `build\dist` (29 Oct 21:29–21:36); the APK went on **both
+  TVs** at the user's request (29 Oct 21:37).
+  The PC's C: drive was full (250 MB free) on 28 Oct; Flutter's old temp folders were cleared with
+  the user's OK (about 1.3 GB free after). Watch the space before builds.
 - **Released 28 Oct: [v0.2.4](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.4)** (0.2.4+106), covering 0.2.1–0.2.4: the whole Servers & Downloads plan (Jellyfin videos, the Source filter, downloads, temporary copies) and the TV fixes of 28 Oct (the user: "Everything here looks good to me"). All four step branches were merged into `main` (`--no-ff`) and deleted: **`main` is the only branch again.** Next: more TV work (the user: "We still have some things for TVs we want to work on"); the history of the four steps below is kept for reference.
 - **Released 23 Oct: [v0.2.0](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.0)** (0.2.0+101), covering 0.1.82–0.2.0: the Android TV interface (all seven steps), the app icon, Play buttons showing what's playing, the even volume fade and the video seek preview. `feature/android-tv` was merged into `main` and deleted: **`main` is the only branch.** The user has seen some TV issues still to fix (to be listed).
 - **Now (25 Oct):** the Servers & Downloads plan (see `04_`). Step 1, Jellyfin videos (0.2.1+102),
@@ -43,8 +100,12 @@ Read the files in this order:
   `adb connect 192.168.1.82:5555` then `adb install -r build\dist\HomeTunes-<v>-android.apk`
   updates it (adb is in `%LOCALAPPDATA%\Android\Sdk\platform-tools`). `adb shell input keyevent`
   presses remote keys and `screencap` takes screenshots; send one key per `adb shell` call with a
-  screenshot between, as several in one call get dropped. (192.168.1.106 is another Sony, a
-  KD-55XH8096, not the one to use.)
+  screenshot between, as several in one call get dropped. **Second TV (29 Oct):** 192.168.1.106:5555
+  is a Sony KD-55XH8096 ("BRAVIA 4K UR3", Android 10, armeabi-v7a, 1920×1080), network debugging
+  allowed for the PC; the user asked for HomeTunes on it too, so builds go to **both TVs** when the
+  user says. Scripts `C:\Temp\ht\tv2_shot.ps1` / `tv2_seq.ps1` (`-Dev`). The Jellyfin server
+  ("test", http://192.168.1.81:8096, OrangeKnight) was filled in on it except the password (never
+  read from storage; the user types it), and wasn't saved; the 114 install closed that dialog.
 - **Latest (13 Oct):** 0.1.82 (an album's or playlist's Play button shows when it's playing) 0.1.83 (the volume sliders fade evenly to silence; the EQ level is right) and 0.1.84 (a preview picture above a video's progress bar) are merged into `main` and pushed, not yet released; v0.1.81 (12 Oct) is the latest release. The Android TV work (0.2.0) is on `feature/android-tv`, with `main` merged in. See `04_`, Source control.
 - **Android TV (22 Oct):** the TV work (0.2.0+94) is on `feature/android-tv`, pushed to GitHub. The user tried it on the TV: the remote now stays on the open page; HomeTunes' own folder browser for Add folder isn't tried yet. The user is moving to another PC; see `04_`, Platforms plan, Android TV progress.
 - **Released:** the latest release is

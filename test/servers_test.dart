@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/services/secret_store.dart';
 import 'package:hometunes/services/server_probe.dart';
@@ -13,6 +14,7 @@ import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/servers_model.dart';
 import 'package:hometunes/ui/screens/settings/server_settings.dart';
 import 'package:hometunes/ui/library_providers.dart';
+import 'package:hometunes/ui/tv/tv_focus.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:path/path.dart' as p;
@@ -300,5 +302,51 @@ void main() {
     expect(videoSwitch.value, isTrue);
     final musicSwitch = tester.widget<Switch>(find.byKey(ValueKey('use-${added.id}-music')));
     expect(musicSwitch.value, isFalse);
+  });
+
+  testWidgets('on the TV, OK chooses an item in a server\'s menu (0.2.5)', (tester) async {
+    // The remote stopped on the row inside each menu item, which does nothing, so no choice in
+    // the menu worked on the Family room TV (28 Oct).
+    tester.view.physicalSize = const Size(1200, 3000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    addTearDown(() => FocusManager.instance.highlightStrategy = FocusHighlightStrategy.automatic);
+    // Saving the server writes real files: outside the test's pretend clock.
+    final s = (await tester.runAsync(() => servers.add(
+          type: ServerType.jellyfin,
+          name: 'Den',
+          url: 'http://192.168.1.20:8096',
+          username: 'me',
+          password: 'pw',
+          uses: {MediaKind.videos},
+        )))!;
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [...libraryProviders(lib), ChangeNotifierProvider.value(value: servers)],
+        child: MaterialApp(
+          theme: tvTheme(ThemeData(), Colors.deepOrange),
+          builder: (context, child) => TvFocus(enabled: true, child: child!),
+          home: const Scaffold(body: ServerSettings()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    // Onto the menu button and open it.
+    final menu = find.byKey(ValueKey('server-menu-${s.id}-videos'));
+    Focus.of(tester.element(find.descendant(of: menu, matching: find.byType(Icon)).first)).requestFocus();
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(find.text('Test connection'), findsOneWidget);
+    // ↓ past Test connection and back to Edit…, then OK: the menu closes and Edit opens.
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(PopupMenuItem<String>), findsNothing); // the menu closed
+    expect(find.text('Edit Den'), findsOneWidget);
   });
 }

@@ -151,7 +151,7 @@ class _TvSongListPage extends StatelessWidget {
     return Material(
       color: AppColors.bg,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(TvStyle.sideMargin, TvStyle.topMargin, 20, 0),
+        padding: const EdgeInsets.fromLTRB(TvStyle.sideMargin, TvStyle.topMargin, 20, TvStyle.bottomMargin),
         child: TvAzGrid<Object>(
           items: items,
           itemHeight: 52,

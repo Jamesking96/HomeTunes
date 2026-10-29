@@ -408,15 +408,22 @@ class DownloadsModel extends ChangeNotifier {
       try {
         await File(from).rename(to);
       } on FileSystemException {
-        // Another drive: copy, then delete.
+        // Another drive: copy, then delete. Once copied it has moved, even if the original can't
+        // be deleted (0.2.5: the copy was left behind as a stray and the move reported failed).
         await File(from).copy(to);
-        await File(from).delete();
+        try {
+          await File(from).delete();
+        } catch (_) {}
       }
       return to;
     } catch (_) {
       return null;
     }
   }
+
+  /// Whether the song or video [id] is playing now, so its temporary copy isn't cleared from
+  /// under it (0.2.5; main.dart sets it).
+  bool Function(String id)? inUse;
 
   /// What's happening now ("Moving your downloads…"), or null.
   String? status;
@@ -610,7 +617,9 @@ class DownloadsModel extends ChangeNotifier {
         addedMs: now() + added, // keeps their order
         book: it.book,
       );
-      _entries[it.id] = e.copyWith(expected: q.estimate(it.length, originalBytes: it.size));
+      // With no length to go by, a cautious guess, so the space limit still counts it (0.2.5).
+      final guess = q.estimate(it.length, originalBytes: it.size);
+      _entries[it.id] = e.copyWith(expected: guess > 0 ? guess : (it.kind == DownloadKind.video ? 2000000000 : 15000000));
       // Asked for again after being taken out of something kept offline.
       if (origin == DownloadOrigin.manual) {
         for (final s in _skipped.values) {

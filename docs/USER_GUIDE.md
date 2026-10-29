@@ -173,6 +173,15 @@ A song with a video of the same name beside it (for example `Song.m4a` and `Song
 **music video**: Now Playing shows it in place of the cover. **Settings › Music** can turn music
 videos off, or keep the cover until you press the video button.
 
+**Shuffle a series:** on a collection's page, **Shuffle** plays its episodes in a random order
+(each once; next, previous and Up next follow the shuffle, and it stops at the end). The shuffle
+button on a season's heading (or **Shuffle Season 2** in its right-click menu) shuffles just that
+season. To choose which seasons the page's Shuffle uses, click the ⚙ beside it (**Seasons in the
+shuffle**) and tick or untick them; HomeTunes remembers the choice for that collection. Normal
+seasons are in to start with; Specials, seasons marked special and Extras are out until you tick
+them. While shuffling, the player says so ("Shuffling Season 2 · 3 of 10"); the × on that label
+stops shuffling and carries on in the usual order.
+
 ### Your own servers (optional)
 If you run a music server such as Navidrome, go to **Settings › Servers**, choose **Add a server**,
 pick **Subsonic** as the kind, enter its address (for example `http://192.168.1.20:4533`), your
@@ -234,6 +243,10 @@ so can whatever you've ticked in select mode. The same menu then has **Stop down
   the background** (on: Keep offline and next episodes carry on while HomeTunes isn't on screen,
   with a notification; off: they wait until you come back).
 - Backups remember what's kept offline and these settings, not the downloaded files themselves.
+
+**In the app, too:** the **Downloads** and **Temporary copies** sections of **Settings > Servers**
+each start with a short note on how to use them and where they're used, worded for the device
+you're on (hold OK on a TV, right-click on a PC, press and hold on a phone).
 
 **Download or Keep offline?** (Also in the app: **Settings > Servers > Downloads > Download or
 Keep offline?**, or the Downloads page's ⋮ menu.)
@@ -468,8 +481,27 @@ On a TV, HomeTunes has its own screens, made to be used from the sofa with just 
   keeps playing). Otherwise the message goes and you stay.
 - **Options:** **hold OK** on a song, album, artist, playlist, audiobook, series, video or
   collection for everything you can do with it (play next, add to a playlist, edit its details…).
+- **Posters and pictures:** **hold OK** on a collection and choose **Change poster**, or on a video
+  and choose **Change picture**. **Search online** finds posters and stills on TVmaze, AniList and
+  Wikipedia and shows them as big tiles: move to one and press OK to use it (**Search for another
+  name** if the name didn't find the right show). **Choose a picture file** uses a picture on the TV
+  or a USB stick. Once you've chosen one, **Use the automatic poster** goes back. A poster you choose
+  shows instead of the server's own too. (Picking a frame from the video is only on a PC or phone.)
+- **Sounds:** moving around and pressing OK or Back make the TV's own soft sounds. Turn them off in
+  **Settings › Appearance › Sounds on the TV**.
 - **Long lists:** in Music, Audiobooks and Videos, press **→** at the right edge to jump through the
   list by letter (A–Z).
+- **Videos by type:** under the Videos tabs is a row **All · Anime · TV · Films** (and any other kind
+  your libraries name). Rest on one, or press OK, to see just that type, in whichever tab you're on.
+  The type comes from the folder a video is in, or for a Jellyfin server from its library ("Anime",
+  "Shows" or "TV Shows" for TV, "Movies" or "Films"). **Filter**, at the end of that row, narrows it
+  down by **Watched** (not started, in progress, watched), **Genre** and **Source** (on this device,
+  streamed or downloaded); **Clear filters** puts it back. **Sort** also has **Most episodes** and
+  **Not watched first**, and **Reverse the order** turns any sort round.
+- **Shuffle:** on a collection's page, **Shuffle** (beside Play) plays it in a random order.
+  **More options** has **Shuffle Season 2** (the season tab showing) and **Seasons in the
+  shuffle**: OK on a season puts it in or takes it out, then **Shuffle now**. While a video plays
+  shuffled, the top says so; **Stop shuffling** in the player's options goes back to the usual order.
 - **Videos:** press any button to bring up the controls. On the progress bar, **← →** move a marker
   through the video (with a picture of that moment) and OK jumps there. **Hold OK** on the bar, or
   on a video anywhere, for **Watch from the beginning**. The remote's play / pause and next buttons

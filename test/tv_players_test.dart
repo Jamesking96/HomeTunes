@@ -123,9 +123,10 @@ void main() {
 
     test('held down, each step goes further, but never more than a tenth', () {
       const length = Duration(hours: 2);
-      expect(TvSeekBar.step(length, 0), const Duration(seconds: 48)); // 1/150th of 2 h
-      expect(TvSeekBar.step(length, 3), const Duration(seconds: 96));
-      expect(TvSeekBar.step(length, 100), const Duration(minutes: 12));
+      expect(TvSeekBar.step(length, 0), const Duration(seconds: 10)); // 10 s to start, even in 2 h (0.2.5)
+      expect(TvSeekBar.step(length, 3), const Duration(seconds: 20));
+      expect(TvSeekBar.step(length, 100), const Duration(seconds: 340));
+      expect(TvSeekBar.step(length, 1000), const Duration(minutes: 12)); // at most a tenth
       expect(TvSeekBar.step(const Duration(minutes: 4), 0), const Duration(seconds: 10));
     });
   });
@@ -336,8 +337,12 @@ void main() {
       }
 
       await press(tester, LogicalKeyboardKey.arrowDown); // off the bar onto the buttons
-      expect(key(), 'tv-video-tracks'); // the one under the middle of the bar
-      // Left, past Audio & subtitles to the start of the row.
+      expect(key(), 'tv-video-play'); // Play / Pause, at the start of the row (0.2.5)
+      // Along to Audio & subtitles, then left, past it, to the start of the row.
+      for (var i = 0; i < 3; i++) {
+        await press(tester, LogicalKeyboardKey.arrowRight);
+      }
+      expect(key(), 'tv-video-tracks');
       final left = <String?>[];
       for (var i = 0; i < 4; i++) {
         await press(tester, LogicalKeyboardKey.arrowLeft);

@@ -73,7 +73,7 @@ class _TvNowPlayingPageState extends State<TvNowPlayingPage> {
 
   Widget _nothing() => const Stack(children: [
         TvEmpty(icon: Icons.music_note_outlined, title: 'Nothing is playing'),
-        Positioned(right: 24, bottom: 16, child: TvHints([('Back', 'close')])),
+        Positioned(right: 24, bottom: 16, child: TvHints([('Back', 'Close')])),
       ]);
 
   Widget _playing(BuildContext context, PlayerModel player, Track t) {
@@ -140,7 +140,7 @@ class _TvNowPlayingPageState extends State<TvNowPlayingPage> {
       Positioned(
         right: 24,
         bottom: 16,
-        child: TvHints([('← →', book != null ? 'on the bar: move through the chapter' : 'on the bar: move through the song'), ('Back', 'close')]),
+        child: TvHints([('← →', book != null ? 'On the bar: move through the chapter' : 'On the bar: move through the song'), ('Back', 'Close')]),
       ),
     ]);
   }

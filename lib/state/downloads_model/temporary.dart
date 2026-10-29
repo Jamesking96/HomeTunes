@@ -110,7 +110,7 @@ extension TemporaryCopies on DownloadsModel {
     if (!tempKeep) {
       for (final e in _entries.values) {
         final f = e.finishedMs;
-        if (e.isTemporary && f != null && t - f >= tempDays * _day) gone.add(e.id);
+        if (e.isTemporary && f != null && t - f >= tempDays * _day && !_playingNow(e.id)) gone.add(e.id);
       }
     }
     if (gone.isNotEmpty) {
@@ -136,14 +136,19 @@ extension TemporaryCopies on DownloadsModel {
 
   /// The temporary copies here in the order they'd be cleared to make room: finished ones
   /// (longest finished first), then part-played ones (oldest first).
+  ///
+  /// Never one that's playing now ([inUse]; 0.2.5): making room for a new copy could delete the
+  /// file of the one on screen, and its next jump or resume would fail.
   List<DownloadEntry> _clearOrder() {
-    final here = [for (final e in _entries.values) if (e.isTemporary && e.isDone) e];
+    final here = [for (final e in _entries.values) if (e.isTemporary && e.isDone && !_playingNow(e.id)) e];
     final finished = [for (final e in here) if (e.finishedMs != null) e]
       ..sort((a, b) => a.finishedMs!.compareTo(b.finishedMs!));
     final partPlayed = [for (final e in here) if (e.finishedMs == null) e]
       ..sort((a, b) => (a.doneMs ?? a.addedMs).compareTo(b.doneMs ?? b.addedMs));
     return [...finished, ...partPlayed];
   }
+
+  bool _playingNow(String id) => inUse?.call(id) ?? false;
 
   /// Makes room for temporary copy [e] by clearing older ones. False when it can't (Don't delete
   /// automatically is on, or there isn't enough to clear).

@@ -120,6 +120,14 @@ class TvRailState extends State<TvRail> {
       skipTraversal: true,
       onFocusChange: (inside) {
         if (inside == _open) return;
+        // Coming onto the rail from the page lands on the place showing, whichever item was
+        // nearest (0.2.5: ← from Search's bottom row landed on Settings, ↑ from a collection's
+        // Play on Music). What's playing, at the bottom, is reached with ↓ from there.
+        if (inside) {
+          final at = FocusManager.instance.primaryFocus;
+          final here = _nodes[widget.selected.clamp(0, _nodes.length - 1)];
+          if (at != here && _nodes.contains(at)) here.requestFocus();
+        }
         setState(() => _open = inside);
         widget.onOpenChange?.call(inside);
       },

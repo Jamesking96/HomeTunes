@@ -321,6 +321,18 @@ class AppearanceSettings extends StatelessWidget {
           onChanged: lib.setTvMode,
         ),
       ),
+      // Sounds on the TV (0.2.5; services/tv_sounds.dart).
+      SettingTarget(
+        'tv-sounds',
+        child: SwitchListTile(
+          key: const ValueKey('tv-sounds'),
+          title: const Text('Sounds on the TV'),
+          subtitle: const Text('A soft sound as you move around with the remote, and a click when you press OK or '
+              'Back. They\'re the TV\'s own sounds and follow its volume. Only on an Android TV, in TV mode.'),
+          value: appearance.tvSounds,
+          onChanged: lib.setTvSounds,
+        ),
+      ),
       // The video player's buttons: colour, size, backing and progress bar (0.1.40).
       const VideoPlayerLookSettings(),
       const SizedBox(height: 16),

@@ -36,6 +36,7 @@ import '../../state/now_watching.dart';
 import '../../state/player_model.dart';
 import '../../state/video_library_model.dart';
 import '../../state/video_session.dart';
+import '../../state/video_shuffle.dart';
 import '../../state/video_sleep_timer.dart';
 import '../../state/video_tracks.dart' show trackLabel;
 import '../nav.dart';
@@ -51,8 +52,11 @@ import 'tv_seek_bar.dart';
 /// One video, full screen, with the TV controls. Pushed over everything (AppNav.openVideo in TV
 /// mode).
 class TvVideoPlayerPage extends StatefulWidget {
-  const TvVideoPlayerPage({super.key, required this.videoId});
+  const TvVideoPlayerPage({super.key, required this.videoId, this.shuffle});
   final String videoId;
+
+  /// Playing the collection shuffled (0.2.6): plays on through this order.
+  final VideoShuffle? shuffle;
 
   @override
   State<TvVideoPlayerPage> createState() => _TvVideoPlayerPageState();
@@ -78,8 +82,9 @@ class _TvVideoPlayerPageState extends State<TvVideoPlayerPage> {
       equalizer: Provider.of<EqualizerModel?>(context, listen: false),
       stats: VideoStats.forPlayer(_engine.player, 'Video'),
       onCarryOn: (from) {
-        if (mounted) tvNotice(context, 'Carrying on from ${tvTime(from)} · Hold OK to watch from the beginning');
+        if (mounted) tvNotice(context, 'Carrying on from ${tvTime(from)} · Hold OK to watch from the beginning', aboveControls: true);
       },
+      shuffle: widget.shuffle,
       onOpenPage: _bringBack,
     );
     _controller.waitUntilFirstFrameRendered.then((_) => _session.shown());
@@ -139,6 +144,7 @@ class _TvVideoViewState extends State<TvVideoView> {
   final _barNode = FocusNode(debugLabel: 'tv video bar');
   final _catcher = FocusNode(debugLabel: 'tv video (controls hidden)');
   final _playNowNode = FocusNode(debugLabel: 'tv up next play now');
+  final _playNode = FocusNode(debugLabel: 'tv video play');
   bool _shown = true;
   bool _panelOpen = false;
   String? _upNextFor; // the Up next card that has had focus moved to it
@@ -170,6 +176,7 @@ class _TvVideoViewState extends State<TvVideoView> {
     _barNode.dispose();
     _catcher.dispose();
     _playNowNode.dispose();
+    _playNode.dispose();
     super.dispose();
   }
 
@@ -298,6 +305,13 @@ class _TvVideoViewState extends State<TvVideoView> {
       if (e is KeyDownEvent) _show();
       return KeyEventResult.handled;
     }
+    // ↓ from the progress bar: Play / Pause, at the left (0.2.5). The bar spans the screen, so
+    // every button was "below" it, and ↓ landed on Audio & subtitles.
+    if (k == LogicalKeyboardKey.arrowDown && e is KeyDownEvent && _barNode.hasPrimaryFocus && !_bar.scrubbing && _playNode.context != null) {
+      _playNode.requestFocus();
+      _poke();
+      return KeyEventResult.handled;
+    }
     _poke();
     return KeyEventResult.ignored;
   }
@@ -417,6 +431,8 @@ class _TvVideoViewState extends State<TvVideoView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // A film's collection is usually its own name: then just the one title (0.2.5).
+                if (v.collection != v.title || v.seasonLabel != null || v.episode != null)
                 Text(
                   [
                     v.collection,
@@ -433,6 +449,21 @@ class _TvVideoViewState extends State<TvVideoView> {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: Colors.white),
                 ),
+                // Shuffling (0.2.6): what's shuffled and how far through.
+                if (_s.shuffle case final shuffle?)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(key: const ValueKey('tv-video-shuffling'), children: [
+                      const Icon(Icons.shuffle, size: 16, color: Colors.white70),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text('Shuffling ${shuffle.label} · ${shuffle.placeOf(v.id)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 14, color: Colors.white70)),
+                      ),
+                    ]),
+                  ),
               ],
             ),
           ),
@@ -457,7 +488,10 @@ class _TvVideoViewState extends State<TvVideoView> {
                 // Holding OK in the player: its options, Watch from the beginning first (23 Oct).
                 onHold: () => _panel(() => _more(context, v)),
                 onMoved: _poke,
-                preview: widget.previewer == null
+                // No picture box where there can't be a picture (0.2.5): a server's video isn't
+                // previewed (its stream would be fetched twice), and the box stood there empty
+                // and black over the bar.
+                preview: widget.previewer == null || _s.file == null || !_s.settings.settings.video.videoSeekPreview
                     ? null
                     : (target, length) => _PreviewPicture(previewer: widget.previewer!, target: target, length: length),
               ),
@@ -468,6 +502,7 @@ class _TvVideoViewState extends State<TvVideoView> {
                 children: [
                   TvIconButton(
                     key: const ValueKey('tv-video-play'),
+                    focusNode: _playNode,
                     icon: playing ? Icons.pause : Icons.play_arrow,
                     label: playing ? 'Pause' : 'Play',
                     onPressed: _engine.playOrPause,
@@ -553,7 +588,8 @@ class _TvVideoViewState extends State<TvVideoView> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Up next in ${_s.countdown} s', style: const TextStyle(fontSize: 13, color: Colors.white70)),
+        Text(_s.shuffle == null ? 'Up next in ${_s.countdown} s' : 'Up next (shuffled) in ${_s.countdown} s',
+            style: const TextStyle(fontSize: 13, color: Colors.white70)),
         const SizedBox(height: 4),
         Text(
           [?next.episodeLabel, next.title].join(' · '),
@@ -702,6 +738,9 @@ class _TvVideoViewState extends State<TvVideoView> {
         TvOption('Watch from the beginning', Icons.replay, _s.startOver),
         if (previous != null)
           TvOption('Previous: ${[?previous.episodeLabel, previous.title].join(' · ')}', Icons.skip_previous, () => _s.jump(forward: false)),
+        // Shuffling (0.2.6): back to the collection's own order from here.
+        if (_s.shuffle != null)
+          TvOption('Stop shuffling', Icons.shuffle_on_outlined, subtitle: 'Carry on in the usual order', _s.stopShuffle),
         if (v != null)
           TvOption(
             watched ? 'Mark as not watched' : 'Mark as watched',
@@ -738,10 +777,9 @@ class _PreviewPicture extends StatelessWidget {
       valueListenable: previewer.frame,
       builder: (context, frame, _) {
         final picture = kept ?? frame?.picture;
-        return ColoredBox(
-          color: Colors.black,
-          child: picture == null ? null : Image.memory(picture, fit: BoxFit.cover, gaplessPlayback: true),
-        );
+        // Nothing until the first picture comes, rather than a black box.
+        if (picture == null) return const SizedBox.shrink();
+        return ColoredBox(color: Colors.black, child: Image.memory(picture, fit: BoxFit.cover, gaplessPlayback: true));
       },
     );
   }
