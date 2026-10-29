@@ -23,6 +23,7 @@ import '../../state/listening_model.dart';
 import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
 import '../../state/video_library_model.dart';
+import '../../state/video_shuffle.dart' show shuffledByDefault;
 import '../nav.dart';
 import '../screens/book_lookup_dialog.dart' show showBookCoverSearch;
 import '../screens/cover_search_dialog.dart' show showCoverSearch;
@@ -39,6 +40,7 @@ import '../widgets/artwork.dart';
 import '../widgets/book_card.dart' show BookCover;
 import '../widgets/playlist_art.dart';
 import '../widgets/series_card.dart' show seriesProgress, playSeries, markSeriesFinished;
+import '../widgets/video_shuffle_ui.dart';
 import 'tv_downloads.dart' show tvDownloadOptions;
 import 'tv_keyboard.dart' show showTvTextInput;
 import 'tv_options.dart';
@@ -402,8 +404,15 @@ List<TvOption> collectionOptions(BuildContext context, VideoCollection c,
   return [
     if (!onPage) ...[
       if (next != null) TvOption('Play ${next.episodeLabel ?? next.title}', Icons.play_arrow, () => nav.openVideo(next)),
+      if (c.videos.length > 1) TvOption('Shuffle', Icons.shuffle, () => tvPlayShuffled(context, c)),
       TvOption('Open the collection', Icons.video_library_outlined, () => nav.openVideoCollection(c.name)),
     ],
+    // Shuffle (0.2.6): the season showing on its own, and which seasons the collection's
+    // Shuffle plays.
+    if (season != null && season.videos.length > 1)
+      TvOption('Shuffle ${season.label}', Icons.shuffle, () => tvPlayShuffled(context, c, heading: season.heading)),
+    if (c.videos.length > 1 && hasShuffleSeasons(c))
+      TvOption('Seasons in the shuffle', Icons.tune, opensMore: true, () => showTvShuffleSeasons(context, c)),
     TvOption(fav ? 'Remove from favourites' : 'Add to favourites', fav ? Icons.favorite : Icons.favorite_border,
         () => model.setFavourite(c, !fav)),
     TvOption(allWatched ? 'Mark all as not watched' : 'Mark all as watched', allWatched ? Icons.remove_done : Icons.done_all,
@@ -425,6 +434,50 @@ List<TvOption> collectionOptions(BuildContext context, VideoCollection c,
     }),
     tvChangePosterOption(context, c), // 0.2.5
   ];
+}
+
+/// Plays [c] shuffled on the TV (0.2.6): season [heading] alone, else the seasons in its shuffle.
+void tvPlayShuffled(BuildContext context, VideoCollection c, {String? heading}) =>
+    playShuffled(context, c, heading: heading, onEmpty: (m) => tvNotice(context, m));
+
+/// "Seasons in the shuffle" on the TV (0.2.6): OK on a season puts it in or takes it out (the
+/// panel opens again on it), then Shuffle now.
+Future<void> showTvShuffleSeasons(BuildContext context, VideoCollection c, {int focus = 0}) {
+  final model = context.read<VideoLibraryModel>();
+  final now = model.collectionNamed(c.name) ?? c;
+  final groups = [for (final g in model.shuffleGroups(now)) if (g.heading != null) g];
+  final count = groups.where((g) => g.included).fold<int>(0, (n, g) => n + g.videos.length);
+  final usual = groups.every((g) => g.included == shuffledByDefault(g.heading, g.videos));
+  void again(int i) {
+    if (context.mounted) showTvShuffleSeasons(context, now, focus: i);
+  }
+
+  return showTvOptions(
+    context,
+    title: 'Seasons in the shuffle',
+    subtitle: count == 0
+        ? 'Nothing is in the shuffle · OK puts a season in'
+        : '$count video${count == 1 ? '' : 's'} in the shuffle · OK puts a season in or takes it out',
+    focusIndex: focus,
+    options: [
+      for (final (i, g) in groups.indexed)
+        TvOption(
+          g.label,
+          g.included ? Icons.check_box : Icons.check_box_outline_blank,
+          subtitle: '${g.included ? 'In the shuffle' : 'Not in the shuffle'} · ${g.videos.length} video${g.videos.length == 1 ? '' : 's'}',
+          () async {
+            await model.setInShuffle(now, g.heading!, !g.included);
+            again(i);
+          },
+        ),
+      if (count > 0) TvOption('Shuffle now', Icons.shuffle, () => tvPlayShuffled(context, now)),
+      if (!usual)
+        TvOption('Back to the usual', Icons.restart_alt, subtitle: 'Every season in; Specials and Extras out', () async {
+          await model.resetShuffle(now);
+          again(0);
+        }),
+    ],
+  );
 }
 
 Future<void> showCollectionOptions(BuildContext context, VideoCollection c,

@@ -54,6 +54,12 @@ mixin _EpisodeSelection<T extends StatefulWidget> on State<T> {
           : (s == null ? null : () => showSpecialSeasonDialog(context, c, s.season, s.sub)),
       folded: folded,
       onFold: onFold,
+      // Shuffle (0.2.6): just this season, and whether it's in the whole collection's shuffle.
+      onShuffle: list.length > 1 ? () => playShuffled(context, c, heading: heading) : null,
+      inShuffle: c.groups.length > 1
+          ? context.read<VideoLibraryModel>().shuffleGroups(c).where((g) => g.heading == heading).firstOrNull?.included
+          : null,
+      onInShuffle: (on) => context.read<VideoLibraryModel>().setInShuffle(c, heading, on),
       // From a server: download the season, or keep it offline (0.2.3).
       downloads: downloadOptions(context, [for (final v in list) DownloadItem.video(v)],
           keep: (kind: KeepKind.season, key: DownloadsModel.seasonKey(c, heading), label: '${c.name} – $heading')),
@@ -106,8 +112,12 @@ class _GroupHeading extends StatelessWidget {
 
   /// A season the user marked special (0.1.66): shows the "Special" badge.
   final bool special;
+
+  /// Plays just this season shuffled (0.2.6); null hides the button.
+  final VoidCallback? onShuffle;
   const _GroupHeading(
       {required this.heading,
+      this.onShuffle,
       this.special = false,
       required this.count,
       required this.watched,
@@ -170,6 +180,14 @@ class _GroupHeading extends StatelessWidget {
                   onPressed: onRename,
                 ),
               const Spacer(),
+              if (onShuffle != null)
+                IconButton(
+                  key: ValueKey('season-shuffle:$heading'),
+                  tooltip: 'Shuffle $heading',
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(Icons.shuffle, size: 18, color: AppColors.textDim),
+                  onPressed: onShuffle,
+                ),
               Text(
                 watched == 0 ? '' : (watched == count ? 'All watched' : '$watched of $count watched'),
                 style: TextStyle(color: AppColors.textDim, fontSize: 12),

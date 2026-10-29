@@ -89,6 +89,14 @@ class _CollectionContentsPanelState extends State<CollectionContentsPanel> with 
                     onPressed: () => context.read<AppNav>().openVideo(next),
                   ),
                 ),
+              // Shuffle (0.2.6): the seasons in its shuffle.
+              if (c.videos.length > 1)
+                IconButton(
+                  key: const ValueKey('panel-shuffle'),
+                  tooltip: 'Shuffle',
+                  icon: const Icon(Icons.shuffle),
+                  onPressed: () => playShuffled(context, c),
+                ),
               IconButton(
                 key: const ValueKey('panel-open-page'),
                 tooltip: 'Open collection page',

@@ -391,6 +391,8 @@ class AppBackup {
           'seasonTitles': {...part(cv, 'seasonTitles'), ...part(bv, 'seasonTitles')},
           // Seasons marked special (0.1.66), per collection: the backup's win.
           'specialSeasons': {...part(cv, 'specialSeasons'), ...part(bv, 'specialSeasons')},
+          // Seasons put in or taken out of a collection's shuffle (0.2.6): the backup's win.
+          'shuffle': {...part(cv, 'shuffle'), ...part(bv, 'shuffle')},
           if (cv['saveNfo'] == false) 'saveNfo': false,
         });
       }

@@ -80,6 +80,14 @@ class _TvCollectionPageState extends State<TvCollectionPage> {
         ],
         buttons: [
           ?play,
+          // Shuffle (0.2.6): the seasons in its shuffle (More options has one season, and which).
+          if (c.videos.length > 1)
+            TvButton(
+              key: const ValueKey('tv-page-shuffle'),
+              label: 'Shuffle',
+              icon: Icons.shuffle,
+              onPressed: () => tvPlayShuffled(context, c),
+            ),
           TvIconButton(
             icon: fav ? Icons.favorite : Icons.favorite_border,
             label: fav ? 'Remove from favourites' : 'Add to favourites',

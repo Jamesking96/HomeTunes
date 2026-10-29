@@ -31,6 +31,7 @@ import '../widgets/cards.dart' show HoverPlayCover;
 import '../widgets/download_ui.dart' show downloadOptions, DownloadProgressBar, DownloadProgressOverlay;
 import '../widgets/quick_links.dart';
 import '../widgets/source_mark.dart';
+import '../widgets/video_shuffle_ui.dart';
 import 'video_details_screen.dart' show openCollectionDetails;
 import 'special_seasons.dart';
 import 'video_pictures.dart';
@@ -156,6 +157,21 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> with _Epi
                   ? 'Continue ${next.episodeLabel ?? ''}'.trim()
                   : (watched == 0 ? 'Play' : 'Play ${next.episodeLabel ?? next.title}')),
               onPressed: () => context.read<AppNav>().openVideo(next),
+            ),
+          // Shuffle (0.2.6): the seasons in its shuffle, in a random order; ⚙ chooses them.
+          if (c.videos.length > 1)
+            OutlinedButton.icon(
+              key: const ValueKey('collection-shuffle'),
+              icon: const Icon(Icons.shuffle),
+              label: const Text('Shuffle'),
+              onPressed: () => playShuffled(context, c),
+            ),
+          if (c.videos.length > 1 && hasShuffleSeasons(c))
+            IconButton(
+              key: const ValueKey('collection-shuffle-seasons'),
+              tooltip: 'Seasons in the shuffle',
+              icon: const Icon(Icons.tune),
+              onPressed: () => showShuffleSeasons(context, c),
             ),
           IconButton(
             tooltip: fav ? 'Remove from favourites' : 'Add to favourites',
@@ -299,6 +315,8 @@ class _VideoCollectionScreenState extends State<VideoCollectionScreen> with _Epi
                 onTick: selectingVideos ? () => tickSeason(list) : null,
                 onMenu: (at) => headingMenu(at, c, heading, list,
                     folded: _collapsed.contains(heading), onFold: () => _toggle(heading)),
+                // Shuffle just this season (0.2.6).
+                onShuffle: list.length > 1 ? () => playShuffled(context, c, heading: heading) : null,
               ),
             ),
           if (heading == null || !_collapsed.contains(heading))

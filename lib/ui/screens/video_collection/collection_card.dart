@@ -192,6 +192,13 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c,
             subtitle: Text(next.episodeLabel ?? next.title, maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ),
+      // Shuffle (0.2.6): the seasons in its shuffle.
+      if (c.videos.length > 1)
+        const PopupMenuItem(
+            key: ValueKey('menu-shuffle'), value: 'shuffle', child: ListTile(leading: Icon(Icons.shuffle), title: Text('Shuffle'))),
+      if (c.videos.length > 1 && hasShuffleSeasons(c))
+        const PopupMenuItem(
+            value: 'shuffle-seasons', child: ListTile(leading: Icon(Icons.tune), title: Text('Seasons in the shuffle…'))),
       PopupMenuItem(
         value: 'fav',
         child: ListTile(
@@ -237,6 +244,10 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c,
       nav.openVideoCollection(c.name);
     case 'play':
       if (next != null) nav.openVideo(next);
+    case 'shuffle':
+      playShuffled(context, c);
+    case 'shuffle-seasons':
+      await showShuffleSeasons(context, c);
     case 'fav':
       await model.setFavourite(c, !fav);
     case 'link':
