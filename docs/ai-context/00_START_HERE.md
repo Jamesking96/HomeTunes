@@ -16,7 +16,9 @@ Read the files in this order:
 | `04_ROADMAP_AND_OPEN_ITEMS.md` | What's done and what's next (offline server songs, audiobook server), decisions, security, known issues |
 | `05_CODE_GUIDE.md` | A plain-English tour of the code for the user: every folder and file, how the main journeys flow, scripts, tests, where to make common changes, and probable bugs spotted |
 
-## Status (28 Oct 2026)
+## Status (29 Oct 2026)
+
+- **Released 29 Oct: [v0.2.6](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.6)** (0.2.6+114), covering 0.2.5–0.2.6: the TV review fixes, TV posters/pictures and sounds, the TV Videos type row / Filter / sorts, Servers notes, backup and download fixes, and video shuffle (all below). `feature/tv-review-fixes` was merged into `main` (`--no-ff`) and deleted: **`main` is the only branch again.** The engine source zip was reused from v0.2.4 (pubspec.lock unchanged). Both TVs (192.168.1.82 and 192.168.1.106) have 0.2.6+114.
 
 - **Now (28 Oct): `feature/tv-review-fixes`, 0.2.5+108, not merged.** Fixes from the code and TV
   review (Claude Docs "HomeTunes 0.2.4 — Code & TV Review"; the user chose TV bugs & layout plus
