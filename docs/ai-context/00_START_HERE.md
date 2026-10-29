@@ -37,7 +37,15 @@ Read the files in this order:
   card's ⋮ menu works with the remote (each item was a ListTile the remote stopped on, so OK did
   nothing; now `_MenuRow` with ExcludeFocus); ServerVideosModel ignores updates once closed down
   (a test race). 846 tests pass. Built 29 Oct 00:08–00:11: `HomeTunes-Setup-0.2.5.exe`, the
-  Windows zip and the APK (109, not yet on the TV) in `build\dist`.
+  Windows zip and the APK in `build\dist`. 109 went on the TV at 00:14. Then (29 Oct, the user's
+  PC backup `E:\Applications\HomeTunes\downloads\HomeTunes-backup-2026-10-29.htbackup` merged into
+  the TV): 0.2.5+110 reloads Videos and Downloads after a restore (they weren't, so the old data was
+  saved back over it) and shows "Backup restored" over the app; 0.2.5+111 leaves server pictures
+  (art/server-video, ~5,400 files, nearly all of the 121 MB) out of backups and skips them in old
+  ones: the TV ran out of memory ("Exhausted heap space") and the restore failed silently. 111 is on
+  the TV; the backup merged (the PC's posters show), and the TV stayed signed in to the PC's Jellyfin
+  (Sync now worked). On the TV, Import uses File Manager + as the file chooser (no system one).
+  847 tests pass. The PC installer in `build\dist` is from 109 (rebuild it before a release).
   The PC's C: drive was full (250 MB free) on 28 Oct; Flutter's old temp folders were cleared with
   the user's OK (about 1.3 GB free after). Watch the space before builds.
 - **Released 28 Oct: [v0.2.4](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.4)** (0.2.4+106), covering 0.2.1–0.2.4: the whole Servers & Downloads plan (Jellyfin videos, the Source filter, downloads, temporary copies) and the TV fixes of 28 Oct (the user: "Everything here looks good to me"). All four step branches were merged into `main` (`--no-ff`) and deleted: **`main` is the only branch again.** Next: more TV work (the user: "We still have some things for TVs we want to work on"); the history of the four steps below is kept for reference.
