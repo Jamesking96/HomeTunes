@@ -481,4 +481,50 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 3));
   });
+
+  // 0.2.7 (the user: "when we download a video it [should download] the whole thing").
+  test('a file that arrives shorter than the server said is fetched again, then given up on', () async {
+    expect(dl.download([DownloadItem.video(v('ep1'))], const DownloadQuality.original()), 1);
+    await pumpEvents();
+    await engine.progress(v('ep1').id, 0.5, expected: 4000);
+    await engine.finish(v('ep1').id, bytes: 1000); // the connection dropped: only a quarter
+    expect(dl.isDownloaded(v('ep1').id), isFalse);
+    await pumpEvents();
+    expect(engine.jobs, hasLength(2)); // asked for again
+    await engine.progress(v('ep1').id, 0.5, expected: 4000);
+    await engine.finish(v('ep1').id, bytes: 4000); // all of it
+    expect(dl.isDownloaded(v('ep1').id), isTrue);
+    expect(dl.entryOf(v('ep1').id)!.bytes, 4000);
+
+    // Three times short: it says so rather than keeping a cut-off copy.
+    dl.download([DownloadItem.video(v('ep2'))], const DownloadQuality.original());
+    for (var i = 0; i < 3; i++) {
+      await pumpEvents();
+      await engine.progress(v('ep2').id, 0.5, expected: 4000);
+      await engine.finish(v('ep2').id, bytes: 100);
+    }
+    final e = dl.entryOf(v('ep2').id)!;
+    expect(e.state, DownloadState.failed);
+    expect(e.error, contains('Only part of it arrived'));
+    expect(dl.isDownloaded(v('ep2').id), isFalse);
+  });
+
+  test('a converted copy is fetched in segments; one under way when HomeTunes closed starts again', () async {
+    sources.hls = true;
+    dl.download([DownloadItem.video(v('ep3'))], const DownloadQuality.videoHeight(720));
+    await pumpEvents();
+    expect(engine.jobFor(v('ep3').id).hls, isTrue);
+    await engine.progress(v('ep3').id, 0.3, expected: 400000000);
+    expect(dl.entryOf(v('ep3').id)!.state, DownloadState.running);
+    expect(dl.entryOf(v('ep3').id)!.progress, closeTo(0.3, 0.001));
+    // Closed and opened again: the engine doesn't know it any more, so it's handed over again.
+    await Future<void>.delayed(const Duration(milliseconds: 2300)); // saved
+    dl.dispose();
+    final before = engine.jobs.length;
+    dl = await makeModel();
+    await dl.start();
+    await pumpEvents();
+    expect(engine.jobs.length, before + 1);
+    expect(engine.jobs.last.taskId, DownloadsModel.taskIdFor(v('ep3').id));
+  });
 }

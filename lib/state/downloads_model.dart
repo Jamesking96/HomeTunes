@@ -45,13 +45,14 @@ import 'video_tracks.dart' show languageCodeFor;
 
 part 'downloads_model/temporary.dart';
 
-/// Where a download comes from: its address, the headers it needs, the file type, and (videos)
-/// its subtitle files.
+/// Where a download comes from: its address, the headers it needs, the file type, (videos) its
+/// subtitle files, and whether the address is a segmented playlist (a converted copy, 0.2.7).
 typedef DownloadRequest = ({
   String url,
   Map<String, String> headers,
   String ext,
   List<({String url, String format})> subtitles,
+  bool hls,
 });
 
 /// What knows the servers' addresses (the app's is [AppDownloadSources]; tests use a fake).
@@ -559,6 +560,13 @@ class DownloadsModel extends ChangeNotifier {
       notifyListeners();
     });
     _started = true;
+    // Converted video copies (segmented, 0.2.7) are fetched by HomeTunes itself, so one that was
+    // under way when it closed starts again here (carrying on from the segments it already has).
+    for (final e in [..._entries.values]) {
+      if (e.kind == DownloadKind.video && !e.quality.isOriginal && e.state == DownloadState.running) {
+        _entries[e.id] = e.copyWith(state: DownloadState.queued);
+      }
+    }
     _tidyTemporary();
     // Temporary copies' days run out while HomeTunes is open too (0.2.4).
     _tempTimer = Timer.periodic(const Duration(hours: 1), (_) => _tidyTemporary());
@@ -697,6 +705,7 @@ class DownloadsModel extends ChangeNotifier {
             displayName: now2.subtitle.isEmpty ? now2.title : '${now2.title} (${now2.subtitle})',
             large: now2.kind == DownloadKind.video,
             automatic: now2.origin != DownloadOrigin.manual,
+            hls: req.hls,
           );
           _requests[e.id] = req;
           _jobs[e.id] = job;
@@ -717,6 +726,10 @@ class DownloadsModel extends ChangeNotifier {
 
   final Map<String, DownloadRequest> _requests = {};
   final Map<String, DownloadJob> _jobs = {};
+
+  // What the server said each file's size is, and how often one has arrived short (0.2.7).
+  final Map<String, int> _serverSize = {};
+  final Map<String, int> _shortTries = {};
   final Set<String> _retriedSignIn = {};
 
   static String _safe(String id) => id.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
@@ -727,7 +740,9 @@ class DownloadsModel extends ChangeNotifier {
     final e = _entries[id];
     if (e == null) return;
     if (u.status == null) {
-      // Progress.
+      // Progress. The size the server said a file is, to check it all arrived (0.2.7).
+      final job = _jobs[id];
+      if (u.expectedBytes != null && job != null && !job.hls) _serverSize[id] = u.expectedBytes!;
       final expected = u.expectedBytes ?? e.expected;
       final progress = u.progress ?? e.progress;
       _entries[id] = e.copyWith(
@@ -847,6 +862,21 @@ class DownloadsModel extends ChangeNotifier {
       _deleteFiles(path, subs);
       return;
     }
+    // The whole thing, or nothing (0.2.7): a file shorter than the server said it is was cut off
+    // (the connection dropped and it looked finished). It's fetched again, twice at most.
+    final want = _serverSize.remove(e.id);
+    if (want != null && want > 0 && bytes < want) {
+      _deleteFiles(path, subs);
+      final tries = (_shortTries[e.id] ?? 0) + 1;
+      _shortTries[e.id] = tries;
+      _entries[e.id] = tries <= 2
+          ? cur.copyWith(state: DownloadState.queued, progress: 0, bytes: 0)
+          : cur.copyWith(
+              state: DownloadState.failed,
+              error: 'Only part of it arrived (${fileSizeText(bytes)} of ${fileSizeText(want)}). Try again later.');
+      return;
+    }
+    _shortTries.remove(e.id);
     _entries[e.id] = cur.copyWith(
       state: DownloadState.done,
       file: path,
@@ -1311,11 +1341,19 @@ class AppDownloadSources implements DownloadSources {
     // An Audiobookshelf book's file (0.2.7): always the original, with the sign-in in a header.
     if (isRemoteBookId(t.id)) {
       final r = await library.remoteBooks?.downloadRequest(t);
-      return r == null ? null : (url: r.url, headers: r.headers, ext: r.ext, subtitles: const <({String url, String format})>[]);
+      return r == null
+          ? null
+          : (url: r.url, headers: r.headers, ext: r.ext, subtitles: const <({String url, String format})>[], hls: false);
     }
     final url = library.serverDownloadUrl(t, kbps: e.quality.limit);
     if (url == null) return null;
-    return (url: url, headers: const <String, String>{}, ext: e.quality.isOriginal ? '' : 'mp3', subtitles: const <({String url, String format})>[]);
+    return (
+      url: url,
+      headers: const <String, String>{},
+      ext: e.quality.isOriginal ? '' : 'mp3',
+      subtitles: const <({String url, String format})>[],
+      hls: false,
+    );
   }
 
   @override

@@ -14,7 +14,10 @@ import 'dart:io';
 
 import 'package:background_downloader/background_downloader.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
+
+import 'hls_download.dart';
 
 /// One file to fetch.
 class DownloadJob {
@@ -35,7 +38,12 @@ class DownloadJob {
 
   /// Downloaded because something is kept offline or an episode ahead, rather than asked for.
   final bool automatic;
+
+  /// [url] is a segmented (HLS) playlist: a converted copy of a video, fetched segment by segment
+  /// into one file (services/hls_download.dart, 0.2.7).
+  final bool hls;
   const DownloadJob({
+    this.hls = false,
     required this.taskId,
     required this.url,
     this.headers = const {},
@@ -95,8 +103,18 @@ abstract class DownloadEngine {
   Future<void> askForNotifications();
 }
 
-/// The real engine.
+/// The real engine. Files go through background_downloader; converted video copies (segmented,
+/// [DownloadJob.hls]) are fetched here, one at a time, while HomeTunes is running.
 class BackgroundDownloaderEngine implements DownloadEngine {
+  BackgroundDownloaderEngine({http.Client Function()? httpClient}) : _http = httpClient ?? http.Client.new;
+  final http.Client Function() _http;
+
+  // Segmented downloads: waiting in order, and the one under way.
+  final List<DownloadJob> _hlsQueue = [];
+  final Map<String, HlsControl> _hlsRunning = {};
+  final Map<String, DownloadJob> _hlsJobs = {};
+  bool _wifiOnly = false;
+
   final FileDownloader _fd = FileDownloader();
   final _updates = StreamController<EngineUpdate>.broadcast();
   final Map<String, DownloadTask> _tasks = {};
@@ -137,6 +155,19 @@ class BackgroundDownloaderEngine implements DownloadEngine {
 
   @override
   Future<bool> enqueue(DownloadJob job) async {
+    if (job.hls) {
+      // One left from before 0.2.7 (a converted copy as a single file) is replaced.
+      try {
+        await _fd.cancelTaskWithId(job.taskId);
+      } catch (_) {}
+      _hlsJobs[job.taskId] = job;
+      _hlsQueue
+        ..removeWhere((j) => j.taskId == job.taskId)
+        ..add(job);
+      _updates.add(EngineUpdate(job.taskId, status: EngineStatus.waiting));
+      unawaited(_runHls());
+      return true;
+    }
     final task = DownloadTask(
       taskId: job.taskId,
       url: job.url,
@@ -165,20 +196,113 @@ class BackgroundDownloaderEngine implements DownloadEngine {
     return t is DownloadTask ? _tasks[id] = t : null;
   }
 
+  bool _hlsBusy = false;
+
+  /// Runs the waiting segmented downloads, one at a time.
+  Future<void> _runHls() async {
+    if (_hlsBusy) return;
+    _hlsBusy = true;
+    try {
+      while (_hlsQueue.isNotEmpty) {
+        final job = _hlsQueue.removeAt(0);
+        // Wi-Fi only (phones and TVs): wait for it.
+        while (_wifiOnly && (await onWifi()) == false) {
+          if (!_hlsJobs.containsKey(job.taskId)) break;
+          await Future<void>.delayed(const Duration(seconds: 20));
+        }
+        if (!_hlsJobs.containsKey(job.taskId)) continue;
+        final control = _hlsRunning[job.taskId] = HlsControl();
+        _updates.add(EngineUpdate(job.taskId, status: EngineStatus.running));
+        final client = _http();
+        HlsResult r;
+        try {
+          r = await downloadHls(
+            client: client,
+            playlist: Uri.parse(job.url),
+            headers: job.headers,
+            path: job.path,
+            control: control,
+            onProgress: (done, total, bytes) => _updates.add(EngineUpdate(job.taskId,
+                progress: total == 0 ? 0 : done / total,
+                // So far, and what the whole will come to at this rate.
+                expectedBytes: done == 0 ? null : (bytes / done * total).round())),
+          );
+        } catch (e) {
+          r = HlsResult(HlsOutcome.failed, error: '$e');
+        } finally {
+          client.close();
+          _hlsRunning.remove(job.taskId);
+        }
+        switch (r.outcome) {
+          case HlsOutcome.done:
+            _hlsJobs.remove(job.taskId);
+            _updates.add(EngineUpdate(job.taskId, status: EngineStatus.done, mimeType: 'video/mp2t'));
+          case HlsOutcome.paused:
+            _updates.add(EngineUpdate(job.taskId, status: EngineStatus.paused));
+          case HlsOutcome.canceled:
+            _hlsJobs.remove(job.taskId);
+            _updates.add(EngineUpdate(job.taskId, status: EngineStatus.canceled));
+          case HlsOutcome.failed:
+            _hlsJobs.remove(job.taskId);
+            _updates.add(EngineUpdate(job.taskId,
+                status: r.httpStatus == 404 ? EngineStatus.notFound : EngineStatus.failed,
+                httpStatus: r.httpStatus,
+                error: r.error));
+        }
+      }
+    } finally {
+      _hlsBusy = false;
+    }
+  }
+
   @override
   Future<bool> pause(String taskId) async {
+    if (_hlsJobs.containsKey(taskId)) {
+      final running = _hlsRunning[taskId];
+      if (running != null) {
+        running.paused = true;
+      } else {
+        _hlsQueue.removeWhere((j) => j.taskId == taskId);
+        _updates.add(EngineUpdate(taskId, status: EngineStatus.paused));
+      }
+      return true;
+    }
     final t = await _task(taskId);
     return t == null ? false : _fd.pause(t);
   }
 
   @override
   Future<bool> resume(String taskId) async {
+    final hls = _hlsJobs[taskId];
+    if (hls != null) {
+      if (_hlsRunning.containsKey(taskId) || _hlsQueue.any((j) => j.taskId == taskId)) return true;
+      _hlsQueue.add(hls);
+      _updates.add(EngineUpdate(taskId, status: EngineStatus.waiting));
+      unawaited(_runHls());
+      return true;
+    }
     final t = await _task(taskId);
     return t == null ? false : _fd.resume(t);
   }
 
   @override
   Future<void> cancel(String taskId) async {
+    final hls = _hlsJobs.remove(taskId);
+    if (hls != null) {
+      _hlsQueue.removeWhere((j) => j.taskId == taskId);
+      final running = _hlsRunning[taskId];
+      if (running != null) {
+        running.canceled = true; // it tidies its part file and says so
+      } else {
+        for (final f in [File('${hls.path}.part'), File('${hls.path}.hls.json')]) {
+          try {
+            if (await f.exists()) await f.delete();
+          } catch (_) {}
+        }
+        _updates.add(EngineUpdate(taskId, status: EngineStatus.canceled));
+      }
+      return;
+    }
     _tasks.remove(taskId);
     await _fd.cancelTaskWithId(taskId);
   }
@@ -186,6 +310,7 @@ class BackgroundDownloaderEngine implements DownloadEngine {
   @override
   Future<void> setWifiOnly(bool on) async {
     if (!Platform.isAndroid) return;
+    _wifiOnly = on;
     await _fd.requireWiFi(on ? RequireWiFi.forAllTasks : RequireWiFi.forNoTasks);
   }
 

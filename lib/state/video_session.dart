@@ -15,6 +15,8 @@ import '../models/volume_boost.dart';
 import '../services/engine/audio_chain.dart';
 import '../services/engine/video_engine.dart';
 import '../services/path_safety.dart';
+import '../services/playback_log.dart';
+import '../services/subsonic_client.dart' show hideSecrets;
 import '../services/video_names.dart';
 import '../services/video_stats.dart';
 import 'equalizer_model.dart';
@@ -67,6 +69,11 @@ class VideoSession extends ChangeNotifier {
         if (done) _finished();
       }),
       engine.errorStream.listen((e) {
+        // What the player said, in the Playback log (0.2.7: The Lion King's .avi wouldn't play on
+        // the TV and nothing said why).
+        final v = videos.byId(_id);
+        PlaybackLog.add('Video${v == null ? '' : ' "${v.title}"'}${_address?.converted ?? false ? ' (converted copy)' : ''}: '
+            'the player said "${hideSecrets('$e')}"');
         // A server video that won't play as it is (0.2.1): ask the server for a converted copy,
         // once, before saying it can't be played.
         final address = _address;
