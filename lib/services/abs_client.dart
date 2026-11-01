@@ -265,7 +265,7 @@ class AbsClient {
   /// Ends this sign-in on the server (its refresh token stops working). Never throws.
   Future<void> signOut(String? refreshToken) async {
     try {
-      await _send('POST', uri('/logout'), headers: {if (refreshToken != null) 'x-refresh-token': refreshToken});
+      await _send('POST', uri('/logout'), headers: {'x-refresh-token': ?refreshToken});
     } catch (_) {}
     token = null;
   }

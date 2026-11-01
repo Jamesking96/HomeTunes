@@ -288,7 +288,7 @@ class _ServerCard extends StatelessWidget {
                   if (reads) ...[
                     PopupMenuItem(
                       value: 'reader-sync',
-                      enabled: !reader!.isSyncing(s),
+                      enabled: !reader.isSyncing(s),
                       child: const _MenuRow(Icons.sync, 'Sync now'),
                     ),
                     PopupMenuItem(
