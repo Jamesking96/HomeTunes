@@ -338,6 +338,43 @@ class JellyfinClient {
         if (start != null && start > Duration.zero) 'copyTimestamps': 'true',
       });
 
+  /// A copy the server converts in segments (HLS, 0.2.7), for playing and downloading a converted
+  /// copy. Unlike [convertedUri] (one file sent while it's being made, so it has no length and no
+  /// index: the player only knows as much of the film as it has received, and a download has no
+  /// size), the playlist lists every segment of the whole video up front: the player knows the
+  /// length and can go anywhere in it (the server converts from there), and a download knows how
+  /// far it has got and when it has everything. Video the device can play already (H.264 within
+  /// [maxHeight]) is copied rather than converted. The sign-in goes in [mediaHeaders]; the server's
+  /// playlists point at the next ones with these same settings.
+  Uri hlsUri(
+    String itemId, {
+    String? mediaSourceId,
+    int? maxHeight,
+    int? videoBitRate,
+    int audioBitRate = 192000,
+    String? playSessionId,
+    int? audioStreamIndex,
+    int segmentLength = 6,
+  }) =>
+      uri('/Videos/$itemId/master.m3u8', {
+        'MediaSourceId': mediaSourceId ?? itemId,
+        'DeviceId': deviceId,
+        'PlaySessionId': playSessionId,
+        'VideoCodec': 'h264',
+        'AudioCodec': 'aac',
+        'SegmentContainer': 'ts',
+        'SegmentLength': '$segmentLength',
+        'MinSegments': '1',
+        'BreakOnNonKeyFrames': 'false',
+        'AudioBitRate': '$audioBitRate',
+        'MaxAudioChannels': '6',
+        'TranscodingMaxAudioChannels': '6',
+        if (maxHeight != null) 'MaxHeight': '$maxHeight',
+        'VideoBitRate': '${videoBitRate ?? bitRateFor(maxHeight)}',
+        if (audioStreamIndex != null) 'AudioStreamIndex': '$audioStreamIndex',
+        'EnableAdaptiveBitrateStreaming': 'false',
+      });
+
   /// A sensible picture bitrate for a converted copy of [maxHeight] lines.
   static int bitRateFor(int? maxHeight) => switch (maxHeight) {
         null => 20000000,
@@ -382,7 +419,8 @@ class JellyfinClient {
         'MediaSourceId': itemId,
         'PositionTicks': ticksOf(at),
         'IsPaused': paused,
-        'CanSeek': !converted,
+        // A converted copy comes in segments (0.2.7), so it can be moved through too.
+        'CanSeek': true,
         'PlayMethod': converted ? 'Transcode' : 'DirectStream',
         'PlaySessionId': ?playSessionId,
       };

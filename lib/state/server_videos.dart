@@ -607,15 +607,17 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
     }
     _problems.remove(v.id);
     final ext = p.extension(v.path).replaceFirst('.', '');
+    // A converted copy (0.2.7) comes in segments (HLS): the player knows its whole length and can
+    // go anywhere in it. (As one file sent while it was made, the player only knew as much of it
+    // as had arrived: The Lion King showed 19 minutes long, and going further didn't work.)
     final uri = converted
-        ? c.convertedUri(item, maxHeight: 1080, start: start, playSessionId: _playSession(v.id))
+        ? c.hlsUri(item, maxHeight: 1080, playSessionId: _playSession(v.id))
         : c.streamUri(item, container: ext.isEmpty ? null : ext);
     return VideoAddress(
       uri.toString(),
       headers: c.mediaHeaders,
       remote: true,
       converted: converted,
-      startsAt: converted ? start : null,
       subtitles: [
         for (final sub in v.subtitles)
           if (serverSubtitle(sub) case final t?)
@@ -627,7 +629,11 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
   /// Where to download [v] from (0.2.3): the original file, or with [maxHeight] a smaller copy
   /// the server converts; the sign-in goes in the headers. Also its subtitle files. Null when the
   /// server can't be signed in to ([problemFor] says why).
-  Future<({String url, Map<String, String> headers, String ext, List<({String url, String format})> subtitles})?>
+  ///
+  /// A converted copy (0.2.7) comes from the server's segmented playlist (JellyfinClient.hlsUri),
+  /// fetched segment by segment into one .ts file ([hls]), so the download knows its progress and
+  /// is only done when it has everything.
+  Future<({String url, Map<String, String> headers, String ext, List<({String url, String format})> subtitles, bool hls})?>
       downloadRequest(VideoItem v, {int? maxHeight}) async {
     final key = remoteServerOf(v.id), item = remoteItemOf(v.id);
     final s = key == null ? null : servers.byId(key);
@@ -642,17 +648,22 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
       _problems[v.id] = 'Can\'t download this from ${s.name}: ${e.message}';
       return null;
     }
-    final ext = maxHeight == null ? p.extension(v.path).replaceFirst('.', '') : 'mkv';
+    final ext = maxHeight == null ? p.extension(v.path).replaceFirst('.', '') : 'ts';
     return (
-      url: (maxHeight == null ? c.downloadUri(item) : c.convertedUri(item, maxHeight: maxHeight)).toString(),
+      url: (maxHeight == null ? c.downloadUri(item) : c.hlsUri(item, maxHeight: maxHeight, playSessionId: _downloadSession(v.id)))
+          .toString(),
       headers: c.mediaHeaders,
       ext: ext.isEmpty ? 'mkv' : ext,
+      hls: maxHeight != null,
       subtitles: [
         for (final sub in v.subtitles)
           if (serverSubtitle(sub) case final t?) (url: c.subtitleUri(item, t.index, t.format).toString(), format: t.format),
       ],
     );
   }
+
+  // A session of its own for a download, so the server never mixes it up with something playing.
+  String _downloadSession(String id) => 'dl${deviceId.hashCode.toRadixString(16)}${id.hashCode.toRadixString(16)}${now().toRadixString(16)}';
 
   // One play session per video opened, so the server can tell them apart.
   final Map<String, String> _sessions = {};

@@ -86,6 +86,9 @@ class FakeSources implements DownloadSources {
   final List<String> asked = [];
   bool up = true;
 
+  /// Converted copies come as segmented playlists (0.2.7).
+  bool hls = false;
+
   @override
   Future<DownloadRequest?> request(DownloadEntry e) async {
     asked.add('${e.id}@${e.quality.code}');
@@ -93,8 +96,9 @@ class FakeSources implements DownloadSources {
     return (
       url: 'http://192.168.0.10:8096/Items/${e.id}/Download',
       headers: const {'Authorization': 'MediaBrowser Token="secret"'},
-      ext: 'mkv',
+      ext: hls && !e.quality.isOriginal ? 'ts' : 'mkv',
       subtitles: const <({String url, String format})>[],
+      hls: hls && !e.quality.isOriginal,
     );
   }
 
