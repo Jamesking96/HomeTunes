@@ -7,6 +7,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/download.dart';
 import 'package:hometunes/services/abs_client.dart';
@@ -22,8 +23,11 @@ import 'package:hometunes/state/server_books.dart';
 import 'package:hometunes/state/servers_model.dart';
 import 'package:hometunes/state/source_filter.dart';
 import 'package:http/http.dart' as http;
+import 'package:hometunes/ui/library_providers.dart';
+import 'package:hometunes/ui/screens/settings/server_settings.dart';
 import 'package:http/testing.dart';
 import 'package:path/path.dart' as p;
+import 'package:provider/provider.dart';
 
 import 'fake_audio_engine.dart';
 
@@ -592,6 +596,39 @@ void main() {
       await model.sync(entry);
       expect(server.signIns, 2);
       expect(model.okFor(entry), isTrue);
+    });
+
+    testWidgets('Settings › Servers: the card says how it went; Sync now, Libraries… and Sign out', (tester) async {
+      await tester.runAsync(() => model.sync(entry));
+      tester.view.physicalSize = const Size(1200, 3000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(MultiProvider(
+        providers: [
+          ...libraryProviders(lib),
+          ChangeNotifierProvider.value(value: servers),
+          ChangeNotifierProvider<ServerBooksModel>.value(value: model),
+        ],
+        child: const MaterialApp(home: Scaffold(body: ServerSettings())),
+      ));
+      await tester.pumpAndSettle();
+      final card = find.byKey(ValueKey('server-${entry.id}-audiobooks'));
+      expect(card, findsOneWidget);
+      expect(find.descendant(of: card, matching: find.textContaining('2 books')), findsOneWidget);
+      expect(find.descendant(of: card, matching: find.text('Coming later')), findsNothing);
+      await tester.tap(find.byKey(ValueKey('server-menu-${entry.id}-audiobooks')));
+      await tester.pumpAndSettle();
+      expect(find.text('Sync now'), findsOneWidget);
+      expect(find.text('Sign out on this device'), findsOneWidget);
+      await tester.tap(find.text('Libraries…'));
+      await tester.pumpAndSettle();
+      expect(find.text('Shelf: libraries'), findsOneWidget);
+      expect(find.text('Audiobooks'), findsWidgets);
+      expect(find.text('Podcasts'), findsNothing); // only book libraries
+      expect(find.textContaining('out of the Books tab'), findsOneWidget);
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
     });
 
     test('a wrong password shows on the card', () async {

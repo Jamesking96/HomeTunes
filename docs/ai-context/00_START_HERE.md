@@ -16,7 +16,9 @@ Read the files in this order:
 | `04_ROADMAP_AND_OPEN_ITEMS.md` | What's done and what's next (offline server songs, audiobook server), decisions, security, known issues |
 | `05_CODE_GUIDE.md` | A plain-English tour of the code for the user: every folder and file, how the main journeys flow, scripts, tests, where to make common changes, and probable bugs spotted |
 
-## Status (29 Oct 2026)
+## Status (1 Nov 2026)
+
+- **Now (1 Nov): Audiobookshelf** (0.2.7+115, branch `feature/audiobookshelf`, not merged or released yet). The user: "Update server system to support Audiobookshelf we have a server setup for this now." Their choices: audiobooks only, places both ways, all download features. Their server: Audiobookshelf 2.37.2 in Docker on the PC, http://192.168.1.81:13378, one book library "Audiobooks" (60 books). They made a test account for checking (its sign-in was given in chat; never write it in a file). `ServerBooksModel` (`state/server_books.dart`) + `AbsClient` (`services/abs_client.dart`); see `05_` and `03_…` → Audiobookshelf. Next after this: the user reports some Jellyfin videos don't stream or download properly (example: The Lion King).
 
 - **Released 29 Oct: [v0.2.6](https://github.com/Jamesking96/HomeTunes/releases/tag/v0.2.6)** (0.2.6+114), covering 0.2.5–0.2.6: the TV review fixes, TV posters/pictures and sounds, the TV Videos type row / Filter / sorts, Servers notes, backup and download fixes, and video shuffle (all below). `feature/tv-review-fixes` was merged into `main` (`--no-ff`) and deleted: **`main` is the only branch again.** The engine source zip was reused from v0.2.4 (pubspec.lock unchanged). Both TVs (192.168.1.82 and 192.168.1.106) have 0.2.6+114.
 

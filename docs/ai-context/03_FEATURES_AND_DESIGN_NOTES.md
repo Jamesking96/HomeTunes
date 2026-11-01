@@ -351,6 +351,51 @@ before changing that area.
   the TV screens' own cards don't show marks yet.
 - **Tests:** `test/source_filter_test.dart`; `videos_test.dart` now finds Category by name.
 
+## Audiobookshelf (1 Nov 2026, 0.2.7, branch `feature/audiobookshelf`)
+
+The user (1 Nov): "Update server system to support Audiobookshelf we have a server setup for this
+now." Answers: **audiobooks only** (podcast libraries are skipped), **places both ways**, **every
+download feature** (Download, Keep offline, temporary copies, the source marks).
+
+- **Signing in.** Audiobookshelf 2.26+ uses JWTs: POST `/login` with `x-return-tokens: true` gives
+  an access token (1 hour on 2.31+; the user's 2.37.2 confirmed `exp - iat = 3600`) and a refresh
+  token (a week, rotated on every use). The access token stays in memory; the refresh token goes
+  in protected storage (`abs-refresh:<user>@<url>`). Before anything plays, `LibraryModel
+  .prepareToPlay` (called by `PlayerModel._openCurrent`) renews a token with under 10 minutes left,
+  so a file always opens with at least 50 minutes on its token. A refused refresh token means one
+  password sign-in. Sign-ins are one at a time per server (a refresh token can only be spent once).
+  Servers before 2.26 give only `user.token`, which is used as is.
+- **Playing.** `/api/items/<item>/file/<ino>` with `?token=` (checked: 206 with the token, 401
+  without). The audio engine opens a list of files and can't send headers per file, so the token
+  goes in the address, as the server's own web player does; `hideSecrets` hides `token=` in any
+  error or log. If a long single file outlives its token and a seek then fails, the stall check
+  reopens it with a fresh one. Downloads and covers send a Bearer header instead.
+- **Books.** Each item's playable audio files (not `exclude`d, in `index` order) become Tracks
+  `abs:<server>:<item>:<ino>` with no path, `hasBookInfo` (so always books), the book's title as
+  album, author(s), narrator(s), series and sequence (from `series`, or "Name #7" in
+  `seriesName`), year, genre, description (HTML turned to text) and the book's chapters placed on
+  the file each starts in (a multi-file book with one chapter per file uses the files as
+  chapters). `bookKey` groups an item's files into one book, `book:abs:<server>:<item>`.
+  `server_books.json` keeps what was read (by item, with its `updatedAt`); a sync lists items
+  minified and reads only new or changed ones in full with `POST /api/items/batch/get` (one by one
+  where that route is missing). Covers go to `art/server-book/<server>/<item>-<updatedAt>.jpg`.
+- **Places.** On each sync `/api/me`'s `mediaProgress` (book time in seconds, `isFinished`,
+  `lastUpdate`) is applied where it's newer than HomeTunes' place and not the same place
+  (`ListeningModel.applyServerPlace`, which maps book time to file + position). HomeTunes' own
+  places go out through `ListeningModel.onPlaceSaved`: at once on a big change (new file, a jump
+  of over 30 s, finished / not finished), otherwise every 15 s at most, and on going into the
+  background (`flush`). Unsent places wait in `pending` and are sent at the next sync unless the
+  server's place is newer by then.
+- **Settings › Servers.** Audiobookshelf now "plays audiobooks"; its card (under Audiobooks) shows
+  "Signed in as … · N books · read …", and its ⋮ menu has Sync now, Libraries… (book libraries
+  only) and Sign out on this device, shared with Jellyfin through `ServerReader`. Test connection
+  signs in and straight out again.
+- **Downloads.** `abs:` ids are server things for downloads and temporary copies; the copy is
+  always the original file, so the quality question is skipped for them.
+- **Checked live** (1 Nov) with `tool/bench/abs_live_test.dart` against the user's server and a
+  test account: 60 books (290 files, 10 in several files), every cover, streaming and download
+  addresses answering 206, a second sync in 55 ms.
+
 ## Jellyfin videos (25 Oct 2026, 0.2.1, branch `feature/jellyfin-videos`)
 - **The user asked (25 Oct, after v0.2.0):** make sure HomeTunes really supports Jellyfin for
   streaming; then a Source filter, downloads and temporary copies (steps 2–4 of the plan "HomeTunes
