@@ -7,6 +7,7 @@
 // tab, prints what it found (books, files, chapters, covers, places), checks a file streams from
 // the address the player would use and downloads from the download address, renews the sign-in
 // with the refresh token, and signs out at the end. It never changes a place on the server.
+// ignore_for_file: avoid_print
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
