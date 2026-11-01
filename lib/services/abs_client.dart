@@ -258,7 +258,6 @@ class AbsClient {
 
   /// A new access token (and refresh token) from [refreshToken].
   Future<AbsSignIn> refresh(String refreshToken) async {
-    token = null;
     return _signInFrom(await _json('POST', uri('/auth/refresh'), headers: {'x-refresh-token': refreshToken}));
   }
 
