@@ -82,7 +82,10 @@ List<TvOption> tvDownloadOptions(BuildContext context, List<DownloadItem> items,
       }),
     if (keep != null)
       TvOption(kept ? 'Stop keeping offline' : 'Keep offline', kept ? Icons.cloud_off_outlined : Icons.offline_pin_outlined,
-          opensMore: true, () => kept ? tvStopKeeping(context, keep) : tvKeepOffline(context, keep, video: video)),
+          opensMore: true,
+          () => kept
+              ? tvStopKeeping(context, keep)
+              : tvKeepOffline(context, keep, video: video, original: originalOnly([for (final it in server) it.id]))),
     if (mine != null && dl.foldersFor(mine).isNotEmpty)
       TvOption('Make it mine', Icons.drive_file_move_outline, opensMore: true, () => tvMakeItMine(context, mine)),
   ];
@@ -97,7 +100,13 @@ Future<void> _askCopy(
   Duration length = Duration.zero,
   int? originalBytes,
   required void Function(DownloadQuality q) onPicked,
+  bool original = false,
 }) {
+  // Audiobookshelf books (0.2.7) only come as the original: nothing to choose.
+  if (original) {
+    onPicked(const DownloadQuality.original());
+    return Future.value();
+  }
   final dl = downloadsOf(context);
   final wifi = Platform.isAndroid && (dl?.wifiOnly ?? false);
   return showTvOptions(context, title: title, subtitle: subtitle, options: [
@@ -128,7 +137,8 @@ Future<void> tvStartDownload(BuildContext context, List<DownloadItem> items) {
       title: 'Which copy?',
       subtitle: 'Download $what',
       length: length,
-      originalBytes: bytes > 0 ? bytes : null, onPicked: (q) {
+      originalBytes: bytes > 0 ? bytes : null,
+      original: originalOnly([for (final it in items) it.id]), onPicked: (q) {
     final added = dl.download(items, q);
     tvNotice(
         context,
@@ -140,11 +150,11 @@ Future<void> tvStartDownload(BuildContext context, List<DownloadItem> items) {
 }
 
 /// Keep offline › : which copy, then keep [keep] offline.
-Future<void> tvKeepOffline(BuildContext context, TvKeep keep, {required bool video}) {
+Future<void> tvKeepOffline(BuildContext context, TvKeep keep, {required bool video, bool original = false}) {
   final dl = downloadsOf(context);
   if (dl == null) return Future.value();
   return _askCopy(context, video: video, title: 'Keep "${keep.label}" offline', subtitle: 'Everything in it, and anything added later',
-      onPicked: (q) async {
+      original: original, onPicked: (q) async {
     await dl.setKept(keep.kind, keep.key, keep.label, true, quality: q);
     if (context.mounted) tvNotice(context, '"${keep.label}" is kept offline');
   });

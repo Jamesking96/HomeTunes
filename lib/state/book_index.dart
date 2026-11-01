@@ -9,6 +9,7 @@
 import '../models/book.dart';
 import '../models/track.dart';
 import 'filters.dart';
+import 'remote_books.dart';
 import 'source_filter.dart';
 
 /// Pure helpers for audiobooks (no Flutter, easy to test): deciding which
@@ -54,6 +55,8 @@ class BookRules {
     // 1. The user's own "Move to Books/Music" choice always wins.
     final o = overrides[t.id];
     if (o != null) return (o, o ? 'You moved it to Books' : 'You moved it to Music');
+    // An Audiobookshelf server's book (0.2.7) is always a book.
+    if (isRemoteBookId(t.id)) return (true, 'It\'s on an Audiobookshelf server');
     // 2. A book details file beside it, e.g. Libation's .metadata.json.
     if (t.hasBookInfo) return (true, 'It has a book details file beside it');
     // 3. A book genre, compared loosely (see normalizeGenre).
@@ -145,6 +148,8 @@ String _fileName(Track t) => t.path == null ? t.title : splitPath(t.path!).last;
 /// the author is used instead.
 String bookKey(Track t) {
   final path = t.path;
+  // An Audiobookshelf book (0.2.7): all its files, whatever they're called.
+  if (remoteBookKey(t.id) case final key?) return key;
   // The \u0000 character separates the parts, as it can't appear in a name.
   if (path != null && path.toLowerCase().endsWith('.m4b')) return 'file:${t.id}';
   final album = t.album.toLowerCase();

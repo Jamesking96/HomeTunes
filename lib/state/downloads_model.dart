@@ -36,6 +36,7 @@ import '../services/storage.dart';
 import 'library_model.dart';
 import 'listening_model.dart';
 import 'playlists_model.dart';
+import 'remote_books.dart';
 import 'remote_videos.dart';
 import 'server_videos.dart' show ServerVideosModel, serverSubtitle;
 import 'source_filter.dart';
@@ -591,7 +592,7 @@ class DownloadsModel extends ChangeNotifier {
   int download(Iterable<DownloadItem> items, DownloadQuality quality, {DownloadOrigin origin = DownloadOrigin.manual}) {
     var added = 0;
     for (final it in items) {
-      if (!isRemoteVideoId(it.id) && !it.id.startsWith('server:')) continue; // only server things
+      if (!isRemoteVideoId(it.id) && !isRemoteBookId(it.id) && !it.id.startsWith('server:')) continue; // only server things
       final old = _entries[it.id];
       if (old != null) {
         if (old.state == DownloadState.failed) {
@@ -1307,6 +1308,11 @@ class AppDownloadSources implements DownloadSources {
     }
     final t = library.byId(e.id);
     if (t == null) return null;
+    // An Audiobookshelf book's file (0.2.7): always the original, with the sign-in in a header.
+    if (isRemoteBookId(t.id)) {
+      final r = await library.remoteBooks?.downloadRequest(t);
+      return r == null ? null : (url: r.url, headers: r.headers, ext: r.ext, subtitles: const <({String url, String format})>[]);
+    }
     final url = library.serverDownloadUrl(t, kbps: e.quality.limit);
     if (url == null) return null;
     return (url: url, headers: const <String, String>{}, ext: e.quality.isOriginal ? '' : 'mp3', subtitles: const <({String url, String format})>[]);
@@ -1319,7 +1325,9 @@ class AppDownloadSources implements DownloadSources {
       if (v == null) return 'This video isn\'t on the server any more.';
       return videos.problemWith(v);
     }
-    if (library.byId(e.id) == null) return 'This song isn\'t on the server any more.';
+    final t = library.byId(e.id);
+    if (t == null) return 'This song isn\'t on the server any more.';
+    if (isRemoteBookId(t.id)) return library.remoteBooks?.problemFor(t) ?? 'The Audiobookshelf server can\'t be reached.';
     return 'The music server isn\'t connected (Settings › Servers).';
   }
 }

@@ -296,6 +296,12 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
       notifyListeners();
       return;
     }
+    // An Audiobookshelf book's file (0.2.7): a sign-in that won't run out while it plays.
+    final preparing = library.prepareToPlay(t);
+    if (preparing != null) {
+      await preparing;
+      if (queue.current?.id != t.id) return; // something else was chosen meanwhile
+    }
     final uri = library.playableUri(t);
     if (uri == null) {
       // A song whose file isn't on this device (any more), or a server song

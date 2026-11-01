@@ -38,6 +38,7 @@ import 'book_index.dart';
 import 'custom_art_store.dart';
 import 'library_index.dart' as index;
 import 'media_folders.dart';
+import 'remote_books.dart';
 import 'server_connection.dart';
 import 'settings/settings_groups.dart';
 
@@ -154,6 +155,29 @@ class LibraryModel extends ChangeNotifier {
   // Songs from the scanned folders and from the server, as read (edits not applied yet).
   List<Track> _local = [];
   List<Track> _remote = [];
+
+  /// Audiobook files from Audiobookshelf servers (0.2.7), by server entry. Brought in (and kept
+  /// in server_books.json) by ServerBooksModel; never saved in library.json.
+  final Map<String, List<Track>> _serverBooks = {};
+
+  /// Reaches the Audiobookshelf servers for playing and downloading their books (0.2.7; set by
+  /// ServerBooksModel). Null in tests without one.
+  RemoteBookSource? remoteBooks;
+
+  /// Puts server [key]'s audiobook files in the Books tab, in place of what it had before.
+  void setServerBookTracks(String key, List<Track> list) {
+    _serverBooks[key] = List.unmodifiable(list);
+    _rebuild();
+  }
+
+  /// Takes server [key]'s audiobook files away (it was removed or switched off for audiobooks).
+  void removeServerBookTracks(String key) {
+    if (_serverBooks.remove(key) == null) return;
+    _rebuild();
+  }
+
+  /// Server [key]'s audiobook files as the server gave them (before the user's edits).
+  List<Track> serverBookTracksOf(String key) => _serverBooks[key] ?? const [];
   // Every visible song and book file with edits applied, for quick look-up by id.
   Map<String, Track> _byId = {};
 
@@ -411,6 +435,7 @@ class LibraryModel extends ChangeNotifier {
       // (0.1.40) An .mp4 in a video folder is a video for the Videos tab, not a song.
       for (final t in _local) if (!_formatHidden(t) && !_isVideoFolderFile(t)) t,
       if (serverEnabled) ..._remote,
+      for (final list in _serverBooks.values) ...list,
     ];
     _rawById = {for (final t in raw) t.id: t};
     final all = [for (final t in raw) _edits[t.id]?.applyTo(t) ?? t];
@@ -423,7 +448,8 @@ class LibraryModel extends ChangeNotifier {
     for (final t in all) {
       if (!rules.isBook(t)) {
         tracks.add(t);
-      } else if (t.isLocal || serverBooks) {
+      } else if (t.isLocal || serverBooks || isRemoteBookId(t.id)) {
+        // (An Audiobookshelf server's books, 0.2.7, are switched on and off in its own card.)
         bookFiles.add(t);
       }
     }
@@ -808,13 +834,22 @@ class LibraryModel extends ChangeNotifier {
 
   /// Local songs, and any song given a custom cover, use an image file on disk;
   /// server songs otherwise use the server's cover art.
-  bool _artIsFile(Track t) => t.isLocal || _edits[t.id]?.art != null;
+  /// Audiobookshelf books' covers (0.2.7) are downloaded pictures too.
+  bool _artIsFile(Track t) => t.isLocal || _edits[t.id]?.art != null || isRemoteBookId(t.id);
 
   // ---- playback helpers ----
 
   /// A server song's downloaded copy on this device, if it has one (downloads, 0.2.3; set by
   /// DownloadsModel). It plays instead of streaming, so it works without the server.
   String? Function(String trackId)? downloadedFile;
+
+  /// Before opening [t]: an Audiobookshelf book's file (0.2.7) needs a sign-in that won't run
+  /// out while it plays (the address carries it). Nothing to do for anything else.
+  /// Null when there's nothing to wait for.
+  Future<void>? prepareToPlay(Track t) {
+    if (t.isLocal || !isRemoteBookId(t.id) || downloadedFile?.call(t.id) != null) return null;
+    return remoteBooks?.prepare(t);
+  }
 
   /// What the player should open for this track: a file path or a stream URL.
   String? playableUri(Track t) {
@@ -828,6 +863,8 @@ class LibraryModel extends ChangeNotifier {
     // Downloaded: the copy here plays first (0.2.3).
     final copy = downloadedFile?.call(t.id);
     if (copy != null) return copy;
+    // From an Audiobookshelf server (0.2.7).
+    if (isRemoteBookId(t.id)) return remoteBooks?.streamUrlFor(t);
     final c = _client;
     if (c == null || t.remoteId == null) return null;
     return c.streamUrl(t.remoteId!);

@@ -35,6 +35,7 @@ import 'state/play_history.dart';
 import 'state/player_model.dart';
 import 'state/playlists_model.dart';
 import 'state/selection_model.dart';
+import 'state/server_books.dart';
 import 'state/server_videos.dart';
 import 'state/servers_model.dart';
 import 'state/sleep_timer.dart';
@@ -157,6 +158,10 @@ Future<void> main() async {
     appVersion: updates.currentVersion ?? '0',
   );
   await safely('server videos', serverVideos.load);
+  // Audiobooks from Audiobookshelf servers (0.2.7): what was read last time shows at once; the
+  // servers are read again once the app is up. Places go both ways (ListeningModel.onPlaceSaved).
+  final serverBooks = ServerBooksModel(storage: storage, servers: servers, library: library, listening: listening);
+  await safely('server books', serverBooks.load);
   // Downloads from the servers (0.2.3): what was downloaded plays from here, even with the
   // server off. The engine (background_downloader) starts once the app is up.
   final downloads = DownloadsModel(
@@ -170,6 +175,7 @@ Future<void> main() async {
   );
   await safely('downloads', downloads.load);
   saveOnBackground.downloads = downloads;
+  saveOnBackground.serverBooks = serverBooks;
   // Temporary copies (0.2.4): a server song or book file that starts playing is saved as it
   // plays (when that's on); one played through to its end counts as finished.
   player.onPlayedThrough = downloads.playedThrough;
@@ -203,6 +209,7 @@ Future<void> main() async {
     history: history,
     servers: servers,
     serverVideos: serverVideos,
+    serverBooks: serverBooks,
     downloads: downloads,
   ));
 
@@ -230,6 +237,8 @@ Future<void> main() async {
   if (library.videoFolders.isNotEmpty) videos.scan(); // runs alongside; thumbnails follow
   // Read the Jellyfin servers' videos again (0.2.1), and every half hour after.
   serverVideos.start();
+  // And the Audiobookshelf servers' audiobooks (0.2.7).
+  serverBooks.start();
   // Downloads carry on where they were (0.2.3).
   unawaited(downloads.start().catchError((Object e) {
     debugPrint('HomeTunes: downloads could not start: $e');
@@ -247,6 +256,9 @@ class _SaveOnBackground with WidgetsBindingObserver {
   /// (Keep offline and episodes ahead pause there when that's switched off; 0.2.3).
   DownloadsModel? downloads;
 
+  /// Audiobookshelf servers (0.2.7): the latest place in a book is sent before the app sleeps.
+  ServerBooksModel? serverBooks;
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     PlaybackLog.add('App ${state.name}${player.playing ? ' (playing)' : ''}');
@@ -261,6 +273,7 @@ class _SaveOnBackground with WidgetsBindingObserver {
       // Any other state (inactive, paused, hidden, detached) may be the last chance
       // before the app is closed, so save the book place (and anything else waiting) now.
       player.saveBookPlace();
+      serverBooks?.flush();
       player.library.flushPendingSaves();
       videos.flushPendingSaves();
     }
@@ -283,6 +296,7 @@ class HomeTunesApp extends StatelessWidget {
   final PlayHistory? history;
   final ServersModel? servers;
   final ServerVideosModel? serverVideos;
+  final ServerBooksModel? serverBooks;
   final DownloadsModel? downloads;
   const HomeTunesApp({
     super.key,
@@ -299,6 +313,7 @@ class HomeTunesApp extends StatelessWidget {
     this.history,
     this.servers,
     this.serverVideos,
+    this.serverBooks,
     this.downloads,
   });
 
@@ -322,6 +337,7 @@ class HomeTunesApp extends StatelessWidget {
         if (history != null) ChangeNotifierProvider<PlayHistory>.value(value: history!),
         if (servers != null) ChangeNotifierProvider<ServersModel>.value(value: servers!),
         if (serverVideos != null) ChangeNotifierProvider<ServerVideosModel>.value(value: serverVideos!),
+        if (serverBooks != null) ChangeNotifierProvider<ServerBooksModel>.value(value: serverBooks!),
         // Downloads (0.2.3). Read as DownloadsModel? (download_ui.dart's downloadsOf), so it's
         // provided under the nullable type and screens work without it in tests.
         ChangeNotifierProvider<DownloadsModel?>.value(value: downloads),

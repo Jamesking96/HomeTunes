@@ -17,6 +17,7 @@ import '../../models/track.dart';
 import '../../services/media_details.dart';
 import '../../services/path_safety.dart';
 import '../../state/library_model.dart';
+import '../../state/remote_books.dart' show isRemoteBookId;
 import '../theme.dart';
 import '../widgets/always_on_top_button.dart';
 
@@ -80,7 +81,11 @@ class DetailsScreen extends StatelessWidget {
                 title: 'Where it is',
                 children: [
                   if (paths.isEmpty)
-                    const DetailsLine(Icons.cloud_outlined, 'Streams from your music server')
+                    DetailsLine(
+                        Icons.cloud_outlined,
+                        tracks.any((t) => isRemoteBookId(t.id))
+                            ? 'Streams from your Audiobookshelf server'
+                            : 'Streams from your music server')
                   else ...[
                     for (final f in folders)
                       DetailsFolderLine(folder: f, firstFile: paths.firstWhere((x) => p.dirname(x) == f)),

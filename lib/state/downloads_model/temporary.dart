@@ -81,7 +81,7 @@ extension TemporaryCopies on DownloadsModel {
 
   void _saveTemporary(DownloadItem it) {
     if (!tempSave || _entries.containsKey(it.id)) return;
-    if (!isRemoteVideoId(it.id) && !it.id.startsWith('server:')) return;
+    if (!isRemoteVideoId(it.id) && !isRemoteBookId(it.id) && !it.id.startsWith('server:')) return;
     download([it], const DownloadQuality.original(), origin: DownloadOrigin.temporary);
   }
 

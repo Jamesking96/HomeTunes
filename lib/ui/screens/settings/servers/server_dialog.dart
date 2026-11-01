@@ -231,8 +231,8 @@ class _ServerDialogState extends State<_ServerDialog> {
                                   'switch to it any time with "Make this the main music server".')
                       : _type.playsNow.isNotEmpty
                       ? '${_type.about} HomeTunes plays its ${[for (final k in _type.playsNow) k.lower].join(' and ')} '
-                            'now: they show in the ${[for (final k in _type.playsNow) k.label].join(' and ')} tab. '
-                            'The rest is coming in a later update.'
+                            'now: they show in the ${[for (final k in _type.playsNow) k == MediaKind.audiobooks ? 'Books' : k.label].join(' and ')} tab.'
+                            '${_type.playsNow.length < _type.can.length ? ' The rest is coming in a later update.' : ''}'
                       : '${_type.about} HomeTunes can\'t play from it yet. Set it up now and it\'s used once that\'s added.',
                   style: TextStyle(fontSize: 12, color: AppColors.textDim),
                 ),
