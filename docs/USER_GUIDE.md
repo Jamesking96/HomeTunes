@@ -193,7 +193,7 @@ The Servers page has a section each for **Music**, **Audiobooks** and **Videos**
 as many servers as you like: Subsonic, Jellyfin, Plex, Emby, Audiobookshelf, or a HomeTunes
 server. A server that has all three kinds shows in all three sections, with a switch in each to
 use it for that kind. **Test connection** checks the server is there and what it is (and, for
-Jellyfin, that your user name and password work). Music and audiobooks play from **one Subsonic
+Jellyfin and Audiobookshelf, that your user name and password work). Music and audiobooks play from **one Subsonic
 server at a time**; to switch to another Subsonic server you've added, use its **⋮** menu ›
 **Make this the main music server**. **Kinds of server** at the bottom of the page shows what
 works now.
@@ -207,6 +207,19 @@ watched, is kept the same in HomeTunes and Jellyfin's own apps, both ways. The s
 how many videos it has and when it was last read; its **⋮** menu has **Sync now**, **Libraries…**
 (to leave a library out) and **Sign out on this device**. When the server is off, its videos still
 show but won't play until it's back. Music and audiobooks from Jellyfin are coming later.
+
+**Audiobooks from Audiobookshelf.** Add your Audiobookshelf server under **Audiobooks** (for
+example `http://192.168.0.10:13378`, with your Audiobookshelf user name and password) and leave
+its switch on. HomeTunes signs in and its books show in the **Books** tab alongside your own, with
+their author, narrator, series, description, chapters and cover. They play straight from the
+server. Where you are in a book is kept the same in HomeTunes and in Audiobookshelf's own apps
+(web and phone), both ways, and so is **Mark as finished**: whichever was used last wins. If the
+server is off when you listen, your place is sent the next time HomeTunes reads it. The server's
+card says how many books it has and when it was last read; its **⋮** menu has **Sync now**,
+**Libraries…** (to leave a library out) and **Sign out on this device**. Its books can be
+downloaded, kept offline and saved as temporary copies like anything else from a server (always
+as the original file: Audiobookshelf doesn't make smaller copies). Podcasts on Audiobookshelf
+aren't shown.
 
 **What's streamed and what's yours.** Anything from a server has a small cloud mark on its card
 (a cloud with a tick once it's downloaded). When a tab has things from more than one place, its
