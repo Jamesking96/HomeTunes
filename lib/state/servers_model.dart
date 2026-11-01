@@ -56,9 +56,9 @@ enum ServerType {
     MediaKind.audiobooks,
     MediaKind.videos,
   }, 'http://192.168.1.20:8096'),
-  audiobookshelf('Audiobookshelf', 'Audiobookshelf, for audiobooks (and podcasts).', {
+  audiobookshelf('Audiobookshelf', 'Audiobookshelf, for audiobooks (its podcasts aren\'t played).', {
     MediaKind.audiobooks,
-  }, 'http://192.168.1.20:13378'),
+  }, 'http://192.168.1.20:13378', plays: {MediaKind.audiobooks}),
   hometunes('HomeTunes server', 'HomeTunes\' own server, being built: music, audiobooks and videos in one place.', {
     MediaKind.music,
     MediaKind.audiobooks,

@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/download.dart';
 import '../../state/downloads_model.dart';
+import '../../state/remote_books.dart' show isRemoteBookId;
 import '../theme.dart';
 
 /// The downloads, or null where the app doesn't provide them.
@@ -66,14 +67,19 @@ List<DownloadOption> downloadOptions(
           () => removeDownloads(context, done)),
     if (keep != null)
       DownloadOption(kept ? 'keep-off' : 'keep-on', kept ? Icons.cloud_off_outlined : Icons.offline_pin_outlined,
-          kept ? 'Stop keeping offline' : 'Keep offline…', () => toggleKeepOffline(context, keep, video: video)),
+          kept ? 'Stop keeping offline' : 'Keep offline…',
+          () => toggleKeepOffline(context, keep, video: video, original: originalOnly([for (final it in server) it.id]))),
     if (mine != null && dl.foldersFor(mine).isNotEmpty)
       DownloadOption('make-mine', Icons.drive_file_move_outline, 'Make it mine…', () => makeItMine(context, mine)),
   ];
 }
 
 /// Whether [id] is something from a server (only those can be downloaded).
-bool isServerDownloadId(String id) => id.startsWith('server:') || id.startsWith('jf:');
+bool isServerDownloadId(String id) => id.startsWith('server:') || id.startsWith('jf:') || isRemoteBookId(id);
+
+/// Audiobookshelf books (0.2.7) only come as the original file (the server doesn't make smaller
+/// copies), so there's no copy to choose.
+bool originalOnly(Iterable<String> ids) => ids.isNotEmpty && ids.every(isRemoteBookId);
 
 /// The options as popup menu items whose value is the action (song rows).
 List<PopupMenuEntry<VoidCallback>> downloadMenuItems(BuildContext context, List<DownloadItem> items,
@@ -232,7 +238,9 @@ Future<void> startDownload(BuildContext context, List<DownloadItem> items) async
   final video = items.first.kind == DownloadKind.video;
   final bytes = items.fold<int>(0, (s, it) => s + (it.size ?? 0));
   final length = items.fold<Duration>(Duration.zero, (s, it) => s + it.length);
-  final q = await askDownloadQuality(context,
+  final q = originalOnly([for (final it in items) it.id])
+      ? const DownloadQuality.original()
+      : await askDownloadQuality(context,
       video: video,
       what: items.length == 1 ? '"${items.first.title}"' : '${items.length} ${video ? 'videos' : 'songs'}',
       originalBytes: bytes > 0 ? bytes : null,
@@ -271,7 +279,7 @@ Future<void> removeDownloads(BuildContext context, List<String> ids) async {
 
 /// Keep offline on (asks which copy first), or off (asks whether to keep what it downloaded).
 Future<void> toggleKeepOffline(BuildContext context, ({KeepKind kind, String key, String label}) keep,
-    {required bool video}) async {
+    {required bool video, bool original = false}) async {
   final dl = downloadsOf(context);
   if (dl == null) return;
   final messenger = ScaffoldMessenger.maybeOf(context);
@@ -299,7 +307,9 @@ Future<void> toggleKeepOffline(BuildContext context, ({KeepKind kind, String key
     return;
   }
   if (!context.mounted) return;
-  final q = await askDownloadQuality(context, video: video, what: '"${keep.label}"', keeping: true);
+  final q = original
+      ? const DownloadQuality.original()
+      : await askDownloadQuality(context, video: video, what: '"${keep.label}"', keeping: true);
   if (q == null) return;
   await dl.setKept(keep.kind, keep.key, keep.label, true, quality: q);
   messenger?.showSnackBar(SnackBar(content: Text('"${keep.label}" is kept offline')));

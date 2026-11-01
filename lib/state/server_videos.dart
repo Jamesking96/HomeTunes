@@ -34,6 +34,7 @@ import '../services/server_probe.dart' show candidateUrls;
 import '../services/storage.dart';
 import '../services/subsonic_client.dart' show isPlainHttpToInternet;
 import 'remote_videos.dart';
+import 'server_reader.dart';
 import 'servers_model.dart';
 import 'video_library_model.dart';
 import 'video_types.dart' show videoType;
@@ -104,7 +105,7 @@ class _ServerState {
   }
 }
 
-class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource {
+class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, ServerReader {
   ServerVideosModel({
     required this.storage,
     required this.servers,
@@ -179,9 +180,11 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource {
   // ---- status, for Settings › Servers ----
 
   /// Whether this server is being read now.
+  @override
   bool isSyncing(ServerEntry s) => _syncing.containsKey(s.id);
 
   /// A line about how the server is doing ("Signed in · 245 videos · read 5 min ago").
+  @override
   String statusFor(ServerEntry s) {
     final st = _state[s.id];
     if (!s.uses.contains(MediaKind.videos)) return 'Switch it on to show its videos in the Videos tab.';
@@ -194,6 +197,7 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource {
   }
 
   /// Green (fine), red (a problem) or no dot.
+  @override
   bool? okFor(ServerEntry s) {
     final st = _state[s.id];
     if (st == null || st.status != null || !s.uses.contains(MediaKind.videos)) return null;
@@ -209,12 +213,25 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource {
     return '${d.inDays} ${d.inDays == 1 ? 'day' : 'days'} ago';
   }
 
+  // ---- ServerReader (Settings › Servers, 0.2.7) ----
+
+  @override
+  MediaKind get readsKind => MediaKind.videos;
+
+  @override
+  bool reads(ServerEntry s) => _isVideoServer(s);
+
+  @override
+  List<ServerLibraryChoice> libraryChoicesOf(ServerEntry s) => [for (final v in librariesOf(s)) (id: v.id, name: v.name)];
+
   /// The server's video libraries (as last read).
   List<JellyfinView> librariesOf(ServerEntry s) => List.unmodifiable(_state[s.id]?.views ?? const <JellyfinView>[]);
 
+  @override
   bool isLibraryShown(ServerEntry s, String viewId) => !(_state[s.id]?.hidden.contains(viewId) ?? false);
 
   /// Shows or leaves out one of the server's libraries; the server is read again.
+  @override
   Future<void> setLibraryShown(ServerEntry s, String viewId, bool shown) async {
     final st = _of(s.id);
     shown ? st.hidden.remove(viewId) : st.hidden.add(viewId);
@@ -303,6 +320,7 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource {
 
   /// Signs out of [s] on this device: its token is forgotten (the next read signs in again with
   /// the saved password). Its videos stay.
+  @override
   Future<void> signOut(ServerEntry s) async {
     final c = _clients.remove(s.id);
     await c?.signOut();
@@ -393,6 +411,7 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource {
 
   /// Reads [s]'s video libraries into the Videos tab (once at a time; a second call waits for
   /// the first).
+  @override
   Future<void> sync(ServerEntry s) {
     final running = _syncing[s.id];
     if (running != null) return running;

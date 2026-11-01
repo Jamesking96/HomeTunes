@@ -9,8 +9,10 @@
 // Music and audiobooks stream from one Subsonic server at a time: that's the main music server,
 // kept by LibraryModel (connect, sync, forget, the password in protected storage, asking before
 // plain http). Since 0.2.1 Jellyfin servers switched on for Videos are read into the Videos tab
-// by ServerVideosModel (state/server_videos.dart): their card says how that went, and its ⋮ menu
-// has Sync now, Libraries… and Sign out on this device. The others are saved and tested by
+// by ServerVideosModel (state/server_videos.dart), and since 0.2.7 Audiobookshelf servers switched
+// on for Audiobooks are read into the Books tab by ServerBooksModel (state/server_books.dart):
+// their card says how that went, and its ⋮ menu has Sync now, Libraries… and Sign out on this
+// device (both are ServerReaders, state/server_reader.dart). The others are saved and tested by
 // ServersModel (state/servers_model.dart) and used as soon as their kind of server is supported.
 // The list at the bottom says which kinds work now.
 import 'package:flutter/material.dart';
@@ -18,6 +20,8 @@ import 'package:provider/provider.dart';
 
 import '../../../services/subsonic_client.dart';
 import '../../../state/library_model.dart';
+import '../../../state/server_books.dart';
+import '../../../state/server_reader.dart';
 import '../../../state/server_videos.dart';
 import '../../../state/servers_model.dart';
 import '../../theme.dart';
@@ -178,8 +182,9 @@ class _ServerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lib = context.watch<LibraryModel>();
-    // Jellyfin's videos (0.2.1); absent in tests that build the page on its own.
-    final serverVideos = Provider.of<ServerVideosModel?>(context);
+    // What reads this server into a tab: Jellyfin's videos (0.2.1), Audiobookshelf's audiobooks
+    // (0.2.7). Absent in tests that build the page on its own.
+    final reader = _readerFor(context, server, kind);
     final s = server;
     final accent = Theme.of(context).colorScheme.primary;
     // For the main server, "in use" follows LibraryModel's switches.
@@ -198,10 +203,10 @@ class _ServerCard extends StatelessWidget {
         status = lib.serverBooks ? 'Connected · its audiobooks show in the Books tab' : 'Its audiobooks are left out';
         ok = lib.serverBooks;
       }
-    } else if (kind == MediaKind.videos && s.type.playsKind(kind) && serverVideos != null) {
-      // A Jellyfin server's videos (0.2.1): signed in, how many, when it was last read.
-      status = serverVideos.statusFor(s);
-      ok = serverVideos.okFor(s);
+    } else if (reader != null) {
+      // Signed in, how many, when it was last read.
+      status = reader.statusFor(s);
+      ok = reader.okFor(s);
     } else if (s.type.streams) {
       status =
           'Saved. One ${s.type.label} server can stream at a time for now: use "Make this the main music '
@@ -209,7 +214,7 @@ class _ServerCard extends StatelessWidget {
     } else {
       status = 'Saved. Playing ${kind.lower} from ${s.type.label} servers is coming in a later update.';
     }
-    final readsVideos = kind == MediaKind.videos && s.type.playsKind(kind) && serverVideos != null && inUse;
+    final reads = reader != null && inUse;
 
     return Padding(
       key: ValueKey('server-${s.id}-${kind.name}'),
@@ -280,15 +285,15 @@ class _ServerCard extends StatelessWidget {
                       enabled: !lib.busy,
                       child: const _MenuRow(Icons.sync, 'Sync now'),
                     ),
-                  if (readsVideos) ...[
+                  if (reads) ...[
                     PopupMenuItem(
-                      value: 'video-sync',
-                      enabled: !serverVideos.isSyncing(s),
+                      value: 'reader-sync',
+                      enabled: !reader!.isSyncing(s),
                       child: const _MenuRow(Icons.sync, 'Sync now'),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'libraries',
-                      child: _MenuRow(Icons.video_library_outlined, 'Libraries…'),
+                      child: _MenuRow(kind == MediaKind.videos ? Icons.video_library_outlined : Icons.library_books_outlined, 'Libraries…'),
                     ),
                     const PopupMenuItem(
                       value: 'sign-out',
@@ -327,12 +332,13 @@ class _ServerCard extends StatelessWidget {
         messenger.showSnackBar(SnackBar(content: Text(r.message)));
       case 'sync':
         await lib.syncServer();
-      case 'video-sync':
-        await context.read<ServerVideosModel>().sync(server);
+      case 'reader-sync':
+        await _readerFor(context, server, kind, listen: false)?.sync(server);
       case 'libraries':
-        await showServerLibraries(context, context.read<ServerVideosModel>(), server);
+        final reader = _readerFor(context, server, kind, listen: false);
+        if (reader != null) await showServerLibraries(context, reader, server);
       case 'sign-out':
-        await context.read<ServerVideosModel>().signOut(server);
+        await _readerFor(context, server, kind, listen: false)?.signOut(server);
       case 'main':
         var err = await servers.makeMain(server);
         if (err == LibraryModel.httpConsentNeeded && context.mounted) {
@@ -446,27 +452,41 @@ class _ServerTypesNote extends StatelessWidget {
   );
 }
 
-/// A Jellyfin server's libraries (0.2.1), each with a box to show it in the Videos tab or leave
-/// it out.
-Future<void> showServerLibraries(BuildContext context, ServerVideosModel model, ServerEntry server) =>
+/// What reads [s] into the tab for [kind]: a Jellyfin server's videos (0.2.1), an Audiobookshelf
+/// server's audiobooks (0.2.7); null for anything else (or when the app has none).
+ServerReader? _readerFor(BuildContext context, ServerEntry s, MediaKind kind, {bool listen = true}) {
+  if (s.isMain || !s.type.playsKind(kind)) return null;
+  if (kind == MediaKind.videos && s.type == ServerType.jellyfin) return Provider.of<ServerVideosModel?>(context, listen: listen);
+  if (kind == MediaKind.audiobooks && s.type == ServerType.audiobookshelf) {
+    return Provider.of<ServerBooksModel?>(context, listen: listen);
+  }
+  return null;
+}
+
+/// A server's libraries (Jellyfin's video libraries, 0.2.1; Audiobookshelf's book libraries,
+/// 0.2.7), each with a box to show it in its tab or leave it out.
+Future<void> showServerLibraries(BuildContext context, ServerReader model, ServerEntry server) =>
     showDialog<void>(
       context: context,
       builder: (ctx) => ListenableBuilder(
         listenable: model,
         builder: (ctx, _) {
-          final views = model.librariesOf(server);
+          final views = model.libraryChoicesOf(server);
+          final videos = model.readsKind == MediaKind.videos;
           return AlertDialog(
             title: Text('${server.name}: libraries'),
             content: SizedBox(
               width: 420,
               child: views.isEmpty
-                  ? const Text('No video libraries found yet. Use Sync now to read the server.')
+                  ? Text('No ${videos ? 'video' : 'book'} libraries found yet. Use Sync now to read the server.')
                   : Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Untick a library to leave its videos out of the Videos tab.',
+                          videos
+                              ? 'Untick a library to leave its videos out of the Videos tab.'
+                              : 'Untick a library to leave its books out of the Books tab.',
                           style: TextStyle(fontSize: 12, color: AppColors.textDim),
                         ),
                         const SizedBox(height: 8),

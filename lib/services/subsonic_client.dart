@@ -310,7 +310,7 @@ class SubsonicClient {
 /// the user or logged): the token, salt, password and user parameters become "…".
 /// HomeTunes (0.1.17, code review fix 11).
 String hideSecrets(String text) =>
-    text.replaceAllMapped(RegExp(r'([?&](?:t|s|p|u|apiKey)=)[^&\s,)\]]*'), (m) => '${m[1]}…');
+    text.replaceAllMapped(RegExp(r'([?&](?:t|s|p|u|apiKey|token)=)[^&\s,)\]]*'), (m) => '${m[1]}…');
 
 /// True when [url] would send the login in plain http to a server that isn't on the local
 /// network (so anyone along the way could read it). An address with no scheme counts as http,

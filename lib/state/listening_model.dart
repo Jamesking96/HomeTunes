@@ -78,6 +78,12 @@ class ListeningModel extends ChangeNotifier implements SongIdFollower {
   /// Saved places, keyed by book id.
   Map<String, BookProgress> _byBook = {};
 
+  /// Told whenever a place is saved by listening or by Mark as finished / not finished (null:
+  /// the book was started over), and whether it was a big change (a new file, finished, a jump):
+  /// a server book's place goes to its server (server_books.dart, 0.2.7). Not told about places
+  /// that came from a server ([applyServerPlace]).
+  void Function(Book b, BookProgress? place, bool big)? onPlaceSaved;
+
   /// For tests / time control.
   @visibleForTesting
   int Function() now = () => DateTime.now().millisecondsSinceEpoch;
@@ -230,7 +236,48 @@ class ListeningModel extends ChangeNotifier implements SongIdFollower {
     final visible = old == null || old.partId != partId || old.finished != p.finished ||
         (old.position - p.position).abs() > const Duration(seconds: 30);
     if (visible) notifyListeners();
+    onPlaceSaved?.call(b, p, visible);
     await _save();
+  }
+
+  /// A server's place in [b] (0.2.7): [offset] into the whole book, finished or not, changed at
+  /// [updatedMs]. Used only when it's newer than the place here (and not the same place); the
+  /// book's speed is kept. Returns whether it was used.
+  bool applyServerPlace(Book b, {required Duration offset, required bool finished, required int updatedMs}) {
+    if (b.parts.isEmpty) return false;
+    final old = progressFor(b);
+    if (old != null && old.updatedMs >= updatedMs) return false;
+    String partId;
+    Duration position;
+    if (finished) {
+      partId = b.parts.last.id;
+      position = b.parts.last.duration;
+    } else {
+      // The file that time falls in, and how far into it.
+      var i = 0;
+      var start = Duration.zero;
+      while (i < b.parts.length - 1 && offset >= start + b.parts[i].duration) {
+        start += b.parts[i].duration;
+        i++;
+      }
+      partId = b.parts[i].id;
+      position = offset - start;
+      if (position.isNegative) position = Duration.zero;
+    }
+    if (old != null &&
+        old.finished == finished &&
+        old.partId == partId &&
+        (old.position - position).abs() < const Duration(seconds: 2)) {
+      return false; // the same place (most likely this device's own, sent there)
+    }
+    // Not started there, and nothing here: nothing to keep.
+    if (old == null && !finished && offset <= Duration.zero) return false;
+    _claim(b);
+    _byBook[b.id] = BookProgress(partId: partId, position: position, updatedMs: updatedMs, finished: finished, speed: old?.speed);
+    _partIndex = null;
+    notifyListeners();
+    _save();
+    return true;
   }
 
   /// The speed chosen for [b], or null for the default.
@@ -265,6 +312,7 @@ class ListeningModel extends ChangeNotifier implements SongIdFollower {
       _byBook.remove(b.id);
     }
     notifyListeners();
+    onPlaceSaved?.call(b, finished ? _byBook[b.id] : null, true);
     await _save();
   }
 

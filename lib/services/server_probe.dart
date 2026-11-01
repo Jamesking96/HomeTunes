@@ -16,6 +16,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../state/servers_model.dart' show ServerType;
+import 'abs_client.dart';
 import 'jellyfin_client.dart';
 import 'subsonic_client.dart';
 
@@ -81,6 +82,21 @@ Future<ProbeResult> probeServer(
               await j.signOut();
               return ProbeResult(true, 'Signed in to $found.$later', url: base);
             } on JellyfinException catch (e) {
+              return ProbeResult(false, 'Found $found, but couldn\'t sign in: ${e.message}', url: base);
+            }
+          }
+          // Audiobookshelf (0.2.7): check the sign-in too, then sign straight out again.
+          if (type == ServerType.audiobookshelf && username.trim().isNotEmpty) {
+            if (base.startsWith('http://') && isPlainHttpToInternet(base)) {
+              return ProbeResult(true, 'Found $found, but it only answered over plain http, so the sign-in '
+                  'wasn\'t tried. Use https, or connect over your home network or Tailscale.', url: base);
+            }
+            final a = AbsClient(baseUrl: base, httpClient: c, timeout: timeout);
+            try {
+              final r = await a.signIn(username.trim(), password);
+              await a.signOut(r.refreshToken);
+              return ProbeResult(true, 'Signed in to $found.$later', url: base);
+            } on AbsException catch (e) {
               return ProbeResult(false, 'Found $found, but couldn\'t sign in: ${e.message}', url: base);
             }
           }
