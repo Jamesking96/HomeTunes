@@ -271,7 +271,7 @@ extension _VideoPageControls on _VideoPageState {
               )),
           // With libass the engine draws the subtitles into the picture; the app's own text
           // subtitles would show them twice.
-          subtitleViewConfiguration: SubtitleViewConfiguration(visible: Platform.isAndroid),
+          subtitleViewConfiguration: subtitleView(size: context.select<prefs.VideoSettings, double>((v) => v.subtitleSize)),
         ),
       ),
     );

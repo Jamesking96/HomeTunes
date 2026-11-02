@@ -267,4 +267,121 @@ void main() {
     expect(s.shuffle, isNull);
     expect(s.neighbour(s.id, forward: true)?.id, idOf('Silo S01E02'));
   });
+
+  // 0.2.8, the user: Disney films (old AVIs) "play audio but are black screens, … don't load …
+  // freeze on a fixed frame", though VLC plays them. On Android the chip can't show them; the app
+  // decodes them in software and draws the picture.
+  group('old formats and the video chip', () {
+    setUp(VideoSession.forgetSoftwareFinds);
+    final asked = <String>[];
+    setUp(asked.clear);
+
+    VideoSession startWith(String id, VideoDrawing drawing) => session = VideoSession(
+          engine: engine,
+          videos: videos,
+          music: music,
+          videoId: id,
+          drawing: drawing,
+          onNeedAppDrawing: asked.add,
+          seeksTracked: true,
+          upNextTick: const Duration(milliseconds: 1),
+          tracksSettle: Duration.zero,
+          openingTimeout: const Duration(seconds: 1),
+        );
+
+    void serverFilm(String codec) => videos.setServerVideos('s1', [
+          VideoItem(id: 'jf:s1:film', path: 'jellyfin://s1/film.avi', title: 'A Goofy Movie', collection: 'A Goofy Movie', videoCodec: codec),
+        ]);
+
+    /// Plays on a little more than a second, in small steps: it's moving.
+    void playOn() {
+      engine.loaded();
+      for (final ms in [500, 1000, 1600, 2000]) {
+        engine.moveTo(Duration(milliseconds: ms));
+      }
+    }
+
+    test('an old format from the chip: the page is asked to let the app draw it; nothing is opened', () async {
+      expect(isOldVideoFormat('msmpeg4v3'), isTrue);
+      expect(isOldVideoFormat('MPEG4'), isTrue);
+      expect(isOldVideoFormat('h264'), isFalse);
+      expect(isOldVideoFormat(null), isFalse);
+      serverFilm('msmpeg4v3');
+      startWith('jf:s1:film', VideoDrawing.chip);
+      await settle();
+      expect(asked, ['jf:s1:film']);
+      expect(engine.calls.where((c) => c.startsWith('open')), isEmpty);
+    });
+
+    test('the app drawing: an old format is decoded in software, anything else as usual', () async {
+      serverFilm('mpeg4');
+      final s = startWith('jf:s1:film', VideoDrawing.app);
+      await settle();
+      expect(asked, isEmpty);
+      expect(engine.options['hwdec'], 'no');
+      expect(s.software, isTrue);
+      s.dispose();
+      session = null;
+      final t = startWith(idOf('Silo S01E01'), VideoDrawing.app);
+      await settle();
+      expect(engine.options['hwdec'], 'auto-safe');
+      expect(t.software, isFalse);
+    });
+
+    test('a PC (no chip): nothing changes', () async {
+      serverFilm('msmpeg4v3');
+      startWith('jf:s1:film', VideoDrawing.none);
+      await settle();
+      expect(asked, isEmpty);
+      expect(engine.options.containsKey('hwdec'), isFalse);
+    });
+
+    test('sound but no picture from the chip: the app is asked to draw it, and next time it goes straight there', () async {
+      final id = idOf('Silo S01E01');
+      engine.options['hwdec-current'] = ''; // the engine decodes it itself: nothing from the chip
+      startWith(id, VideoDrawing.chip);
+      await settle();
+      playOn();
+      await Future<void>.delayed(const Duration(milliseconds: 1300));
+      expect(asked, [id]);
+      session!.dispose();
+      session = null;
+      asked.clear();
+      startWith(id, VideoDrawing.chip);
+      await settle();
+      expect(asked, [id]); // straight away this time
+    });
+
+    test('the chip decoding it: left alone', () async {
+      final id = idOf('Silo S01E01');
+      engine.options['hwdec-current'] = 'mediacodec';
+      startWith(id, VideoDrawing.chip);
+      await settle();
+      playOn();
+      await Future<void>.delayed(const Duration(milliseconds: 1300));
+      expect(asked, isEmpty);
+    });
+
+    test('the clock jumping on its own: the app is asked to draw it; the viewer\'s skips don\'t count', () async {
+      final id = idOf('Silo S01E01');
+      engine.options['hwdec-current'] = 'mediacodec';
+      startWith(id, VideoDrawing.chip);
+      await settle();
+      playOn();
+      // Skips the viewer asked for.
+      await engine.seek(const Duration(minutes: 5));
+      for (final at in [5, 9, 2, 14]) {
+        engine.moveTo(Duration(minutes: at));
+      }
+      await settle();
+      expect(asked, isEmpty);
+      // Jumps nobody asked for.
+      engine.lastSeek = DateTime.now().subtract(const Duration(seconds: 10));
+      for (final at in [20, 3, 30, 7]) {
+        engine.moveTo(Duration(minutes: at));
+      }
+      await settle();
+      expect(asked, [id]);
+    });
+  });
 }

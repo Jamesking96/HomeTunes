@@ -179,7 +179,7 @@ class DownloadProgressOverlay extends StatelessWidget {
 
 /// What Download, Keep offline and temporary copies each do (27 Oct, the user: "be sure to add
 /// the description of what download vs keep offline are somewhere so people can refer to it").
-/// Shown from Settings › Servers › Downloads › Download or Keep offline? and the Downloads page.
+/// Shown from Settings › Downloads › Download or Keep offline? and the Downloads page.
 const downloadHelp = <({String title, String text})>[
   (
     title: 'Download',
@@ -201,7 +201,7 @@ const downloadHelp = <({String title, String text})>[
   ),
   (
     title: 'Temporary copies',
-    text: 'Different again: with Save a copy while streaming on (Settings › Servers › Temporary '
+    text: 'Different again: with Save a copy while streaming on (Settings › Downloads › Temporary '
         'copies), whatever you play from a server is saved as it plays and cleared away by itself '
         'some days after you finish it. Keep this copy turns one into a normal download.',
   ),
@@ -416,7 +416,7 @@ class _QualityDialogState extends State<_QualityDialog> {
             ]),
           ),
           if (Platform.isAndroid && (downloadsOf(context)?.wifiOnly ?? false))
-            Text('Downloads over Wi-Fi only (Settings › Servers › Downloads).',
+            Text('Downloads over Wi-Fi only (Settings › Downloads).',
                 style: TextStyle(fontSize: 12, color: AppColors.textDim)),
         ]),
       ),

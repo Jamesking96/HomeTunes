@@ -131,6 +131,22 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     setState(() => _ready = true);
   }
 
+  // 0.2.8: a video the phone's chip can't show (an old format) is played by a new player that
+  // decodes it in software and draws the picture itself, at the same video
+  // (VideoSession.onNeedAppDrawing); see tv_video_player.dart.
+  late String _videoId = widget.videoId;
+  bool _appDrawing = false;
+  int _player = 0;
+
+  void _useAppDrawing(String id) {
+    if (!mounted) return;
+    setState(() {
+      _videoId = id;
+      _appDrawing = true;
+      _player++;
+    });
+  }
+
   @override
   void dispose() {
     _startTimer?.cancel();
@@ -143,7 +159,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final page = !_started
         ? null
         : VideoPlayerScreen.debugPage?.call(widget.videoId, _onReady) ??
-            _VideoPage(videoId: widget.videoId, shuffle: widget.shuffle, onReady: _onReady);
+            _VideoPage(
+              key: ValueKey(_player),
+              videoId: _videoId,
+              shuffle: widget.shuffle,
+              onReady: _onReady,
+              appDrawing: _appDrawing,
+              onNeedAppDrawing: _useAppDrawing,
+            );
     return Stack(children: [
       if (page != null) Positioned.fill(child: page),
       if (!_gone)
@@ -224,7 +247,12 @@ class _VideoPage extends StatefulWidget {
   /// Called once, when the first video is showing (or can't be played).
   final VoidCallback? onReady;
   final VideoShuffle? shuffle;
-  const _VideoPage({required this.videoId, this.shuffle, this.onReady});
+  const _VideoPage({super.key, required this.videoId, this.shuffle, this.onReady, this.appDrawing = false, this.onNeedAppDrawing});
+
+  /// 0.2.8: the app draws the picture (and decodes old formats in software); see
+  /// VideoSession.onNeedAppDrawing.
+  final bool appDrawing;
+  final void Function(String id)? onNeedAppDrawing;
 
   @override
   State<_VideoPage> createState() => _VideoPageState();
@@ -235,8 +263,8 @@ class _VideoPageState extends State<_VideoPage> {
   final MediaKitVideoEngine _engine = MediaKitVideoEngine();
   // 0.1.57: on a phone, drawn straight from the video chip unless Settings › Videos says not
   // (services/video_drawing.dart). Made in initState, after _settings is set.
-  late final VideoController _controller =
-      VideoController(_engine.player, configuration: videoDrawing(direct: _settings.video.videoDirectDrawing));
+  late final bool _direct = _settings.video.videoDirectDrawing && !widget.appDrawing;
+  late final VideoController _controller = VideoController(_engine.player, configuration: videoDrawing(direct: _direct));
   // Keeps the same Video widget (and its picture) when switching between normal and enlarged,
   // and reaches it to go full screen.
   final GlobalKey<VideoState> _videoKey = GlobalKey<VideoState>();
@@ -260,6 +288,8 @@ class _VideoPageState extends State<_VideoPage> {
     _settings = videos.library.settings;
     _controller; // made before the first video opens, as before
     _session = VideoSession(
+      drawing: pageDrawing(direct: _direct),
+      onNeedAppDrawing: widget.onNeedAppDrawing,
       engine: _engine,
       videos: videos,
       music: context.read<PlayerModel>(),

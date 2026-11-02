@@ -53,6 +53,10 @@ abstract class VideoEngine {
   Future<void> pause();
   Future<void> playOrPause();
   Future<void> seek(Duration to);
+
+  /// When [seek] was last asked for (0.2.8): a jump in the position soon after is the viewer's
+  /// (or the page's), not the file's clock jumping by itself.
+  DateTime? get lastSeek;
   Future<void> setRate(double rate);
   Future<void> setVolume(double volume);
 
@@ -133,7 +137,13 @@ class MediaKitVideoEngine implements VideoEngine {
   @override
   Future<void> playOrPause() => player.playOrPause();
   @override
-  Future<void> seek(Duration to) => player.seek(to);
+  Future<void> seek(Duration to) {
+    lastSeek = DateTime.now();
+    return player.seek(to);
+  }
+
+  @override
+  DateTime? lastSeek;
   @override
   Future<void> setRate(double rate) => player.setRate(rate);
   @override

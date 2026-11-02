@@ -397,6 +397,20 @@ class VideoSettings extends SettingsGroup {
   /// The small picture above a video's progress bar while moving through it (0.1.84).
   bool videoSeekPreview = true;
 
+  /// How big subtitles are, as a multiple of the usual size (0.2.8; the user, 2 Nov 2026:
+  /// "Subtitles having a size setting somewhere appropriate").
+  double subtitleSize = 1.0;
+
+  /// The sizes offered, and what they're called.
+  static const subtitleSizes = [0.75, 1.0, 1.25, 1.5, 2.0];
+  static String subtitleSizeLabel(double size) => switch (size) {
+        <= 0.8 => 'Small',
+        <= 1.05 => 'Normal',
+        <= 1.3 => 'Large',
+        <= 1.6 => 'Larger',
+        _ => 'Largest',
+      };
+
   /// The usual picture shape for videos and for collections (each can have its own).
   PictureShape videoPictureShape = PictureShape.wide;
   PictureShape collectionPictureShape = PictureShape.wide;
@@ -418,6 +432,7 @@ class VideoSettings extends SettingsGroup {
     Setting.flag('videoRewindOnResume', true, () => videoRewindOnResume, (v) => videoRewindOnResume = v),
     Setting.flag('videoDirectDrawing', true, () => videoDirectDrawing, (v) => videoDirectDrawing = v),
     Setting.flag('videoSeekPreview', true, () => videoSeekPreview, (v) => videoSeekPreview = v),
+    Setting.decimal('subtitleSize', 1.0, () => subtitleSize, (v) => subtitleSize = v.clamp(0.5, 3.0).toDouble()),
     _shape('videoPictureShape', () => videoPictureShape, (v) => videoPictureShape = v),
     _shape('collectionPictureShape', () => collectionPictureShape, (v) => collectionPictureShape = v),
   ];
@@ -432,7 +447,9 @@ class VideoSettings extends SettingsGroup {
     bool? seekPreview,
     PictureShape? videoShape,
     PictureShape? collectionShape,
+    double? subtitleSize,
   }) {
+    this.subtitleSize = subtitleSize ?? this.subtitleSize;
     videoDirectDrawing = directDrawing ?? videoDirectDrawing;
     videoSeekPreview = seekPreview ?? videoSeekPreview;
     videoSkipBackSeconds = skipBackSeconds ?? videoSkipBackSeconds;

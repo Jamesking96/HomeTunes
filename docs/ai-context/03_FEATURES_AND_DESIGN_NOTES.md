@@ -426,6 +426,19 @@ video's show, on its season.
   Season 1 tab; Genre box: capital A, then Action / Adventure / Animation / Action & Adventure.
   (adb can't hold OK; a long touch, `input swipe x y x y 1200`, opens the options panel.)
 
+## Old video formats on the TV, Downloads page, subtitle size (2 Nov 2026, 0.2.8+127, `feature/legacy-video-and-settings`)
+The user: "All the films that come from Disney like The Lion King, Ratatouille, Treasure Planet and more don't seem to play properly. Some play audio but are black screens, some don't load anything and others freeze on a fixed frame." They play in VLC. Then: "Downloads as it's own tab in the settings" and "Subtitles having a size setting somewhere appropriate."
+
+**Why (measured on the Family room TV, ffprobe over the Jellyfin library):** 184 .avi files use old formats the TV's video chip handles badly. DivX 3 (`msmpeg4v3`, 28 files, e.g. A Goofy Movie): the chip can't decode it, mpv falls back to software, but with "Smoother video" (`vo=mediacodec_embed`) software frames have nowhere to go, so sound with a black picture. MPEG-4 Part 2 / XviD with B-frames (156 files, e.g. Ratatouille, Treasure Planet): the chip decodes it but hands frames back out of order, so the clock jumps and the picture freezes or goes black. Toy Story (no B-frames) was fine. The Lion King is H.264 with audio the TV can't decode: already handled by the converted copy (0.2.7).
+
+**Fix:** `VideoItem.videoCodec` (from Jellyfin's MediaStreams; local files learn it when they play). `isOldVideoFormat` (`video_session.dart`, `oldVideoFormats`) picks out DivX/XviD/MPEG-4 Part 2, H.263, WMV 1–3, RealVideo, VP6, Theora, FLV1. On Android the page's `VideoDrawing` is `chip` (Smoother on), `app` (media_kit's own `vo=gpu`) or `none` (PC). An old format on a `chip` page asks the page (`onNeedAppDrawing`) to rebuild its player with app drawing; there `hwdec=no` (software, the TV's CPU copes with SD), anything else `auto-safe`. Safety nets for files whose codec isn't known yet, all switching to app drawing and remembered for the session (`_needsSoftware`): `hwdec-current` empty/no one second after it starts moving; the clock jumping by more than 1.5 s three times in 20 s without a seek (`seeksTracked`, TV only: the phone's seek bar goes round the engine); an error or standing still before it moves. Off the chip it falls back to the converted copy as before. H.264/HEVC are untouched (Incredibles 2 still `mediacodec_embed`).
+
+Checked with +127: A Goofy Movie, Ratatouille, Treasure Planet play with a picture (software, `gpu`; 2–5 slow draws per 30 s, worst ~190 ms); The Lion King via the converted copy; Incredibles 2 straight from the chip.
+
+**Settings › Downloads** (`SettingsPage.downloads`, `DownloadsSettingsPage` in `download_settings.dart`): the downloads and temporary-copy settings moved out of Servers; Servers keeps a row "Downloads and temporary copies" that opens it. Links that said "Settings › Servers › Downloads" now say "Settings › Downloads".
+
+**Subtitle size** (`VideoSettings.subtitleSize`, 0.75 / 1 / 1.25 / 1.5 / 2 = Small … Largest): Settings › Videos and the TV player's Audio & subtitles panel. On Android the app draws subtitles (`subtitleView(size:)`, 32 px × size); on the PC libass does (mpv `sub-scale`).
+
 ## Jellyfin streaming and download fixes (2 Nov 2026, 0.2.7+116–120, branch `feature/audiobookshelf`)
 
 The user (1 Nov): "some videos don't download or stream correctly from Jellyfin… One example is The

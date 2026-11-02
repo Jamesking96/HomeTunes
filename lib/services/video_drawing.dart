@@ -16,6 +16,19 @@ import 'dart:io';
 
 import 'package:media_kit_video/media_kit_video.dart';
 
+/// How a page shows the picture (0.2.8).
+enum VideoDrawing {
+  /// Not Android, and tests: the engine decodes and draws as it always has; nothing changes.
+  none,
+
+  /// Straight from the video chip (Android's "Smoother video"). A picture the chip can't decode
+  /// has nowhere to go: sound, but a black screen.
+  chip,
+
+  /// The app draws the picture, so anything can be decoded in software.
+  app,
+}
+
 /// Music videos (a second player with no sound) always use media_kit's own setup (0.1.58): with
 /// no sound to keep time by, drawing straight from the chip let the video freeze and then race
 /// far ahead of the song.
@@ -28,3 +41,19 @@ VideoControllerConfiguration videoDrawing({required bool direct, bool? android})
   }
   return const VideoControllerConfiguration();
 }
+
+/// How the app draws subtitles on Android (the PC's engine draws its own, sized by mpv's
+/// `sub-scale`): media_kit's own look, [size] times as big (0.2.8, Settings › Videos ›
+/// Subtitle size).
+SubtitleViewConfiguration subtitleView({required double size, bool? android}) {
+  const usual = SubtitleViewConfiguration();
+  return SubtitleViewConfiguration(
+    visible: android ?? Platform.isAndroid,
+    style: usual.style.copyWith(fontSize: (usual.style.fontSize ?? 32) * size),
+  );
+}
+
+/// How a video page's session sees the drawing (0.2.8): from the chip on Android with
+/// [direct], the app's own on Android otherwise; elsewhere nothing changes.
+VideoDrawing pageDrawing({required bool direct, bool? android}) =>
+    !(android ?? Platform.isAndroid) ? VideoDrawing.none : (direct ? VideoDrawing.chip : VideoDrawing.app);

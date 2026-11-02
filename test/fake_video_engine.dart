@@ -134,7 +134,11 @@ class FakeVideoEngine implements VideoEngine {
   @override
   Future<void> playOrPause() => isPlaying ? pause() : play();
   @override
+  DateTime? lastSeek;
+
+  @override
   Future<void> seek(Duration to) async {
+    lastSeek = DateTime.now();
     calls.add('seek $to');
     position = to;
   }

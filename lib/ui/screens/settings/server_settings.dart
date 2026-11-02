@@ -24,8 +24,8 @@ import '../../../state/server_books.dart';
 import '../../../state/server_reader.dart';
 import '../../../state/server_videos.dart';
 import '../../../state/servers_model.dart';
+import '../../nav.dart';
 import '../../theme.dart';
-import 'download_settings.dart';
 import 'settings_widgets.dart';
 import '../../tv/tv_focus.dart' show tvModeOf;
 import '../../tv/tv_keyboard.dart' show TvTextField;
@@ -110,10 +110,18 @@ class ServerSettingsState extends State<ServerSettings> {
             'video-server',
             child: _ServerSection(kind: MediaKind.videos, servers: servers),
           ),
-          // Downloading from the servers (0.2.3).
-          const DownloadSettings(),
-          // Temporary copies of what streams (0.2.4).
-          const TemporaryCopySettings(),
+          // Downloads and temporary copies have their own page since 0.2.8 (Settings › Downloads).
+          SettingTarget(
+            'server-downloads',
+            child: ListTile(
+              key: const ValueKey('server-downloads'),
+              leading: const Icon(Icons.download_for_offline_outlined),
+              title: const Text('Downloads and temporary copies'),
+              subtitle: const Text('Now on their own page: Settings › Downloads'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.read<AppNav>().openSettings('downloads'),
+            ),
+          ),
           const _ServerTypesNote(),
         ],
       ),

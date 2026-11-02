@@ -1,7 +1,7 @@
 // The Downloads page (0.2.3, step 3 of the Servers & Downloads plan): what's downloading or
 // waiting (with pause, carry on, try again and stop), what's kept offline (with Stop keeping
 // offline), and everything downloaded (play it, Make it mine…, remove it), plus how much space
-// they take against the limit. Opened from the sidebar, from Settings › Servers › Downloads and
+// they take against the limit. Opened from the sidebar, from Settings › Downloads and
 // from the Library tab. Everything comes from DownloadsModel (state/downloads_model.dart).
 import 'dart:io';
 import 'dart:math' as math;
@@ -83,7 +83,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
             key: const ValueKey('downloads-settings'),
             tooltip: 'Download settings',
             icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.read<AppNav>().openSettings('server', setting: 'downloads-folder'),
+            onPressed: () => context.read<AppNav>().openSettings('downloads', setting: 'downloads-folder'),
           ),
           PopupMenuButton<String>(
             key: const ValueKey('downloads-menu'),

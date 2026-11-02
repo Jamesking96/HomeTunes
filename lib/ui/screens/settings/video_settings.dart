@@ -120,6 +120,19 @@ class VideoSettings extends StatelessWidget {
             onChanged: (v) => lib.updateVideoSettings(seekPreview: v),
           ),
         ),
+        // 0.2.8: subtitle size (the user: "Subtitles having a size setting somewhere appropriate").
+        SettingTarget(
+          'video-subtitle-size',
+          child: ChoiceTile<double>(
+            key: const ValueKey('video-subtitle-size'),
+            title: 'Subtitle size',
+            subtitle: 'For every video; also in the player\'s Audio & subtitles',
+            value: video.subtitleSize,
+            options: prefs.VideoSettings.subtitleSizes,
+            label: prefs.VideoSettings.subtitleSizeLabel,
+            onChanged: (v) => lib.updateVideoSettings(subtitleSize: v),
+          ),
+        ),
         // 0.1.57: draw straight from the phone's video chip (services/video_drawing.dart).
         SettingTarget(
           'video-direct',
