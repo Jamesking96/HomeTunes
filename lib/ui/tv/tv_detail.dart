@@ -42,7 +42,11 @@ class TvDetailPage<T> extends StatelessWidget {
     required this.itemBuilder,
     this.itemHeight = 52,
     this.hints = tvPageHints,
+    this.startAt,
   });
+
+  /// The item focused when the page opens (0.2.8).
+  final int? startAt;
 
   final Widget header;
   final List<T> items;
@@ -62,6 +66,7 @@ class TvDetailPage<T> extends StatelessWidget {
             items: items,
             itemHeight: itemHeight,
             header: header,
+            startAt: startAt,
             itemBuilder: (context, item, i, node, w) => SizedBox(width: w, child: itemBuilder(context, item, i, node)),
           ),
         ),
