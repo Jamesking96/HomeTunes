@@ -106,16 +106,8 @@ class VideoSession extends ChangeNotifier {
         // opened part-way in, said "Error decoding audio." and stood still on one picture.
         final address = _address;
         final why = 'the player said "${hideSecrets(e.toString())}"';
-        // (0.2.8) Drawn straight from the chip: first let the app decode it and draw the picture.
-        if (!_disposed && (engine.duration == Duration.zero || !_moving) && address != null && _chipMayBeTheProblem) {
-          _needAppDrawing(why);
-          return;
-        }
-        if (!_disposed && (engine.duration == Duration.zero || !_moving) && address != null && address.remote &&
-            !address.converted && !_triedConverted) {
-          _tryConverted(why);
-          return;
-        }
+        // (0.2.8) The converted copy, else (drawn from the chip) the app decoding it: [_fallBack].
+        if (!_disposed && (engine.duration == Duration.zero || !_moving) && address != null && _fallBack(why)) return;
         if (!_disposed && engine.duration == Duration.zero) {
           problem = 'Can\'t play this video: $e';
           notifyListeners();
@@ -137,6 +129,12 @@ class VideoSession extends ChangeNotifier {
               _played += step;
               if (_played > const Duration(seconds: 1)) {
                 _moving = true;
+                // (0.2.8) It plays after all (mpv found another way after "Could not open
+                // codec."): the message goes.
+                if (problem != null) {
+                  problem = null;
+                  notifyListeners();
+                }
                 // (0.2.8) Moving, so sound is playing: is the chip really decoding the picture?
                 if (drawing == VideoDrawing.chip && !_chipChecked) {
                   _chipChecked = true;
@@ -401,7 +399,7 @@ class VideoSession extends ChangeNotifier {
       return;
     }
     if (_disposed || id != _id) return;
-    if (h.isEmpty || h == 'no') _needAppDrawing('the chip isn\'t decoding it, so there\'s no picture');
+    if (h.isEmpty || h == 'no') _fallBack('the chip isn\'t decoding it, so there\'s no picture');
   }
 
   /// Jumps in the clock that nobody asked for (0.2.8): XviD from an AVI decoded by the chip gives
@@ -420,21 +418,36 @@ class VideoSession extends ChangeNotifier {
       ..removeWhere((t) => now.difference(t) > const Duration(seconds: 20));
     if (_selfJumps.length < 3) return;
     _selfJumps.clear();
-    const why = 'its clock keeps jumping on its own';
-    if (_chipMayBeTheProblem) {
-      _needAppDrawing(why, place: _openedAt ?? Duration.zero);
-    } else {
-      final address = _address;
-      if (address != null && address.remote && !address.converted && !_triedConverted) _tryConverted(why);
-    }
+    _fallBack('its clock keeps jumping on its own', place: _openedAt ?? Duration.zero);
   }
 
-  void _tryConverted(String why) {
+  /// A video that won't play properly as it is (0.2.8): a server original goes to the server's
+  /// converted copy (H.264, which every TV's chip plays: the Sony BRAVIA can't draw pictures the
+  /// app decodes, they come out scrambled); a file drawn from the chip goes to the app decoding
+  /// it. Remembered for the session, so next time it goes there straight away. False when
+  /// there's nothing left to try.
+  bool _fallBack(String why, {Duration? place}) {
+    final address = _address;
+    if (address != null && address.remote && !address.converted && !_triedConverted) {
+      _needsSoftware.add(_id);
+      _tryConverted(why, at: place);
+      return true;
+    }
+    if (_chipMayBeTheProblem) {
+      _needAppDrawing(why, place: place);
+      return true;
+    }
+    return false;
+  }
+
+  void _tryConverted(String why, {Duration? at}) {
     final v = videos.byId(_id);
     PlaybackLog.add('Video${v == null ? '' : ' "${v.title}"'} won\'t play as it is ($why): asking the server for a converted copy');
     _triedConverted = true;
     _stallTimer?.cancel();
-    open(_id, converted: true);
+    // From where it got to (or [at]): the converted copy carries on.
+    final from = at ?? engine.position;
+    open(_id, converted: true, at: from > Duration.zero ? from : null);
   }
 
   /// A server video opened as it is but not moving after [stallLimit] (frozen on one picture, or
@@ -451,7 +464,7 @@ class VideoSession extends ChangeNotifier {
     }
     final why = 'it didn\'t start moving within ${stallLimit.inSeconds} s';
     // (0.2.8) From the chip: the app decoding it comes first (it works without the server).
-    chip ? _needAppDrawing(why, place: _openedAt) : _tryConverted(why);
+    _fallBack(why, place: _openedAt);
   }
 
   /// The length to save places against: the engine's, or for a converted server stream (which
@@ -470,7 +483,7 @@ class VideoSession extends ChangeNotifier {
     videos.playbackStopped(id, at ?? engine.position, length ?? _length());
   }
 
-  Future<void> open(String id, {bool converted = false}) async {
+  Future<void> open(String id, {bool converted = false, Duration? at}) async {
     if (!converted) _reportStopped();
     final v = videos.byId(id);
     _file = null;
@@ -503,9 +516,36 @@ class VideoSession extends ChangeNotifier {
       shown();
       return;
     }
-    // (0.2.8) An old format (DivX 3, XviD…), or one the chip couldn't show before: decoded in
-    // software, so the app must draw the picture. Drawn from the chip, the page starts again.
-    final old = !converted && (isOldVideoFormat(v.videoCodec) || _needsSoftware.contains(v.id));
+    final place = videos.placeOf(v.id);
+    var start = resumeAt(place, v.duration);
+    // Settings › Videos: go back a little, more after a long break (like audiobooks).
+    if (start > Duration.zero && place != null && _video.videoRewindOnResume) {
+      final since = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(place.updatedMs));
+      start -= PlayerModel.resumeRewind(since);
+      if (start < Duration.zero) start = Duration.zero;
+    }
+    // A converted copy carries on from where the original stopped.
+    if (at != null) start = at;
+    // A file, or (0.2.1) a server's address with the sign-in in its headers.
+    final address = await videos.playableAddress(v, converted: converted, start: start);
+    if (_disposed || _id != id) return;
+    if (address == null) {
+      problem = videos.problemWith(v);
+      notifyListeners();
+      shown();
+      return;
+    }
+    // (0.2.8) An old format (DivX 3, XviD…), or one that didn't play properly before. From a
+    // server: the server's converted copy. A file (or a downloaded original): decoded in software,
+    // so the app must draw the picture; drawn from the chip, the page starts again.
+    final old = !converted && address.original && (isOldVideoFormat(v.videoCodec) || _needsSoftware.contains(v.id));
+    if (old && address.remote) {
+      PlaybackLog.add('Video "${v.title}" is in an old format (${v.videoCodec ?? 'found while playing'}): '
+          'asking the server for a converted copy');
+      _triedConverted = true;
+      await open(id, converted: true, at: start);
+      return;
+    }
     if (old && drawing == VideoDrawing.chip && onNeedAppDrawing != null) {
       _handedOver = true;
       PlaybackLog.add('Video "${v.title}" is in an old format (${v.videoCodec ?? 'found while playing'}): '
@@ -518,25 +558,6 @@ class VideoSession extends ChangeNotifier {
     _software = old && drawing == VideoDrawing.app;
     if (drawing == VideoDrawing.app && engine.hasOptions) await engine.setOption('hwdec', _software ? 'no' : 'auto-safe');
     if (_disposed || _id != id) return;
-    final place = videos.placeOf(v.id);
-    var start = resumeAt(place, v.duration);
-    // Settings › Videos: go back a little, more after a long break (like audiobooks).
-    if (start > Duration.zero && place != null && _video.videoRewindOnResume) {
-      final since = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(place.updatedMs));
-      start -= PlayerModel.resumeRewind(since);
-      if (start < Duration.zero) start = Duration.zero;
-    }
-    // A converted copy carries on from where the original stopped.
-    if (converted && engine.position > Duration.zero) start = engine.position;
-    // A file, or (0.2.1) a server's address with the sign-in in its headers.
-    final address = await videos.playableAddress(v, converted: converted, start: start);
-    if (_disposed || _id != id) return;
-    if (address == null) {
-      problem = videos.problemWith(v);
-      notifyListeners();
-      shown();
-      return;
-    }
     _address = address;
     _openedAt = address.startsAt ?? start;
     if ((address.remote || drawing == VideoDrawing.chip) && !address.converted) _stallTimer = Timer(stallLimit, _checkStall);

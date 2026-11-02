@@ -233,7 +233,7 @@ class DownloadsModel extends ChangeNotifier {
       if (path.isEmpty || info == null || !File(path).existsSync()) continue;
       subs.add((uri: path, label: info.label, language: info.language));
     }
-    return VideoAddress(f, subtitles: subs);
+    return VideoAddress(f, subtitles: subs, original: e.quality.isOriginal);
   }
 
   // A downloaded file went missing (deleted by hand, drive gone): download it again.
