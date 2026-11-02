@@ -351,6 +351,41 @@ before changing that area.
   the TV screens' own cards don't show marks yet.
 - **Tests:** `test/source_filter_test.dart`; `videos_test.dart` now finds Category by name.
 
+## TV playback stutter (2 Nov 2026, 0.2.7+125, branch `fix/tv-playback-stutter`)
+
+The user (2 Nov): "Streaming to the TVs from the Server seems to still have stuttering issues on all
+videos. Help me work out why". Measured on the Family room TV (Sony BRAVIA BF1, MediaTek MT5896,
+Android 12, 4 cores, 2.4 GB RAM, UI at 1920×1080, a fixed 60 Hz output) with South Park S25 E3
+(H.264 1080p, 23.98 fps, decoded by the video chip, `mediacodec_embed`) from Jellyfin.
+
+- **How it was measured:** the Playback log's stutter lines (`services/video_stats.dart`), and the
+  frame times SurfaceFlinger shows for the app's surface
+  (`adb shell dumpsys SurfaceFlinger --latency 'SurfaceView[com.hometunes.hometunes/com.hometunes.hometunes.MainActivity](BLAST)#0'`,
+  127 frames a time; differences of present times in 16.7 ms vsyncs). The video is drawn as a
+  texture inside the app's own surface, so any stall on the app's UI thread holds the picture.
+- **Before:** frames in the 2/3-vsync (33/50 ms) rhythm of 24 fps on 60 Hz, broken by a 170–185 ms
+  freeze about every 5 s; the log said "app slow to draw 6 times (worst 175–192 ms, mostly
+  building the screen)" every 30 s. Network was never the problem ("read ahead 30 s").
+- **Cause:** `VideoSession` saves the place every 5 s; `VideoLibraryModel.savePlace` called
+  `notifyListeners()`, so every screen watching the library rebuilt behind the player (the TV
+  Videos tab re-sorting and filtering thousands of videos, Home, the show's page): ~180 ms on this
+  CPU, and up to 2.2 s while skipping. It also wrote `videos.json` 2 s after each save.
+- **Fix:** `savePlace(quiet: true)` for the 5 s save: the place is kept and the server told, nothing
+  else is notified unless it becomes watched; the file is written at most every 30 s
+  (`quietSaveEvery`), and at once on pause, stop, the end or the app going into the background.
+- **After (same episode, build 0.2.8+125 with the fix):** 50.8 s, 1,260 frames, no gap over 53 ms;
+  no stutter lines after the opening. With the controls up, no freezes (a less even rhythm); a
+  skip pauses once (~450 ms) while the stream jumps.
+- **What's left, and why:**
+  - 24 fps on 60 Hz can't be even: each picture shows for 2 then 3 refreshes (3:2 pulldown), a
+    slight judder on slow pans. Both TVs offer only one 60 Hz mode (`dumpsys display`: no 24 Hz
+    mode, `alternativeRefreshRates=[]`), so the app can't switch; the TV's own motion setting
+    (Sony: Motionflow / CineMotion) is what can smooth it.
+  - Memory is tight on the Family room TV (≈110 MB free, ≈390 MB of swap in use, HomeTunes
+    ≈490 MB): worth watching if stalls come back.
+  - Opening a video and the controls fading in and out draw slowly on this GPU (up to ~500 ms
+    while the page opens).
+
 ## Jellyfin streaming and download fixes (2 Nov 2026, 0.2.7+116–120, branch `feature/audiobookshelf`)
 
 The user (1 Nov): "some videos don't download or stream correctly from Jellyfin… One example is The
