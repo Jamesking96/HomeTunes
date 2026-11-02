@@ -591,11 +591,13 @@ use a HomeTunes backup file as described above.
   stutters, then copy the log the same way.
 - **Old videos (DivX, XviD, often .avi files from the 2000s) on a TV or phone:** the TV's or
   phone's video chip can't show these properly (sound but a black picture, a frozen picture, or
-  nothing at all), so HomeTunes decodes them itself and draws the picture, as VLC does. For videos
-  from a server it knows the format beforehand; for anything else it notices within a few seconds
-  (no picture, or the picture's clock jumping about by itself) and starts it again that way from
-  the same place. If even that doesn't work with a server video, it asks the server for a
-  converted copy. The Playback log says when any of this happens.
+  nothing at all). For a video from your server, HomeTunes asks the server for a converted copy
+  instead, which every TV plays smoothly; it knows the format beforehand, and notices any other
+  video that doesn't play properly within a few seconds (no picture, or the picture's clock jumping
+  about by itself) and switches it the same way, from the same place. A video file on the device
+  itself (or one downloaded as the original) is decoded by HomeTunes and drawn by the app, as VLC
+  does; on some TVs (such as the Sony BRAVIA 4K UR3) that picture comes out scrambled, so download
+  old videos as a smaller copy there. The Playback log says when any of this happens.
 - **A video still shows a black picture on the phone** (but you can hear it): turn off **Settings ›
   Videos › Smoother video on phones** and open the video again. That setting shows the picture
   straight from the phone's video chip, which is smoother, but a few unusual video formats can't
