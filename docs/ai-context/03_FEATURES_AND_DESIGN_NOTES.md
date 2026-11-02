@@ -351,7 +351,7 @@ before changing that area.
   the TV screens' own cards don't show marks yet.
 - **Tests:** `test/source_filter_test.dart`; `videos_test.dart` now finds Category by name.
 
-## TV playback stutter (2 Nov 2026, 0.2.7+125, branch `fix/tv-playback-stutter`)
+## TV playback stutter (2 Nov 2026, 0.2.7+125, merged into `main` with 0.2.8+126)
 
 The user (2 Nov): "Streaming to the TVs from the Server seems to still have stuttering issues on all
 videos. Help me work out why". Measured on the Family room TV (Sony BRAVIA BF1, MediaTek MT5896,
@@ -385,6 +385,46 @@ Android 12, 4 cores, 2.4 GB RAM, UI at 1920×1080, a fixed 60 Hz output) with So
     ≈490 MB): worth watching if stalls come back.
   - Opening a video and the controls fading in and out draw slowly on this GPU (up to ~500 ms
     while the page opens).
+## TV typing, Back through the rows, Go to a video's show (2 Nov 2026, 0.2.8+121–124, merged into `main` with 0.2.8+126)
+
+The user (2 Nov): (1) "The keypad we type on when using the application on the TV can be a bit time
+consuming … predicted words, where as you type 3/4 words that are the closest show up near the top
+… [and] context aware, review where they are used"; (2) on the Videos tab, Back from the videos
+should go to the types row (All…), then the tabs (Collections…), then the menu, and on a show's
+page from the episodes to the seasons first; (3) from All videos, Hold OK should offer going to the
+video's show, on its season.
+
+- **Where the keyboard is used** (the review): Search (the short keyboard), and about 45 text boxes
+  through `TvTextField`: names and titles (videos, songs, books, series, collections, seasons,
+  themes, playlists), pick-from-the-library boxes (Artist, Album, Author, Narrator, Genre, Category,
+  Collection, Series), numbers (Year, Season, Episode, number in series), a server's address, user
+  name and password, descriptions, notes and lyrics, and codes (colour, shared theme).
+- **Predictions** (`services/word_predictor.dart`): up to four, in a row over the keys (Search) or
+  across the page (`TvTextInput`, so long names show whole); ↑ from the keys' top row goes there,
+  OK puts one in with a space after, and focus stays in the row for the next word. Ranked by how
+  often the word appears in the library's names, much more when it follows the word before ("the
+  lion k" → King); after a space, the words that usually come next; nothing starting that way →
+  words one slip away. Pick boxes also offer whole names (a genre, an artist) starting with all
+  that's typed, and a one-word name is offered once.
+- **Context** (`ui/tv/tv_words.dart`): `TvTyping` from the box's label and keyboard type. Titles and
+  picks put a capital at each word's start, sentences at each sentence's start (Shift makes that
+  letter small); numbers open on a number pad (#+= for the rest); an address offers the servers'
+  addresses and http:// / https:// / http://192.168.1.; passwords, user names and codes predict
+  nothing. Words typed in title, pick and sentence boxes are remembered (`state/typed_words.dart`,
+  `tv_words.json`, 3,000 most used); Search uses the library only.
+- **Back** (`TvBackSteps` in `tv_focus.dart`): every `TvPage` with tabs steps body → its `rows` →
+  tabs before the shell's Back (so Music and Audiobooks also go to their tabs first); the Videos
+  page passes its types row; the TV collection page steps episodes → season tabs → the page closes.
+  The key's let-go is taken too (Android goes back on key up).
+- **Go to** (`videoOptions`): "Go to <show>" with "Season 2, at S2 E5" under it, third after Play
+  / Watch from the beginning / Mark as watched; opens `TvCollectionPage(videoId:)` on that season
+  with the video focused (`TvAzGrid.startAt`). Not offered on the show's own page. The Carry on card
+  and the player's "Go to the collection" open at the video too.
+- **Checked on the Family room TV** (2 Nov): Search "the li" → little / light / living / lion, then
+  "the lion " → king; Videos Back: Attack on Titan tile → All → Collections → menu; All videos ›
+  Anime, hold on "100 Against 1" → Go to Fairy Tail (Season 1, at S1 E167) opened there, Back → the
+  Season 1 tab; Genre box: capital A, then Action / Adventure / Animation / Action & Adventure.
+  (adb can't hold OK; a long touch, `input swipe x y x y 1200`, opens the options panel.)
 
 ## Jellyfin streaming and download fixes (2 Nov 2026, 0.2.7+116–120, branch `feature/audiobookshelf`)
 

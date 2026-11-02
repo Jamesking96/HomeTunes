@@ -349,11 +349,14 @@ void main() {
       expect(find.text('Server name'), findsWidgets); // the keyboard's title
       expect(find.text('Old|'), findsOneWidget);
       await press(tester, LogicalKeyboardKey.backspace, 3);
-      // On screen: Shift, then H (↓ 1, → 1 from a), then Shift off and i.
-      await tester.tap(find.byKey(const ValueKey('tv-key-Shift')));
-      await tester.pumpAndSettle();
+      // A name (0.2.8): its first letter is a capital by itself, the next small.
       expect(find.text('H'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('tv-key-h')));
+      await tester.pumpAndSettle();
+      // Shift now: capitals on; again: off.
+      await tester.tap(find.byKey(const ValueKey('tv-key-Shift')));
+      await tester.pumpAndSettle();
+      expect(find.text('I'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('tv-key-Shift')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('tv-key-i')));

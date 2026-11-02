@@ -497,12 +497,17 @@ On a TV, HomeTunes has its own screens, made to be used from the sofa with just 
 
 - **Moving about:** the arrows move the highlight and **OK** opens or plays what's highlighted.
   **Back** goes back. Press **←** at the left edge of a screen to open the menu (Home, Music,
-  Audiobooks, Videos, Search, Settings and what's playing).
+  Audiobooks, Videos, Search, Settings and what's playing). In a list under tabs, **Back** goes up
+  a row at a time first: in Videos, from the videos to the type row (All · Anime · TV…), then to the
+  tabs (Collections, All videos…), then to the menu; on a show's page, from its episodes to its
+  season tabs, then back a page.
 - **Leaving HomeTunes:** when there's nowhere left to go back to, **Back** shows "Press Back
   again to leave HomeTunes" at the bottom; press it again within a few seconds to leave (music
   keeps playing). Otherwise the message goes and you stay.
 - **Options:** **hold OK** on a song, album, artist, playlist, audiobook, series, video or
   collection for everything you can do with it (play next, add to a playlist, edit its details…).
+  On a video anywhere but its show's page, **Go to** *the show* opens the show's page on that
+  video's season, with the video highlighted.
 - **Posters and pictures:** **hold OK** on a collection and choose **Change poster**, or on a video
   and choose **Change picture**. **Search online** finds posters and stills on TVmaze, AniList and
   Wikipedia and shows them as big tiles: move to one and press OK to use it (**Search for another
@@ -532,6 +537,17 @@ On a TV, HomeTunes has its own screens, made to be used from the sofa with just 
 - **Typing:** search and every box you type in use an on-screen keyboard: move to a letter and press
   OK. **Shift** gives capitals and **#+=** symbols and accents; **Done** finishes. A keyboard
   plugged into the TV types too.
+  - **Suggested words** show in a row over the keys as you type: press **↑** from the top row of
+    letters and OK on one to put it in (it finishes the word you're typing, with a space after).
+    After a space they're the words that usually come next ("the lion " → "king"). They come from
+    your library's names and titles, and from words you've typed before on this TV; in Search,
+    from everything in the library.
+  - **The keyboard suits the box:** a name or title gets a capital at the start of each word by
+    itself, a description a capital at the start of each sentence (press **Shift** first for a small
+    letter instead); **Genre**, **Artist**, **Album**, **Author**, **Category** and the like suggest
+    the whole names already in your library; **Year**, **Season** and **Episode** open on a number
+    pad (**#+=** for other keys); a **server address** suggests the addresses of servers you've set
+    up. A password, user name or code box suggests nothing, and nothing typed in it is remembered.
 - **Settings:** the pages are listed on the left and the one you're on shows beside it. Press **→**
   to go into it. OK flips a switch or opens a list of choices.
 - **TV mode** is chosen automatically. To change it, go to **Settings › Appearance › TV mode**

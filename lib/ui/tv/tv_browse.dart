@@ -80,12 +80,18 @@ class TvPageHints extends StatelessWidget {
 /// A screen's frame: [title] with [tabs] beside it and [actions] at the right, then [body].
 /// ↑ from the top of the body goes to the tabs (the one showing), even where a button is
 /// nearer; the buttons are reached along the tabs' row.
+///
+/// Back (0.2.8): from the body, up to [rows] (rows of choices at the top of the body, such as the
+/// Videos tab's types, the last first), then the tabs, before it goes on to the menu.
 class TvPage extends StatefulWidget {
-  const TvPage({super.key, required this.title, this.tabs, this.actions = const [], required this.body});
+  const TvPage({super.key, required this.title, this.tabs, this.actions = const [], required this.body, this.rows = const []});
   final String title;
   final Widget? tabs;
   final List<Widget> actions;
   final Widget body;
+
+  /// Each wrapped in a [Focus] with this node, top first.
+  final List<FocusNode> rows;
 
   @override
   State<TvPage> createState() => _TvPageState();
@@ -113,6 +119,16 @@ class _TvPageState extends State<TvPage> {
 
   @override
   Widget build(BuildContext context) {
+    final page = _page();
+    if (widget.tabs == null && widget.rows.isEmpty) return page;
+    return TvBackSteps(rungs: [
+      if (widget.tabs != null) TvBackRung(node: _tabs),
+      for (final r in widget.rows) TvBackRung(node: r),
+      TvBackRung(node: _body),
+    ], child: page);
+  }
+
+  Widget _page() {
     return Material(
       color: AppColors.bg,
       child: Padding(
@@ -386,9 +402,14 @@ class TvAzGrid<T> extends StatefulWidget {
     this.subtitles = true,
     this.rowGap = 18,
     this.header,
+    this.startAt,
   });
 
   final List<T> items;
+
+  /// The item that has focus when the grid first shows (0.2.8: a show's page opened at an
+  /// episode), scrolled to.
+  final int? startAt;
 
   /// Draws one item at [width], with the focus node it must use.
   final Widget Function(BuildContext context, T item, int index, FocusNode node, double width) itemBuilder;
@@ -426,6 +447,28 @@ class _TvAzGridState<T> extends State<TvAzGrid<T>> {
   double _rowExtent = 0, _headerExtent = 0;
 
   FocusNode _node(int i) => _nodes[i] ??= FocusNode(debugLabel: 'tv item $i');
+
+  @override
+  void initState() {
+    super.initState();
+    final i = widget.startAt;
+    if (i == null || i < 0 || i >= widget.items.length) return;
+    _focusedIndex = i;
+    // Once it's laid out: scroll there, then (once that's drawn) focus it. Two frames, so it
+    // comes after the page's usual "first item" focus.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_scroll.hasClients) {
+        final row = i ~/ _columns;
+        final at = (_headerExtent + row * _rowExtent - 120).clamp(0.0, _scroll.position.maxScrollExtent);
+        _scroll.jumpTo(at);
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _enter();
+      });
+      WidgetsBinding.instance.scheduleFrame();
+    });
+  }
 
   @override
   void didUpdateWidget(TvAzGrid<T> old) {

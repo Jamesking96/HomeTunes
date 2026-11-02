@@ -222,7 +222,7 @@ class _CarryOnCard extends StatelessWidget {
             height: 80,
             child: DownloadProgressOverlay(ids: [video.id], child: tvFilePicture(videos.thumbFile(video), Icons.movie_outlined)));
         carryOn = () => nav.openVideo(video);
-        open = () => nav.openVideoCollection(video.collection);
+        open = () => nav.openVideoCollection(video.collection, videoId: video.id);
         openLabel = 'Go to the collection';
         fromStart = () async {
           await videos.setWatched([video.id], false);

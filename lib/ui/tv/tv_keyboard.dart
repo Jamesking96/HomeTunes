@@ -8,11 +8,15 @@
 // on the same spot: each key is named after its place on the letters page ("tv-key-a").
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import '../../services/word_predictor.dart';
+import '../../state/library_model.dart';
 import '../theme.dart';
 import 'tv_browse.dart' show TvButton;
 import 'tv_focus.dart' show tvModeOf;
 import 'tv_widgets.dart';
+import 'tv_words.dart';
 
 /// The letters page, a row at a time: a–z then 1–0.
 const tvKeyboardRows = [
@@ -34,7 +38,19 @@ const tvSymbolRows = [
   ['à', 'ü', 'ö', 'ñ', 'ç', 'ø'],
 ];
 
+/// The number pad (0.2.8), for boxes that take a number (Year, Season, Episode).
+const tvNumberRows = [
+  ['1', '2', '3'],
+  ['4', '5', '6'],
+  ['7', '8', '9'],
+  ['.', '0', '-'],
+];
+
 /// A grid of keys. [full] adds Shift, the symbols page and (with [onDone]) Done.
+///
+/// 0.2.8: [predictions] show in a row over the keys (↑ from the top row goes to them; OK puts the
+/// word in, [onPredict]); [capitalNext] makes the next letter a capital by itself (a name's next
+/// word, a new sentence; Shift makes it small instead); [numbers] opens on the number pad.
 class TvKeyboard extends StatefulWidget {
   const TvKeyboard({
     super.key,
@@ -46,7 +62,15 @@ class TvKeyboard extends StatefulWidget {
     this.canSpace = true,
     this.newLine = false,
     this.autofocus = false,
+    this.predictions,
+    this.onPredict,
+    this.capitalNext = false,
+    this.numbers = false,
+    this.firstKey,
   });
+
+  /// The top-left key's focus node, when the page needs it (to put focus back on the keys).
+  final FocusNode? firstKey;
 
   final ValueChanged<String> onType;
   final VoidCallback onDelete, onClear;
@@ -62,8 +86,21 @@ class TvKeyboard extends StatefulWidget {
   /// The first key takes focus when it appears.
   final bool autofocus;
 
+  /// The words offered over the keys (null: no row for them).
+  final List<Prediction>? predictions;
+  final ValueChanged<Prediction>? onPredict;
+
+  /// The next letter is a capital unless Shift is pressed.
+  final bool capitalNext;
+
+  /// Start on the number pad.
+  final bool numbers;
+
   static const keySize = 42.0, gap = 6.0;
   static const width = keySize * 6 + gap * 5;
+
+  /// Most predictions shown at once.
+  static const most = 4;
 
   @override
   State<TvKeyboard> createState() => _TvKeyboardState();
@@ -71,12 +108,50 @@ class TvKeyboard extends StatefulWidget {
 
 class _TvKeyboardState extends State<TvKeyboard> {
   bool _caps = false, _symbols = false;
+  late bool _numbers = widget.numbers;
+
+  /// Shift was pressed while a capital was coming by itself: this letter is small.
+  bool _small = false;
+
+  FocusNode? _own;
+  FocusNode get _first => widget.firstKey ?? (_own ??= FocusNode(debugLabel: 'tv key a'));
+
+  bool get _upper => _caps || (widget.capitalNext && !_small);
+
+  @override
+  void didUpdateWidget(TvKeyboard old) {
+    super.didUpdateWidget(old);
+    if (old.capitalNext != widget.capitalNext) _small = false;
+  }
+
+  @override
+  void dispose() {
+    _own?.dispose();
+    super.dispose();
+  }
 
   String _show(int r, int c) {
     if (_symbols) return tvSymbolRows[r][c];
     final k = tvKeyboardRows[r][c];
-    return _caps ? k.toUpperCase() : k;
+    return _upper ? k.toUpperCase() : k;
   }
+
+  void _type(String s) {
+    widget.onType(s);
+    if (_small) setState(() => _small = false);
+  }
+
+  void _shift() => setState(() {
+        _symbols = false;
+        if (widget.capitalNext && !_caps && !_small) {
+          _small = true; // this one capital, not wanted
+        } else if (_small) {
+          _small = false;
+          _caps = true;
+        } else {
+          _caps = !_caps;
+        }
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -89,44 +164,82 @@ class _TvKeyboardState extends State<TvKeyboard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (var r = 0; r < tvKeyboardRows.length; r++) ...[
-            Row(
-              children: [
-                for (var c = 0; c < 6; c++) ...[
-                  if (c > 0) const SizedBox(width: g),
-                  TvKey(
-                    key: ValueKey('tv-key-${tvKeyboardRows[r][c]}'),
-                    // The short keyboard shows capitals, as most remotes' keyboards do, but types small.
-                    label: w.full ? _show(r, c) : _show(r, c).toUpperCase(),
-                    width: k,
-                    autofocus: w.autofocus && r == 0 && c == 0,
-                    onPressed: () => w.onType(_show(r, c)),
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: g),
+          if (w.predictions != null) ...[
+            TvPredictionRow(predictions: w.predictions!, onPredict: (p) => w.onPredict?.call(p), fallback: _first),
+            const SizedBox(height: g + 2),
           ],
+          if (_numbers)
+            for (var r = 0; r < tvNumberRows.length; r++) ...[
+              Row(
+                children: [
+                  for (var c = 0; c < 3; c++) ...[
+                    if (c > 0) const SizedBox(width: g),
+                    TvKey(
+                      key: ValueKey('tv-num-${tvNumberRows[r][c]}'),
+                      focusNode: r == 0 && c == 0 ? _first : null,
+                      label: tvNumberRows[r][c],
+                      width: wide,
+                      autofocus: w.autofocus && r == 0 && c == 0,
+                      onPressed: () => _type(tvNumberRows[r][c]),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: g),
+            ]
+          else
+            for (var r = 0; r < tvKeyboardRows.length; r++) ...[
+              Row(
+                children: [
+                  for (var c = 0; c < 6; c++) ...[
+                    if (c > 0) const SizedBox(width: g),
+                    TvKey(
+                      key: ValueKey('tv-key-${tvKeyboardRows[r][c]}'),
+                      focusNode: r == 0 && c == 0 ? _first : null,
+                      // The short keyboard shows capitals, as most remotes' keyboards do, but types small.
+                      label: w.full ? _show(r, c) : _show(r, c).toUpperCase(),
+                      width: k,
+                      autofocus: w.autofocus && r == 0 && c == 0,
+                      onPressed: () => _type(_show(r, c)),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: g),
+            ],
           if (w.full)
             Row(
               children: [
-                TvKey(
-                  key: const ValueKey('tv-key-Shift'),
-                  label: 'Shift',
-                  icon: Icons.arrow_upward,
-                  on: _caps && !_symbols,
-                  width: wide,
-                  onPressed: () => setState(() {
-                    _symbols = false;
-                    _caps = !_caps;
-                  }),
-                ),
+                _numbers
+                    ? TvKey(
+                        key: const ValueKey('tv-key-Letters'),
+                        label: 'abc',
+                        width: wide,
+                        onPressed: () => setState(() => _numbers = false),
+                      )
+                    : TvKey(
+                        key: const ValueKey('tv-key-Shift'),
+                        label: 'Shift',
+                        icon: Icons.arrow_upward,
+                        on: _upper && !_symbols,
+                        width: wide,
+                        onPressed: _shift,
+                      ),
                 const SizedBox(width: g),
                 TvKey(
                   key: const ValueKey('tv-key-Symbols'),
-                  label: _symbols ? 'abc' : '#+=',
+                  label: _numbers ? '#+=' : (_symbols ? 'abc' : (w.numbers ? '123' : '#+=')),
                   width: wide,
-                  onPressed: () => setState(() => _symbols = !_symbols),
+                  onPressed: () => setState(() {
+                    if (_numbers) {
+                      _numbers = false;
+                      _symbols = true;
+                    } else if (w.numbers && !_symbols) {
+                      _numbers = true;
+                    } else {
+                      _symbols = !_symbols;
+                    }
+                  }),
                 ),
                 const SizedBox(width: g),
                 w.newLine
@@ -135,7 +248,7 @@ class _TvKeyboardState extends State<TvKeyboard> {
                         label: 'New line',
                         icon: Icons.keyboard_return,
                         width: wide,
-                        onPressed: () => w.onType('\n'),
+                        onPressed: () => _type('\n'),
                       )
                     : TvKey(
                         key: const ValueKey('tv-key-Done'),
@@ -153,7 +266,7 @@ class _TvKeyboardState extends State<TvKeyboard> {
                 key: const ValueKey('tv-key-Space'),
                 label: 'Space',
                 width: wide,
-                onPressed: w.canSpace ? () => w.onType(' ') : null,
+                onPressed: w.canSpace ? () => _type(' ') : null,
               ),
               const SizedBox(width: g),
               TvKey(
@@ -174,6 +287,89 @@ class _TvKeyboardState extends State<TvKeyboard> {
   }
 }
 
+/// The predicted words (0.2.8): up to [TvKeyboard.most], OK on one is [onPredict]. Over the keys
+/// (narrow: each takes a share of the width by its length) or across a page ([natural]: each as
+/// wide as its word). When the one with focus goes (a word was put in and fewer are offered), focus
+/// moves to the last one left, or to [fallback] (the keys).
+class TvPredictionRow extends StatefulWidget {
+  const TvPredictionRow({super.key, required this.predictions, required this.onPredict, this.fallback, this.natural = false});
+  final List<Prediction> predictions;
+  final ValueChanged<Prediction> onPredict;
+  final FocusNode? fallback;
+  final bool natural;
+
+  @override
+  State<TvPredictionRow> createState() => _TvPredictionRowState();
+}
+
+class _TvPredictionRowState extends State<TvPredictionRow> {
+  final _slots = [for (var i = 0; i < TvKeyboard.most; i++) FocusNode(debugLabel: 'tv prediction $i')];
+
+  @override
+  void didUpdateWidget(TvPredictionRow old) {
+    super.didUpdateWidget(old);
+    final n = widget.predictions.length.clamp(0, TvKeyboard.most);
+    final had = _slots.indexWhere((f) => f.hasFocus);
+    if (had >= n && had >= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        (n > 0 ? _slots[n - 1] : widget.fallback)?.requestFocus();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final f in _slots) {
+      f.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const g = TvKeyboard.gap;
+    final list = widget.predictions;
+    Widget key(int i) => TvKey(
+          key: ValueKey('tv-predict-$i'),
+          focusNode: _slots[i],
+          label: list[i].word,
+          width: widget.natural ? null : double.infinity,
+          height: 36,
+          word: true,
+          onPressed: () => widget.onPredict(list[i]),
+        );
+    return SizedBox(
+      key: const ValueKey('tv-predictions'),
+      height: 36,
+      child: Row(children: [
+        for (var i = 0; i < list.length && i < TvKeyboard.most; i++) ...[
+          if (i > 0) SizedBox(width: widget.natural ? 10 : g),
+          widget.natural
+              // As wide as the word (up to a share of the row when they're all long).
+              ? Flexible(child: ConstrainedBox(constraints: const BoxConstraints(minWidth: 72), child: key(i)))
+              // Over the keys: a share of the width by the word's length, so long ones aren't
+              // cut short next to short ones.
+              : Expanded(flex: list[i].word.characters.length.clamp(4, 16), child: key(i)),
+        ],
+        if (list.isEmpty)
+          Expanded(
+            child: Container(
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.surfaceHigh),
+              ),
+              child: Text('Suggested words show here',
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: AppColors.textDim)),
+            ),
+          ),
+      ]),
+    );
+  }
+}
+
 /// One key. With [onPressed] null it still takes focus (so a row doesn't jump about), dimmed.
 class TvKey extends StatelessWidget {
   const TvKey({
@@ -186,11 +382,20 @@ class TvKey extends StatelessWidget {
     this.on = false,
     this.accent = false,
     this.autofocus = false,
+    this.focusNode,
+    this.word = false,
+    this.height = 40,
   });
   final bool autofocus;
+  final double height;
+  final FocusNode? focusNode;
+
+  /// A predicted word: its text left-aligned, cut short if it doesn't fit.
+  final bool word;
   final String label;
   final IconData? icon;
-  final double width;
+  /// Null: as wide as its label.
+  final double? width;
   final VoidCallback? onPressed, onHold;
 
   /// Lit (Shift while capitals are on).
@@ -206,6 +411,7 @@ class TvKey extends StatelessWidget {
     return TvPressable(
       semanticLabel: label,
       autofocus: autofocus,
+      focusNode: focusNode,
       onPressed: onPressed ?? () {},
       onHold: onHold,
       builder: (context, focused) {
@@ -216,8 +422,8 @@ class TvKey extends StatelessWidget {
           grow: false,
           child: Container(
             width: width,
-            height: 40,
-            alignment: Alignment.center,
+            height: height,
+            alignment: width == null ? null : Alignment.center,
             color: focused
                 ? AppColors.accent
                 : accent
@@ -230,7 +436,7 @@ class TvKey extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(icon, size: 16, color: fg),
-                      if (width > 60 && label != 'Delete') ...[
+                      if ((width ?? 0) > 60 && label != 'Delete') ...[
                         const SizedBox(width: 6),
                         Text(
                           label,
@@ -238,6 +444,20 @@ class TvKey extends StatelessWidget {
                         ),
                       ],
                     ],
+                  )
+                : word
+                ? Align(
+                    // As wide as the word when there's no width (centred up and down either way).
+                    widthFactor: width == null ? 1 : null,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: width == null ? 14 : 4),
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: fg),
+                      ),
+                    ),
                   )
                 : Text(
                     label,
@@ -277,6 +497,7 @@ Future<String?> showTvTextInput(
   bool obscure = false,
   bool multiline = false,
   int? maxLength,
+  TvTyping? typing,
 }) {
   return showGeneralDialog<String>(
     context: context,
@@ -291,6 +512,7 @@ Future<String?> showTvTextInput(
       obscure: obscure,
       multiline: multiline,
       maxLength: maxLength,
+      typing: typing ?? tvTypingFor(label: title, obscure: obscure, multiline: multiline),
     ),
     transitionBuilder: (context, anim, _, child) => FadeTransition(opacity: anim, child: child),
   );
@@ -306,11 +528,15 @@ class TvTextInput extends StatefulWidget {
     this.obscure = false,
     this.multiline = false,
     this.maxLength,
+    this.typing = TvTyping.title,
   });
   final String title, initial;
   final String? hint;
   final bool obscure, multiline;
   final int? maxLength;
+
+  /// What it's for (0.2.8): the keys, capitals and predicted words.
+  final TvTyping typing;
 
   @override
   State<TvTextInput> createState() => _TvTextInputState();
@@ -319,6 +545,55 @@ class TvTextInput extends StatefulWidget {
 class _TvTextInputState extends State<TvTextInput> {
   late String _text = widget.initial;
   bool _show = false;
+  WordPredictor? _predictor;
+  LibraryModel? _lib;
+  final _firstKey = FocusNode(debugLabel: 'tv key a');
+
+  @override
+  void dispose() {
+    _firstKey.dispose();
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final typing = widget.typing;
+    if (!typing.predicts) return;
+    _lib = context.read<LibraryModel?>();
+    // The library's words at once; the words typed before as soon as they're read.
+    _predictor = tvPredictorFor(context, typing, label: widget.title);
+    final lib = _lib;
+    if (lib != null && typing != TvTyping.address) {
+      TypedWords.load(lib).then((learned) {
+        if (!mounted || learned.isEmpty) return;
+        setState(() => _predictor = tvPredictorFor(context, typing, label: widget.title, learned: learned));
+      });
+    }
+  }
+
+  /// Whether the next letter starts a word (names) or a sentence (descriptions).
+  bool get _capitalNext {
+    final t = _text;
+    switch (widget.typing) {
+      case TvTyping.title || TvTyping.pick:
+        return t.isEmpty || t.endsWith(' ') || t.endsWith('\n');
+      case TvTyping.sentence:
+        final before = t.trimRight();
+        return before.isEmpty ||
+            t.endsWith('\n') ||
+            (t.endsWith(' ') && (before.endsWith('.') || before.endsWith('!') || before.endsWith('?')));
+      default:
+        return false;
+    }
+  }
+
+  void _predict(Prediction p) {
+    var next = WordPredictor.apply(_text, p);
+    if (widget.typing == TvTyping.address && p.whole) next = p.word; // no space after an address
+    if (widget.maxLength != null && next.characters.length > widget.maxLength!) return;
+    setState(() => _text = next);
+  }
 
   void _type(String s) {
     if (widget.maxLength != null && _text.characters.length >= widget.maxLength!) return;
@@ -331,12 +606,17 @@ class _TvTextInputState extends State<TvTextInput> {
     setState(() => _text = _text.characters.skipLast(1).toString());
   }
 
-  void _done() => Navigator.of(context).pop(_text);
+  void _done() {
+    final lib = _lib;
+    if (lib != null && widget.typing.remembers && !widget.obscure) TypedWords.learn(lib, _text);
+    Navigator.of(context).pop(_text);
+  }
 
   @override
   Widget build(BuildContext context) {
     final hidden = widget.obscure && !_show;
     final shown = hidden ? '•' * _text.characters.length : _text;
+    final predictions = _predictor == null || hidden ? null : _predictor!.predict(_text, max: TvKeyboard.most);
     return Material(
       color: AppColors.bg, // over everything: what is behind only distracts
       child: Focus(
@@ -357,7 +637,13 @@ class _TvTextInputState extends State<TvTextInput> {
                 widget.title,
                 style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+              // Predicted words across the page (0.2.8), so long names show whole; ↑ from the
+              // keys' top row comes here.
+              if (predictions != null) ...[
+                TvPredictionRow(predictions: predictions, onPredict: _predict, fallback: _firstKey, natural: true),
+                const SizedBox(height: 10),
+              ],
               Expanded(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -365,6 +651,9 @@ class _TvTextInputState extends State<TvTextInput> {
                     TvKeyboard(
                       full: true,
                       autofocus: true,
+                      firstKey: _firstKey,
+                      numbers: widget.typing == TvTyping.number,
+                      capitalNext: _capitalNext,
                       newLine: widget.multiline,
                       onType: _type,
                       onDelete: _delete,
@@ -491,6 +780,12 @@ class _TvTextFieldState extends State<TvTextField> {
       obscure: f.obscureText,
       multiline: f.maxLines != 1 || f.keyboardType == TextInputType.multiline,
       maxLength: f.maxLength,
+      typing: tvTypingFor(
+        label: _label,
+        keyboardType: f.keyboardType,
+        obscure: f.obscureText,
+        multiline: f.maxLines != 1 || f.keyboardType == TextInputType.multiline,
+      ),
     );
     if (typed == null || !mounted) return;
     // The box's own rules (digits only, a length) apply as if it had been typed there.

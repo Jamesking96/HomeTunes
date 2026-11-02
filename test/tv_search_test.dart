@@ -259,6 +259,31 @@ void main() {
     expect(find.text('Type to search'), findsOneWidget);
   });
 
+  // 0.2.8, the user: "predicted words, where as you type 3/4 words that are the closest show up
+  // near the top".
+  testWidgets('predicted words over the keys: ↑ to them, OK puts one in, then the words that come next', (tester) async {
+    await pumpApp(tester);
+    await openSearch(tester);
+    expect(find.byKey(const ValueKey('tv-predict-0')), findsNothing);
+    await type(tester, 'ha');
+    expect(find.descendant(of: find.byKey(const ValueKey('tv-predict-0')), matching: find.text('harbour')), findsOneWidget);
+    // From the keys' top row, ↑ goes to the words.
+    expect(focusedKey(), 'tv-key-a');
+    await press(tester, LogicalKeyboardKey.arrowUp);
+    expect(focusedKey(), 'tv-predict-0');
+    await press(tester, LogicalKeyboardKey.select);
+    expect(find.text('harbour |'), findsOneWidget);
+    // What comes after "harbour" in the library's names.
+    final next = [
+      for (var i = 0; i < 4; i++)
+        ...tester.widgetList<Text>(find.descendant(of: find.byKey(ValueKey('tv-predict-$i')), matching: find.byType(Text))).map((t) => t.data)
+    ];
+    expect(next, containsAll(['lights', 'wall']));
+    expect(focusedKey(), startsWith('tv-predict-'));
+    await press(tester, LogicalKeyboardKey.select);
+    expect(find.text('harbour lights |').evaluate().length + find.text('harbour wall |').evaluate().length, 1);
+  });
+
   testWidgets('OK on a song found plays the songs found, from that one', (tester) async {
     await pumpApp(tester);
     await openSearch(tester);
