@@ -244,7 +244,8 @@ Future<void> startDownload(BuildContext context, List<DownloadItem> items) async
       video: video,
       what: items.length == 1 ? '"${items.first.title}"' : '${items.length} ${video ? 'videos' : 'songs'}',
       originalBytes: bytes > 0 ? bytes : null,
-      length: length);
+      length: length,
+      sourceHeight: downloadItemsHeight(items));
   if (q == null) return;
   final added = dl.download(items, q);
   messenger?.showSnackBar(SnackBar(
@@ -324,10 +325,11 @@ Future<DownloadQuality?> askDownloadQuality(
   int? originalBytes,
   Duration length = Duration.zero,
   bool keeping = false,
+  int? sourceHeight,
 }) =>
     showDialog<DownloadQuality>(
       context: context,
-      builder: (ctx) => _QualityDialog(video: video, what: what, originalBytes: originalBytes, length: length, keeping: keeping),
+      builder: (ctx) => _QualityDialog(video: video, what: what, originalBytes: originalBytes, length: length, keeping: keeping, sourceHeight: sourceHeight),
     );
 
 /// The copies offered: the original file, then the smaller ones (shared with the TV's panel).
@@ -344,20 +346,32 @@ String downloadQualityLabel(DownloadQuality q, {required bool video}) => q.isOri
         ? 'Smaller copy, ${q.limit}p'
         : 'Smaller copy, ${q.limit} kbit/s MP3';
 
+/// The tallest picture among [items] when every one's height is known (0.2.7), else null.
+int? downloadItemsHeight(List<DownloadItem> items) {
+  int? tallest;
+  for (final it in items) {
+    final h = it.height;
+    if (h == null || h <= 0) return null;
+    if (tallest == null || h > tallest) tallest = h;
+  }
+  return tallest;
+}
+
 /// About how much space [q] takes for things [length] long ("about 1.2 GB"), or null when
 /// there's nothing to go on.
-String? downloadSizeEstimate(DownloadQuality q, {Duration length = Duration.zero, int? originalBytes}) {
+String? downloadSizeEstimate(DownloadQuality q, {Duration length = Duration.zero, int? originalBytes, int? sourceHeight}) {
   if (length <= Duration.zero && (q.isOriginal ? originalBytes == null : true)) return null;
-  final b = q.estimate(length, originalBytes: originalBytes);
+  final b = q.estimate(length, originalBytes: originalBytes, sourceHeight: sourceHeight);
   return b <= 0 ? null : '${q.isOriginal && originalBytes != null ? '' : 'about '}${fileSizeText(b)}';
 }
 
 class _QualityDialog extends StatefulWidget {
   final bool video, keeping;
   final String what;
-  final int? originalBytes;
+  final int? originalBytes, sourceHeight;
   final Duration length;
-  const _QualityDialog({required this.video, required this.what, this.originalBytes, required this.length, required this.keeping});
+  const _QualityDialog(
+      {required this.video, required this.what, this.originalBytes, required this.length, required this.keeping, this.sourceHeight});
 
   @override
   State<_QualityDialog> createState() => _QualityDialogState();
@@ -367,7 +381,7 @@ class _QualityDialogState extends State<_QualityDialog> {
   late DownloadQuality _q = DownloadQuality.original(video: widget.video);
 
   String? _size(DownloadQuality q) =>
-      downloadSizeEstimate(q, length: widget.length, originalBytes: widget.originalBytes);
+      downloadSizeEstimate(q, length: widget.length, originalBytes: widget.originalBytes, sourceHeight: widget.sourceHeight);
 
   @override
   Widget build(BuildContext context) {

@@ -20,7 +20,7 @@ import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/settings/download_settings.dart' show DownloadSettings;
 import 'package:hometunes/ui/screens/downloads_screen.dart' show DownloadQueueScreen;
-import 'package:hometunes/ui/widgets/download_ui.dart' show showDownloadHelp;
+import 'package:hometunes/ui/widgets/download_ui.dart' show showDownloadHelp, downloadItemsHeight, downloadSizeEstimate;
 import 'package:hometunes/ui/widgets/video_card.dart' show showVideoMenu, VideoCard;
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
@@ -548,5 +548,23 @@ void main() {
     expect(engine.jobs.length, before + 1);
     expect(engine.jobs.last.hls, isTrue);
     expect(engine.jobs.last.fileName, endsWith('.ts'));
+  });
+
+  // 0.2.7: The Lion King (608×368, 783 MB) was offered at "about 2.8 GB" for 720p; ~450 MB came.
+  test('a smaller copy of a short-picture video is estimated at the height it will really be', () {
+    const length = Duration(hours: 1, minutes: 28, seconds: 53);
+    const q720 = DownloadQuality.videoHeight(720), q1080 = DownloadQuality.videoHeight(1080);
+    final lion = q720.estimate(length, sourceHeight: 368);
+    expect(lion, inInclusiveRange(350000000, 700000000));
+    // 1080p and 720p of a 368-line video are the same copy.
+    expect(q1080.estimate(length, sourceHeight: 368), lion);
+    // A full-height 1080p film still counts as big, and nothing is over the server's cap.
+    expect(q1080.estimate(length, sourceHeight: 1080), greaterThan(3000000000));
+    expect(q1080.estimate(length, sourceHeight: 2160), lessThanOrEqualTo(q1080.estimate(length)));
+    // Height unknown: the cautious guess, as before.
+    expect(q720.estimate(length), greaterThan(2500000000));
+    expect(downloadSizeEstimate(q720, length: length, sourceHeight: 368), isNot(contains('GB')));
+    expect(downloadItemsHeight(const [DownloadItem('a', DownloadKind.video, 'A', height: 368), DownloadItem('b', DownloadKind.video, 'B', height: 720)]), 720);
+    expect(downloadItemsHeight(const [DownloadItem('a', DownloadKind.video, 'A', height: 368), DownloadItem('b', DownloadKind.video, 'B')]), isNull);
   });
 }

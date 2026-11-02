@@ -71,14 +71,17 @@ class DownloadItem {
   final Duration length;
   final int? size;
   final bool book;
+
+  /// A video's picture height, when known (0.2.7: for how big a smaller copy will be).
+  final int? height;
   const DownloadItem(this.id, this.kind, this.title,
-      {this.subtitle = '', this.length = Duration.zero, this.size, this.book = false});
+      {this.subtitle = '', this.length = Duration.zero, this.size, this.book = false, this.height});
 
   factory DownloadItem.track(Track t, {bool book = false}) => DownloadItem(t.id, DownloadKind.song, t.title,
       subtitle: book ? t.artist : '${t.artist} · ${t.album}', length: t.duration, book: book);
 
   factory DownloadItem.video(VideoItem v) => DownloadItem(v.id, DownloadKind.video, v.title,
-      subtitle: [v.collection, ?v.episodeLabel].join(' · '), length: v.duration, size: v.sizeBytes);
+      subtitle: [v.collection, ?v.episodeLabel].join(' · '), length: v.duration, size: v.sizeBytes, height: v.height);
 }
 
 class DownloadsModel extends ChangeNotifier {
@@ -640,7 +643,7 @@ class DownloadsModel extends ChangeNotifier {
         book: it.book,
       );
       // With no length to go by, a cautious guess, so the space limit still counts it (0.2.5).
-      final guess = q.estimate(it.length, originalBytes: it.size);
+      final guess = q.estimate(it.length, originalBytes: it.size, sourceHeight: it.height);
       _entries[it.id] = e.copyWith(expected: guess > 0 ? guess : (it.kind == DownloadKind.video ? 2000000000 : 15000000));
       // Asked for again after being taken out of something kept offline.
       if (origin == DownloadOrigin.manual) {

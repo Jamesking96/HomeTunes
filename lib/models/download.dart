@@ -44,15 +44,26 @@ class DownloadQuality {
   static const audioBitrates = [320, 192, 128];
 
   /// About how big a copy of [length] is, in bytes (for the space limit before the real size is
-  /// known). [originalBytes] when the server said.
-  int estimate(Duration length, {int? originalBytes}) {
+  /// known). [originalBytes] when the server said. [sourceHeight]: the video's own picture height,
+  /// when known.
+  int estimate(Duration length, {int? originalBytes, int? sourceHeight}) {
     if (isOriginal) {
       return originalBytes ?? (length.inSeconds * (video ? 1000000 : 40000));
     }
-    final bitsPerSecond = video
-        ? switch (limit!) { >= 1080 => 10000000, >= 720 => 4000000, _ => 1500000 } + 192000
-        : limit! * 1000;
-    return length.inSeconds * bitsPerSecond ~/ 8;
+    if (!video) return length.inSeconds * limit! * 1000 ~/ 8;
+    // The most the server is allowed for this height.
+    final cap = switch (limit!) { >= 1080 => 10000000, >= 720 => 4000000, _ => 1500000 };
+    var bitsPerSecond = cap;
+    // 0.2.7: a copy is never taller than the video itself, and the server's encoder uses what the
+    // picture needs, not the most it's allowed (The Lion King, 608×368: "about 2.8 GB" offered for
+    // 720p, ~450 MB arrived, about 490 kbit/s). With the height known, a typical rate for the
+    // height the copy will really be.
+    if (sourceHeight != null && sourceHeight > 0) {
+      final h = sourceHeight < limit! ? sourceHeight : limit!;
+      final typical = (5000000 * (h / 1080) * (h / 1080)).round();
+      bitsPerSecond = typical < 300000 ? 300000 : (typical > cap ? cap : typical);
+    }
+    return length.inSeconds * (bitsPerSecond + 192000) ~/ 8;
   }
 
   @override
