@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/services/playback_log.dart';
 import 'package:hometunes/services/video_drawing.dart';
 import 'package:hometunes/services/video_stats.dart';
+import 'package:hometunes/state/settings/settings_groups.dart' show VideoSettings;
+import 'package:media_kit_video/media_kit_video.dart' show SubtitleViewConfiguration;
 
 void main() {
   setUp(PlaybackLog.reset);
@@ -98,6 +100,19 @@ void main() {
     // 0.1.58: music videos have no sound to keep time by, so they always draw the usual way.
     expect(musicVideoDrawing.vo, isNull);
     expect(musicVideoDrawing.hwdec, isNull);
+  });
+
+  // 0.2.8: the page's drawing as the session sees it, and subtitle sizes.
+  test('which way the page draws, and how big subtitles are', () {
+    expect(pageDrawing(direct: true, android: true), VideoDrawing.chip);
+    expect(pageDrawing(direct: false, android: true), VideoDrawing.app);
+    expect(pageDrawing(direct: true, android: false), VideoDrawing.none);
+    expect(subtitleView(size: 1, android: true).style.fontSize, 32);
+    expect(subtitleView(size: 1.5, android: true).style.fontSize, 48);
+    expect(subtitleView(size: 1.5, android: true).style.backgroundColor, const SubtitleViewConfiguration().style.backgroundColor);
+    expect(subtitleView(size: 1, android: false).visible, isFalse); // the PC's engine draws them
+    expect([for (final s in VideoSettings.subtitleSizes) VideoSettings.subtitleSizeLabel(s)],
+        ['Small', 'Normal', 'Large', 'Larger', 'Largest']);
   });
 
   testWidgets('a watched player: start line, a stutter report, and a summary', (tester) async {

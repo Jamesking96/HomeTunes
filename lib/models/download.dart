@@ -87,7 +87,7 @@ enum DownloadOrigin {
   ahead,
 
   /// A temporary copy (0.2.4, step 4): saved while it streamed, so it replays without the
-  /// server, and cleared away some days after it's finished (Settings › Servers › Temporary
+  /// server, and cleared away some days after it's finished (Settings › Downloads › Temporary
   /// copies). Keep turns it into a normal download.
   temporary,
 }

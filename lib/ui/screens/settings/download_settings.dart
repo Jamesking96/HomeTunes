@@ -1,4 +1,5 @@
-// Settings › Servers › Downloads (0.2.3, step 3 of the Servers & Downloads plan): where downloads
+// Settings › Downloads (0.2.3, step 3 of the Servers & Downloads plan; its own page since 0.2.8,
+// the user: "Downloads as it's own tab in the settings"; it was part of Servers): where downloads
 // go (HomeTunes' data folder unless you pick another), the space they may take, how many
 // episodes to download ahead while watching a series from a server (and which copy), and on
 // phones and TVs Wi-Fi only and carrying on in the background. "See downloads" opens the
@@ -16,6 +17,24 @@ import '../../widgets/folder_browser.dart';
 import 'package:provider/provider.dart';
 import 'settings_widgets.dart';
 import '../../tv/tv_focus.dart' show tvModeOf;
+
+/// Settings › Downloads (0.2.8): the Downloads section, then Temporary copies.
+class DownloadsSettingsPage extends StatelessWidget {
+  const DownloadsSettingsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    if (downloadsOf(context, listen: true) == null) {
+      return const SettingsPageList(
+          intro: 'Downloads come from your servers. Add a server in Settings › Servers to download from it.', children: []);
+    }
+    return const SettingsPageList(
+      intro: 'Download things from your servers to play them without the server: on a train, or with the server off. '
+          'Temporary copies keep what you stream for a while.',
+      children: [DownloadSettings(), TemporaryCopySettings()],
+    );
+  }
+}
 
 /// The Downloads section (nothing when the app has no DownloadsModel, as in some tests).
 class DownloadSettings extends StatelessWidget {
@@ -263,7 +282,7 @@ class DownloadSettings extends StatelessWidget {
   }
 }
 
-/// Settings › Servers › Temporary copies (0.2.4, step 4 of the Servers & Downloads plan): save
+/// Settings › Downloads › Temporary copies (0.2.4, step 4 of the Servers & Downloads plan): save
 /// what streams so it replays without the server, then clear it away some days after it's
 /// finished (or never, with Don't delete automatically), within its own space, and Clear now.
 /// Nothing when the app has no DownloadsModel.

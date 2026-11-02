@@ -224,8 +224,8 @@ void main() {
     await openSettings(tester);
     expect(focusedKey(), 'tv-settings-search'); // the top of the list
     expect(find.text('Folders & scanning'), findsWidgets);
-    // Down to Playback (About, Appearance, … Playback is the 8th page).
-    await press(tester, LogicalKeyboardKey.arrowDown, 8);
+    // Down to Playback (About, Appearance, … Playback is the 9th page since Downloads, 0.2.8).
+    await press(tester, LogicalKeyboardKey.arrowDown, 9);
     expect(focusedKey(), 'tv-settings-playback');
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
@@ -242,7 +242,7 @@ void main() {
   testWidgets('a choice shows its value; OK opens the list with it ticked; choosing one changes it', (tester) async {
     await pumpApp(tester);
     await openSettings(tester);
-    await press(tester, LogicalKeyboardKey.arrowDown, 8); // Playback
+    await press(tester, LogicalKeyboardKey.arrowDown, 9); // Playback
     await press(tester, LogicalKeyboardKey.select); // into it
     expect(find.text('Off'), findsWidgets);
     await tester.ensureVisible(find.text('Even out volume (ReplayGain)'));

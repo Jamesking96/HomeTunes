@@ -257,7 +257,7 @@ class DownloadsModel extends ChangeNotifier {
 
   bool isKept(KeepKind kind, String key) => _kept.containsKey('${kind.name}:$key');
 
-  // ---- settings (kept in downloads.json; Settings › Servers › Downloads) ----
+  // ---- settings (kept in downloads.json; Settings › Downloads) ----
 
   /// The folder picked for downloads, or null for HomeTunes' own data folder.
   String? customFolder;
@@ -291,7 +291,7 @@ class DownloadsModel extends ChangeNotifier {
     _tidyAhead();
   }
 
-  // Temporary copies (0.2.4, Settings › Servers › Temporary copies).
+  // Temporary copies (0.2.4, Settings › Downloads › Temporary copies).
 
   /// Save a copy of what streams from a server while it plays (off to start with).
   bool tempSave = false;
@@ -1192,7 +1192,7 @@ class DownloadsModel extends ChangeNotifier {
     if (!android || !background || _backgroundNoticeShown) return;
     _backgroundNoticeShown = true;
     onNotice?.call('Downloads for things kept offline, and episodes downloaded ahead, carry on while '
-        'HomeTunes is in the background. You can turn this off in Settings › Servers › Downloads.');
+        'HomeTunes is in the background. You can turn this off in Settings › Downloads.');
   }
 
   // ---- Make it mine ----

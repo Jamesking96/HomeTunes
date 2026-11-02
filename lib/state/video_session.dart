@@ -17,6 +17,7 @@ import '../services/engine/video_engine.dart';
 import '../services/path_safety.dart';
 import '../services/playback_log.dart';
 import '../services/subsonic_client.dart' show hideSecrets;
+import '../services/video_drawing.dart' show VideoDrawing;
 import '../services/video_names.dart';
 import '../services/video_stats.dart';
 import 'equalizer_model.dart';
@@ -30,6 +31,8 @@ import 'video_library_model.dart';
 import 'video_shuffle.dart';
 import 'video_tracks.dart';
 
+export '../services/video_drawing.dart' show VideoDrawing;
+
 /// What the video player sends the engine for [preset]: the equaliser filter (bands at or above
 /// half of [sampleRate] left out, as for music) and the overall level in dB (mpv's
 /// `replaygain-fallback`). Refactor phase 1, 8 Oct 2026; since phase 4 worked out by the
@@ -37,6 +40,22 @@ import 'video_tracks.dart';
 /// exports it).
 ({String filter, String level}) videoEqualizerSettings(EqPreset? preset, {int? sampleRate}) =>
     AudioChain.settingsFor(preset, sampleRate: sampleRate);
+
+/// Picture formats that the video chips in TVs and phones don't play properly from old AVI files
+/// (0.2.8). The user (2 Nov 2026): Disney films "don't seem to play properly. Some play audio but
+/// are black screens, some don't load anything and others freeze on a fixed frame", though VLC
+/// plays them. On the test TV: DivX 3 (msmpeg4v3) has no chip decoder at all (decoded in
+/// software, then nowhere to draw it: sound, black screen); XviD / DivX 5 (mpeg4) with B-frames
+/// goes to the chip, whose pictures come back out of order (AVI keeps no display times), so the
+/// clock jumps about and nothing shows, or it freezes. Software decoding plays them all, as VLC
+/// does; at their sizes (mostly about 640×360) that's light work.
+const oldVideoFormats = {
+  'mpeg4', 'msmpeg4', 'msmpeg4v1', 'msmpeg4v2', 'msmpeg4v3', 'divx', 'xvid', 'dx50', 'div3', //
+  'h263', 'flv1', 'wmv1', 'wmv2', 'wmv3', 'rv10', 'rv20', 'rv30', 'rv40', 'vp6', 'vp6f', 'theora',
+};
+
+/// Whether [codec] (a server's name for the picture's format) is one of [oldVideoFormats].
+bool isOldVideoFormat(String? codec) => codec != null && oldVideoFormats.contains(codec.trim().toLowerCase());
 
 class VideoSession extends ChangeNotifier {
   VideoSession({
@@ -55,6 +74,9 @@ class VideoSession extends ChangeNotifier {
     this.tracksSettle = const Duration(milliseconds: 200),
     this.openingTimeout = const Duration(seconds: 12),
     this.stallLimit = const Duration(seconds: 15),
+    this.drawing = VideoDrawing.none,
+    this.onNeedAppDrawing,
+    this.seeksTracked = false,
   })  : _id = videoId,
         shownId = ValueNotifier(videoId) {
     transport = VideoEngineTransport(engine, maxVolume: () => _playback.maxVolume);
@@ -65,6 +87,9 @@ class VideoSession extends ChangeNotifier {
     // Volume boost (0.1.62): the volume can go above 100 up to Settings › Playback's top.
     _playback.addListener(_followVolumeTop);
     if (engine.hasOptions) engine.setOption('volume-max', '$engineVolumeMax');
+    // Subtitle size (0.2.8): the PC's engine draws subtitles itself (Android's are the app's).
+    _video.addListener(_applySubtitleSize);
+    _applySubtitleSize();
     _subs.addAll([
       engine.completedStream.listen((done) {
         if (done) _finished();
@@ -80,9 +105,15 @@ class VideoSession extends ChangeNotifier {
         // (0.2.7) Also when it knows its length but hasn't started moving: The Lion King's .avi
         // opened part-way in, said "Error decoding audio." and stood still on one picture.
         final address = _address;
+        final why = 'the player said "${hideSecrets(e.toString())}"';
+        // (0.2.8) Drawn straight from the chip: first let the app decode it and draw the picture.
+        if (!_disposed && (engine.duration == Duration.zero || !_moving) && address != null && _chipMayBeTheProblem) {
+          _needAppDrawing(why);
+          return;
+        }
         if (!_disposed && (engine.duration == Duration.zero || !_moving) && address != null && address.remote &&
             !address.converted && !_triedConverted) {
-          _tryConverted('the player said "${hideSecrets(e.toString())}"');
+          _tryConverted(why);
           return;
         }
         if (!_disposed && engine.duration == Duration.zero) {
@@ -104,9 +135,19 @@ class VideoSession extends ChangeNotifier {
             final step = at - last;
             if (step > Duration.zero && step <= const Duration(seconds: 3)) {
               _played += step;
-              if (_played > const Duration(seconds: 1)) _moving = true;
+              if (_played > const Duration(seconds: 1)) {
+                _moving = true;
+                // (0.2.8) Moving, so sound is playing: is the chip really decoding the picture?
+                if (drawing == VideoDrawing.chip && !_chipChecked) {
+                  _chipChecked = true;
+                  final id = _id;
+                  Timer(const Duration(seconds: 1), () => _checkChip(id));
+                }
+              }
             }
           }
+        } else {
+          _watchClock(at);
         }
         if (opening && at > Duration.zero && engine.isPlaying) shown();
       }),
@@ -291,6 +332,103 @@ class VideoSession extends ChangeNotifier {
   /// How long a server video gets to start moving before a converted copy is asked for instead.
   final Duration stallLimit;
 
+  void _applySubtitleSize() {
+    if (!_disposed && engine.hasOptions) engine.setOption('sub-scale', '${_video.subtitleSize}');
+  }
+
+  /// How the page shows the picture (0.2.8), and how to ask it to start again with the app
+  /// drawing the picture, at video [id] (the page makes a new player; this session closes).
+  final VideoDrawing drawing;
+  final void Function(String id)? onNeedAppDrawing;
+
+  /// Every seek goes through [VideoEngine.seek] (the TV's controls), so a jump in the clock soon
+  /// after none is the file's own (0.2.8). A phone's player controls seek the player directly, so
+  /// there the clock isn't watched.
+  final bool seeksTracked;
+
+  /// Videos found this time HomeTunes is open to need software decoding (the chip couldn't show
+  /// them), so they go straight there when opened again (0.2.8).
+  static final Set<String> _needsSoftware = {};
+
+  /// For tests: forgets [_needsSoftware].
+  @visibleForTesting
+  static void forgetSoftwareFinds() => _needsSoftware.clear();
+
+  /// Whether the video on the page now is decoded in software (0.2.8).
+  bool get software => _software;
+  bool _software = false;
+
+  bool _chipChecked = false, _handedOver = false;
+  Duration? _openedAt, _prevAt;
+  final List<DateTime> _selfJumps = [];
+
+  /// Drawn straight from the chip, and the page can start again with the app drawing (0.2.8).
+  bool get _chipMayBeTheProblem =>
+      drawing == VideoDrawing.chip && onNeedAppDrawing != null && !(_address?.converted ?? false) && !_handedOver;
+
+  /// The chip can't show this video: the page starts again with the app drawing the picture and
+  /// decoding it in software, from [place] (else where it got to).
+  void _needAppDrawing(String why, {Duration? place}) {
+    if (_handedOver || _disposed) return;
+    _handedOver = true;
+    _stallTimer?.cancel();
+    final id = _id;
+    final v = videos.byId(id);
+    _needsSoftware.add(id);
+    PlaybackLog.add('Video${v == null ? '' : ' "${v.title}"'} won\'t show from the video chip ($why): '
+        'the app decodes it and draws the picture instead');
+    final length = _length();
+    if (place != null && length > Duration.zero) {
+      videos.savePlace(id, place, length, paused: true);
+    } else {
+      savePlace();
+    }
+    // Not from inside the page's own build or initState.
+    scheduleMicrotask(() {
+      if (!_disposed) onNeedAppDrawing?.call(id);
+    });
+  }
+
+  /// A second after it started moving (with sound): the chip should be decoding the picture
+  /// (0.2.8). Nothing there means the engine fell back to decoding it in software, which can't
+  /// be drawn straight from the chip: sound and a black screen (DivX 3).
+  Future<void> _checkChip(String id) async {
+    if (_disposed || id != _id || !_chipMayBeTheProblem) return;
+    String h;
+    try {
+      h = (await engine.getOption('hwdec-current')).trim();
+    } catch (_) {
+      return;
+    }
+    if (_disposed || id != _id) return;
+    if (h.isEmpty || h == 'no') _needAppDrawing('the chip isn\'t decoding it, so there\'s no picture');
+  }
+
+  /// Jumps in the clock that nobody asked for (0.2.8): XviD from an AVI decoded by the chip gives
+  /// its pictures back out of order, and the clock jumps about with nothing on screen
+  /// (Ratatouille: 17 jumps in 30 s). Three in 20 s means it isn't playing properly.
+  void _watchClock(Duration at) {
+    if (!seeksTracked) return;
+    final prev = _prevAt;
+    _prevAt = at;
+    if (prev == null || (at - prev).abs() <= const Duration(milliseconds: 1500)) return;
+    final now = DateTime.now();
+    final seek = engine.lastSeek;
+    if (seek != null && now.difference(seek) < const Duration(seconds: 3)) return; // the viewer's skip
+    _selfJumps
+      ..add(now)
+      ..removeWhere((t) => now.difference(t) > const Duration(seconds: 20));
+    if (_selfJumps.length < 3) return;
+    _selfJumps.clear();
+    const why = 'its clock keeps jumping on its own';
+    if (_chipMayBeTheProblem) {
+      _needAppDrawing(why, place: _openedAt ?? Duration.zero);
+    } else {
+      final address = _address;
+      if (address != null && address.remote && !address.converted && !_triedConverted) _tryConverted(why);
+    }
+  }
+
   void _tryConverted(String why) {
     final v = videos.byId(_id);
     PlaybackLog.add('Video${v == null ? '' : ' "${v.title}"'} won\'t play as it is ($why): asking the server for a converted copy');
@@ -303,13 +441,17 @@ class VideoSession extends ChangeNotifier {
   /// never starting) while it's meant to be playing: a converted copy instead (0.2.7).
   void _checkStall() {
     final address = _address;
-    if (_disposed || _moving || address == null || !address.remote || address.converted || _triedConverted) return;
+    if (_disposed || _moving || address == null || address.converted) return;
+    final chip = _chipMayBeTheProblem;
+    if (!chip && (!address.remote || _triedConverted)) return;
     if (!engine.isPlaying) {
       // Paused (by the user, or still loading): look again a bit later.
       _stallTimer = Timer(stallLimit, _checkStall);
       return;
     }
-    _tryConverted('it didn\'t start moving within ${stallLimit.inSeconds} s');
+    final why = 'it didn\'t start moving within ${stallLimit.inSeconds} s';
+    // (0.2.8) From the chip: the app decoding it comes first (it works without the server).
+    chip ? _needAppDrawing(why, place: _openedAt) : _tryConverted(why);
   }
 
   /// The length to save places against: the engine's, or for a converted server stream (which
@@ -340,6 +482,10 @@ class VideoSession extends ChangeNotifier {
     _played = Duration.zero;
     _moving = false;
     _stallTimer?.cancel();
+    _chipChecked = false;
+    _prevAt = null;
+    _selfJumps.clear();
+    _openedAt = null;
     problem = null;
     tracksSetUp = false;
     upNext = null;
@@ -357,6 +503,21 @@ class VideoSession extends ChangeNotifier {
       shown();
       return;
     }
+    // (0.2.8) An old format (DivX 3, XviD…), or one the chip couldn't show before: decoded in
+    // software, so the app must draw the picture. Drawn from the chip, the page starts again.
+    final old = !converted && (isOldVideoFormat(v.videoCodec) || _needsSoftware.contains(v.id));
+    if (old && drawing == VideoDrawing.chip && onNeedAppDrawing != null) {
+      _handedOver = true;
+      PlaybackLog.add('Video "${v.title}" is in an old format (${v.videoCodec ?? 'found while playing'}): '
+          'the app decodes it and draws the picture');
+      scheduleMicrotask(() {
+        if (!_disposed) onNeedAppDrawing?.call(id);
+      });
+      return;
+    }
+    _software = old && drawing == VideoDrawing.app;
+    if (drawing == VideoDrawing.app && engine.hasOptions) await engine.setOption('hwdec', _software ? 'no' : 'auto-safe');
+    if (_disposed || _id != id) return;
     final place = videos.placeOf(v.id);
     var start = resumeAt(place, v.duration);
     // Settings › Videos: go back a little, more after a long break (like audiobooks).
@@ -377,7 +538,8 @@ class VideoSession extends ChangeNotifier {
       return;
     }
     _address = address;
-    if (address.remote && !address.converted) _stallTimer = Timer(stallLimit, _checkStall);
+    _openedAt = address.startsAt ?? start;
+    if ((address.remote || drawing == VideoDrawing.chip) && !address.converted) _stallTimer = Timer(stallLimit, _checkStall);
     // The seek preview opens the same video in a hidden player: files only (a server stream would
     // be fetched twice).
     _file = address.remote ? null : address.uri;
@@ -600,6 +762,7 @@ class VideoSession extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _video.removeListener(_applySubtitleSize);
     // Save the place once this frame is done (telling the Videos tab during dispose would redraw
     // it while the widget tree is locked).
     final length = _length(), at = engine.position;

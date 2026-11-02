@@ -248,16 +248,16 @@ than the video itself, so for an old, small video the 1080p and 720p copies are 
   offline** asks whether to keep what it downloaded.
 - **Download next episodes:** while you watch a series from a server, the next two episodes
   download, and each is removed again once you've watched it.
-- **Remove downloaded videos once watched** (Settings > Servers > Downloads, off to start
+- **Remove downloaded videos once watched** (Settings > Downloads, off to start
   with): a film or episode you downloaded is removed when you finish watching it, to free the
   space. One you'd already watched before downloading it stays until you watch it again. If it
   was part of something kept offline, it isn't downloaded again.
 - **Make it mine…** copies a downloaded song or video into one of your own folders, tidily named,
   so it's one of your own files from then on (and where you got to in a video comes with it).
 - The **Downloads** page (in the sidebar, at the top of Your Library › Playlists, or Settings >
-  Servers > Downloads > See downloads) shows what's downloading, what's kept offline and
+  Downloads > See downloads) shows what's downloading, what's kept offline and
   everything downloaded, with pause, carry on, try again and remove, and how much space it takes.
-- **Settings > Servers > Downloads:** where downloads go (HomeTunes' own data folder unless you
+- **Settings > Downloads:** where downloads go (HomeTunes' own data folder unless you
   pick another: choose the **Download folder** row; once you've picked one, the same row offers
   going back to HomeTunes' own, and a folder HomeTunes can't save in is turned down with a
   message), how much space they may take, how many next episodes to download and which copy.
@@ -270,7 +270,7 @@ than the video itself, so for an old, small video the 1080p and 720p copies are 
 each start with a short note on how to use them and where they're used, worded for the device
 you're on (hold OK on a TV, right-click on a PC, press and hold on a phone).
 
-**Download or Keep offline?** (Also in the app: **Settings > Servers > Downloads > Download or
+**Download or Keep offline?** (Also in the app: **Settings > Downloads > Download or
 Keep offline?**, or the Downloads page's ⋮ menu.)
 - **Download** copies exactly what you chose onto this device, as it is now: one song or
   episode, or a whole album, playlist, season or collection. It then plays without the server.
@@ -286,13 +286,13 @@ Keep offline?**, or the Downloads page's ⋮ menu.)
 **Seeing a download's progress.** While a video downloads, a thin bar along the top of its
 picture fills up; a collection (or series) shows one bar for everything of it that's
 downloading. The bar is your highlight colour while downloading and grey while waiting its
-turn. **Download queue** (Settings > Servers > Downloads, or the queue button on the Downloads
+turn. **Download queue** (Settings > Downloads, or the queue button on the Downloads
 page) lists everything on its way, numbered in the order it'll download (two at a time), each
 with its bar, with pause, carry on, try again and stop. On a TV it's on the Downloads page
 (Queue).
 
 **Temporary copies.** If you'd like what you stream to play again without the server, but don't
-want to manage downloads, turn on **Settings > Servers > Temporary copies > Save a copy while
+want to manage downloads, turn on **Settings > Downloads > Temporary copies > Save a copy while
 streaming**. Anything from a server then plays straight away and is saved in the background as
 it plays; next time it plays from this device. A temporary copy is cleared away by itself a
 while after you've finished it (watched to the end, played through, or the audiobook finished):
@@ -421,7 +421,9 @@ again). Quick links only show on a computer, where there's a sidebar.
   **Open collection page**, **Edit collection…**, **Change poster…** and more. A video carries on
   where you stopped, and the next episode starts after a short countdown.
   - **Watching:** the player has skip buttons, **previous / next video**, speed, and a subtitles
-    button for choosing audio and subtitle tracks (remembered for each collection). A round
+    button for choosing audio and subtitle tracks (remembered for each collection). **Subtitle
+    size** (Settings › Videos, and on a TV in the player's **Audio & subtitles**) makes subtitles
+    smaller or bigger: Small, Normal, Large, Larger or Largest, for every video. A round
     **Enlarge** button sits in the top corner of the picture (**Shrink** once it's enlarged, and
     **Leave full screen** in full screen); **Full screen** is in the bottom corner with the other
     controls. The same buttons are below the video too, with more. On a PC, Space, the arrow keys, F and Esc work, and the mouse wheel over
@@ -587,7 +589,14 @@ use a HomeTunes backup file as described above.
   format, how your device is decoding it, and (only when something goes wrong) how many
   pictures were dropped and whether it had to wait for the file. Play the video until it
   stutters, then copy the log the same way.
-- **A video shows a black picture on the phone** (but you can hear it): turn off **Settings ›
+- **Old videos (DivX, XviD, often .avi files from the 2000s) on a TV or phone:** the TV's or
+  phone's video chip can't show these properly (sound but a black picture, a frozen picture, or
+  nothing at all), so HomeTunes decodes them itself and draws the picture, as VLC does. For videos
+  from a server it knows the format beforehand; for anything else it notices within a few seconds
+  (no picture, or the picture's clock jumping about by itself) and starts it again that way from
+  the same place. If even that doesn't work with a server video, it asks the server for a
+  converted copy. The Playback log says when any of this happens.
+- **A video still shows a black picture on the phone** (but you can hear it): turn off **Settings ›
   Videos › Smoother video on phones** and open the video again. That setting shows the picture
   straight from the phone's video chip, which is smoother, but a few unusual video formats can't
   be shown that way.

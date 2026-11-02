@@ -881,6 +881,14 @@ String? _seasonTitle(Object? name) {
   };
   final subtitles = <String>[];
   final streams = source['MediaStreams'] is List ? source['MediaStreams'] as List : const [];
+  // The picture's format (0.2.8): old ones (DivX 3, XviD) are decoded in software on Android.
+  String? videoCodec;
+  for (final st in streams) {
+    if (st is Map && st['Type'] == 'Video' && st['Codec'] is String && (st['Codec'] as String).trim().isNotEmpty) {
+      videoCodec = (st['Codec'] as String).trim().toLowerCase();
+      break;
+    }
+  }
   for (final st in streams) {
     if (st is! Map || st['Type'] != 'Subtitle' || st['IsExternal'] != true || st['Index'] is! int) continue;
     final format = _subtitleFormat(st['Codec']);
@@ -941,6 +949,7 @@ String? _seasonTitle(Object? name) {
     subtitles: subtitles,
     thumb: have(false),
     cover: have(true),
+    videoCodec: videoCodec,
   );
   return (video: video, pictures: jobs);
 }

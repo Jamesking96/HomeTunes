@@ -42,6 +42,7 @@
   "videoRewindOnResume": false,
   "videoDirectDrawing": false,
   "videoSeekPreview": false,
+  "subtitleSize": 1.5,
   "videoPictureShape": "tall",
   "collectionPictureShape": "square",
   "videoPlayerLook": {
