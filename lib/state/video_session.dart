@@ -122,8 +122,9 @@ class VideoSession extends ChangeNotifier {
       engine.tracksStream.listen((_) => _setUpTracks()),
       engine.trackStream.listen((_) => _readCurrentTracks()),
     ]);
+    // Quietly (0.2.8): only the place, nothing else redrawn, so the picture doesn't stall.
     _saveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (engine.isPlaying) savePlace();
+      if (engine.isPlaying) savePlace(quiet: true);
     });
     open(_id);
   }
@@ -554,12 +555,12 @@ class VideoSession extends ChangeNotifier {
         transport: transport);
   }
 
-  void savePlace({bool end = false}) {
+  void savePlace({bool end = false, bool quiet = false}) {
     final length = _length();
     if (length <= Duration.zero) return;
     final at = end ? length : engine.position;
     if (at <= Duration.zero) return;
-    videos.savePlace(_id, at, length, paused: !engine.isPlaying);
+    videos.savePlace(_id, at, length, paused: !engine.isPlaying, quiet: quiet && !end);
   }
 
   /// The end: counts as watched, then the next video in the collection starts after a countdown.
