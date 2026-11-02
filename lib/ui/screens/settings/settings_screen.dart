@@ -22,6 +22,7 @@ import 'library_settings.dart';
 import 'music_settings.dart';
 import 'online_settings.dart';
 import 'playback_settings.dart';
+import 'download_settings.dart' show DownloadsSettingsPage;
 import 'server_settings.dart';
 import 'settings_catalog.dart';
 import 'settings_widgets.dart';
@@ -36,6 +37,7 @@ Widget settingsPageBody(SettingsPage page) => switch (page) {
       SettingsPage.audiobooks => const AudiobookSettings(),
       SettingsPage.onlineLookups => const OnlineLookupSettings(),
       SettingsPage.server => const ServerSettings(),
+      SettingsPage.downloads => const DownloadsSettingsPage(),
       SettingsPage.edits => const EditsSettings(),
       SettingsPage.backup => const BackupSettings(),
       SettingsPage.appearance => const AppearanceSettings(),

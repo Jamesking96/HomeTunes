@@ -283,6 +283,7 @@ void main() {
           videoId: id,
           drawing: drawing,
           onNeedAppDrawing: asked.add,
+          seeksTracked: true,
           upNextTick: const Duration(milliseconds: 1),
           tracksSettle: Duration.zero,
           openingTimeout: const Duration(seconds: 1),
