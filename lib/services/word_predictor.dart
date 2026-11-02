@@ -39,6 +39,7 @@ class WordPredictor {
     Map<String, int> learned = const {},
     Iterable<String> phrases = const [],
     this.lowerCase = false,
+    this.sentenceCase = false,
   }) {
     for (final n in names) {
       _addName(n, 1);
@@ -55,6 +56,10 @@ class WordPredictor {
   }
 
   final bool lowerCase;
+
+  /// Sentences (a description): a word that's only capitalised because it was in a title
+  /// ("Movie") is offered small mid-sentence, unless the typing started with a capital.
+  final bool sentenceCase;
 
   /// A word typed before counts as much as this many names using it.
   static const _learnedWeight = 3;
@@ -190,7 +195,11 @@ class WordPredictor {
   /// started with one.
   String _style(String word, String typing) {
     if (lowerCase) return word.toLowerCase();
-    if (typing.isNotEmpty && _isUpper(typing[0]) && !_isUpper(word[0])) return word[0].toUpperCase() + word.substring(1);
+    final capital = typing.isNotEmpty && _isUpper(typing[0]);
+    if (capital && !_isUpper(word[0])) return word[0].toUpperCase() + word.substring(1);
+    if (sentenceCase && !capital && word.length > 1 && _isUpper(word[0]) && word.substring(1) == word.substring(1).toLowerCase()) {
+      return word.toLowerCase();
+    }
     return word;
   }
 

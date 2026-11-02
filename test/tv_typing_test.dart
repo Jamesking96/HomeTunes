@@ -78,6 +78,13 @@ void main() {
       expect(one, [const Prediction('Action', whole: true), const Prediction('Adventure', whole: true)]);
     });
 
+    test('a description: title words small mid-sentence, a capital when the typing has one', () {
+      final w = WordPredictor(names: ['The Movie', 'Monsters, Inc.', 'AC/DC Live'], sentenceCase: true);
+      expect(words(w.predict('the m')), containsAll(['movie', 'monsters']));
+      expect(words(w.predict('The M')), contains('Movie'));
+      expect(words(w.predict('loud ac')), ['AC/DC']); // not just a capital at the start: kept as it is
+    });
+
     test('words typed before are offered, and count more', () {
       final w = WordPredictor(names: ['Hollow Knight'], learned: {'Holiday': 2});
       expect(words(w.predict('ho')).first, 'Holiday');

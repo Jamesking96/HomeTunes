@@ -156,5 +156,6 @@ WordPredictor? tvPredictorFor(BuildContext context, TvTyping typing, {String? la
     phrases: phrases,
     learned: typing == TvTyping.search ? const {} : learned,
     lowerCase: typing == TvTyping.search,
+    sentenceCase: typing == TvTyping.sentence,
   );
 }
