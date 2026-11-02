@@ -527,4 +527,26 @@ void main() {
     expect(engine.jobs.length, before + 1);
     expect(engine.jobs.last.taskId, DownloadsModel.taskIdFor(v('ep3').id));
   });
+
+  test('a converted copy downloaded before 0.2.7 (one .mkv with no index) is fetched again in segments', () async {
+    sources.hls = false; // the old way
+    dl.download([DownloadItem.video(v('ep4'))], const DownloadQuality.videoHeight(720));
+    await pumpEvents();
+    await engine.finish(v('ep4').id, bytes: 3000);
+    final old = dl.entryOf(v('ep4').id)!;
+    expect(old.isDone, isTrue);
+    expect(old.file, endsWith('.mkv'));
+    await Future<void>.delayed(const Duration(milliseconds: 2300)); // saved
+    dl.dispose();
+    sources.hls = true;
+    final before = engine.jobs.length;
+    dl = await makeModel();
+    expect(File(old.file!).existsSync(), isFalse);
+    expect(dl.isDownloaded(v('ep4').id), isFalse);
+    await dl.start();
+    await pumpEvents();
+    expect(engine.jobs.length, before + 1);
+    expect(engine.jobs.last.hls, isTrue);
+    expect(engine.jobs.last.fileName, endsWith('.ts'));
+  });
 }
