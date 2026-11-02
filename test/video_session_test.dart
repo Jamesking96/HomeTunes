@@ -9,6 +9,7 @@ import 'package:hometunes/services/engine/video_engine.dart';
 import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/player_model.dart';
+import 'package:hometunes/state/remote_videos.dart';
 import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/state/video_session.dart';
 import 'package:hometunes/state/video_shuffle.dart';
@@ -289,9 +290,19 @@ void main() {
           openingTimeout: const Duration(seconds: 1),
         );
 
+    late _FakeServer server;
+    setUp(() => videos.remote = server = _FakeServer());
+
     void serverFilm(String codec) => videos.setServerVideos('s1', [
           VideoItem(id: 'jf:s1:film', path: 'jellyfin://s1/film.avi', title: 'A Goofy Movie', collection: 'A Goofy Movie', videoCodec: codec),
         ]);
+
+    /// An old-format server film downloaded as it is (the original): a file on this device.
+    String oldFile({bool original = true}) {
+      serverFilm('mpeg4');
+      videos.downloadedCopy = (v) => VideoAddress(p.join(dir.path, 'film.avi'), original: original);
+      return 'jf:s1:film';
+    }
 
     /// Plays on a little more than a second, in small steps: it's moving.
     void playOn() {
@@ -301,7 +312,7 @@ void main() {
       }
     }
 
-    test('an old format from the chip: the page is asked to let the app draw it; nothing is opened', () async {
+    test('an old format from a server: the server\'s converted copy straight away, drawn from the chip', () async {
       expect(isOldVideoFormat('msmpeg4v3'), isTrue);
       expect(isOldVideoFormat('MPEG4'), isTrue);
       expect(isOldVideoFormat('h264'), isFalse);
@@ -309,31 +320,71 @@ void main() {
       serverFilm('msmpeg4v3');
       startWith('jf:s1:film', VideoDrawing.chip);
       await settle();
-      expect(asked, ['jf:s1:film']);
+      expect(asked, isEmpty);
+      // Only its address was asked for, not opened: the converted copy is the one played.
+      expect(server.asked, ['original', 'converted']);
+      expect(engine.calls.where((c) => c.startsWith('open')), hasLength(1));
+      expect(engine.openPath, 'https://s1/film-converted.m3u8');
+    });
+
+    test('an old file from the chip: the page is asked to let the app draw it; nothing is opened', () async {
+      final id = oldFile();
+      startWith(id, VideoDrawing.chip);
+      await settle();
+      expect(asked, [id]);
       expect(engine.calls.where((c) => c.startsWith('open')), isEmpty);
     });
 
-    test('the app drawing: an old format is decoded in software, anything else as usual', () async {
-      serverFilm('mpeg4');
-      final s = startWith('jf:s1:film', VideoDrawing.app);
+    test('the app drawing: an old file is decoded in software, anything else as usual', () async {
+      final id = oldFile();
+      final s = startWith(id, VideoDrawing.app);
       await settle();
       expect(asked, isEmpty);
       expect(engine.options['hwdec'], 'no');
       expect(s.software, isTrue);
       s.dispose();
       session = null;
-      final t = startWith(idOf('Silo S01E01'), VideoDrawing.app);
+      final t = startWith(idOf('Silo S01E02'), VideoDrawing.app);
       await settle();
       expect(engine.options['hwdec'], 'auto-safe');
       expect(t.software, isFalse);
     });
 
-    test('a PC (no chip): nothing changes', () async {
-      serverFilm('msmpeg4v3');
-      startWith('jf:s1:film', VideoDrawing.none);
+    test('a downloaded smaller copy (the server converted it): played as usual', () async {
+      final id = oldFile(original: false);
+      startWith(id, VideoDrawing.app);
+      await settle();
+      expect(asked, isEmpty);
+      expect(server.asked, isEmpty);
+      expect(engine.options['hwdec'], 'auto-safe');
+    });
+
+    test('a PC (no chip): an old file plays as it is', () async {
+      final id = oldFile();
+      startWith(id, VideoDrawing.none);
       await settle();
       expect(asked, isEmpty);
       expect(engine.options.containsKey('hwdec'), isFalse);
+    });
+
+    test('a server film that won\'t show from the chip: the converted copy, from where it got to; the message goes once it moves', () async {
+      serverFilm('h264');
+      engine.options['hwdec-current'] = '';
+      startWith('jf:s1:film', VideoDrawing.chip);
+      await settle();
+      expect(server.asked, ['original']);
+      playOn();
+      await Future<void>.delayed(const Duration(milliseconds: 1300));
+      expect(asked, isEmpty);
+      expect(server.asked, ['original', 'converted']);
+      expect(engine.openPath, 'https://s1/film-converted.m3u8');
+      // The converted copy said something but plays on: no message left over it.
+      engine.fail('Could not open codec.');
+      await settle();
+      expect(session!.problem, isNotNull);
+      playOn();
+      await settle();
+      expect(session!.problem, isNull);
     });
 
     test('sound but no picture from the chip: the app is asked to draw it, and next time it goes straight there', () async {
@@ -384,4 +435,29 @@ void main() {
       expect(asked, [id]);
     });
   });
+}
+
+/// A server that hands out its original or its converted copy (0.2.8).
+class _FakeServer implements RemoteVideoSource {
+  final asked = <String>[];
+  @override
+  Future<VideoAddress?> streamFor(VideoItem v, {bool converted = false, Duration? start}) async {
+    asked.add(converted ? 'converted' : 'original');
+    return converted
+        ? VideoAddress('https://s1/film-converted.m3u8', remote: true, converted: true, startsAt: start)
+        : const VideoAddress('https://s1/film.avi', remote: true);
+  }
+
+  @override
+  String? problemFor(VideoItem v) => null;
+  @override
+  String? serverNameOf(VideoItem v) => 'Test server';
+  @override
+  void started(VideoItem v, Duration at, {bool converted = false}) {}
+  @override
+  void progress(VideoItem v, Duration at, Duration length, {required bool paused}) {}
+  @override
+  void stopped(VideoItem v, Duration at, Duration length) {}
+  @override
+  void watchedChanged(Iterable<VideoItem> list, bool watched) {}
 }

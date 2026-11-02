@@ -46,6 +46,10 @@ class VideoAddress {
   /// For a converted stream: where it begins (the server starts it there).
   final Duration? startsAt;
 
+  /// The video's own file (or a stream of it), as opposed to a smaller copy the server converted
+  /// (a downloaded one, 0.2.3): what the video's codec says only goes for the original (0.2.8).
+  final bool original;
+
   /// Subtitle files the server keeps beside the video: their addresses (same headers) and a
   /// label ("English (SRT)").
   final List<({String uri, String label, String? language})> subtitles;
@@ -57,6 +61,7 @@ class VideoAddress {
     this.converted = false,
     this.startsAt,
     this.subtitles = const [],
+    this.original = true,
   });
 }
 
