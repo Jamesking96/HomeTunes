@@ -167,5 +167,71 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 1));
     });
+
+    // 0.2.8, the user: Back from the videos goes "to the tab showing, All and the types … before
+    // … the second set of filter tabs that show Collections …. Only after pressing back again
+    // from here should it go to the menu".
+    testWidgets('Back: the videos → the type showing → the tab showing → (the menu)', (tester) async {
+      tester.view.physicalSize = const Size(960, 540);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      addTearDown(() => FocusManager.instance.highlightStrategy = FocusHighlightStrategy.automatic);
+      final storage = Storage.at(dir);
+      Directory(storage.artDir).createSync(recursive: true);
+      final lib = LibraryModel(storage);
+      final videos = VideoLibraryModel(storage, lib)
+        ..setServerVideos('s1', [
+          _v('a1', 'Attack on Titan', 'Anime', episode: 1),
+          _v('t1', 'Daria', 'TV', episode: 1),
+          _v('t2', 'Futurama', 'TV', episode: 1),
+          _v('f1', 'Dune', 'Films'),
+        ]);
+      await tester.pumpWidget(MultiProvider(
+        providers: [
+          ...libraryProviders(lib),
+          ChangeNotifierProvider.value(value: videos),
+          ChangeNotifierProvider(create: (_) => AppNav()),
+        ],
+        child: MaterialApp(
+          theme: tvTheme(buildTheme(), AppColors.accent),
+          builder: (context, child) => TvFocus(enabled: true, child: child!),
+          home: const Scaffold(body: TvVideosScreen()),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      String? focused() {
+        String? found;
+        FocusManager.instance.primaryFocus?.context?.visitAncestorElements((e) {
+          final k = e.widget.key;
+          if (k is ValueKey<String> && k.value.startsWith('tv-')) {
+            found = k.value;
+            return false;
+          }
+          return true;
+        });
+        return found;
+      }
+
+      // TV chosen, then into the grid, onto Futurama.
+      await tester.tap(find.byKey(const ValueKey('tv-tab-TV')));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      Focus.of(tester.element(find.descendant(of: find.byKey(const ValueKey('tv-collection:Futurama')), matching: find.text('Futurama'))))
+          .requestFocus();
+      await tester.pumpAndSettle();
+      expect(focused(), 'tv-collection:Futurama');
+
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.goBack, physicalKey: PhysicalKeyboardKey.browserBack, platform: 'web'), isTrue);
+      await tester.pumpAndSettle();
+      expect(focused(), 'tv-tab-TV');
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.goBack, physicalKey: PhysicalKeyboardKey.browserBack, platform: 'web'), isTrue);
+      await tester.pumpAndSettle();
+      expect(focused(), 'tv-tab-Collections');
+      // From the tabs it's the usual Back (the shell opens the menu).
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.goBack, physicalKey: PhysicalKeyboardKey.browserBack, platform: 'web'), isFalse);
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+    });
   });
 }

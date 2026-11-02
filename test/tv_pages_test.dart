@@ -23,6 +23,7 @@ import 'package:hometunes/ui/theme.dart';
 import 'package:hometunes/ui/tv/tv_book_pages.dart';
 import 'package:hometunes/ui/tv/tv_collection_page.dart';
 import 'package:hometunes/ui/tv/tv_focus.dart';
+import 'package:hometunes/ui/tv/tv_menus.dart' show showVideoOptions;
 import 'package:hometunes/ui/tv/tv_pages.dart';
 import 'package:hometunes/ui/tv/tv_shell.dart';
 import 'package:path/path.dart' as p;
@@ -257,6 +258,20 @@ void main() {
     expect(find.textContaining('S1 E1'), findsNothing);
   });
 
+  // 0.2.8, the user: "If I press back while in the seasons first before going back further."
+  testWidgets('Back on a show\'s page: from an episode to the seasons, then back a page', (tester) async {
+    await pumpApp(tester, withVideos: true);
+    nav.openVideoCollection('Coastline');
+    await tester.pumpAndSettle();
+    await press(tester, LogicalKeyboardKey.arrowDown, 2); // past the season tabs to the first episode
+    expect(focusedKey(), startsWith('tv-episode:'));
+    expect(await tester.sendKeyEvent(LogicalKeyboardKey.goBack, physicalKey: PhysicalKeyboardKey.browserBack, platform: 'web'), isTrue);
+    await tester.pumpAndSettle();
+    expect(focusedKey(), 'tv-tab-Season 1');
+    // From the seasons, Back is the usual one (the page closes).
+    expect(await tester.sendKeyEvent(LogicalKeyboardKey.goBack, physicalKey: PhysicalKeyboardKey.browserBack, platform: 'web'), isFalse);
+  });
+
   test('outside TV mode the usual pages open (AppHome sets this; Shell\'s tests leave it off)', () {
     expect(AppNav().tv, isFalse);
   });
@@ -336,16 +351,36 @@ void main() {
       expect(lib.artistPictures['Harbour Lights'], isNotNull);
     });
 
-    testWidgets('a video: Play, Mark as watched, Go to the collection, Details', (tester) async {
+    testWidgets('a video on its page: Play, Mark as watched, Details (no Go to: it\'s there)', (tester) async {
       await pumpApp(tester, withVideos: true);
       nav.openVideoCollection('Coastline');
       await tester.pumpAndSettle();
       await press(tester, LogicalKeyboardKey.arrowDown);
       await press(tester, LogicalKeyboardKey.arrowDown); // past the season tabs to the first episode
       await holdOk(tester);
-      for (final l in ['Play', 'Mark as watched', 'Go to the collection', 'Details']) {
+      for (final l in ['Play', 'Mark as watched', 'Details']) {
         expect(option(l), findsOneWidget, reason: l);
       }
+      expect(option('Go to Coastline'), findsNothing);
+    });
+
+    // 0.2.8, the user: from All videos, Hold OK "should give a option to send me to that shows
+    // listing … if it is part of a season it should also take me to that said season".
+    testWidgets('a video elsewhere: Go to its show opens on its season, at it', (tester) async {
+      await pumpApp(tester, withVideos: true);
+      final v = videos.videos.firstWhere((x) => x.season == 2);
+      showVideoOptions(tester.element(find.byType(TvShell)), v);
+      await tester.pumpAndSettle();
+      expect(option('Go to Coastline'), findsOneWidget);
+      expect(find.text('Season 2, at S2 E1'), findsOneWidget);
+      await tester.tap(option('Go to Coastline'));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+      expect(find.byType(TvCollectionPage), findsOneWidget);
+      expect(find.textContaining('S2 E1'), findsWidgets);
+      expect(find.textContaining('S1 E1'), findsNothing);
+      expect(focusedKey(), 'tv-episode:${v.id}');
     });
   });
 }

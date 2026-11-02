@@ -176,13 +176,14 @@ class AppNav extends ChangeNotifier {
     _afterFrame(() => push(tv ? TvSeriesPage(name: name) : SeriesScreen(name: name)));
   }
 
-  /// Opens a video collection's page on the Videos tab (0.1.40).
-  void openVideoCollection(String name) {
+  /// Opens a video collection's page on the Videos tab (0.1.40). [videoId] (0.2.8, the TV): opened
+  /// at that video, on its season.
+  void openVideoCollection(String name, {String? videoId}) {
     if (tab != videosTab) {
       tab = videosTab;
       notifyListeners();
     }
-    _afterFrame(() => push(tv ? TvCollectionPage(name: name) : VideoCollectionScreen(name: name)));
+    _afterFrame(() => push(tv ? TvCollectionPage(name: name, videoId: videoId) : VideoCollectionScreen(name: name)));
   }
 
   /// Opens a video's player page on the Videos tab (0.1.40). On the TV (step 5) the TV player
