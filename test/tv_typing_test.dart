@@ -106,10 +106,11 @@ void main() {
       dir = Directory.systemTemp.createTempSync('hometunes_tv_typing');
       storage = Storage.at(dir);
       Directory(storage.artDir).createSync(recursive: true);
-      TvWordMemory.forget();
+      lib = LibraryModel(storage);
+      TypedWords.forget();
     });
     tearDown(() async {
-      TvWordMemory.forget();
+      TypedWords.forget();
       await Future<void>.delayed(const Duration(milliseconds: 100));
       try {
         dir.deleteSync(recursive: true);
@@ -121,7 +122,6 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       addTearDown(() => FocusManager.instance.highlightStrategy = FocusHighlightStrategy.automatic);
-      lib = LibraryModel(storage);
       late BuildContext ctx;
       await tester.pumpWidget(MultiProvider(
         providers: libraryProviders(lib),
@@ -146,7 +146,7 @@ void main() {
     }
 
     testWidgets('a title: a capital at the start of each word by itself; Shift makes one small', (tester) async {
-      await tester.runAsync(() => TvWordMemory.load(storage));
+      await tester.runAsync(() => TypedWords.load(lib));
       final done = await open(tester, 'Title');
       expect(find.byKey(const ValueKey('tv-predictions')), findsOneWidget);
       for (final k in ['t', 'h', 'e', 'Space', 'e', 'n', 'd']) {
@@ -161,7 +161,7 @@ void main() {
       await key(tester, 'tv-key-Done');
       expect(await done, 'The End of');
       // Remembered for next time (a title box remembers).
-      final learned = await tester.runAsync(() => TvWordMemory.load(storage));
+      final learned = await tester.runAsync(() => TypedWords.load(lib));
       expect(learned!.keys, containsAll(['The', 'End', 'of']));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     });
@@ -186,11 +186,11 @@ void main() {
       await key(tester, 'tv-key-Done');
       expect(await done, 'a');
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
-      expect(File('${dir.path}/${TvWordMemory.file}').existsSync(), isFalse);
+      expect(File('${dir.path}/${TypedWords.file}').existsSync(), isFalse);
     });
 
     testWidgets('a prediction: OK puts it in (a word typed before, with a capital to start a sentence)', (tester) async {
-      await tester.runAsync(() => TvWordMemory.learn(storage, 'wonderful wonderful'));
+      await tester.runAsync(() => TypedWords.learn(lib, 'wonderful wonderful'));
       final done = await open(tester, 'Description', typing: TvTyping.sentence);
       await key(tester, 'tv-key-w');
       expect(typed(tester), 'W|');
