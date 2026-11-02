@@ -73,6 +73,9 @@ void main() {
       final p = g.predict('sc');
       expect(p.first, const Prediction('Science Fiction', whole: true));
       expect(words(g.predict('')), ['Comedy', 'Sitcom', 'Science Fiction']);
+      // A genre that's one word is offered once, as the genre.
+      final one = WordPredictor(names: ['Action', 'Adventure'], phrases: ['Action', 'Adventure']).predict('A');
+      expect(one, [const Prediction('Action', whole: true), const Prediction('Adventure', whole: true)]);
     });
 
     test('words typed before are offered, and count more', () {

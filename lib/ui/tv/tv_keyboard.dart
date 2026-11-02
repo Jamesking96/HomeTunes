@@ -171,7 +171,9 @@ class _TvKeyboardState extends State<TvKeyboard> {
       child: Row(children: [
         for (var i = 0; i < list.length && i < TvKeyboard.most; i++) ...[
           if (i > 0) const SizedBox(width: g),
+          // Each as wide as its word needs, so long ones aren't cut short next to short ones.
           Expanded(
+            flex: list[i].word.characters.length.clamp(4, 16),
             child: TvKey(
               key: ValueKey('tv-predict-$i'),
               focusNode: _slots[i],
@@ -407,12 +409,12 @@ class TvKey extends StatelessWidget {
                   )
                 : word
                 ? Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Text(
                       label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: fg),
+                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: fg),
                     ),
                   )
                 : Text(
