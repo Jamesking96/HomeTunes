@@ -54,6 +54,7 @@ class VideoSession extends ChangeNotifier {
     this.upNextTick = const Duration(seconds: 1),
     this.tracksSettle = const Duration(milliseconds: 200),
     this.openingTimeout = const Duration(seconds: 12),
+    this.stallLimit = const Duration(seconds: 15),
   })  : _id = videoId,
         shownId = ValueNotifier(videoId) {
     transport = VideoEngineTransport(engine, maxVolume: () => _playback.maxVolume);
@@ -76,11 +77,12 @@ class VideoSession extends ChangeNotifier {
             'the player said "${hideSecrets(e.toString())}"');
         // A server video that won't play as it is (0.2.1): ask the server for a converted copy,
         // once, before saying it can't be played.
+        // (0.2.7) Also when it knows its length but hasn't started moving: The Lion King's .avi
+        // opened part-way in, said "Error decoding audio." and stood still on one picture.
         final address = _address;
-        if (!_disposed && engine.duration == Duration.zero && address != null && address.remote &&
+        if (!_disposed && (engine.duration == Duration.zero || !_moving) && address != null && address.remote &&
             !address.converted && !_triedConverted) {
-          _triedConverted = true;
-          open(_id, converted: true);
+          _tryConverted('the player said "${hideSecrets(e.toString())}"');
           return;
         }
         if (!_disposed && engine.duration == Duration.zero) {
@@ -92,6 +94,11 @@ class VideoSession extends ChangeNotifier {
       // Playing and moving on: it's showing (some files never report a first picture).
       engine.positionStream.listen((at) {
         stats?.moved(at); // 0.1.58: skips are noted in the Playback log
+        // Moving: more than a second on from where it first said it was (0.2.7).
+        if (!_moving) {
+          final first = _firstAt ??= at;
+          if ((at - first).abs() > const Duration(seconds: 1)) _moving = true;
+        }
         if (opening && at > Duration.zero && engine.isPlaying) shown();
       }),
       engine.playingStream.listen((playing) {
@@ -265,6 +272,35 @@ class VideoSession extends ChangeNotifier {
   /// A server video that wouldn't play as it is was reopened as a converted copy (0.2.1).
   bool _triedConverted = false;
 
+  /// Where the video first said it was after opening, and whether it has moved on since (0.2.7).
+  Duration? _firstAt;
+  bool _moving = false;
+  Timer? _stallTimer;
+
+  /// How long a server video gets to start moving before a converted copy is asked for instead.
+  final Duration stallLimit;
+
+  void _tryConverted(String why) {
+    final v = videos.byId(_id);
+    PlaybackLog.add('Video${v == null ? '' : ' "${v.title}"'} won\'t play as it is ($why): asking the server for a converted copy');
+    _triedConverted = true;
+    _stallTimer?.cancel();
+    open(_id, converted: true);
+  }
+
+  /// A server video opened as it is but not moving after [stallLimit] (frozen on one picture, or
+  /// never starting) while it's meant to be playing: a converted copy instead (0.2.7).
+  void _checkStall() {
+    final address = _address;
+    if (_disposed || _moving || address == null || !address.remote || address.converted || _triedConverted) return;
+    if (!engine.isPlaying) {
+      // Paused (by the user, or still loading): look again a bit later.
+      _stallTimer = Timer(stallLimit, _checkStall);
+      return;
+    }
+    _tryConverted('it didn\'t start moving within ${stallLimit.inSeconds} s');
+  }
+
   /// The length to save places against: the engine's, or for a converted server stream (which
   /// may not know its length) the video's own.
   Duration _length() {
@@ -289,6 +325,9 @@ class VideoSession extends ChangeNotifier {
     shownId.value = id;
     _id = id;
     if (!converted) _triedConverted = false;
+    _firstAt = null;
+    _moving = false;
+    _stallTimer?.cancel();
     problem = null;
     tracksSetUp = false;
     upNext = null;
@@ -326,6 +365,7 @@ class VideoSession extends ChangeNotifier {
       return;
     }
     _address = address;
+    if (address.remote && !address.converted) _stallTimer = Timer(stallLimit, _checkStall);
     // The seek preview opens the same video in a hidden player: files only (a server stream would
     // be fetched twice).
     _file = address.remote ? null : address.uri;
@@ -562,6 +602,7 @@ class VideoSession extends ChangeNotifier {
     _saveTimer?.cancel();
     _upNextTimer?.cancel();
     _openingTimer?.cancel();
+    _stallTimer?.cancel();
     music.removeListener(_onMusicChanged);
     watching?.detach(transport);
     equalizer?.removeListener(_applyEqualizer);
