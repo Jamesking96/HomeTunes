@@ -94,10 +94,19 @@ class VideoSession extends ChangeNotifier {
       // Playing and moving on: it's showing (some files never report a first picture).
       engine.positionStream.listen((at) {
         stats?.moved(at); // 0.1.58: skips are noted in the Playback log
-        // Moving: more than a second on from where it first said it was (0.2.7).
+        // Moving: more than a second of playing on, counted in small steps forward (0.2.7). A jump
+        // (the resume place, then 0:00 when the file couldn't go there) isn't playing: The Lion
+        // King's .avi said 40:08, then stood at 0:00 on one picture.
         if (!_moving) {
-          final first = _firstAt ??= at;
-          if ((at - first).abs() > const Duration(seconds: 1)) _moving = true;
+          final last = _lastAt;
+          _lastAt = at;
+          if (last != null) {
+            final step = at - last;
+            if (step > Duration.zero && step <= const Duration(seconds: 3)) {
+              _played += step;
+              if (_played > const Duration(seconds: 1)) _moving = true;
+            }
+          }
         }
         if (opening && at > Duration.zero && engine.isPlaying) shown();
       }),
@@ -273,7 +282,8 @@ class VideoSession extends ChangeNotifier {
   bool _triedConverted = false;
 
   /// Where the video first said it was after opening, and whether it has moved on since (0.2.7).
-  Duration? _firstAt;
+  Duration? _lastAt;
+  Duration _played = Duration.zero;
   bool _moving = false;
   Timer? _stallTimer;
 
@@ -325,7 +335,8 @@ class VideoSession extends ChangeNotifier {
     shownId.value = id;
     _id = id;
     if (!converted) _triedConverted = false;
-    _firstAt = null;
+    _lastAt = null;
+    _played = Duration.zero;
     _moving = false;
     _stallTimer?.cancel();
     problem = null;
