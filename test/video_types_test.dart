@@ -221,14 +221,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(focused(), 'tv-collection:Futurama');
 
-      expect(await tester.sendKeyEvent(LogicalKeyboardKey.goBack), isTrue);
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.goBack, physicalKey: PhysicalKeyboardKey.browserBack, platform: 'web'), isTrue);
       await tester.pumpAndSettle();
       expect(focused(), 'tv-tab-TV');
-      expect(await tester.sendKeyEvent(LogicalKeyboardKey.goBack), isTrue);
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.goBack, physicalKey: PhysicalKeyboardKey.browserBack, platform: 'web'), isTrue);
       await tester.pumpAndSettle();
       expect(focused(), 'tv-tab-Collections');
       // From the tabs it's the usual Back (the shell opens the menu).
-      expect(await tester.sendKeyEvent(LogicalKeyboardKey.goBack), isFalse);
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.goBack, physicalKey: PhysicalKeyboardKey.browserBack, platform: 'web'), isFalse);
       await tester.pump(const Duration(seconds: 1));
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 1));
