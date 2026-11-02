@@ -265,11 +265,11 @@ void main() {
     await tester.pumpAndSettle();
     await press(tester, LogicalKeyboardKey.arrowDown, 2); // past the season tabs to the first episode
     expect(focusedKey(), startsWith('tv-episode:'));
-    expect(await tester.sendKeyEvent(LogicalKeyboardKey.goBack), isTrue);
+    expect(await tester.sendKeyEvent(LogicalKeyboardKey.goBack, physicalKey: PhysicalKeyboardKey.browserBack, platform: 'web'), isTrue);
     await tester.pumpAndSettle();
     expect(focusedKey(), 'tv-tab-Season 1');
     // From the seasons, Back is the usual one (the page closes).
-    expect(await tester.sendKeyEvent(LogicalKeyboardKey.goBack), isFalse);
+    expect(await tester.sendKeyEvent(LogicalKeyboardKey.goBack, physicalKey: PhysicalKeyboardKey.browserBack, platform: 'web'), isFalse);
   });
 
   test('outside TV mode the usual pages open (AppHome sets this; Shell\'s tests leave it off)', () {
