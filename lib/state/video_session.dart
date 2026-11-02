@@ -73,7 +73,7 @@ class VideoSession extends ChangeNotifier {
         // the TV and nothing said why).
         final v = videos.byId(_id);
         PlaybackLog.add('Video${v == null ? '' : ' "${v.title}"'}${_address?.converted ?? false ? ' (converted copy)' : ''}: '
-            'the player said "${hideSecrets('$e')}"');
+            'the player said "${hideSecrets(e.toString())}"');
         // A server video that won't play as it is (0.2.1): ask the server for a converted copy,
         // once, before saying it can't be played.
         final address = _address;

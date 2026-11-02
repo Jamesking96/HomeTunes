@@ -480,7 +480,7 @@ void main() {
       final s = start('ep1');
       await until(() => engine.openPath != null);
       engine.fail('unsupported codec');
-      await until(() => engine.openPath!.contains('stream.mkv?static=false'));
+      await until(() => engine.openPath!.contains('/master.m3u8?'));
       expect(s.address!.converted, isTrue);
       expect(s.problem, isNull);
       // A second failure is reported.
