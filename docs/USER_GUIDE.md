@@ -207,6 +207,10 @@ watched, is kept the same in HomeTunes and Jellyfin's own apps, both ways. The s
 how many videos it has and when it was last read; its **⋮** menu has **Sync now**, **Libraries…**
 (to leave a library out) and **Sign out on this device**. When the server is off, its videos still
 show but won't play until it's back. Music and audiobooks from Jellyfin are coming later.
+If a video opens but stands still (a frozen picture, or an "Error decoding audio." in the
+Playback log), HomeTunes gives it 15 seconds and then switches to the server's converted copy by
+itself, carrying on from the same place; a converted copy always knows its full length, so you can
+skip about in it.
 
 **Audiobooks from Audiobookshelf.** Add your Audiobookshelf server under **Audiobooks** (for
 example `http://192.168.0.10:13378`, with your Audiobookshelf user name and password) and leave
@@ -234,6 +238,11 @@ or 192 kbit/s for music), with roughly how much space each takes. Songs, albums,
 playlists, Liked Songs, videos, whole collections and single seasons can all be downloaded, and
 so can whatever you've ticked in select mode. The same menu then has **Stop downloading** or
 **Remove download**.
+A smaller copy of a video comes from the server in short pieces, one after another, so its bar
+shows exactly how far it has got (on the video, its collection and its Carry on card), it only
+counts as downloaded once every piece has arrived, and if it's stopped part-way (paused, the app
+closed, the connection lost) it carries on from where it got to. A smaller copy is never taller
+than the video itself, so for an old, small video the 1080p and 720p copies are the same size.
 - **Keep offline…** (albums, audiobooks, playlists, Liked Songs, collections and seasons)
   downloads everything in it now, and anything added to it later by itself. **Stop keeping
   offline** asks whether to keep what it downloaded.
