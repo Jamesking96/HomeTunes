@@ -23,10 +23,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../services/storage.dart';
 import '../../services/word_predictor.dart';
 import '../../state/library_model.dart';
 import '../../state/servers_model.dart';
+export '../../state/typed_words.dart';
 import '../../state/video_library_model.dart';
 
 /// What a box is for, which decides the keys, capitals and predictions.
@@ -157,47 +157,4 @@ WordPredictor? tvPredictorFor(BuildContext context, TvTyping typing, {String? la
     learned: typing == TvTyping.search ? const {} : learned,
     lowerCase: typing == TvTyping.search,
   );
-}
-
-/// Words typed on this device, kept so they're offered again (tv_words.json: word → times).
-class TvWordMemory {
-  TvWordMemory._();
-  static const file = 'tv_words.json';
-
-  /// Most words kept (the least used go first).
-  static const most = 3000;
-
-  static Map<String, int>? _words;
-
-  static Future<Map<String, int>> load(Storage storage) async {
-    if (_words != null) return _words!;
-    final out = <String, int>{};
-    try {
-      final j = await storage.read(file);
-      if (j is Map) {
-        j.forEach((k, v) {
-          if (k is String && v is int && v > 0) out[k] = v;
-        });
-      }
-    } catch (_) {}
-    return _words = out;
-  }
-
-  /// Remembers the words in [text] (typed in a box that [TvTyping.remembers]).
-  static Future<void> learn(Storage storage, String text) async {
-    final words = WordPredictor.wordsIn(text);
-    if (words.isEmpty) return;
-    final m = await load(storage);
-    for (final w in words) {
-      m[w] = (m[w] ?? 0) + 1;
-    }
-    if (m.length > most) {
-      final keep = (m.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).take(most);
-      _words = {for (final e in keep) e.key: e.value};
-    }
-    await storage.write(file, _words!);
-  }
-
-  /// For tests.
-  static void forget() => _words = null;
 }

@@ -10,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../services/storage.dart';
 import '../../services/word_predictor.dart';
 import '../../state/library_model.dart';
 import '../theme.dart';
@@ -503,19 +502,19 @@ class _TvTextInputState extends State<TvTextInput> {
   late String _text = widget.initial;
   bool _show = false;
   WordPredictor? _predictor;
-  Storage? _storage;
+  LibraryModel? _lib;
 
   @override
   void initState() {
     super.initState();
     final typing = widget.typing;
     if (!typing.predicts) return;
-    _storage = context.read<LibraryModel?>()?.storage;
+    _lib = context.read<LibraryModel?>();
     // The library's words at once; the words typed before as soon as they're read.
     _predictor = tvPredictorFor(context, typing, label: widget.title);
-    final storage = _storage;
-    if (storage != null && typing != TvTyping.address) {
-      TvWordMemory.load(storage).then((learned) {
+    final lib = _lib;
+    if (lib != null && typing != TvTyping.address) {
+      TypedWords.load(lib).then((learned) {
         if (!mounted || learned.isEmpty) return;
         setState(() => _predictor = tvPredictorFor(context, typing, label: widget.title, learned: learned));
       });
@@ -557,8 +556,8 @@ class _TvTextInputState extends State<TvTextInput> {
   }
 
   void _done() {
-    final storage = _storage;
-    if (storage != null && widget.typing.remembers && !widget.obscure) TvWordMemory.learn(storage, _text);
+    final lib = _lib;
+    if (lib != null && widget.typing.remembers && !widget.obscure) TypedWords.learn(lib, _text);
     Navigator.of(context).pop(_text);
   }
 
