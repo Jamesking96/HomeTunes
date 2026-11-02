@@ -22,6 +22,7 @@ import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/artwork.dart';
+import '../widgets/download_ui.dart' show DownloadProgressOverlay;
 import '../widgets/jump_back_in.dart';
 import 'tv_browse.dart';
 import 'tv_downloads.dart' show tvDownloadOptions;
@@ -215,7 +216,11 @@ class _CarryOnCard extends StatelessWidget {
             : (video.episodeLabel == null ? video.collection : '${video.episodeLabel} · ${video.collection}');
         detail = [if (video.collection != video.title) video.title, if (video.duration > Duration.zero) '${_left(left)} left'].join(' · ');
         progress = p;
-        picture = SizedBox(width: 142, height: 80, child: tvFilePicture(videos.thumbFile(video), Icons.movie_outlined));
+        // Downloading: how far it's got, along the top (0.2.7).
+        picture = SizedBox(
+            width: 142,
+            height: 80,
+            child: DownloadProgressOverlay(ids: [video.id], child: tvFilePicture(videos.thumbFile(video), Icons.movie_outlined)));
         carryOn = () => nav.openVideo(video);
         open = () => nav.openVideoCollection(video.collection);
         openLabel = 'Go to the collection';
