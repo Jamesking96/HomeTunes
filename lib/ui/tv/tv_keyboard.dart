@@ -66,7 +66,11 @@ class TvKeyboard extends StatefulWidget {
     this.onPredict,
     this.capitalNext = false,
     this.numbers = false,
+    this.firstKey,
   });
+
+  /// The top-left key's focus node, when the page needs it (to put focus back on the keys).
+  final FocusNode? firstKey;
 
   final ValueChanged<String> onType;
   final VoidCallback onDelete, onClear;
@@ -109,8 +113,8 @@ class _TvKeyboardState extends State<TvKeyboard> {
   /// Shift was pressed while a capital was coming by itself: this letter is small.
   bool _small = false;
 
-  final _first = FocusNode(debugLabel: 'tv key a');
-  final _slots = [for (var i = 0; i < TvKeyboard.most; i++) FocusNode(debugLabel: 'tv prediction $i')];
+  FocusNode? _own;
+  FocusNode get _first => widget.firstKey ?? (_own ??= FocusNode(debugLabel: 'tv key a'));
 
   bool get _upper => _caps || (widget.capitalNext && !_small);
 
@@ -118,24 +122,11 @@ class _TvKeyboardState extends State<TvKeyboard> {
   void didUpdateWidget(TvKeyboard old) {
     super.didUpdateWidget(old);
     if (old.capitalNext != widget.capitalNext) _small = false;
-    // A prediction that had focus has gone (a word was put in and fewer are offered now): onto
-    // the last one there is, else the keys.
-    final n = widget.predictions?.length ?? 0;
-    final had = _slots.indexWhere((f) => f.hasFocus);
-    if (had >= n && had >= 0) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        (n > 0 ? _slots[n - 1] : _first).requestFocus();
-      });
-    }
   }
 
   @override
   void dispose() {
-    _first.dispose();
-    for (final f in _slots) {
-      f.dispose();
-    }
+    _own?.dispose();
     super.dispose();
   }
 
@@ -162,46 +153,6 @@ class _TvKeyboardState extends State<TvKeyboard> {
         }
       });
 
-  Widget _predictionRow() {
-    const g = TvKeyboard.gap;
-    final list = widget.predictions!;
-    return SizedBox(
-      key: const ValueKey('tv-predictions'),
-      height: 36,
-      child: Row(children: [
-        for (var i = 0; i < list.length && i < TvKeyboard.most; i++) ...[
-          if (i > 0) const SizedBox(width: g),
-          // Each as wide as its word needs, so long ones aren't cut short next to short ones.
-          Expanded(
-            flex: list[i].word.characters.length.clamp(4, 16),
-            child: TvKey(
-              key: ValueKey('tv-predict-$i'),
-              focusNode: _slots[i],
-              label: list[i].word,
-              width: double.infinity,
-              height: 36,
-              word: true,
-              onPressed: () => widget.onPredict?.call(list[i]),
-            ),
-          ),
-        ],
-        if (list.isEmpty)
-          Expanded(
-            child: Container(
-              alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.surfaceHigh),
-              ),
-              child: Text('Suggested words show here',
-                  maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: AppColors.textDim)),
-            ),
-          ),
-      ]),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     const k = TvKeyboard.keySize, g = TvKeyboard.gap;
@@ -213,7 +164,10 @@ class _TvKeyboardState extends State<TvKeyboard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (w.predictions != null) ...[_predictionRow(), const SizedBox(height: g + 2)],
+          if (w.predictions != null) ...[
+            TvPredictionRow(predictions: w.predictions!, onPredict: (p) => w.onPredict?.call(p), fallback: _first),
+            const SizedBox(height: g + 2),
+          ],
           if (_numbers)
             for (var r = 0; r < tvNumberRows.length; r++) ...[
               Row(
@@ -333,6 +287,89 @@ class _TvKeyboardState extends State<TvKeyboard> {
   }
 }
 
+/// The predicted words (0.2.8): up to [TvKeyboard.most], OK on one is [onPredict]. Over the keys
+/// (narrow: each takes a share of the width by its length) or across a page ([natural]: each as
+/// wide as its word). When the one with focus goes (a word was put in and fewer are offered), focus
+/// moves to the last one left, or to [fallback] (the keys).
+class TvPredictionRow extends StatefulWidget {
+  const TvPredictionRow({super.key, required this.predictions, required this.onPredict, this.fallback, this.natural = false});
+  final List<Prediction> predictions;
+  final ValueChanged<Prediction> onPredict;
+  final FocusNode? fallback;
+  final bool natural;
+
+  @override
+  State<TvPredictionRow> createState() => _TvPredictionRowState();
+}
+
+class _TvPredictionRowState extends State<TvPredictionRow> {
+  final _slots = [for (var i = 0; i < TvKeyboard.most; i++) FocusNode(debugLabel: 'tv prediction $i')];
+
+  @override
+  void didUpdateWidget(TvPredictionRow old) {
+    super.didUpdateWidget(old);
+    final n = widget.predictions.length.clamp(0, TvKeyboard.most);
+    final had = _slots.indexWhere((f) => f.hasFocus);
+    if (had >= n && had >= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        (n > 0 ? _slots[n - 1] : widget.fallback)?.requestFocus();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final f in _slots) {
+      f.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const g = TvKeyboard.gap;
+    final list = widget.predictions;
+    Widget key(int i) => TvKey(
+          key: ValueKey('tv-predict-$i'),
+          focusNode: _slots[i],
+          label: list[i].word,
+          width: widget.natural ? null : double.infinity,
+          height: 36,
+          word: true,
+          onPressed: () => widget.onPredict(list[i]),
+        );
+    return SizedBox(
+      key: const ValueKey('tv-predictions'),
+      height: 36,
+      child: Row(children: [
+        for (var i = 0; i < list.length && i < TvKeyboard.most; i++) ...[
+          if (i > 0) SizedBox(width: widget.natural ? 10 : g),
+          widget.natural
+              // As wide as the word (up to a share of the row when they're all long).
+              ? Flexible(child: ConstrainedBox(constraints: const BoxConstraints(minWidth: 72), child: key(i)))
+              // Over the keys: a share of the width by the word's length, so long ones aren't
+              // cut short next to short ones.
+              : Expanded(flex: list[i].word.characters.length.clamp(4, 16), child: key(i)),
+        ],
+        if (list.isEmpty)
+          Expanded(
+            child: Container(
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.surfaceHigh),
+              ),
+              child: Text('Suggested words show here',
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: AppColors.textDim)),
+            ),
+          ),
+      ]),
+    );
+  }
+}
+
 /// One key. With [onPressed] null it still takes focus (so a row doesn't jump about), dimmed.
 class TvKey extends StatelessWidget {
   const TvKey({
@@ -357,7 +394,8 @@ class TvKey extends StatelessWidget {
   final bool word;
   final String label;
   final IconData? icon;
-  final double width;
+  /// Null: as wide as its label.
+  final double? width;
   final VoidCallback? onPressed, onHold;
 
   /// Lit (Shift while capitals are on).
@@ -385,7 +423,7 @@ class TvKey extends StatelessWidget {
           child: Container(
             width: width,
             height: height,
-            alignment: Alignment.center,
+            alignment: width == null ? null : Alignment.center,
             color: focused
                 ? AppColors.accent
                 : accent
@@ -398,7 +436,7 @@ class TvKey extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(icon, size: 16, color: fg),
-                      if (width > 60 && label != 'Delete') ...[
+                      if ((width ?? 0) > 60 && label != 'Delete') ...[
                         const SizedBox(width: 6),
                         Text(
                           label,
@@ -408,13 +446,17 @@ class TvKey extends StatelessWidget {
                     ],
                   )
                 : word
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: fg),
+                ? Align(
+                    // As wide as the word when there's no width (centred up and down either way).
+                    widthFactor: width == null ? 1 : null,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: width == null ? 14 : 4),
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: fg),
+                      ),
                     ),
                   )
                 : Text(
@@ -505,6 +547,13 @@ class _TvTextInputState extends State<TvTextInput> {
   bool _show = false;
   WordPredictor? _predictor;
   LibraryModel? _lib;
+  final _firstKey = FocusNode(debugLabel: 'tv key a');
+
+  @override
+  void dispose() {
+    _firstKey.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -567,6 +616,7 @@ class _TvTextInputState extends State<TvTextInput> {
   Widget build(BuildContext context) {
     final hidden = widget.obscure && !_show;
     final shown = hidden ? '•' * _text.characters.length : _text;
+    final predictions = _predictor == null || hidden ? null : _predictor!.predict(_text, max: TvKeyboard.most);
     return Material(
       color: AppColors.bg, // over everything: what is behind only distracts
       child: Focus(
@@ -587,7 +637,13 @@ class _TvTextInputState extends State<TvTextInput> {
                 widget.title,
                 style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+              // Predicted words across the page (0.2.8), so long names show whole; ↑ from the
+              // keys' top row comes here.
+              if (predictions != null) ...[
+                TvPredictionRow(predictions: predictions, onPredict: _predict, fallback: _firstKey, natural: true),
+                const SizedBox(height: 10),
+              ],
               Expanded(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -595,10 +651,9 @@ class _TvTextInputState extends State<TvTextInput> {
                     TvKeyboard(
                       full: true,
                       autofocus: true,
+                      firstKey: _firstKey,
                       numbers: widget.typing == TvTyping.number,
                       capitalNext: _capitalNext,
-                      predictions: _predictor == null || hidden ? null : _predictor!.predict(_text, max: TvKeyboard.most),
-                      onPredict: _predict,
                       newLine: widget.multiline,
                       onType: _type,
                       onDelete: _delete,
