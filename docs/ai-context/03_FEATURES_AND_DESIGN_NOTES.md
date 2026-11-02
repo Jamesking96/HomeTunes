@@ -426,7 +426,7 @@ video's show, on its season.
   Season 1 tab; Genre box: capital A, then Action / Adventure / Animation / Action & Adventure.
   (adb can't hold OK; a long touch, `input swipe x y x y 1200`, opens the options panel.)
 
-## Old video formats on the TV, Downloads page, subtitle size (2 Nov 2026, 0.2.8+127, `feature/legacy-video-and-settings`)
+## Old video formats on the TV, Downloads page, subtitle size (2 Nov 2026, 0.2.8+127, merged into `main`)
 The user: "All the films that come from Disney like The Lion King, Ratatouille, Treasure Planet and more don't seem to play properly. Some play audio but are black screens, some don't load anything and others freeze on a fixed frame." They play in VLC. Then: "Downloads as it's own tab in the settings" and "Subtitles having a size setting somewhere appropriate."
 
 **Why (measured on the Family room TV, ffprobe over the Jellyfin library):** 184 .avi files use old formats the TV's video chip handles badly. DivX 3 (`msmpeg4v3`, 28 files, e.g. A Goofy Movie): the chip can't decode it, mpv falls back to software, but with "Smoother video" (`vo=mediacodec_embed`) software frames have nowhere to go, so sound with a black picture. MPEG-4 Part 2 / XviD with B-frames (156 files, e.g. Ratatouille, Treasure Planet): the chip decodes it but hands frames back out of order, so the clock jumps and the picture freezes or goes black. Toy Story (no B-frames) was fine. The Lion King is H.264 with audio the TV can't decode: already handled by the converted copy (0.2.7).
