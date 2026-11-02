@@ -62,7 +62,45 @@ class TvVideoPlayerPage extends StatefulWidget {
   State<TvVideoPlayerPage> createState() => _TvVideoPlayerPageState();
 }
 
+/// 0.2.8: a video the TV's chip can't show (an old format) is played by a new player that
+/// decodes it in software and draws the picture itself; this page swaps the player for that one
+/// at the same video (VideoSession.onNeedAppDrawing). media_kit gives each player one way of
+/// drawing, so it can't be changed on the player that's open.
 class _TvVideoPlayerPageState extends State<TvVideoPlayerPage> {
+  late String _videoId = widget.videoId;
+  bool _appDrawing = false;
+  int _player = 0;
+
+  @override
+  Widget build(BuildContext context) => _TvPlayer(
+        key: ValueKey(_player),
+        videoId: _videoId,
+        shuffle: widget.shuffle,
+        appDrawing: _appDrawing,
+        onNeedAppDrawing: (id) {
+          if (!mounted) return;
+          setState(() {
+            _videoId = id;
+            _appDrawing = true;
+            _player++;
+          });
+        },
+      );
+}
+
+/// One player on the page (see [_TvVideoPlayerPageState]).
+class _TvPlayer extends StatefulWidget {
+  const _TvPlayer({super.key, required this.videoId, this.shuffle, required this.appDrawing, required this.onNeedAppDrawing});
+  final String videoId;
+  final VideoShuffle? shuffle;
+  final bool appDrawing;
+  final void Function(String id) onNeedAppDrawing;
+
+  @override
+  State<_TvPlayer> createState() => _TvPlayerState();
+}
+
+class _TvPlayerState extends State<_TvPlayer> {
   final MediaKitVideoEngine _engine = MediaKitVideoEngine();
   late final VideoController _controller;
   late final VideoSession _session;
@@ -72,8 +110,11 @@ class _TvVideoPlayerPageState extends State<TvVideoPlayerPage> {
   void initState() {
     super.initState();
     final videos = context.read<VideoLibraryModel>();
-    _controller = VideoController(_engine.player, configuration: videoDrawing(direct: videos.library.settings.video.videoDirectDrawing));
+    final direct = videos.library.settings.video.videoDirectDrawing && !widget.appDrawing;
+    _controller = VideoController(_engine.player, configuration: videoDrawing(direct: direct));
     _session = VideoSession(
+      drawing: pageDrawing(direct: direct),
+      onNeedAppDrawing: widget.onNeedAppDrawing,
       engine: _engine,
       videos: videos,
       music: context.read<PlayerModel>(),

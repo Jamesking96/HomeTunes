@@ -95,6 +95,10 @@ class VideoItem {
   /// change, even if the video didn't).
   final int? nfoMs;
 
+  /// The video's format as the server reports it ("h264", "mpeg4", "msmpeg4v3"…; 0.2.8). Null
+  /// when not known (local files: the player finds out when it opens).
+  final String? videoCodec;
+
   const VideoItem({
     required this.id,
     required this.path,
@@ -123,6 +127,7 @@ class VideoItem {
     this.scan = 0,
     this.showPlot,
     this.nfoMs,
+    this.videoCodec,
   });
 
   static String idFor(String path) => 'video:$path';
@@ -196,6 +201,7 @@ class VideoItem {
         scan: scan,
         showPlot: showPlot,
         nfoMs: nfoMs,
+        videoCodec: videoCodec,
       );
   }
 
@@ -232,6 +238,7 @@ class VideoItem {
         scan: scan,
         showPlot: showPlot,
         nfoMs: nfoMs,
+        videoCodec: videoCodec,
       );
 
   /// A copy marked special with [title] (0.1.66), or not special when null.
@@ -265,6 +272,7 @@ class VideoItem {
         if (scan != 0) 'scan': scan,
         if (showPlot != null) 'showPlot': showPlot,
         if (nfoMs != null) 'nfoMs': nfoMs,
+        if (videoCodec != null) 'videoCodec': videoCodec,
       };
 
   /// Reads one back from videos.json. Throws on a wrong shape (the model skips that entry).
@@ -297,6 +305,7 @@ class VideoItem {
       scan: (j['scan'] as int?) ?? 0,
       showPlot: j['showPlot'] as String?,
       nfoMs: j['nfoMs'] as int?,
+      videoCodec: j['videoCodec'] as String?,
     );
   }
 
