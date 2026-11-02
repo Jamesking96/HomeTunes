@@ -351,6 +351,43 @@ before changing that area.
   the TV screens' own cards don't show marks yet.
 - **Tests:** `test/source_filter_test.dart`; `videos_test.dart` now finds Category by name.
 
+## Jellyfin streaming and download fixes (2 Nov 2026, 0.2.7+116–120, branch `feature/audiobookshelf`)
+
+The user (1 Nov): "some videos don't download or stream correctly from Jellyfin… One example is The
+Lion King", and "ensuring that when we download a video it downloads the whole thing [and] shows the
+download progress. Use the family room tv for testing". The Lion King is an XviD 608×368 .avi with
+AC3 audio that has damaged packets (1:28:53).
+
+- **What was wrong.** (1) A converted copy came as one MKV sent while Jellyfin made it
+  (`stream.mkv?static=false`): no length or index in the file, so the player guessed a growing
+  length and seeking broke; as a download it had no size (no progress) and a dropped connection left
+  a short file that looked finished. (2) The original .avi opened part-way in said "Error decoding
+  audio." and stood still at 0:00 on one picture; because it knew its length, HomeTunes never asked
+  for a converted copy.
+- **Converted copies are HLS now.** `JellyfinClient.hlsUri` → `/Videos/{id}/master.m3u8` (H.264 +
+  AAC in 6 s TS segments, `EnableAdaptiveBitrateStreaming=false`; the route needs the sign-in
+  header and isn't in Jellyfin's openapi file). Streaming uses it at up to 1080p; the player sees the
+  whole playlist, so the full length and seeking work.
+- **Downloads of a smaller copy** go segment by segment (`services/hls_download.dart`, run one at a
+  time by `BackgroundDownloaderEngine`): `<file>.part` plus `<file>.hls.json` ({total, done, bytes})
+  written every 5 segments, carry on from the last whole segment, 5 tries per segment (401/403/404
+  stop at once), renamed to `<file>.ts` only when all have arrived. Progress is segments done /
+  total. Old converted `.mkv` downloads are deleted and fetched again on start. Original-file
+  downloads that arrive shorter than the server's Content-Length are fetched again (twice), then
+  fail with "Only part of it arrived".
+- **Standing still.** `VideoSession` switches a server original to the converted copy (from the same
+  place) when the player errors before it has played on, or when it's meant to be playing but hasn't
+  played 1 s within 15 s (`stallLimit`). "Played on" counts only small forward steps (≤ 3 s), because
+  the .avi reported the resume place and then 0:00, a jump that isn't playing (+119).
+- **Size guess** (+120): a smaller copy is never taller than the source (Jellyfin's MaxHeight), and
+  x264 uses what the picture needs, so with the height known the estimate is ~5 Mbit/s × (h/1080)²
+  + 192 kbit/s audio, capped at the old maxima (10/4/1.5 Mbit/s). The Lion King at 720p: offered
+  "about 2.8 GB" before, 515 MB now; Jellyfin's log showed 490 kbit/s video, about 450 MB.
+- **Checked on the Family room TV** (2 Nov, +119/+120): The Lion King with no download switches to
+  the converted copy within a second of the audio error, plays from 40:08 showing 1:28:53, and skips
+  ahead and plays on; a 720p download showed its bar on the collection page (and Carry on card) and
+  finished in about 3½ minutes.
+
 ## Audiobookshelf (1 Nov 2026, 0.2.7, branch `feature/audiobookshelf`)
 
 The user (1 Nov): "Update server system to support Audiobookshelf we have a server setup for this
