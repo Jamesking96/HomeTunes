@@ -512,6 +512,19 @@ class DownloadsModel extends ChangeNotifier {
         } else {
           _entries[e.id] = e.copyWith(state: DownloadState.queued, bytes: 0, progress: 0);
         }
+        continue;
+      }
+      // A converted video copy from before 0.2.7 came as one file sent while the server made it:
+      // no length or index in it (the TV showed The Lion King 19 minutes long, then 24…, and
+      // going further didn't work), and it may have been cut off. It's fetched again in segments.
+      final f = e.file;
+      if (e.isDone && f != null && e.kind == DownloadKind.video && !e.quality.isOriginal && f.toLowerCase().endsWith('.mkv')) {
+        _deleteFiles(f, e.subtitles);
+        if (e.isTemporary) {
+          _entries.remove(e.id);
+        } else {
+          _entries[e.id] = e.copyWith(state: DownloadState.queued, bytes: 0, progress: 0);
+        }
       }
     }
     notifyListeners();
