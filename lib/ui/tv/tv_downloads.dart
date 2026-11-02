@@ -99,6 +99,7 @@ Future<void> _askCopy(
   required String subtitle,
   Duration length = Duration.zero,
   int? originalBytes,
+  int? sourceHeight,
   required void Function(DownloadQuality q) onPicked,
   bool original = false,
 }) {
@@ -115,7 +116,7 @@ Future<void> _askCopy(
         downloadQualityLabel(q, video: video),
         q.isOriginal ? Icons.high_quality_outlined : Icons.compress,
         subtitle: [
-          ?downloadSizeEstimate(q, length: length, originalBytes: originalBytes),
+          ?downloadSizeEstimate(q, length: length, originalBytes: originalBytes, sourceHeight: sourceHeight),
           if (q.isOriginal) 'exactly what\'s on the server',
           if (q.isOriginal && wifi) 'over Wi-Fi',
         ].join(' · '),
@@ -138,6 +139,7 @@ Future<void> tvStartDownload(BuildContext context, List<DownloadItem> items) {
       subtitle: 'Download $what',
       length: length,
       originalBytes: bytes > 0 ? bytes : null,
+      sourceHeight: downloadItemsHeight(items),
       original: originalOnly([for (final it in items) it.id]), onPicked: (q) {
     final added = dl.download(items, q);
     tvNotice(
