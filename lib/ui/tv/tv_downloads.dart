@@ -5,7 +5,7 @@
 //  * Stop keeping offline › asks whether to keep what it downloaded; Remove n downloads › asks
 //    first; Make it mine › picks one of your folders.
 //  * The Downloads page (TvDownloadsPage, opened by AppNav.openDownloads in TV mode, from Music's
-//    Downloads tile and Settings › Servers › Downloads): what's downloading, what's kept offline
+//    Downloads tile and Settings › Downloads): what's downloading, what's kept offline
 //    and what's downloaded. OK plays a download (or opens its options while it's still coming);
 //    holding OK gives Pause / Carry on / Try again, Make it mine and Remove.
 import 'dart:io';
@@ -267,7 +267,7 @@ class TvDownloadsPage extends StatelessWidget {
             label: 'More options',
             onPressed: () => showTvOptions(context, title: 'Downloads', options: [
               TvOption('Download settings', Icons.tune,
-                  () => context.read<AppNav>().openSettings('server', setting: 'downloads-folder')),
+                  () => context.read<AppNav>().openSettings('downloads', setting: 'downloads-folder')),
               TvOption('Download or Keep offline?', Icons.help_outline, opensMore: true, () => showDownloadHelp(context)),
               if (dl.entries.isNotEmpty)
                 TvOption('Remove all downloads', Icons.delete_outline, opensMore: true, () {

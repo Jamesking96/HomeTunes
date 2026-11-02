@@ -42,6 +42,17 @@ VideoControllerConfiguration videoDrawing({required bool direct, bool? android})
   return const VideoControllerConfiguration();
 }
 
+/// How the app draws subtitles on Android (the PC's engine draws its own, sized by mpv's
+/// `sub-scale`): media_kit's own look, [size] times as big (0.2.8, Settings › Videos ›
+/// Subtitle size).
+SubtitleViewConfiguration subtitleView({required double size, bool? android}) {
+  const usual = SubtitleViewConfiguration();
+  return SubtitleViewConfiguration(
+    visible: android ?? Platform.isAndroid,
+    style: usual.style.copyWith(fontSize: (usual.style.fontSize ?? 32) * size),
+  );
+}
+
 /// How a video page's session sees the drawing (0.2.8): from the chip on Android with
 /// [direct], the app's own on Android otherwise; elsewhere nothing changes.
 VideoDrawing pageDrawing({required bool direct, bool? android}) =>

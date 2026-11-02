@@ -76,6 +76,7 @@ class VideoSession extends ChangeNotifier {
     this.stallLimit = const Duration(seconds: 15),
     this.drawing = VideoDrawing.none,
     this.onNeedAppDrawing,
+    this.seeksTracked = false,
   })  : _id = videoId,
         shownId = ValueNotifier(videoId) {
     transport = VideoEngineTransport(engine, maxVolume: () => _playback.maxVolume);
@@ -86,6 +87,9 @@ class VideoSession extends ChangeNotifier {
     // Volume boost (0.1.62): the volume can go above 100 up to Settings › Playback's top.
     _playback.addListener(_followVolumeTop);
     if (engine.hasOptions) engine.setOption('volume-max', '$engineVolumeMax');
+    // Subtitle size (0.2.8): the PC's engine draws subtitles itself (Android's are the app's).
+    _video.addListener(_applySubtitleSize);
+    _applySubtitleSize();
     _subs.addAll([
       engine.completedStream.listen((done) {
         if (done) _finished();
@@ -328,10 +332,19 @@ class VideoSession extends ChangeNotifier {
   /// How long a server video gets to start moving before a converted copy is asked for instead.
   final Duration stallLimit;
 
+  void _applySubtitleSize() {
+    if (!_disposed && engine.hasOptions) engine.setOption('sub-scale', '${_video.subtitleSize}');
+  }
+
   /// How the page shows the picture (0.2.8), and how to ask it to start again with the app
   /// drawing the picture, at video [id] (the page makes a new player; this session closes).
   final VideoDrawing drawing;
   final void Function(String id)? onNeedAppDrawing;
+
+  /// Every seek goes through [VideoEngine.seek] (the TV's controls), so a jump in the clock soon
+  /// after none is the file's own (0.2.8). A phone's player controls seek the player directly, so
+  /// there the clock isn't watched.
+  final bool seeksTracked;
 
   /// Videos found this time HomeTunes is open to need software decoding (the chip couldn't show
   /// them), so they go straight there when opened again (0.2.8).
@@ -395,6 +408,7 @@ class VideoSession extends ChangeNotifier {
   /// its pictures back out of order, and the clock jumps about with nothing on screen
   /// (Ratatouille: 17 jumps in 30 s). Three in 20 s means it isn't playing properly.
   void _watchClock(Duration at) {
+    if (!seeksTracked) return;
     final prev = _prevAt;
     _prevAt = at;
     if (prev == null || (at - prev).abs() <= const Duration(milliseconds: 1500)) return;
@@ -748,6 +762,7 @@ class VideoSession extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _video.removeListener(_applySubtitleSize);
     // Save the place once this frame is done (telling the Videos tab during dispose would redraw
     // it while the widget tree is locked).
     final length = _length(), at = engine.position;

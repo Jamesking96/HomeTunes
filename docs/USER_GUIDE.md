@@ -248,16 +248,16 @@ than the video itself, so for an old, small video the 1080p and 720p copies are 
   offline** asks whether to keep what it downloaded.
 - **Download next episodes:** while you watch a series from a server, the next two episodes
   download, and each is removed again once you've watched it.
-- **Remove downloaded videos once watched** (Settings > Servers > Downloads, off to start
+- **Remove downloaded videos once watched** (Settings > Downloads, off to start
   with): a film or episode you downloaded is removed when you finish watching it, to free the
   space. One you'd already watched before downloading it stays until you watch it again. If it
   was part of something kept offline, it isn't downloaded again.
 - **Make it mine…** copies a downloaded song or video into one of your own folders, tidily named,
   so it's one of your own files from then on (and where you got to in a video comes with it).
 - The **Downloads** page (in the sidebar, at the top of Your Library › Playlists, or Settings >
-  Servers > Downloads > See downloads) shows what's downloading, what's kept offline and
+  Downloads > See downloads) shows what's downloading, what's kept offline and
   everything downloaded, with pause, carry on, try again and remove, and how much space it takes.
-- **Settings > Servers > Downloads:** where downloads go (HomeTunes' own data folder unless you
+- **Settings > Downloads:** where downloads go (HomeTunes' own data folder unless you
   pick another: choose the **Download folder** row; once you've picked one, the same row offers
   going back to HomeTunes' own, and a folder HomeTunes can't save in is turned down with a
   message), how much space they may take, how many next episodes to download and which copy.
@@ -270,7 +270,7 @@ than the video itself, so for an old, small video the 1080p and 720p copies are 
 each start with a short note on how to use them and where they're used, worded for the device
 you're on (hold OK on a TV, right-click on a PC, press and hold on a phone).
 
-**Download or Keep offline?** (Also in the app: **Settings > Servers > Downloads > Download or
+**Download or Keep offline?** (Also in the app: **Settings > Downloads > Download or
 Keep offline?**, or the Downloads page's ⋮ menu.)
 - **Download** copies exactly what you chose onto this device, as it is now: one song or
   episode, or a whole album, playlist, season or collection. It then plays without the server.
@@ -286,13 +286,13 @@ Keep offline?**, or the Downloads page's ⋮ menu.)
 **Seeing a download's progress.** While a video downloads, a thin bar along the top of its
 picture fills up; a collection (or series) shows one bar for everything of it that's
 downloading. The bar is your highlight colour while downloading and grey while waiting its
-turn. **Download queue** (Settings > Servers > Downloads, or the queue button on the Downloads
+turn. **Download queue** (Settings > Downloads, or the queue button on the Downloads
 page) lists everything on its way, numbered in the order it'll download (two at a time), each
 with its bar, with pause, carry on, try again and stop. On a TV it's on the Downloads page
 (Queue).
 
 **Temporary copies.** If you'd like what you stream to play again without the server, but don't
-want to manage downloads, turn on **Settings > Servers > Temporary copies > Save a copy while
+want to manage downloads, turn on **Settings > Downloads > Temporary copies > Save a copy while
 streaming**. Anything from a server then plays straight away and is saved in the background as
 it plays; next time it plays from this device. A temporary copy is cleared away by itself a
 while after you've finished it (watched to the end, played through, or the audiobook finished):

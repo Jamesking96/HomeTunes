@@ -587,8 +587,10 @@ class LibraryModel extends ChangeNotifier {
     bool? seekPreview,
     PictureShape? videoShape,
     PictureShape? collectionShape,
+    double? subtitleSize,
   }) =>
       settings.video.update(
+        subtitleSize: subtitleSize,
         seekPreview: seekPreview,
         skipBackSeconds: skipBackSeconds,
         skipForwardSeconds: skipForwardSeconds,
