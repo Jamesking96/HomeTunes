@@ -14,12 +14,16 @@ import '../theme.dart';
 import '../widgets/download_ui.dart' show DownloadProgressBar, DownloadProgressOverlay;
 import 'tv_browse.dart';
 import 'tv_detail.dart';
+import 'tv_focus.dart' show TvBackRung, TvBackSteps;
 import 'tv_items.dart';
 import 'tv_widgets.dart';
 
 class TvCollectionPage extends StatefulWidget {
-  const TvCollectionPage({super.key, required this.name});
+  const TvCollectionPage({super.key, required this.name, this.videoId});
   final String name;
+
+  /// Opened at this video (0.2.8, "Go to …" in a video's options): its season, and it focused.
+  final String? videoId;
 
   @override
   State<TvCollectionPage> createState() => _TvCollectionPageState();
@@ -28,6 +32,19 @@ class TvCollectionPage extends StatefulWidget {
 class _TvCollectionPageState extends State<TvCollectionPage> {
   /// The season tab showing (null: the one with the next video to watch).
   int? _group;
+
+  /// The season tabs (0.2.8: Back from the episodes comes here first).
+  final _seasons = FocusNode(debugLabel: 'tv season tabs', skipTraversal: true, canRequestFocus: false);
+
+  /// Where the page opened at [TvCollectionPage.videoId] (worked out once).
+  int? _startAt;
+  bool _started = false;
+
+  @override
+  void dispose() {
+    _seasons.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +62,15 @@ class _TvCollectionPageState extends State<TvCollectionPage> {
     final groups = c.groups;
     final labels = [for (final (h, list) in groups) h == null ? 'Videos' : model.groupLabel(c, h, list)];
     final withNext = next == null ? 0 : groups.indexWhere((g) => g.$2.any((v) => v.id == next.id));
+    if (!_started) {
+      _started = true;
+      final id = widget.videoId;
+      final at = id == null ? -1 : groups.indexWhere((g) => g.$2.any((v) => v.id == id));
+      if (at >= 0) {
+        _group = at;
+        _startAt = groups[at].$2.indexWhere((v) => v.id == id);
+      }
+    }
     final group = (_group ?? (withNext < 0 ? 0 : withNext)).clamp(0, groups.isEmpty ? 0 : groups.length - 1);
     final videos = groups.isEmpty ? const <VideoItem>[] : groups[group].$2;
 
@@ -60,8 +86,9 @@ class _TvCollectionPageState extends State<TvCollectionPage> {
             onPressed: () => nav.openVideo(next),
           );
 
-    return TvDetailPage<VideoItem>(
+    final page = TvDetailPage<VideoItem>(
       itemHeight: 66,
+      startAt: _startAt,
       header: TvDetailHeader(
         picture: DownloadProgressOverlay(
             ids: [for (final v in c.videos) v.id], child: tvFilePicture(model.coverFile(c), Icons.video_library_outlined)),
@@ -107,12 +134,21 @@ class _TvCollectionPageState extends State<TvCollectionPage> {
         ],
         below: c.description == null ? null : TvDescription(c.description!, lines: 2, title: c.name),
         after: groups.length > 1
-            ? TvTabBar(labels: labels, selected: group, onSelect: (i) => setState(() => _group = i))
+            ? Focus(
+                focusNode: _seasons,
+                child: TvTabBar(labels: labels, selected: group, onSelect: (i) => setState(() => _group = i)),
+              )
             : null,
       ),
       items: videos,
       itemBuilder: (context, v, i, node) => _EpisodeRow(video: v, node: node, isNext: v.id == next?.id),
     );
+    if (groups.length < 2) return page;
+    // Back (0.2.8): from an episode, up to the seasons first; from there, back a page.
+    return TvBackSteps(rungs: [
+      TvBackRung(node: _seasons),
+      TvBackRung(holds: (f) => f.context?.findAncestorWidgetOfExactType<_EpisodeRow>() != null),
+    ], child: page);
   }
 }
 
@@ -166,7 +202,7 @@ class _EpisodeRow extends StatelessWidget {
       trailing: watched ? Icon(Icons.check_circle, size: 20, color: AppColors.textDim) : null,
       focusedHint: 'Hold OK for options',
       onPressed: () => nav.openVideo(video),
-      onHold: () => showVideoOptions(context, video),
+      onHold: () => showVideoOptions(context, video, onPage: true),
     );
   }
 }

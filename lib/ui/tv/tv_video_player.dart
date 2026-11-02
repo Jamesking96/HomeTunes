@@ -757,7 +757,7 @@ class _TvVideoViewState extends State<TvVideoView> {
         if (v != null)
           TvOption('Go to the collection', Icons.video_library_outlined, () {
             Navigator.of(context).pop();
-            nav.openVideoCollection(v.collection);
+            nav.openVideoCollection(v.collection, videoId: v.id);
           }),
       ],
     );

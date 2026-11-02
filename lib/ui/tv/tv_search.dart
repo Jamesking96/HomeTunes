@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/book.dart';
 import '../../models/video_item.dart';
+import '../../services/word_predictor.dart';
 import '../../state/library_model.dart';
 import '../../state/player_model.dart';
 import '../../state/video_filters.dart';
@@ -23,6 +24,7 @@ import 'tv_detail.dart' show TvListHeading;
 import 'tv_items.dart';
 import 'tv_keyboard.dart';
 import 'tv_widgets.dart';
+import 'tv_words.dart';
 
 /// The Search tab's place in the menu.
 const tvSearchTab = 1;
@@ -38,6 +40,21 @@ class TvSearchScreen extends StatefulWidget {
 
 class _TvSearchScreenState extends State<TvSearchScreen> {
   String _query = '';
+
+  // Predicted words (0.2.8), from everything in the library; made again when the library changes.
+  WordPredictor? _predictor;
+  Object? _madeFor;
+
+  WordPredictor _wordsFor(LibraryModel lib, VideoLibraryModel? videos) {
+    final now = (lib.tracks, lib.albums, lib.books, videos?.videos, videos?.collections);
+    if (_predictor == null || _madeFor != now) {
+      _madeFor = now;
+      _predictor = tvPredictorFor(context, TvTyping.search);
+    }
+    return _predictor!;
+  }
+
+  void _predict(Prediction p) => setState(() => _query = WordPredictor.apply(_query, p));
 
   void _type(String s) => setState(() => _query += s);
 
@@ -66,6 +83,7 @@ class _TvSearchScreenState extends State<TvSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final words = _wordsFor(context.watch<LibraryModel>(), context.watch<VideoLibraryModel?>());
     return TvPageHints(
       tab: tvSearchTab,
       hints: tvSearchHints,
@@ -78,7 +96,14 @@ class _TvSearchScreenState extends State<TvSearchScreen> {
               canRequestFocus: false,
               skipTraversal: true,
               onKeyEvent: _hardKey,
-              child: _Keyboard(query: _query, onType: _type, onDelete: _delete, onClear: _clear),
+              child: _Keyboard(
+                query: _query,
+                predictions: _query.trim().isEmpty ? const [] : words.predict(_query, max: TvKeyboard.most),
+                onPredict: _predict,
+                onType: _type,
+                onDelete: _delete,
+                onClear: _clear,
+              ),
             ),
             const SizedBox(width: 28),
             Expanded(child: TvSearchResults(query: _query)),
@@ -91,8 +116,17 @@ class _TvSearchScreenState extends State<TvSearchScreen> {
 
 /// The typed text over the keys.
 class _Keyboard extends StatelessWidget {
-  const _Keyboard({required this.query, required this.onType, required this.onDelete, required this.onClear});
+  const _Keyboard({
+    required this.query,
+    required this.predictions,
+    required this.onPredict,
+    required this.onType,
+    required this.onDelete,
+    required this.onClear,
+  });
   final String query;
+  final List<Prediction> predictions;
+  final ValueChanged<Prediction> onPredict;
   final ValueChanged<String> onType;
   final VoidCallback onDelete, onClear;
 
@@ -127,7 +161,14 @@ class _Keyboard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          TvKeyboard(onType: onType, onDelete: onDelete, onClear: onClear, canSpace: query.isNotEmpty),
+          TvKeyboard(
+            onType: onType,
+            onDelete: onDelete,
+            onClear: onClear,
+            canSpace: query.isNotEmpty,
+            predictions: predictions,
+            onPredict: onPredict,
+          ),
         ],
       ),
     );

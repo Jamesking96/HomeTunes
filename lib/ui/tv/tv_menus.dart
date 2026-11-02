@@ -362,12 +362,22 @@ Future<void> showSeriesOptions(BuildContext context, BookSeries s, {bool onPage 
 
 // ---- Videos ----
 
-List<TvOption> videoOptions(BuildContext context, VideoItem v) {
+/// [onPage]: on its collection's page (no "Go to" it).
+List<TvOption> videoOptions(BuildContext context, VideoItem v, {bool onPage = false}) {
   final model = context.read<VideoLibraryModel>();
   final nav = context.read<AppNav>();
   final place = model.placeOf(v.id);
   final watched = place?.watched ?? false;
   final started = place?.inProgress ?? false;
+  // Its show, and the season it's in (0.2.8, the user: from All videos, "an option to send me to
+  // that show's listing … if it is part of a season it should also take me to that said season").
+  final c = onPage ? null : model.collectionNamed(v.collection);
+  String? season;
+  if (c != null) {
+    final groups = c.groups;
+    final g = groups.where((g) => g.$2.any((x) => x.id == v.id)).firstOrNull;
+    if (groups.length > 1 && g != null && g.$1 != null) season = model.groupLabel(c, g.$1!, g.$2);
+  }
   return [
     TvOption(started ? 'Carry on watching' : 'Play', Icons.play_arrow, () => nav.openVideo(v)),
     // Always offered (the user, 23 Oct): starts at 0:00 whether or not it was started before.
@@ -377,19 +387,25 @@ List<TvOption> videoOptions(BuildContext context, VideoItem v) {
     }),
     TvOption(watched ? 'Mark as not watched' : 'Mark as watched', watched ? Icons.remove_done : Icons.done,
         () => model.setWatched([v.id], !watched)),
+    if (c != null)
+      TvOption(
+        'Go to ${c.name}',
+        Icons.video_library_outlined,
+        subtitle: season == null ? 'Its page' : '$season, at ${v.episodeLabel ?? v.title}',
+        () => nav.openVideoCollection(c.name, videoId: v.id),
+      ),
     ...tvDownloadOptions(context, [DownloadItem.video(v)]),
-    TvOption('Go to the collection', Icons.video_library_outlined, () => nav.openVideoCollection(v.collection)),
     TvOption('Details', Icons.info_outline, () => openVideoDetails(context, v)),
     TvOption('Edit details', Icons.edit_outlined, opensMore: true, () => showEditVideos(context, [v])),
     tvChangePictureOption(context, v), // 0.2.5
   ];
 }
 
-Future<void> showVideoOptions(BuildContext context, VideoItem v) => showTvOptions(
+Future<void> showVideoOptions(BuildContext context, VideoItem v, {bool onPage = false}) => showTvOptions(
       context,
       title: v.title,
       subtitle: [if (v.collection != v.title) v.collection, ?v.episodeLabel].join(' · '),
-      options: videoOptions(context, v),
+      options: videoOptions(context, v, onPage: onPage),
     );
 
 /// [season]: on the collection's page, the season tab showing (its heading and videos), which

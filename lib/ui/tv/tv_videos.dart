@@ -63,6 +63,15 @@ class _TvVideosScreenState extends State<TvVideosScreen> {
   var _reverse = false;
   var _choice = const VideoChoice();
 
+  /// The row of types and Filter (0.2.8: Back from the videos comes here first).
+  final _typesRow = FocusNode(debugLabel: 'tv video types row', skipTraversal: true, canRequestFocus: false);
+
+  @override
+  void dispose() {
+    _typesRow.dispose();
+    super.dispose();
+  }
+
   WatchState _stateOf(VideoLibraryModel v, VideoCollection c) => collectionWatchState(
         watchedCount: v.watchedCount(c),
         main: c.main.length,
@@ -230,7 +239,9 @@ class _TvVideosScreenState extends State<TvVideosScreen> {
       // The type buttons and Filter, over the grid.
       final labels = ['All', ...types];
       body = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        SizedBox(
+        Focus(
+          focusNode: _typesRow,
+          child: SizedBox(
           height: 40,
           child: Row(children: [
             Expanded(
@@ -253,7 +264,7 @@ class _TvVideosScreenState extends State<TvVideosScreen> {
             ),
             const SizedBox(width: 10),
           ]),
-        ),
+        )),
         const SizedBox(height: 8),
         Expanded(child: grid),
       ]);
@@ -269,6 +280,8 @@ class _TvVideosScreenState extends State<TvVideosScreen> {
           selected: _tab.index,
           onSelect: (i) => setState(() => _tab = TvVideoTab.values[i]),
         ),
+        // Back: the videos → the types → the tabs → the menu (0.2.8).
+        rows: [if (videos.videos.isNotEmpty) _typesRow],
         actions: [
           if (_tab != TvVideoTab.continueWatching && videos.videos.isNotEmpty)
             TvButton(

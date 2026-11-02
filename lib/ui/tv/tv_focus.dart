@@ -411,3 +411,71 @@ ThemeData tvTheme(ThemeData theme, Color accent) {
     elevatedButtonTheme: ElevatedButtonThemeData(style: withFocus(theme.elevatedButtonTheme.style)),
   );
 }
+
+/// One row Back can step up to (0.2.8): [node] is gone to (its first item; a tab bar puts focus
+/// on the tab showing), and [holds] says whether a focused thing counts as in this row (by
+/// default: anything inside [node]). A row with no [node] is only stepped up from.
+class TvBackRung {
+  const TvBackRung({this.node, this.holds});
+  final FocusNode? node;
+  final bool Function(FocusNode focused)? holds;
+
+  bool has(FocusNode f) {
+    if (holds != null) return holds!(f);
+    final n = node;
+    return n != null && (f == n || f.ancestors.contains(n));
+  }
+}
+
+/// Back steps up a page's rows before it leaves the page (0.2.8). The user (2 Nov 2026): on the
+/// Videos tab, Back from the videos should go to the row of types (All, Anime, TV…), then to the
+/// tabs (Collections, All videos…), and only then to the menu; on a show's page, from its
+/// episodes to its seasons first. [rungs] go from the top of the page down (a row inside a later
+/// one, as the types row is inside the page's body, comes first): Back from inside one
+/// goes to the one above it; from the top one (or from anything not in a rung) it does what it
+/// always did.
+class TvBackSteps extends StatefulWidget {
+  const TvBackSteps({super.key, required this.rungs, required this.child});
+  final List<TvBackRung> rungs;
+  final Widget child;
+
+  @override
+  State<TvBackSteps> createState() => _TvBackStepsState();
+}
+
+class _TvBackStepsState extends State<TvBackSteps> {
+  /// Back was pressed and used here: its letting go is taken too (Android goes back when Back is
+  /// let go).
+  bool _taken = false;
+
+  KeyEventResult _key(FocusNode node, KeyEvent e) {
+    final k = e.logicalKey;
+    if (k != LogicalKeyboardKey.goBack && k != LogicalKeyboardKey.escape) return KeyEventResult.ignored;
+    if (e is KeyUpEvent) {
+      if (!_taken) return KeyEventResult.ignored;
+      _taken = false;
+      return KeyEventResult.handled;
+    }
+    if (e is KeyRepeatEvent) return _taken ? KeyEventResult.handled : KeyEventResult.ignored;
+    final current = FocusManager.instance.primaryFocus;
+    if (current == null) return KeyEventResult.ignored;
+    final rungs = widget.rungs;
+    // The first row it's in: a row inside a later one (the types row inside the page's body)
+    // counts as itself.
+    final at = rungs.indexWhere((r) => r.has(current));
+    if (at <= 0) return KeyEventResult.ignored;
+    // Up to the nearest row above that has something to go to.
+    for (var i = at - 1; i >= 0; i--) {
+      final n = rungs[i].node;
+      if (n != null && tvFocusFirstIn(n)) {
+        _taken = k == LogicalKeyboardKey.goBack;
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      Focus(canRequestFocus: false, skipTraversal: true, onKeyEvent: _key, child: widget.child);
+}
