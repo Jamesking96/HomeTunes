@@ -444,7 +444,7 @@ void main() {
       await pumpEventQueue();
     });
 
-    VideoSession start(String item) => session = VideoSession(
+    VideoSession start(String item, {Duration stallLimit = const Duration(seconds: 15)}) => session = VideoSession(
           engine: engine,
           videos: videos,
           music: music,
@@ -452,6 +452,7 @@ void main() {
           upNextTick: const Duration(milliseconds: 1),
           tracksSettle: Duration.zero,
           openingTimeout: const Duration(seconds: 1),
+          stallLimit: stallLimit,
         );
 
     test('plays the original from the server with the sign-in in headers, and reports to it', () async {
@@ -486,6 +487,41 @@ void main() {
       // A second failure is reported.
       engine.fail('still no');
       expect(s.problem, contains('Can\'t play this video'));
+    });
+
+    // 0.2.7: The Lion King's .avi knew its length but stood still on one picture.
+    test('one that knows its length but doesn\'t move is asked for again as a converted copy', () async {
+      final s = start('ep1', stallLimit: const Duration(milliseconds: 300));
+      await until(() => engine.openPath != null);
+      engine.loaded(length: const Duration(minutes: 50));
+      await engine.play();
+      engine.moveTo(Duration.zero); // stands still
+      await until(() => engine.openPath!.contains('/master.m3u8?'));
+      expect(s.address!.converted, isTrue);
+    });
+
+    test('an error before it has started moving: a converted copy, even when its length is known', () async {
+      final s = start('ep1');
+      await until(() => engine.openPath != null);
+      engine.loaded(length: const Duration(minutes: 50));
+      engine.fail('Error decoding audio.');
+      await until(() => engine.openPath!.contains('/master.m3u8?'));
+      expect(s.address!.converted, isTrue);
+    });
+
+    test('one that plays on as it is stays as it is', () async {
+      final s = start('ep1', stallLimit: const Duration(milliseconds: 300));
+      await until(() => engine.openPath != null);
+      engine.loaded(length: const Duration(minutes: 50));
+      await engine.play();
+      engine.moveTo(const Duration(seconds: 1));
+      engine.moveTo(const Duration(seconds: 3));
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      expect(s.address!.converted, isFalse);
+      // A hiccup later on doesn't switch it.
+      engine.fail('Error decoding audio.');
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(s.address!.converted, isFalse);
     });
 
     test('a server that can\'t be signed in to says why', () async {
