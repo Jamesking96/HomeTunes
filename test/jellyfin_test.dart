@@ -495,7 +495,9 @@ void main() {
       await until(() => engine.openPath != null);
       engine.loaded(length: const Duration(minutes: 50));
       await engine.play();
-      engine.moveTo(Duration.zero); // stands still
+      // Says the resume place, then stands still at 0:00 (a jump isn't playing on).
+      engine.moveTo(const Duration(minutes: 40, seconds: 8));
+      engine.moveTo(Duration.zero);
       await until(() => engine.openPath!.contains('/master.m3u8?'));
       expect(s.address!.converted, isTrue);
     });
