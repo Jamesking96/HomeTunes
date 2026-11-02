@@ -139,9 +139,10 @@ class WordPredictor {
         for (final p in _phrases)
           if (all.isEmpty || (p.toLowerCase().startsWith(all) && p.toLowerCase() != all)) p
       ]..sort((a, b) => a.length != b.length ? a.length.compareTo(b.length) : a.toLowerCase().compareTo(b.toLowerCase()));
-      for (final p in matches.take(all.isEmpty ? max : 2)) {
+      for (final p in matches.take(max)) {
         if (out.length >= max) break;
-        if (taken.add('phrase:${p.toLowerCase()}')) out.add(Prediction(p, whole: true));
+        // One word that's also a whole name ("Action") is offered once.
+        if (taken.add(p.toLowerCase())) out.add(Prediction(p, whole: true));
       }
     }
 
