@@ -421,7 +421,9 @@ again). Quick links only show on a computer, where there's a sidebar.
   **Open collection page**, **Edit collection…**, **Change poster…** and more. A video carries on
   where you stopped, and the next episode starts after a short countdown.
   - **Watching:** the player has skip buttons, **previous / next video**, speed, and a subtitles
-    button for choosing audio and subtitle tracks (remembered for each collection). A round
+    button for choosing audio and subtitle tracks (remembered for each collection). **Subtitle
+    size** (Settings › Videos, and on a TV in the player's **Audio & subtitles**) makes subtitles
+    smaller or bigger: Small, Normal, Large, Larger or Largest, for every video. A round
     **Enlarge** button sits in the top corner of the picture (**Shrink** once it's enlarged, and
     **Leave full screen** in full screen); **Full screen** is in the bottom corner with the other
     controls. The same buttons are below the video too, with more. On a PC, Space, the arrow keys, F and Esc work, and the mouse wheel over
@@ -587,7 +589,14 @@ use a HomeTunes backup file as described above.
   format, how your device is decoding it, and (only when something goes wrong) how many
   pictures were dropped and whether it had to wait for the file. Play the video until it
   stutters, then copy the log the same way.
-- **A video shows a black picture on the phone** (but you can hear it): turn off **Settings ›
+- **Old videos (DivX, XviD, often .avi files from the 2000s) on a TV or phone:** the TV's or
+  phone's video chip can't show these properly (sound but a black picture, a frozen picture, or
+  nothing at all), so HomeTunes decodes them itself and draws the picture, as VLC does. For videos
+  from a server it knows the format beforehand; for anything else it notices within a few seconds
+  (no picture, or the picture's clock jumping about by itself) and starts it again that way from
+  the same place. If even that doesn't work with a server video, it asks the server for a
+  converted copy. The Playback log says when any of this happens.
+- **A video still shows a black picture on the phone** (but you can hear it): turn off **Settings ›
   Videos › Smoother video on phones** and open the video again. That setting shows the picture
   straight from the phone's video chip, which is smoother, but a few unusual video formats can't
   be shown that way.
