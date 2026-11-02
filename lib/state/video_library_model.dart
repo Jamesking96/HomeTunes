@@ -889,6 +889,12 @@ class VideoLibraryModel extends ChangeNotifier {
     _saveTimer = Timer(const Duration(seconds: 2), _save);
   }
 
+  /// A save within [quietSaveEvery], unless one is already coming (0.2.8: a playing video's place,
+  /// so the file isn't written every few seconds).
+  void _saveLater() {
+    _saveTimer ??= Timer(quietSaveEvery, _save);
+  }
+
   /// Saves anything waiting now (the app is going into the background or closing).
   Future<void> flushPendingSaves() async {
     if (_saveTimer != null) await _save();
@@ -1209,12 +1215,22 @@ class VideoLibraryModel extends ChangeNotifier {
 
   /// Remembers how far into video [id] the user got. Near the end counts as watched.
   /// Also learns the length if the scan didn't know it.
-  void savePlace(String id, Duration position, Duration length, {bool paused = false}) {
+  ///
+  /// [quiet] (0.2.8): the player's save every few seconds while it plays. The place is kept (and a
+  /// server told) but nothing else is told, and it's written to disk at most every
+  /// [quietSaveEvery]. The user (2 Nov 2026): "Streaming to the TVs … still [has] stuttering
+  /// issues on all videos". Every 5 s the save told every screen showing videos to rebuild
+  /// (behind the player, the TV's Videos tab sorting and filtering every video again, Home, the
+  /// show's page): about 180 ms on the test TV, with the picture frozen meanwhile, and the
+  /// whole file written 2 s later. Pausing, stopping, the end, or becoming watched still tell
+  /// everyone at once and save soon.
+  void savePlace(String id, Duration position, Duration length, {bool paused = false, bool quiet = false}) {
     final old = _places[id];
     // A server video tells its server where it's got to (0.2.1).
     final shown = _byId[id];
     if (shown != null && isServerVideo(shown)) remote?.progress(shown, position, length, paused: paused);
     final end = isNearEnd(position, length);
+    final becameWatched = end && !(old?.watched ?? false);
     _places[id] = VideoPlace(
       position: position,
       watched: end || (old?.watched ?? false),
@@ -1224,11 +1240,18 @@ class VideoLibraryModel extends ChangeNotifier {
     if (raw != null && length > Duration.zero && (raw.duration - length).abs() > const Duration(seconds: 2)) {
       _update(id, (v) => v.copyWith(duration: length));
       _rebuild();
-    } else {
+    } else if (!quiet || becameWatched) {
       notifyListeners();
     }
-    _saveSoon();
+    if (quiet && !becameWatched) {
+      _saveLater();
+    } else {
+      _saveSoon();
+    }
   }
+
+  /// How often a quiet place save (while a video plays) is written to disk at most (0.2.8).
+  static const quietSaveEvery = Duration(seconds: 30);
 
   /// Marks videos as watched or not (not watched also starts them again from the beginning).
   Future<void> setWatched(Iterable<String> ids, bool watched) async {

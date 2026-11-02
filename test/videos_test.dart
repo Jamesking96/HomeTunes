@@ -253,6 +253,38 @@ void main() {
       expect(again.rawById(beach.id)!.title, 'Beach'); // the file's own details are kept apart
     });
 
+    // 0.2.8: the player's save every 5 s rebuilt every screen showing videos (180 ms on the
+    // test TV, the picture frozen meanwhile) and wrote the file each time.
+    test('a quiet place save (while playing) tells no one, unless it makes the video watched', () async {
+      await lib.addVideoFolder(videosDir.path);
+      await model.scan();
+      final id = model.videos.first.id;
+      model.savePlace(id, const Duration(minutes: 1), const Duration(minutes: 10)); // learns the length
+      await model.flushPendingSaves();
+      var told = 0;
+      void count() => told++;
+      model.addListener(count);
+      addTearDown(() => model.removeListener(count));
+      model.savePlace(id, const Duration(minutes: 2), const Duration(minutes: 10), quiet: true);
+      model.savePlace(id, const Duration(minutes: 3), const Duration(minutes: 10), quiet: true);
+      expect(told, 0);
+      expect(model.placeOf(id)!.position, const Duration(minutes: 3)); // kept all the same
+      // Paused or stopped: everyone's told.
+      model.savePlace(id, const Duration(minutes: 3), const Duration(minutes: 10), paused: true);
+      expect(told, 1);
+      // Reaching the end while playing: watched, so everyone's told.
+      model.savePlace(id, const Duration(minutes: 9, seconds: 55), const Duration(minutes: 10), quiet: true);
+      expect(told, 2);
+      expect(model.placeOf(id)!.watched, isTrue);
+      // The quiet place is written when saves are flushed (the app going into the background).
+      model.savePlace(id, const Duration(minutes: 4), const Duration(minutes: 10), quiet: true);
+      await model.flushPendingSaves();
+      final again = VideoLibraryModel(storage, lib);
+      addTearDown(again.dispose);
+      await again.load();
+      expect(again.placeOf(id)!.position, const Duration(minutes: 4));
+    });
+
     test('watched near the end; marking not watched starts again', () async {
       await lib.addVideoFolder(videosDir.path);
       await model.scan();
