@@ -8,6 +8,9 @@
 //    Watched, a Continue watching row, search, a filter sheet (category, collection, genre,
 //    decade, length, picture, file type) and sorts. Select mode edits or marks several at once.
 //  * Favourites: the favourite collections.
+// Above them (0.2.9, the user: "TV Shows, Anime and Films are all collatable tabs to help with
+// sorting between them"): a row of type tabs, All · Anime · TV Shows · Films (and any other type
+// the libraries name), as on the TV (state/video_types.dart). The type chosen narrows all three.
 // Tapping a video opens its player page (video_player_screen.dart). Right-click / press and
 // hold / ⋮ gives the video's or collection's menu. Everything comes from VideoLibraryModel.
 // Refactor phase 6 (9 Oct 2026): the video card and its menu (widgets/video_card.dart) and the
@@ -22,6 +25,7 @@ import '../../state/music_filters.dart';
 import '../../state/range_select.dart';
 import '../../state/video_filters.dart';
 import '../../state/video_library_model.dart';
+import '../../state/video_types.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/cards.dart' show EmptyState;
@@ -38,8 +42,35 @@ export '../widgets/video_group_menu.dart' show showVideoGroupMenu;
 import '../widgets/video_selection_bar.dart';
 export '../widgets/video_selection_bar.dart' show VideoSelectionBar;
 
-class VideosScreen extends StatelessWidget {
+class VideosScreen extends StatefulWidget {
   const VideosScreen({super.key});
+
+  /// For tests: the type tabs back to All.
+  @visibleForTesting
+  static void forgetType() => _VideosScreenState.forgetType();
+
+  @override
+  State<VideosScreen> createState() => _VideosScreenState();
+}
+
+/// What a type tab says: "TV Shows" for TV (the user's word for them); the others as they are.
+String videoTypeLabel(String type) => type == 'TV' ? 'TV Shows' : type;
+
+IconData _typeIcon(String? type) => switch (type) {
+      null => Icons.video_library_outlined,
+      'Anime' => Icons.auto_awesome_outlined,
+      'TV' => Icons.tv_outlined,
+      'Films' => Icons.movie_outlined,
+      _ => Icons.folder_outlined,
+    };
+
+class _VideosScreenState extends State<VideosScreen> {
+  /// The type tab chosen (null: All). Kept while HomeTunes is open, like the TV's.
+  static String? _chosenType;
+
+  /// For tests: back to All.
+  @visibleForTesting
+  static void forgetType() => _chosenType = null;
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +100,11 @@ class VideosScreen extends StatelessWidget {
       );
     }
 
+    // The types there are; one that's gone (after a resync or an edit) falls back to All.
+    final types = orderTypes([for (final c in model.collections) collectionType(c)]);
+    if (_chosenType != null && !types.contains(_chosenType)) _chosenType = null;
+    final type = _chosenType;
+
     return DefaultTabController(
       length: 3,
       child: Scaffold(
@@ -89,21 +125,66 @@ class VideosScreen extends StatelessWidget {
         ),
         body: Column(children: [
           const _FavouritesRequest(),
+          if (types.length > 1)
+            _TypeTabs(types: types, chosen: type, onChosen: (t) => setState(() => _chosenType = t)),
           if (model.busy) const LinearProgressIndicator(minHeight: 2),
           if (model.error != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Text(model.error!, style: const TextStyle(color: Colors.orangeAccent, fontSize: 12)),
             ),
-          const Expanded(
+          Expanded(
             child: TabBarView(children: [
-              _CollectionGrid(favourites: false),
-              _AllVideosTab(),
-              _CollectionGrid(favourites: true),
+              _CollectionGrid(favourites: false, type: type),
+              _AllVideosTab(type: type),
+              _CollectionGrid(favourites: true, type: type),
             ]),
           ),
         ]),
       ),
+    );
+  }
+}
+
+/// The type tabs (0.2.9): All, then each type there is. Their own tab row, under Collections /
+/// All videos / Favourites, so either can be changed without the other.
+class _TypeTabs extends StatelessWidget {
+  final List<String> types;
+  final String? chosen;
+  final ValueChanged<String?> onChosen;
+  const _TypeTabs({required this.types, required this.chosen, required this.onChosen});
+
+  @override
+  Widget build(BuildContext context) {
+    final all = <String?>[null, ...types];
+    // Keyed by the types, so a type coming or going starts the row afresh.
+    return DefaultTabController(
+      key: ValueKey('video-types:${types.join('|')}'),
+      length: all.length,
+      initialIndex: math.max(0, all.indexOf(chosen)),
+      child: Builder(builder: (context) {
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: TabBar.secondary(
+            key: const ValueKey('video-type-tabs'),
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            onTap: (i) => onChosen(all[i]),
+            tabs: [
+              for (final t in all)
+                Tab(
+                  key: ValueKey('video-type:${t ?? 'All'}'),
+                  height: 40,
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(_typeIcon(t), size: 18),
+                    const SizedBox(width: 6),
+                    Text(t == null ? 'All' : videoTypeLabel(t)),
+                  ]),
+                ),
+            ],
+          ),
+        );
+      }),
     );
   }
 }
@@ -126,7 +207,10 @@ class _FavouritesRequest extends StatelessWidget {
 /// The Collections tab, and (with [favourites]) the Favourites tab.
 class _CollectionGrid extends StatefulWidget {
   final bool favourites;
-  const _CollectionGrid({required this.favourites});
+
+  /// The type tab chosen (null: All).
+  final String? type;
+  const _CollectionGrid({required this.favourites, this.type});
 
   @override
   State<_CollectionGrid> createState() => _CollectionGridState();
@@ -167,14 +251,17 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
   Widget build(BuildContext context) {
     super.build(context);
     final model = context.watch<VideoLibraryModel>();
-    final all = widget.favourites ? model.favouriteCollections : model.collections;
-    if (widget.favourites && all.isEmpty) {
+    final every = widget.favourites ? model.favouriteCollections : model.collections;
+    if (widget.favourites && every.isEmpty) {
       return const EmptyState(
         icon: Icons.favorite_border,
         title: 'No favourite collections yet',
         message: 'Tap the heart on a collection\'s page, or right-click a collection and choose Add to favourites.',
       );
     }
+    // Just the type chosen above (0.2.9).
+    final type = widget.type;
+    final all = type == null ? every : [for (final c in every) if (collectionType(c) == type) c];
     final shown = searchCollections(
         [for (final c in all) if (_only.matches(c, collectionFilterFields)) c], _query);
     final groups = reverseGroupsIf(_reversed, sortCollections(shown, _sort, lastWatched: model.lastWatchedMs));
@@ -270,7 +357,12 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(32),
-                  child: Text('No collections match.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDim)),
+                  child: Text(
+                      _query.trim().isEmpty && _only.isEmpty && type != null
+                          ? (widget.favourites ? 'No favourite ${videoTypeLabel(type)} yet.' : 'No ${videoTypeLabel(type)} here.')
+                          : 'No collections match.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppColors.textDim)),
                 ),
               ),
             for (final (heading, list) in groups) ...[
@@ -354,7 +446,9 @@ class _FilterChips extends StatelessWidget {
 
 /// The All videos tab.
 class _AllVideosTab extends StatefulWidget {
-  const _AllVideosTab();
+  /// The type tab chosen (null: All).
+  final String? type;
+  const _AllVideosTab({this.type});
 
   @override
   State<_AllVideosTab> createState() => _AllVideosTabState();
@@ -405,8 +499,11 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
     super.build(context);
     final model = context.watch<VideoLibraryModel>();
     final places = model.places;
-    // Filters and search first; the chip counts are for what's left.
-    final narrowed = searchVideos(filterVideos(model.videos, _only), _query);
+    // The type chosen above (0.2.9), then filters and search; the chip counts are for what's left.
+    final type = widget.type;
+    bool ofType(VideoItem v) => type == null || videoType(v.category) == type;
+    final videos = type == null ? model.videos : [for (final v in model.videos) if (ofType(v)) v];
+    final narrowed = searchVideos(filterVideos(videos, _only), _query);
     final counts = {
       for (final s in VideoShow.values) s: narrowed.where((v) => videoShown(s, places[v.id])).length,
     };
@@ -424,7 +521,9 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
         }));
     final shownIds = [for (final (_, g) in groups) for (final v in g) v.id];
     final continuing =
-        _show == VideoShow.all && _query.trim().isEmpty && _only.isEmpty ? model.continueWatching : const <VideoItem>[];
+        _show == VideoShow.all && _query.trim().isEmpty && _only.isEmpty
+            ? [for (final v in model.continueWatching) if (ofType(v)) v]
+            : const <VideoItem>[];
     final selecting = _selected.isNotEmpty;
 
     return Column(children: [
@@ -440,7 +539,7 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
           hint: 'Filter by title, collection, genre or year',
           onChanged: (v) => setState(() => _query = v),
           filtersActive: !_only.isEmpty,
-          onFilter: () => _chooseFilters(model.videos),
+          onFilter: () => _chooseFilters(videos),
           sort: _sort,
           sorts: VideoSort.values,
           sortLabel: videoSortLabel,
@@ -481,7 +580,7 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
                           key: ValueKey('video-filter:${e.key}'),
                           avatar: const Icon(Icons.filter_list, size: 16),
                           label: Text('${e.key}: ${e.value}'),
-                          onPressed: () => _chooseFilters(model.videos),
+                          onPressed: () => _chooseFilters(videos),
                           onDeleted: () => setState(() => _only = _only.withValue(e.key, null)),
                         ),
                       ),
