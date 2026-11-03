@@ -416,7 +416,10 @@ again). Quick links only show on a computer, where there's a sidebar.
   end of the player bar along the bottom (beside the tabs in a narrow window), at the top of Now
   Playing and the Details pages, and in the top corner of a full-screen video or music video. A
   filled pin means it's on, and HomeTunes remembers it next time.
-- **Videos:** the **Videos** tab has **Collections**, **All videos** and **Favourites**. Tap a
+- **Videos:** the **Videos** tab has **Collections**, **All videos** and **Favourites**. When your
+  videos are of more than one type, a row of tabs underneath (**All**, **Anime**, **TV Shows**,
+  **Films** and any other type) shows just that type in all three; HomeTunes remembers the one you
+  chose until it's closed. (The TV has the same choice as buttons.) Tap a
   collection to see its seasons underneath, or right-click it (press and hold on a phone) for
   **Open collection page**, **Edit collection…**, **Change poster…** and more. A video carries on
   where you stopped, and the next episode starts after a short countdown.

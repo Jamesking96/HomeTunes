@@ -441,6 +441,9 @@ Checked with +127: A Goofy Movie, Ratatouille, Treasure Planet play with a pictu
 
 **Subtitle size** (`VideoSettings.subtitleSize`, 0.75 / 1 / 1.25 / 1.5 / 2 = Small … Largest): Settings › Videos and the TV player's Audio & subtitles panel. On Android the app draws subtitles (`subtitleView(size:)`, 32 px × size); on the PC libass does (mpv `sub-scale`).
 
+## PC Videos tab: type tabs (3 Nov 2026, 0.2.9+129, `feature/pc-video-type-tabs`)
+The user: "Update PC build so that TV Shows, Anime and Films are all collatable tabs to help with sorting between them". `VideosScreen` (now stateful) shows `_TypeTabs` under the Collections / All videos / Favourites tab bar: a `TabBar.secondary` of All, then `orderTypes` of the collections' `collectionType` (Anime, TV, Films, others A–Z), with icons; TV is labelled "TV Shows" (`videoTypeLabel`; the TV's buttons still say TV). The choice (`_chosenType`, static: kept while HomeTunes is open; a type that's gone falls back to All) narrows all three sub-tabs: collections by `collectionType`, All videos (and its Continue watching row and Filter sheet) by `videoType(v.category)`, as the TV does. No row when there's only one type. Empty messages: "No Films here." / "No favourite Films yet.". Tests: `test/video_types_test.dart` › the PC's Videos tab. Windows installer built (`build\dist\HomeTunes-Setup-0.2.9.exe`); not installed while the user's HomeTunes was open.
+
 ## Jellyfin streaming and download fixes (2 Nov 2026, 0.2.7+116–120, branch `feature/audiobookshelf`)
 
 The user (1 Nov): "some videos don't download or stream correctly from Jellyfin… One example is The
