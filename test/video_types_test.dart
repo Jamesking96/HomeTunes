@@ -1,5 +1,5 @@
 // Video types, filters and sorts for the TV's Videos tab (state/video_types.dart, 0.2.5), and the
-// tab's type buttons (ui/tv/tv_videos.dart).
+// tab's type buttons (ui/tv/tv_videos.dart); the PC's type tabs (ui/screens/videos_screen.dart, 0.2.9).
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -13,6 +13,7 @@ import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/state/video_types.dart';
 import 'package:hometunes/ui/library_providers.dart';
 import 'package:hometunes/ui/nav.dart';
+import 'package:hometunes/ui/screens/videos_screen.dart';
 import 'package:hometunes/ui/theme.dart';
 import 'package:hometunes/ui/tv/tv_focus.dart';
 import 'package:hometunes/ui/tv/tv_videos.dart';
@@ -232,6 +233,113 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 1));
+    });
+  });
+
+  // 0.2.9, the user: "Update PC build so that TV Shows, Anime and Films are all collatable tabs
+  // to help with sorting between them".
+  group('the PC\'s Videos tab', () {
+    late Directory dir;
+    late LibraryModel lib;
+    late VideoLibraryModel videos;
+    setUp(() {
+      dir = Directory.systemTemp.createTempSync('hometunes_video_types_pc');
+      final storage = Storage.at(dir);
+      Directory(storage.artDir).createSync(recursive: true);
+      lib = LibraryModel(storage);
+      videos = VideoLibraryModel(storage, lib);
+      VideosScreen.forgetType();
+    });
+    tearDown(() async {
+      VideosScreen.forgetType();
+      await videos.settle();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      try {
+        dir.deleteSync(recursive: true);
+      } catch (_) {}
+    });
+
+    Future<void> pump(WidgetTester tester) async {
+      // Tall enough for every collection's card (the groups are one row each).
+      tester.view.physicalSize = const Size(1200, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(MultiProvider(
+        providers: [
+          ...libraryProviders(lib),
+          ChangeNotifierProvider.value(value: videos),
+          ChangeNotifierProvider(create: (_) => AppNav()),
+        ],
+        child: const MaterialApp(home: VideosScreen()),
+      ));
+      await tester.pumpAndSettle();
+    }
+
+    Finder shown(String text) => find.textContaining(text).hitTestable();
+    Future<void> tap(WidgetTester tester, Finder f) async {
+      await tester.tap(f);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('type tabs All · Anime · TV Shows · Films narrow Collections, All videos and Favourites', (tester) async {
+      // Real time for these (saving the favourite), before the screen.
+      await tester.runAsync(() async {
+        videos.setServerVideos('s1', [
+          _v('a1', 'Attack on Titan', 'Anime', episode: 1),
+          _v('a2', 'Attack on Titan', 'Anime', episode: 2),
+          _v('t1', 'Daria', 'Shows', episode: 1),
+          _v('f1', 'Dune', 'Movies'),
+        ]);
+        await videos.setFavourite(videos.collectionNamed('Daria')!, true);
+      });
+      await pump(tester);
+      for (final t in ['All', 'Anime', 'TV Shows', 'Films']) {
+        expect(find.byKey(ValueKey('video-type:${t == 'TV Shows' ? 'TV' : t}')), findsOneWidget);
+      }
+      expect(find.text('TV Shows'), findsOneWidget);
+      // All: every collection.
+      for (final name in ['Attack on Titan', 'Daria', 'Dune']) {
+        expect(shown(name), findsWidgets);
+      }
+
+      await tap(tester, find.byKey(const ValueKey('video-type:Anime')));
+      expect(shown('Attack on Titan'), findsWidgets);
+      expect(shown('Daria'), findsNothing);
+      expect(shown('Dune'), findsNothing);
+
+      // All videos: the same type.
+      await tap(tester, find.text('All videos'));
+      expect(shown('Attack on Titan a1'), findsOneWidget);
+      expect(shown('Daria'), findsNothing);
+      await tap(tester, find.byKey(const ValueKey('video-type:Films')));
+      expect(shown('Dune'), findsWidgets);
+      expect(shown('Attack on Titan'), findsNothing);
+
+      // Favourites: Daria is one, but Films is chosen.
+      await tap(tester, find.text('Favourites'));
+      expect(find.text('No favourite Films yet.'), findsOneWidget);
+      await tap(tester, find.byKey(const ValueKey('video-type:TV')));
+      expect(shown('Daria'), findsWidgets);
+
+      // Kept when the Videos tab is opened again.
+      await tester.pumpWidget(const SizedBox());
+      await pump(tester);
+      expect(shown('Daria'), findsWidgets);
+      expect(shown('Dune'), findsNothing);
+      await tap(tester, find.byKey(const ValueKey('video-type:All')));
+      expect(shown('Dune'), findsWidgets);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 3)); // the videos' save
+    });
+
+    testWidgets('one type only: no type tabs', (tester) async {
+      await tester.runAsync(() async =>
+          videos.setServerVideos('s1', [_v('t1', 'Daria', 'TV', episode: 1), _v('t2', 'Futurama', 'TV', episode: 1)]));
+      await pump(tester);
+      expect(find.byKey(const ValueKey('video-type-tabs')), findsNothing);
+      expect(shown('Futurama'), findsWidgets);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 3));
     });
   });
 }
