@@ -10,7 +10,7 @@ import 'source_filter.dart';
 enum VideoShow { all, continueWatching, unwatched, watched }
 
 /// The sort menu. Some sorts split the grid into headed groups.
-enum VideoSort { collection, season, title, recentlyAdded, recentlyWatched, year, longest }
+enum VideoSort { collection, season, title, genre, recentlyAdded, recentlyWatched, year, longest }
 
 String videoShowLabel(VideoShow s) => switch (s) {
       VideoShow.all => 'All',
@@ -23,6 +23,7 @@ String videoSortLabel(VideoSort s) => switch (s) {
       VideoSort.collection => 'Collection',
       VideoSort.season => 'Season',
       VideoSort.title => 'Title',
+      VideoSort.genre => 'Genre',
       VideoSort.recentlyAdded => 'Recently added',
       VideoSort.recentlyWatched => 'Recently watched',
       VideoSort.year => 'Year',
@@ -31,7 +32,7 @@ String videoSortLabel(VideoSort s) => switch (s) {
 
 /// What each video sort orders by, for Ascending / Descending (0.1.69).
 SortWords videoSortWords(VideoSort s) => switch (s) {
-      VideoSort.collection || VideoSort.title => SortWords.text,
+      VideoSort.collection || VideoSort.title || VideoSort.genre => SortWords.text,
       VideoSort.season => SortWords.order,
       VideoSort.recentlyAdded || VideoSort.recentlyWatched || VideoSort.year => SortWords.date,
       VideoSort.longest => SortWords.length,
@@ -60,7 +61,32 @@ int _byTitle(VideoItem a, VideoItem b) {
   return t != 0 ? t : a.path.compareTo(b.path);
 }
 
-/// Sorts [videos] and, for the collection, season and year sorts, splits them into groups with a heading.
+/// The heading for things with no genre in the Genre sorts (always last).
+const noGenreHeading = 'Genre not known';
+
+/// Groups [items] under each of their genres, A–Z, then [noGenreHeading] for those with none.
+/// Something with two genres is listed under both (as in a music app's genre lists).
+List<(String, List<T>)> groupByGenre<T>(List<T> items, List<String> Function(T x) genresOf) {
+  final groups = <String, List<T>>{};
+  final spelling = <String, String>{};
+  final none = <T>[];
+  for (final x in items) {
+    final gs = genresOf(x);
+    if (gs.isEmpty) none.add(x);
+    for (final g in gs) {
+      final k = g.toLowerCase();
+      spelling.putIfAbsent(k, () => g);
+      (groups[k] ??= []).add(x);
+    }
+  }
+  final keys = groups.keys.toList()..sort((a, b) => sortKey(a).compareTo(sortKey(b)));
+  return [
+    for (final k in keys) (spelling[k]!, groups[k]!),
+    if (none.isNotEmpty) (noGenreHeading, none),
+  ];
+}
+
+/// Sorts [videos] and, for the collection, season, genre and year sorts, splits them into groups with a heading.
 /// Other sorts give one group with no heading. Collections are A–Z and within one the videos go
 /// by title, which puts numbered episodes ("01 …", "02 …") in order.
 List<(String?, List<VideoItem>)> sortVideos(
@@ -99,6 +125,15 @@ List<(String?, List<VideoItem>)> sortVideos(
       ];
     case VideoSort.title:
       return [(null, list..sort(_byTitle))];
+    case VideoSort.genre:
+      // Under each genre: by collection (A–Z), each in watching order.
+      final byCollection = <String, List<VideoItem>>{};
+      for (final v in list) {
+        (byCollection[v.collection] ??= []).add(v);
+      }
+      final names = byCollection.keys.toList()..sort((a, b) => sortKey(a).compareTo(sortKey(b)));
+      final ordered = [for (final n in names) ...sortForCollection(byCollection[n]!)];
+      return [...groupByGenre<VideoItem>(ordered, (v) => v.genres)];
     case VideoSort.recentlyAdded:
       return [
         (null, list..sort((a, b) {
@@ -199,7 +234,7 @@ final videoFilterFields = <FilterField<VideoItem>>[
   sourceField<VideoItem>((v) => [sourceOfVideo(v)]),
   FilterField('Category', (v) => [if (v.category != null && v.category!.trim().isNotEmpty) v.category!.trim()]),
   FilterField('Collection', (v) => [if (v.collection.trim().isNotEmpty) v.collection.trim()]),
-  FilterField('Genre', (v) => [if (v.genre != null && v.genre!.trim().isNotEmpty) v.genre!.trim()]),
+  FilterField('Genre', (v) => v.genres),
   FilterField('Decade', (v) => [?decadeOf(v.year)]),
   FilterField('Length', (v) => [?videoLengthGroup(v.duration)], order: _inOrder(videoLengthGroups)),
   FilterField('Picture', (v) => [?videoQuality(v)], order: _inOrder(videoQualityGroups)),
@@ -213,11 +248,12 @@ List<VideoItem> filterVideos(List<VideoItem> videos, Filters filters) =>
 // ---- the Collections and Favourites sub-tabs ----
 
 /// The Collections tab's sort menu.
-enum CollectionSort { category, name, recentlyAdded, recentlyWatched, mostVideos, year }
+enum CollectionSort { category, name, genre, recentlyAdded, recentlyWatched, mostVideos, year }
 
 String collectionSortLabel(CollectionSort s) => switch (s) {
       CollectionSort.category => 'Category',
       CollectionSort.name => 'Name',
+      CollectionSort.genre => 'Genre',
       CollectionSort.recentlyAdded => 'Recently added',
       CollectionSort.recentlyWatched => 'Recently watched',
       CollectionSort.mostVideos => 'Most videos',
@@ -226,7 +262,7 @@ String collectionSortLabel(CollectionSort s) => switch (s) {
 
 /// What each collection sort orders by, for Ascending / Descending (0.1.69).
 SortWords collectionSortWords(CollectionSort s) => switch (s) {
-      CollectionSort.category || CollectionSort.name => SortWords.text,
+      CollectionSort.category || CollectionSort.name || CollectionSort.genre => SortWords.text,
       CollectionSort.recentlyAdded || CollectionSort.recentlyWatched || CollectionSort.year => SortWords.date,
       CollectionSort.mostVideos => SortWords.number,
     };
@@ -235,7 +271,7 @@ SortWords collectionSortWords(CollectionSort s) => switch (s) {
 final collectionFilterFields = <FilterField<VideoCollection>>[
   sourceField<VideoCollection>((c) => sourcesOfVideos(c.videos)),
   FilterField('Category', (c) => [if (c.category != null && c.category!.trim().isNotEmpty) c.category!.trim()]),
-  FilterField('Genre', (c) => {for (final v in c.videos) if (v.genre != null && v.genre!.trim().isNotEmpty) v.genre!.trim()}),
+  FilterField('Genre', (c) => c.genres),
   FilterField('Decade', (c) => [?decadeOf(c.year)]),
 ];
 
@@ -249,7 +285,8 @@ List<VideoCollection> searchCollections(List<VideoCollection> list, String query
   ];
 }
 
-/// Sorts collections; the category sort splits them into headed groups (TV, Anime, Films…).
+/// Sorts collections; the category sort splits them into headed groups (TV, Anime, Films…), and
+/// the genre sort under each genre they have.
 List<(String?, List<VideoCollection>)> sortCollections(
   List<VideoCollection> list,
   CollectionSort sort, {
@@ -269,6 +306,8 @@ List<(String?, List<VideoCollection>)> sortCollections(
       return [for (final k in keys) (k, groups[k]!)];
     case CollectionSort.name:
       return [(null, out..sort(byName))];
+    case CollectionSort.genre:
+      return [...groupByGenre<VideoCollection>(out..sort(byName), (c) => c.genres)];
     case CollectionSort.recentlyAdded:
       return [(null, out..sort((a, b) => b.addedMs != a.addedMs ? b.addedMs.compareTo(a.addedMs) : byName(a, b)))];
     case CollectionSort.recentlyWatched:

@@ -19,6 +19,7 @@ import '../services/music_permission.dart';
 import '../services/path_safety.dart';
 import '../services/storage.dart';
 import '../services/video_names.dart' show describeVideoPath, videoCategoryNames;
+import '../services/video_genre_lookup.dart';
 import '../services/video_nfo.dart';
 import '../services/video_scanner.dart';
 import '../services/video_thumbnails.dart';
@@ -29,6 +30,7 @@ import 'custom_art_store.dart';
 import 'remote_videos.dart';
 import 'video_filters.dart';
 import 'video_shuffle.dart';
+import 'video_types.dart' show collectionType;
 
 class VideoLibraryModel extends ChangeNotifier {
   final Storage storage;
@@ -56,6 +58,8 @@ class VideoLibraryModel extends ChangeNotifier {
     // The usual picture shapes are in Settings › Videos, which LibraryModel doesn't pass on
     // (refactor phase 9).
     library.settings.video.addListener(_onLibraryChanged);
+    // "Find video genres online" switched on: look up what's missing (4 Nov 2026).
+    library.settings.online.addListener(_scheduleGenreLookup);
   }
 
   // What the scan found (the files' own details), the user's edits and places, by video id.
@@ -160,6 +164,8 @@ class VideoLibraryModel extends ChangeNotifier {
   /// The collection a video is in.
   VideoCollection? collectionOf(VideoItem v) => collectionNamed(v.collection);
 
+  bool _disposed = false;
+
   // Favourite collections, descriptions the user wrote for collections, and the audio /
   // subtitle choice last made in each, all by collection key (lower-case name).
   Set<String> _favourites = {};
@@ -167,6 +173,117 @@ class VideoLibraryModel extends ChangeNotifier {
   Map<String, ({TrackPick? audio, TrackPick? subtitles})> _trackChoices = {};
 
   bool isFavourite(VideoCollection c) => _favourites.contains(c.key);
+
+  // ---- genres found online (4 Nov 2026) ----
+  // A collection with no genre anywhere (files, .nfo, server, the user's edits) is looked up
+  // online (services/video_genre_lookup.dart), at most once a month when nothing was found. What's
+  // found is kept here by collection key, apart from the videos, and laid under the user's edits
+  // in [_rebuild]: it fills only videos with no genre that the user didn't empty on purpose.
+
+  /// Looks genres up online; null (none: tests) unless main.dart sets one.
+  VideoGenreLookup? genreLookup;
+
+  /// Genres found online by collection key: the genre line, or null when nothing was found
+  /// (with when it was tried).
+  Map<String, ({String? genre, String? source, int at})> _foundGenres = {};
+
+  /// The genres found online for [c] ("Comedy, Drama"), and where from; null when none.
+  ({String genre, String? source})? foundGenreOf(VideoCollection c) {
+    final f = _foundGenres[c.key];
+    return f?.genre == null ? null : (genre: f!.genre!, source: f.source);
+  }
+
+  /// How long "nothing found" is kept before trying again.
+  static const genreRetryAfter = Duration(days: 30);
+
+  /// How long to leave a collection whose look-up couldn't reach a service (no internet).
+  static const genreFailedWait = Duration(hours: 1);
+
+  /// How long after a change the automatic look-ups start (scans and syncs come in bursts).
+  static Duration genreLookupDelay = const Duration(seconds: 10);
+
+  final Map<String, DateTime> _genreFailedAt = {};
+  Timer? _genreTimer;
+  bool _genreRunning = false;
+
+  /// Whether automatic look-ups are switched on (Settings › Online lookups).
+  bool get _genresOnline => genreLookup != null && library.settings.online.onlineVideoGenres;
+
+  /// Looks up genres for [name] now, for the editors' "Look up online" (nothing is saved; the
+  /// editor puts what's found in its box). [year] picks between remakes.
+  Future<GenreFind> findGenresOnline(String name, {String? type, int? year}) async {
+    final lookup = genreLookup ?? VideoGenreLookup();
+    return lookup.find(name, type: type, year: year);
+  }
+
+  /// The collections to look up now: no genre at all, not tried lately.
+  List<VideoCollection> _genreCandidates() {
+    final now = DateTime.now();
+    return [
+      for (final c in collections)
+        if (c.genres.isEmpty &&
+            // Every video's genre emptied by the user: they want none.
+            !c.videos.every((v) => _edits[v.id]?.cleared.contains('genre') ?? false) &&
+            // A folder of home videos ("Birthday 2019") isn't a show or a film: only collections
+            // with a type, a season or a year are looked up.
+            (collectionType(c) != null || c.year != null || c.videos.any((v) => v.season != null)) &&
+            (_foundGenres[c.key] == null ||
+                (_foundGenres[c.key]!.genre == null &&
+                    now.difference(DateTime.fromMillisecondsSinceEpoch(_foundGenres[c.key]!.at)) > genreRetryAfter)) &&
+            (_genreFailedAt[c.key] == null || now.difference(_genreFailedAt[c.key]!) > genreFailedWait))
+          c,
+    ];
+  }
+
+  void _scheduleGenreLookup() {
+    if (!_genresOnline || _genreRunning || _genreTimer != null) return;
+    _genreTimer = Timer(genreLookupDelay, () {
+      _genreTimer = null;
+      unawaited(lookUpMissingGenres());
+    });
+  }
+
+  /// Looks up every collection with no genre, one at a time (a second apart, to be kind to the
+  /// services). Finishes early when the switch is turned off.
+  Future<void> lookUpMissingGenres({Duration gap = const Duration(seconds: 1)}) async {
+    if (!_genresOnline || _genreRunning) return;
+    _genreRunning = true;
+    try {
+      for (final c in _genreCandidates()) {
+        if (!_genresOnline || _disposed) break;
+        final GenreFind found;
+        try {
+          found = await genreLookup!.find(c.name, type: collectionType(c), year: c.year);
+        } catch (_) {
+          _genreFailedAt[c.key] = DateTime.now();
+          continue;
+        }
+        if (_disposed) break;
+        if (!found.found && found.incomplete) {
+          _genreFailedAt[c.key] = DateTime.now();
+        } else {
+          _foundGenres[c.key] = (
+            genre: genreLine(found.genres),
+            source: found.source,
+            at: DateTime.now().millisecondsSinceEpoch,
+          );
+          if (found.found) _rebuild(lookUp: false);
+          _saveSoon();
+        }
+        if (gap > Duration.zero) await Future<void>.delayed(gap);
+      }
+    } finally {
+      _genreRunning = false;
+    }
+  }
+
+  /// Forgets the genres found online (Settings, or tests); they're looked up again.
+  void forgetFoundGenres() {
+    _foundGenres = {};
+    _genreFailedAt.clear();
+    _rebuild();
+    _saveSoon();
+  }
 
   /// Favourite collections, A–Z.
   List<VideoCollection> get favouriteCollections => [for (final c in collections) if (_favourites.contains(c.key)) c];
@@ -775,7 +892,21 @@ class VideoLibraryModel extends ChangeNotifier {
     } catch (_) {
       damaged = true;
     }
+    // Genres found online: {"silo": {"genre": "Drama, Sci-Fi", "source": "TVmaze", "at": 1730…}},
+    // or no "genre" when nothing was found.
+    final fg = j['foundGenres'];
+    final foundGenres = <String, ({String? genre, String? source, int at})>{
+      if (fg is Map)
+        for (final e in fg.entries)
+          if (e.key is String && e.value is Map && (e.value as Map)['at'] is int)
+            e.key as String: (
+              genre: genreLine(genresIn((e.value as Map)['genre'] is String ? (e.value as Map)['genre'] as String : null)),
+              source: (e.value as Map)['source'] is String ? (e.value as Map)['source'] as String : null,
+              at: (e.value as Map)['at'] as int,
+            ),
+    };
     if (damaged) await storage.keepCopy(fileName);
+    _foundGenres = foundGenres;
     _scanned = scanned;
     _edits = edits;
     _places = places;
@@ -872,6 +1003,15 @@ class VideoLibraryModel extends ChangeNotifier {
         },
       if (_favourites.isNotEmpty) 'favourites': _favourites.toList()..sort(),
       if (_descriptions.isNotEmpty) 'descriptions': _descriptions,
+      if (_foundGenres.isNotEmpty)
+        'foundGenres': {
+          for (final e in _foundGenres.entries)
+            e.key: {
+              if (e.value.genre != null) 'genre': e.value.genre,
+              if (e.value.source != null) 'source': e.value.source,
+              'at': e.value.at,
+            }
+        },
       if (_trackChoices.isNotEmpty)
         'trackChoices': {
           for (final e in _trackChoices.entries)
@@ -971,10 +1111,34 @@ class VideoLibraryModel extends ChangeNotifier {
     unawaited(makeThumbnails());
   }
 
-  void _rebuild() {
+  /// Gives videos with no genre their collection's (4 Nov 2026): the genres the other videos in
+  /// it have (a series' episodes from one with an .nfo), else the ones found online. A video
+  /// whose genre the user emptied on purpose stays without.
+  List<VideoItem> _fillGenres(List<VideoItem> list) {
+    final byKey = <String, List<VideoItem>>{};
+    for (final v in list) {
+      (byKey[VideoCollection.keyFor(v.collection)] ??= []).add(v);
+    }
+    final lines = <String, String?>{
+      for (final e in byKey.entries)
+        e.key: genreLine(VideoCollection(name: e.key, videos: e.value).genres) ?? _foundGenres[e.key]?.genre,
+    };
+    return [
+      for (final v in list)
+        if (v.genres.isEmpty && !(_edits[v.id]?.cleared.contains('genre') ?? false))
+          switch (lines[VideoCollection.keyFor(v.collection)]) {
+            final String line => v.withGenre(line),
+            _ => v,
+          }
+        else
+          v,
+    ];
+  }
+
+  void _rebuild({bool lookUp = true}) {
     final everything = [..._scanned, ..._remote];
     _rawById = {for (final v in everything) v.id: v};
-    final all = [for (final v in everything) if (!_formatHidden(v)) _edits[v.id]?.applyTo(v) ?? v]
+    final all = _fillGenres([for (final v in everything) if (!_formatHidden(v)) _edits[v.id]?.applyTo(v) ?? v])
       ..sort((a, b) {
         final t = a.title.toLowerCase().compareTo(b.title.toLowerCase());
         return t != 0 ? t : a.path.compareTo(b.path);
@@ -1020,6 +1184,7 @@ class VideoLibraryModel extends ChangeNotifier {
     collections = built;
     _collectionByKey = {for (final c in built) c.key: c};
     notifyListeners();
+    if (lookUp) _scheduleGenreLookup();
   }
 
   // ---- folders and scanning ----
@@ -1272,8 +1437,11 @@ class VideoLibraryModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _genreTimer?.cancel();
     library.removeListener(_onLibraryChanged);
     library.settings.video.removeListener(_onLibraryChanged);
+    library.settings.online.removeListener(_scheduleGenreLookup);
     _saveTimer?.cancel();
     super.dispose();
   }

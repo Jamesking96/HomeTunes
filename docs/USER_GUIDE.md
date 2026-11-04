@@ -255,7 +255,8 @@ than the video itself, so for an old, small video the 1080p and 720p copies are 
 - **Make it mine…** copies a downloaded song or video into one of your own folders, tidily named,
   so it's one of your own files from then on (and where you got to in a video comes with it).
 - The **Downloads** page (in the sidebar, at the top of Your Library › Playlists, or Settings >
-  Downloads > See downloads) shows what's downloading, what's kept offline and
+  Downloads > See downloads) opens over whatever you were looking at, so **Back** takes you back
+  there. It shows what's downloading, what's kept offline and
   everything downloaded, with pause, carry on, try again and remove, and how much space it takes.
 - **Settings > Downloads:** where downloads go (HomeTunes' own data folder unless you
   pick another: choose the **Download folder** row; once you've picked one, the same row offers
@@ -419,18 +420,27 @@ again). Quick links only show on a computer, where there's a sidebar.
 - **Videos:** the **Videos** tab has **Collections**, **All videos** and **Favourites**. When your
   videos are of more than one type, a row of tabs underneath (**All**, **Anime**, **TV Shows**,
   **Films** and any other type) shows just that type in all three; HomeTunes remembers the one you
-  chose until it's closed. (The TV has the same choice as buttons.) Tap a
+  chose until it's closed. (The TV has the same choice as buttons.) With **All** chosen, the
+  Collections tab lists every collection in one run, without type headings. Tap a
   collection to see its seasons underneath, or right-click it (press and hold on a phone) for
   **Open collection page**, **Edit collection…**, **Change poster…** and more. A video carries on
   where you stopped, and the next episode starts after a short countdown.
   - **Watching:** the player has skip buttons, **previous / next video**, speed, and a subtitles
     button for choosing audio and subtitle tracks (remembered for each collection). **Subtitle
     size** (Settings › Videos, and on a TV in the player's **Audio & subtitles**) makes subtitles
-    smaller or bigger: Small, Normal, Large, Larger or Largest, for every video. A round
+    smaller or bigger: Small, Normal, Large, Larger or Largest, for every video; Settings › Videos
+    shows a small example picture with subtitles at the size you pick. A round
     **Enlarge** button sits in the top corner of the picture (**Shrink** once it's enlarged, and
     **Leave full screen** in full screen); **Full screen** is in the bottom corner with the other
     controls. The same buttons are below the video too, with more. On a PC, Space, the arrow keys, F and Esc work, and the mouse wheel over
     any progress bar skips 5 seconds.
+  - **Genres:** each video and collection can have several genres ("Comedy, Drama"). They come
+    from your Jellyfin server, a video's .nfo files or its tags, and an episode with none takes its
+    series' genres. For a series or film with none at all, HomeTunes looks the genres up on TVmaze,
+    AniList or iTunes (turn this off in **Settings › Online lookups › Find video genres online**).
+    Change them in **Edit details** or **Edit collection** (type them with commas between, or press
+    the 🔍 beside the box to look them up). The **Filter** button can show one genre, and **Sort ›
+    Genre** lists collections and videos under each of their genres.
   - **Music videos in full screen** show the song's title, a progress bar, skip back / forward,
     previous / play / next, the volume (on a big screen) and **Leave full screen**, like a normal
     video. Tap or move the mouse to bring them back. On a PC, Space plays or pauses, the arrow

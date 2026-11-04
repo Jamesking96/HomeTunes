@@ -99,11 +99,12 @@ WordPredictor? tvPredictorFor(BuildContext context, TvTyping typing, {String? la
       }
     }
     if (videos != null) {
+      // Each genre on its own ("Comedy, Drama" is two, 4 Nov 2026).
       for (final c in videos.collections) {
-        if (c.genre != null) yield c.genre!;
+        yield* c.genres;
       }
       for (final v in videos.videos) {
-        if (v.genre != null) yield v.genre!;
+        yield* v.genres;
       }
     }
   }

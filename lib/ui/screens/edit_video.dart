@@ -13,6 +13,8 @@ import 'package:provider/provider.dart';
 import '../../models/video_item.dart';
 import '../../state/mixed_value.dart';
 import '../../state/video_library_model.dart';
+import '../../state/video_types.dart' show videoType;
+import '../widgets/genre_lookup_button.dart';
 import '../theme.dart';
 import '../widgets/save_nfo.dart';
 import 'video_pictures.dart' show PictureShapePicker;
@@ -218,7 +220,18 @@ class _EditVideosState extends State<_EditVideos> {
                 child: TvTextField(field: TextField(
                   key: const ValueKey('video-genre'),
                   controller: _genre,
-                  decoration: InputDecoration(labelText: 'Genre', hintText: _hint((v) => v.genre)),
+                  decoration: InputDecoration(
+                    labelText: 'Genre',
+                    // Several: "Comedy, Drama" (4 Nov 2026).
+                    hintText: _hint((v) => v.genre) ?? 'Comedy, Drama',
+                    suffixIcon: GenreLookupButton(
+                      controller: _genre,
+                      name: () => _collection.text.trim().isEmpty ? widget.videos.first.collection : _collection.text,
+                      type: () => videoType(widget.videos.first.category),
+                      year: () => int.tryParse(_year.text.trim()),
+                      onFound: () => setState(() {}),
+                    ),
+                  ),
                 )),
               ),
             ]),
