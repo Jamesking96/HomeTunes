@@ -301,6 +301,15 @@ void main() {
       for (final name in ['Attack on Titan', 'Daria', 'Dune']) {
         expect(shown(name), findsWidgets);
       }
+      // 4 Nov 2026: no category headings under All (the tabs do that), and no Category sort.
+      expect(find.text('Anime'), findsOneWidget); // the tab only
+      expect(find.text('Shows'), findsNothing);
+      expect(find.text('Movies'), findsNothing);
+      final names = [
+        for (final t in tester.widgetList<Text>(find.byType(Text)))
+          if (const ['Attack on Titan', 'Daria', 'Dune'].contains(t.data)) t.data,
+      ];
+      expect(names.toSet().toList(), ['Attack on Titan', 'Daria', 'Dune']); // one run, A–Z
 
       await tap(tester, find.byKey(const ValueKey('video-type:Anime')));
       expect(shown('Attack on Titan'), findsWidgets);

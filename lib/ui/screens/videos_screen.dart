@@ -135,9 +135,9 @@ class _VideosScreenState extends State<VideosScreen> {
             ),
           Expanded(
             child: TabBarView(children: [
-              _CollectionGrid(favourites: false, type: type),
+              _CollectionGrid(favourites: false, type: type, typeTabs: types.length > 1),
               _AllVideosTab(type: type),
-              _CollectionGrid(favourites: true, type: type),
+              _CollectionGrid(favourites: true, type: type, typeTabs: types.length > 1),
             ]),
           ),
         ]),
@@ -210,7 +210,10 @@ class _CollectionGrid extends StatefulWidget {
 
   /// The type tab chosen (null: All).
   final String? type;
-  const _CollectionGrid({required this.favourites, this.type});
+
+  /// Whether the type tabs are showing (there's more than one type).
+  final bool typeTabs;
+  const _CollectionGrid({required this.favourites, this.type, this.typeTabs = false});
 
   @override
   State<_CollectionGrid> createState() => _CollectionGridState();
@@ -264,7 +267,12 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
     final all = type == null ? every : [for (final c in every) if (collectionType(c) == type) c];
     final shown = searchCollections(
         [for (final c in all) if (_only.matches(c, collectionFilterFields)) c], _query);
-    final groups = reverseGroupsIf(_reversed, sortCollections(shown, _sort, lastWatched: model.lastWatchedMs));
+    // With the type tabs showing, the Category sort's headings (TV, Anime, Films) would only
+    // repeat them (4 Nov 2026, the user: "show all videos in order without the dividers of
+    // typing"): it's left out of the menu, and All lists every collection in one run, A–Z.
+    final sorts = [for (final s in CollectionSort.values) if (!widget.typeTabs || s != CollectionSort.category) s];
+    final sort = sorts.contains(_sort) ? _sort : CollectionSort.name;
+    final groups = reverseGroupsIf(_reversed, sortCollections(shown, sort, lastWatched: model.lastWatchedMs));
     // The order they're shown in, for Shift + click.
     final order = [for (final (_, list) in groups) for (final c in list) c.key];
     final picked = [for (final c in all) if (_selected.contains(c.key)) c];
@@ -336,8 +344,8 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
               items: all, fields: collectionFilterFields, current: _only, showLabel: 'Show collections');
           if (picked != null && mounted) setState(() => _only = picked);
         },
-        sort: _sort,
-        sorts: CollectionSort.values,
+        sort: sort,
+        sorts: sorts,
         sortLabel: collectionSortLabel,
         onSort: (s) => setState(() {
           _sort = s;

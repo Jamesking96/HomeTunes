@@ -22,6 +22,7 @@ import '../../../state/video_library_model.dart';
 import '../../theme.dart';
 import '../../widgets/listening_controls.dart' show SpeedButton;
 import '../../widgets/save_nfo.dart' show canSaveNfo;
+import '../../widgets/subtitle_size_preview.dart';
 import '../equalizer_screen.dart';
 import '../special_seasons.dart' show SpecialSeasonTitlesSection;
 import 'library_settings.dart' show VideoFoldersSection;
@@ -123,15 +124,22 @@ class VideoSettings extends StatelessWidget {
         // 0.2.8: subtitle size (the user: "Subtitles having a size setting somewhere appropriate").
         SettingTarget(
           'video-subtitle-size',
-          child: ChoiceTile<double>(
-            key: const ValueKey('video-subtitle-size'),
-            title: 'Subtitle size',
-            subtitle: 'For every video; also in the player\'s Audio & subtitles',
-            value: video.subtitleSize,
-            options: prefs.VideoSettings.subtitleSizes,
-            label: prefs.VideoSettings.subtitleSizeLabel,
-            onChanged: (v) => lib.updateVideoSettings(subtitleSize: v),
-          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            ChoiceTile<double>(
+              key: const ValueKey('video-subtitle-size'),
+              title: 'Subtitle size',
+              subtitle: 'For every video; also in the player\'s Audio & subtitles',
+              value: video.subtitleSize,
+              options: prefs.VideoSettings.subtitleSizes,
+              label: prefs.VideoSettings.subtitleSizeLabel,
+              onChanged: (v) => lib.updateVideoSettings(subtitleSize: v),
+            ),
+            // 4 Nov 2026: an example of the size chosen, on a small picture.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: SubtitleSizePreview(size: video.subtitleSize),
+            ),
+          ]),
         ),
         // 0.1.57: draw straight from the phone's video chip (services/video_drawing.dart).
         SettingTarget(

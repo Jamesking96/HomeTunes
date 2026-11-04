@@ -182,12 +182,16 @@ class OnlineSettings extends SettingsGroup {
   /// Offer "Search online" for video pictures and collection posters (0.1.40).
   bool onlineVideoArt = true;
 
+  /// Look up the genres of video collections that have none (4 Nov 2026).
+  bool onlineVideoGenres = true;
+
   @override
   late final List<Setting> settings = [
     Setting.flag('onlineCovers', true, () => onlineCovers, (v) => onlineCovers = v),
     Setting.flag('onlineDetails', true, () => onlineDetails, (v) => onlineDetails = v),
     Setting.flag('onlineLyrics', true, () => onlineLyrics, (v) => onlineLyrics = v),
     Setting.flag('onlineVideoArt', true, () => onlineVideoArt, (v) => onlineVideoArt = v),
+    Setting.flag('onlineVideoGenres', true, () => onlineVideoGenres, (v) => onlineVideoGenres = v),
   ];
 
   // The simple on/off settings redraw first (so the switch moves at once), then save.
@@ -208,6 +212,11 @@ class OnlineSettings extends SettingsGroup {
 
   Future<void> setOnlineVideoArt(bool on) {
     onlineVideoArt = on;
+    return commit();
+  }
+
+  Future<void> setOnlineVideoGenres(bool on) {
+    onlineVideoGenres = on;
     return commit();
   }
 }

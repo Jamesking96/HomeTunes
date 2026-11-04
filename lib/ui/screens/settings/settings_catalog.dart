@@ -92,6 +92,8 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('online-lyrics', SettingsPage.onlineLookups, 'Find lyrics online', 'lrclib words'),
   SettingInfo('online-video-art', SettingsPage.onlineLookups, 'Find video pictures online',
       'poster thumbnail tvmaze anilist wikipedia videos collection'),
+  SettingInfo('online-video-genres', SettingsPage.onlineLookups, 'Find video genres online',
+      'genre category tvmaze anilist itunes videos collection series film anime'),
   SettingInfo('video-skip-back', SettingsPage.videos, 'Skip back (videos)', 'rewind seconds video keys'),
   SettingInfo('video-skip-forward', SettingsPage.videos, 'Skip forward (videos)', 'fast forward seconds video keys'),
   SettingInfo('video-speed', SettingsPage.videos, 'Video speed', 'playback speed faster slower videos'),

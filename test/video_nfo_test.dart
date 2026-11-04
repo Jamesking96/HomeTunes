@@ -24,7 +24,8 @@ void main() {
 
   test('reads the details HomeTunes uses', () {
     final n = parseNfo(kodi);
-    expect((n.title, n.showTitle, n.season, n.episode, n.genre, n.year), ('The Engineer', 'Silo', 1, 2, 'Drama', 2023));
+    // Both <genre> tags, as one line (4 Nov 2026).
+    expect((n.title, n.showTitle, n.season, n.episode, n.genre, n.year), ('The Engineer', 'Silo', 1, 2, 'Drama, Sci-Fi', 2023));
     expect(n.plot, 'Juliette <goes> down.');
     expect(parseNfo('<movie><title>Up &amp; Away</title><set><name>Pixar</name></set></movie>').set, 'Pixar');
     expect(parseNfo('<movie><set>Old style</set><year>1999</year></movie>'), isA<NfoInfo>().having((n) => n.set, 'set', 'Old style'));

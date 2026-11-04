@@ -413,6 +413,8 @@ class LibraryModel extends ChangeNotifier {
 
   Future<void> setOnlineVideoArt(bool on) => settings.online.setOnlineVideoArt(on);
 
+  Future<void> setOnlineVideoGenres(bool on) => settings.online.setOnlineVideoGenres(on);
+
   Future<void> setOnlineCovers(bool on) => settings.online.setOnlineCovers(on);
 
   /// Writes the scanned/synced songs (and the missing ones being kept) to library.json.
