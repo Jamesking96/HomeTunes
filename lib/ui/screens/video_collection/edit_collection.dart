@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import '../../../models/video_item.dart';
 import '../../../state/mixed_value.dart';
 import '../../../state/video_library_model.dart';
+import '../../../state/video_types.dart' show collectionType, videoType;
+import '../../widgets/genre_lookup_button.dart';
 import '../../theme.dart';
 import '../../widgets/save_nfo.dart';
 import '../video_pictures.dart';
@@ -137,7 +139,7 @@ class _EditSeveralCollectionsState extends State<_EditSeveralCollections> {
                 child: TvTextField(field: TextField(
                   key: const ValueKey('collections-genre'),
                   controller: _genre,
-                  decoration: InputDecoration(labelText: 'Genre', hintText: _hint((c) => c.genre)),
+                  decoration: InputDecoration(labelText: 'Genre', hintText: _hint((c) => c.genre) ?? 'Comedy, Drama'),
                 )),
               ),
             ]),
@@ -285,7 +287,22 @@ class _EditCollectionState extends State<_EditCollection> {
                 child: TvTextField(field: TextField(
                   key: const ValueKey('collection-genre'),
                   controller: _genre,
-                  decoration: const InputDecoration(labelText: 'Genre'),
+                  decoration: InputDecoration(
+                    labelText: 'Genre',
+                    hintText: 'Comedy, Drama',
+                    // What was found online when the files don't say (4 Nov 2026).
+                    helperText: switch (model.foundGenreOf(c)) {
+                      (genre: final g, source: final s?) when g == c.genre => 'Found on $s',
+                      _ => null,
+                    },
+                    suffixIcon: GenreLookupButton(
+                      controller: _genre,
+                      name: () => _name.text.trim().isEmpty ? c.name : _name.text,
+                      type: () => videoType(_category.text) ?? collectionType(c),
+                      year: () => int.tryParse(_year.text.trim()),
+                      onFound: () => setState(() {}),
+                    ),
+                  ),
                 )),
               ),
             ]),

@@ -14,6 +14,8 @@ import 'dart:isolate';
 
 import 'package:path/path.dart' as p;
 
+import '../models/video_item.dart' show genreLine, genresIn;
+
 /// What an .nfo file says. Null means it doesn't say.
 class NfoInfo {
   final String? title;
@@ -85,7 +87,11 @@ NfoInfo parseNfo(String xml) {
     season: number(tag('season')),
     episode: number(tag('episode')),
     year: (year != null && year > 1800) ? year : null,
-    genre: tag('genre'),
+    // Every <genre> (Jellyfin and Kodi write one per genre), as one line: "Comedy, Drama".
+    genre: genreLine([
+      for (final m in RegExp(r'<genre(?:\s[^>]*)?>([\s\S]*?)</genre\s*>', caseSensitive: false).allMatches(xml))
+        ...genresIn(_unescape(m[1]!)),
+    ]),
     plot: tag('plot') ?? tag('outline'),
     namedSeasons: {
       for (final m in RegExp(r'''<namedseason\s[^>]*number\s*=\s*["']?(\d+)["']?[^>]*>([\s\S]*?)</namedseason\s*>''',
@@ -158,10 +164,13 @@ String updateNfo(String? existing, String root, Map<String, String?> fields) {
             ? '  <set>\n    <name>${_escape(value)}</name>\n  </set>\n'
             : named != null
                 ? '  <namedseason number="${named[1]}">${_escape(value)}</namedseason>\n'
-                : '  <$tag>${_escape(value)}</$tag>\n';
+                : tag.toLowerCase() == 'genre'
+                    // One <genre> per genre (4 Nov 2026), as Jellyfin and Kodi read them.
+                    ? [for (final g in genresIn(value)) '  <genre>${_escape(g)}</genre>\n'].join()
+                    : '  <$tag>${_escape(value)}</$tag>\n';
     if (first != null) {
       text = text.replaceRange(first.start, first.end, line);
-      // Any repeats (several <genre> tags) go: HomeTunes keeps one.
+      // Any repeats (the other <genre> tags) go: the new line has them all.
       final rest = first.start + line.length;
       text = text.substring(0, rest) + text.substring(rest).replaceAll(element, '');
     } else if (line.isNotEmpty) {

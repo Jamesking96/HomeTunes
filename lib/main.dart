@@ -23,6 +23,7 @@ import 'services/internet_check.dart';
 import 'services/media_session.dart';
 import 'services/playback_log.dart';
 import 'services/storage.dart';
+import 'services/video_genre_lookup.dart';
 import 'services/video_thumbnails.dart';
 import 'state/bookmarks_model.dart';
 import 'state/downloads_model.dart';
@@ -112,7 +113,10 @@ Future<void> main() async {
 
   // The Videos tab (0.1.40). Made after the library has loaded, as it follows the library's
   // video folders from their saved state.
-  final videos = VideoLibraryModel(storage, library)..thumbnailer = VideoThumbnailer(p.join(storage.artDir, 'video'));
+  final videos = VideoLibraryModel(storage, library)
+    ..thumbnailer = VideoThumbnailer(p.join(storage.artDir, 'video'))
+    // Genres for collections with none (4 Nov 2026; Settings › Online lookups can switch it off).
+    ..genreLookup = VideoGenreLookup();
   await safely('videos', videos.load);
 
   // Books whose folder moved get a new id: their listening place follows (after each rebuild,

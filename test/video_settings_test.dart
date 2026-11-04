@@ -130,7 +130,7 @@ void main() {
   testWidgets('Settings › Videos: everything is there, and the Look changes the Videos tab', (tester) async {
     await tester.runAsync(scan);
     // Tall enough for the whole page (it grew with Special season titles, 0.1.66).
-    await pump(tester, const VideoSettings(), height: 2000);
+    await pump(tester, const VideoSettings(), height: 2300);
     for (final t in ['Skip back', 'Skip forward', 'Speed', 'Rewind a little when carrying on',
       'Separate equaliser for videos', 'Special season titles', 'Video picture shape', 'Collection poster shape']) {
       expect(find.text(t), findsOneWidget, reason: t);
@@ -142,6 +142,22 @@ void main() {
     await tester.pump();
     expect(lib.settings.video.videoPictureShape, PictureShape.tall);
     expect(videos.shapeOf(videos.videos.first), PictureShape.tall);
+  });
+
+  // 4 Nov 2026: an example of the subtitle size under the setting, which grows with it.
+  testWidgets('Settings › Videos: the subtitle size has an example that follows it', (tester) async {
+    await pump(tester, const VideoSettings(), height: 2300);
+    final preview = find.byKey(const ValueKey('subtitle-size-preview'));
+    expect(preview, findsOneWidget);
+    expect(tester.getSize(preview).height, lessThanOrEqualTo(140)); // small
+    double fontSize() => tester
+        .widget<Text>(find.descendant(of: preview, matching: find.textContaining('Where are you going?')))
+        .style!
+        .fontSize!;
+    final normal = fontSize();
+    await tester.runAsync(() => lib.updateVideoSettings(subtitleSize: 2.0));
+    await tester.pump();
+    expect(fontSize(), closeTo(normal * 2, 0.01));
   });
 
   testWidgets('Edit details: a video\'s own picture shape', (tester) async {

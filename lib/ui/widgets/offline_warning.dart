@@ -19,6 +19,7 @@ const onlineFeatures = [
   'Finding covers, song details and book details online',
   'Finding lyrics online',
   'Searching online for video pictures and posters',
+  'Finding video genres online',
   'Checking for updates, and What\'s new',
 ];
 

@@ -938,7 +938,9 @@ String? _seasonTitle(Object? name) {
     episode: episode && j['IndexNumber'] is int ? j['IndexNumber'] as int : null,
     seasonTitle: episode ? _seasonTitle(j['SeasonName']) : null,
     year: j['ProductionYear'] is int ? j['ProductionYear'] as int : (show?['ProductionYear'] as int?),
-    genre: genres.isNotEmpty ? genres.first : (showGenres.isNotEmpty ? showGenres.first : null),
+    // Every genre the server has (4 Nov 2026: only the first was kept), the series' for an
+    // episode that has none of its own.
+    genre: genreLine(genres.isNotEmpty ? genres : showGenres),
     description: (j['Overview'] as String?)?.trim().isEmpty ?? true ? null : (j['Overview'] as String).trim(),
     duration: durationOfTicks(j['RunTimeTicks']),
     width: j['Width'] is int && (j['Width'] as int) > 0 ? j['Width'] as int : null,

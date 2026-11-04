@@ -38,6 +38,7 @@ enum TvVideoTab {
 
 enum TvVideoSort {
   title('A–Z'),
+  genre('Genre'),
   recentlyAdded('Recently added'),
   recentlyWatched('Recently watched'),
   mostEpisodes('Most episodes'),
@@ -82,6 +83,7 @@ class _TvVideosScreenState extends State<TvVideosScreen> {
 
   List<VideoCollection> _sortedCollections(VideoLibraryModel v, List<VideoCollection> list) => _reversed(switch (_sort) {
         TvVideoSort.title => list, // the model keeps them A–Z
+        TvVideoSort.genre => byGenre<VideoCollection>(list, (c) => c.genres, (c) => c.name),
         TvVideoSort.recentlyAdded => [...list]..sort((a, b) => b.addedMs.compareTo(a.addedMs)),
         TvVideoSort.recentlyWatched => [...list]..sort((a, b) => v.lastWatchedMs(b).compareTo(v.lastWatchedMs(a))),
         TvVideoSort.mostEpisodes => byMostEpisodes(list),
@@ -90,6 +92,7 @@ class _TvVideosScreenState extends State<TvVideosScreen> {
 
   List<VideoItem> _sortedVideos(VideoLibraryModel v, List<VideoItem> list) => _reversed(switch (_sort) {
         TvVideoSort.title || TvVideoSort.mostEpisodes => [...list]..sort((a, b) => sortKey(a.title).compareTo(sortKey(b.title))),
+        TvVideoSort.genre => byGenre<VideoItem>(list, (x) => x.genres, (x) => '${x.collection} ${x.title}'),
         TvVideoSort.recentlyAdded => [...list]..sort((a, b) => (b.addedMs ?? 0).compareTo(a.addedMs ?? 0)),
         TvVideoSort.recentlyWatched => [...list]
           ..sort((a, b) => (v.placeOf(b.id)?.updatedMs ?? 0).compareTo(v.placeOf(a.id)?.updatedMs ?? 0)),

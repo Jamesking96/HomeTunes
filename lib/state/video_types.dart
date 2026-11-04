@@ -112,16 +112,11 @@ WatchState videoWatchState(VideoPlace? place) {
   return WatchState.notStarted;
 }
 
-/// A collection's genre: the one most of its videos have.
-String? collectionGenre(VideoCollection c) {
-  final counts = <String, int>{};
-  for (final v in c.videos) {
-    final g = v.genre?.trim();
-    if (g != null && g.isNotEmpty) counts[g] = (counts[g] ?? 0) + 1;
-  }
-  if (counts.isEmpty) return (c.genre?.trim().isEmpty ?? true) ? null : c.genre!.trim();
-  return counts.entries.reduce((a, b) => b.value > a.value ? b : a).key;
-}
+/// A collection's main genre: the one most of its videos have (VideoCollection.genres has them all).
+String? collectionGenre(VideoCollection c) => c.genres.firstOrNull;
+
+/// Whether [genres] has [genre] (any case).
+bool _hasGenre(List<String> genres, String genre) => genres.any((g) => g.toLowerCase() == genre.toLowerCase());
 
 /// The collections in [all] that [choice] lets through. [stateOf] gives a collection's watched state.
 List<VideoCollection> chooseCollections(
@@ -133,7 +128,7 @@ List<VideoCollection> chooseCollections(
       for (final c in all)
         if ((choice.type == null || collectionType(c) == choice.type) &&
             (choice.watch == null || stateOf(c) == choice.watch) &&
-            (choice.genre == null || collectionGenre(c) == choice.genre) &&
+            (choice.genre == null || _hasGenre(c.genres, choice.genre!)) &&
             (choice.source == null || sourcesOfVideos(c.videos).any(choice.source!.matches)))
           c,
     ];
@@ -143,20 +138,27 @@ List<VideoItem> chooseVideos(List<VideoItem> all, VideoChoice choice, {required 
       for (final v in all)
         if ((choice.type == null || videoType(v.category) == choice.type) &&
             (choice.watch == null || videoWatchState(placeOf(v.id)) == choice.watch) &&
-            (choice.genre == null || v.genre?.trim() == choice.genre) &&
+            (choice.genre == null || _hasGenre(v.genres, choice.genre!)) &&
             (choice.source == null || choice.source!.matches(sourceOfVideo(v))))
           v,
     ];
 
 /// The genres among [collections] (or [videos]), A–Z.
 List<String> genresOf({Iterable<VideoCollection> collections = const [], Iterable<VideoItem> videos = const []}) {
-  final out = <String>{
-    for (final c in collections) ?collectionGenre(c),
-    for (final v in videos)
-      if (v.genre != null && v.genre!.trim().isNotEmpty) v.genre!.trim(),
-  };
-  return out.toList()..sort((a, b) => sortKey(a).compareTo(sortKey(b)));
+  final out = <String, String>{};
+  for (final g in [for (final c in collections) ...c.genres, for (final v in videos) ...v.genres]) {
+    out.putIfAbsent(g.toLowerCase(), () => g);
+  }
+  return out.values.toList()..sort((a, b) => sortKey(a).compareTo(sortKey(b)));
 }
+
+/// By main genre (its first), A–Z, then [name]; ones with no genre last (the TV's Genre sort).
+List<T> byGenre<T>(List<T> list, List<String> Function(T x) genresOf, String Function(T x) name) => [...list]..sort((a, b) {
+    final ga = genresOf(a).firstOrNull, gb = genresOf(b).firstOrNull;
+    if ((ga == null) != (gb == null)) return ga == null ? 1 : -1;
+    final c = ga == null ? 0 : sortKey(ga).compareTo(sortKey(gb!));
+    return c != 0 ? c : sortKey(name(a)).compareTo(sortKey(name(b)));
+  });
 
 /// Most episodes first (main videos, then all), A–Z among equals.
 List<VideoCollection> byMostEpisodes(List<VideoCollection> list) => [...list]..sort((a, b) {
