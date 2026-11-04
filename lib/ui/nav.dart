@@ -127,35 +127,33 @@ class AppNav extends ChangeNotifier {
   void openPlaylist(Playlist p) => push(tv ? TvPlaylistPage(playlistId: p.id) : PlaylistScreen(playlistId: p.id));
   void openLiked() => push(tv ? const TvPlaylistPage.liked() : const PlaylistScreen.liked());
 
-  /// The Downloads page (0.2.3), on the Library tab.
-  void openDownloads() {
-    // TV mode (0.2.5): over the tab that's showing, so the menu stays on it and Back returns
-    // there (from Settings, the Music tab used to light up and Back went to Music).
-    if (tv) {
-      push(const TvDownloadsPage());
-      return;
-    }
-    if (tab != libraryTab) {
-      tab = libraryTab;
-      notifyListeners();
-    }
-    // TV mode: the TV's own page (tv/tv_downloads.dart). The tab's navigator may only now be
-    // shown, so wait a frame, as openBook does.
-    _afterFrame(() => push(tv ? const TvDownloadsPage() : const DownloadsScreen()));
+  /// Whether the page on top of the current tab was opened as [name].
+  bool _onTop(String name) {
+    var top = false;
+    // Looks at the top route only: returning true stops before anything is popped.
+    current?.popUntil((r) {
+      top = r.settings.name == name;
+      return true;
+    });
+    return top;
   }
 
-  /// The download queue (27 Oct): everything on its way, in the order it'll download.
-  void openDownloadQueue() {
-    if (tv) {
-      push(const TvDownloadsPage(queueOnly: true));
-      return;
-    }
-    if (tab != libraryTab) {
-      tab = libraryTab;
-      notifyListeners();
-    }
-    _afterFrame(() => push(tv ? const TvDownloadsPage(queueOnly: true) : const DownloadQueueScreen()));
+  /// Opens [page] over the tab that's showing, as [name], unless it's already on top.
+  void _pushHere(String name, Widget page) {
+    if (_onTop(name)) return;
+    current?.push(MaterialPageRoute(settings: RouteSettings(name: name), builder: (_) => page));
   }
+
+  /// The Downloads page (0.2.3). It opens over the tab that's showing (4 Nov 2026; it used to
+  /// switch to the Library tab), so Back goes back to wherever it was opened from: Settings ›
+  /// Servers, a playlist, the Videos tab… The TV has always done this (0.2.5).
+  void openDownloads() =>
+      _pushHere('downloads', tv ? const TvDownloadsPage() : const DownloadsScreen());
+
+  /// The download queue (27 Oct): everything on its way, in the order it'll download. Over the
+  /// tab that's showing, like Downloads.
+  void openDownloadQueue() =>
+      _pushHere('download-queue', tv ? const TvDownloadsPage(queueOnly: true) : const DownloadQueueScreen());
 
   /// Opens a book's page on the Books tab.
   void openBook(Book b) {

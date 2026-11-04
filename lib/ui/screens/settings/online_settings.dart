@@ -1,6 +1,6 @@
-// Settings › Online lookups: three on/off switches for the only times HomeTunes goes online
-// on its own (apart from a music server): covers and song details from MusicBrainz / Cover Art
-// Archive, and lyrics from LRCLIB. Each switch saves straight to LibraryModel (settings.json).
+// Settings › Online lookups: the on/off switches for the only times HomeTunes goes online
+// on its own (apart from its servers): covers and song details from MusicBrainz / Cover Art
+// Archive, lyrics from LRCLIB, video pictures, and video genres (4 Nov 2026). Each switch saves straight to LibraryModel (settings.json).
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -57,6 +57,16 @@ class OnlineLookupSettings extends StatelessWidget {
         ),
         value: online.onlineVideoArt,
         onChanged: lib.setOnlineVideoArt,
+      )),
+      SettingTarget('online-video-genres', child: SwitchListTile(
+        title: const Text('Find video genres online'),
+        subtitle: const Text(
+          'When a series or film has no genre in its files, its .nfo or on your server, look it up on '
+          'TVmaze, AniList or iTunes. Only the collection\'s name (and year) is sent. Your own genres '
+          'always win, and "Look up online" in Edit details works either way.',
+        ),
+        value: online.onlineVideoGenres,
+        onChanged: lib.setOnlineVideoGenres,
       )),
       ],
     );

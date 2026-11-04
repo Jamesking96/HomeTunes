@@ -14,6 +14,7 @@ Read the files in this order:
 | `02_ENVIRONMENT_AND_WORKFLOW.md` | The user's PC, paths, build/test/install/publish commands, release signing, git, known environment traps |
 | `03_FEATURES_AND_DESIGN_NOTES.md` | What each feature does and *why* it's built that way (gapless, books, lyrics, sidecars…) |
 | `04_ROADMAP_AND_OPEN_ITEMS.md` | What's done and what's next (offline server songs, audiobook server), decisions, security, known issues |
+| `06_PROFILES_PLAN.md` | The plan for optional profiles (4 Nov 2026): what's shared and what's each person's, where it's saved, how switching works, phases and the questions for the user. Not started |
 | `05_CODE_GUIDE.md` | A plain-English tour of the code for the user: every folder and file, how the main journeys flow, scripts, tests, where to make common changes, and probable bugs spotted |
 
 ## Status (2 Nov 2026)

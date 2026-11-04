@@ -441,6 +441,56 @@ Checked with +127: A Goofy Movie, Ratatouille, Treasure Planet play with a pictu
 
 **Subtitle size** (`VideoSettings.subtitleSize`, 0.75 / 1 / 1.25 / 1.5 / 2 = Small … Largest): Settings › Videos and the TV player's Audio & subtitles panel. On Android the app draws subtitles (`subtitleView(size:)`, 32 px × size); on the PC libass does (mpv `sub-scale`).
 
+## Video genres and polish (4 Nov 2026, branch `feature/genres-and-polish`)
+
+The user: "Pull the genres from jelly fin where possible and allow for filtering and sorting
+features to use these for all videos. Where a video isn't sourced with this data, attempt to find it
+via a look up, also allow this data to be edited", "in the collections tab… with the all option
+selected, show all videos in order without the dividers of typing", "pressing back [from Downloads]
+should take me back to… the last tab I was at", and "when setting the subtitle size, provide a
+example… don't let it take up too much space".
+
+- **Several genres per video.** `VideoItem.genre` stays one string (no change to `videos.json`), now
+  a line of genres ("Comedy, Drama"). `genresIn` (models/video_item.dart) splits at `,` `;` `|` and
+  " / " (not "&": Jellyfin's "Action & Adventure" is one), each once; `genreLine` joins them;
+  `VideoItem.genres` and `VideoCollection.genres` (the commonest first) give the list. Jellyfin
+  items keep all their `Genres` (only the first was kept), an episode with none the series'; .nfo
+  files read every `<genre>` and are written with one `<genre>` per genre; MP4 tags keep them all.
+- **Filling the gaps** (`VideoLibraryModel._fillGenres`, in `_rebuild`): a video with no genre gets
+  its collection's (the other videos' genres, else ones found online), unless the user emptied its
+  genre on purpose (`VideoEdit.cleared`). The raw video is untouched, so the editors still know
+  what came from where.
+- **Looked up online** (`services/video_genre_lookup.dart`, `VideoGenreLookup`): TVmaze (series),
+  AniList (anime, any of its titles), the iTunes Search API (films, `primaryGenreName`), ordered by
+  the collection's type; only an exact name match counts (case, punctuation, a leading "The" and
+  "(2019)" ignored), the year picking between remakes; at most 4 genres. `VideoLibraryModel` looks
+  up collections with no genre, a type / season / year (not home-video folders), one a second, ten
+  seconds after a scan or sync settles (`genreLookupDelay`); results are kept in `videos.json` as
+  `foundGenres` by collection key (`{"genre", "source", "at"}`, no "genre" when nothing was found:
+  tried again after 30 days; a service that couldn't be reached is left an hour, in memory). Your
+  own genres always win (they're edits). Settings › Online lookups › **Find video genres online**
+  (`onlineVideoGenres`, on by default). Edit details / Edit collection have a 🔍 in the Genre box
+  (`ui/widgets/genre_lookup_button.dart`, `findGenresOnline`), which fills the box without saving;
+  Edit collection says "Found on TVmaze" under a genre that came from a look-up.
+- **Filters and sorts:** the Genre filter on All videos and Collections (and the TV's Filter) offers
+  each genre on its own; new **Genre** sorts (`VideoSort.genre`, `CollectionSort.genre`,
+  `groupByGenre`) list things under each of their genres A–Z, then "Genre not known"; the TV has a
+  Genre sort too (`byGenre`, by main genre). The TV keyboard predicts single genres.
+- **Collections without type headings:** with the type tabs showing, the Category sort (headings TV
+  / Anime / Films) only repeated them, so it's left out of the Collections and Favourites sort menus
+  and All lists every collection in one run, by name (`_CollectionGrid.typeTabs`). With only one
+  type (no tabs) the Category sort is still there.
+- **Back from Downloads:** `AppNav.openDownloads` / `openDownloadQueue` open the page over the tab
+  that's showing (they switched to the Library tab first, so Back landed on Library whatever it was
+  opened from); opening it again while it's on top does nothing (`_pushHere`, route names
+  `downloads` / `download-queue`). The TV already did this.
+- **Subtitle size example:** `ui/widgets/subtitle_size_preview.dart` under Settings › Videos ›
+  Subtitle size: a 240 × 135 picture with two lines of subtitles sized as mpv sizes them against
+  the picture (about 6 % of its height at Normal, times the setting), white with a dark outline.
+- Tests: `test/video_genres_test.dart`, `test/downloads_nav_test.dart`, additions to
+  `video_types_test.dart` (no headings under All), `video_settings_test.dart` (the example follows
+  the size) and `video_nfo_test.dart` (both genres read).
+
 ## PC Videos tab: type tabs (3 Nov 2026, 0.2.9+129, released in v0.2.9 on 4 Nov)
 The user: "Update PC build so that TV Shows, Anime and Films are all collatable tabs to help with sorting between them". `VideosScreen` (now stateful) shows `_TypeTabs` under the Collections / All videos / Favourites tab bar: a `TabBar.secondary` of All, then `orderTypes` of the collections' `collectionType` (Anime, TV, Films, others A–Z), with icons; TV is labelled "TV Shows" (`videoTypeLabel`; the TV's buttons still say TV). The choice (`_chosenType`, static: kept while HomeTunes is open; a type that's gone falls back to All) narrows all three sub-tabs: collections by `collectionType`, All videos (and its Continue watching row and Filter sheet) by `videoType(v.category)`, as the TV does. No row when there's only one type. Empty messages: "No Films here." / "No favourite Films yet.". Tests: `test/video_types_test.dart` › the PC's Videos tab. Installed on the PC and the Family room TV on 4 Nov; the user: "Looks like everything is good".
 

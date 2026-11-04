@@ -157,7 +157,7 @@ VideoItem readVideo(String path, int modifiedMs, int sizeBytes,
     try {
       final m = readMetadata(File(path), getImage: false);
       title = _clean(m.title);
-      genre = m.genres.isEmpty ? null : _clean(m.genres.first);
+      genre = genreLine([for (final g in m.genres) ?_clean(g)]);
       final y = m.year?.year;
       year = (y != null && y > 1800) ? y : null;
       duration = m.duration ?? Duration.zero;

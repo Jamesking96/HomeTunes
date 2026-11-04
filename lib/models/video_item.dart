@@ -63,8 +63,14 @@ class VideoItem {
   final String? specialTitle;
 
   final int? year;
+
+  /// One genre, or several in one line ("Comedy, Drama"; 4 Nov 2026: Jellyfin gives a list).
+  /// [genres] splits it.
   final String? genre;
   final String? description;
+
+  /// Its genres, split from [genre] ("Comedy, Drama" → Comedy and Drama).
+  List<String> get genres => genresIn(genre);
 
   /// Zero until known (from the file's tags, or once a thumbnail has been made or it's played).
   final Duration duration;
@@ -535,6 +541,27 @@ class VideoCollection {
     this.cover,
   });
 
+  /// Every genre its videos have, the commonest first (ties in the order they first come), or
+  /// the collection's own [genre] split up when none of them has one.
+  List<String> get genres {
+    final counts = <String, int>{};
+    final spelling = <String, String>{};
+    for (final v in videos) {
+      for (final g in v.genres) {
+        final k = g.toLowerCase();
+        spelling.putIfAbsent(k, () => g);
+        counts[k] = (counts[k] ?? 0) + 1;
+      }
+    }
+    if (counts.isEmpty) return genresIn(genre);
+    final order = counts.keys.toList();
+    final keys = [...order]..sort((a, b) {
+        final c = counts[b]!.compareTo(counts[a]!);
+        return c != 0 ? c : order.indexOf(a).compareTo(order.indexOf(b));
+      });
+    return [for (final k in keys) spelling[k]!];
+  }
+
   /// Lower-case name: favourites, descriptions and track choices are kept under it.
   String get key => keyFor(name);
   static String keyFor(String name) => name.trim().toLowerCase();
@@ -568,6 +595,23 @@ class VideoCollection {
     if (v.season != null) return 'Season ${v.seasonLabel}';
     return v.part ?? 'Episodes';
   }
+}
+
+/// The genres in a genre line (4 Nov 2026): split at commas, semicolons, "|" and " / ", trimmed,
+/// each once (whatever its case). "Action & Adventure" stays one genre.
+List<String> genresIn(String? text) {
+  if (text == null || text.trim().isEmpty) return const [];
+  final seen = <String>{};
+  return [
+    for (final part in text.split(RegExp(r'\s*(?:[,;|]|\s/\s)\s*')))
+      if (part.trim().isNotEmpty && seen.add(part.trim().toLowerCase())) part.trim(),
+  ];
+}
+
+/// [genres] as one line, the way they're shown and saved ("Comedy, Drama"); null for none.
+String? genreLine(Iterable<String> genres) {
+  final list = genresIn(genres.join(', '));
+  return list.isEmpty ? null : list.join(', ');
 }
 
 /// "1", or "1.2" for a season with a sub number.
