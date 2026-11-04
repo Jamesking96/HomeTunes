@@ -1127,7 +1127,7 @@ class VideoLibraryModel extends ChangeNotifier {
       for (final v in list)
         if (v.genres.isEmpty && !(_edits[v.id]?.cleared.contains('genre') ?? false))
           switch (lines[VideoCollection.keyFor(v.collection)]) {
-            final String line => v.copyWith(genre: line),
+            final String line => v.withGenre(line),
             _ => v,
           }
         else

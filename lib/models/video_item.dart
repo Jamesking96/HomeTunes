@@ -251,6 +251,9 @@ class VideoItem {
   VideoItem withSpecial(String? title) =>
       title == specialTitle ? this : _with(specialTitle: title, clear: title == null ? const {'specialTitle'} : const {});
 
+  /// A copy with [genre] (4 Nov 2026: a video with none takes its collection's).
+  VideoItem withGenre(String genre) => _with(genre: genre);
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'path': path,
