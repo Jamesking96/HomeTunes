@@ -131,7 +131,8 @@ void main() {
         ],
       }));
       final found = await lookup.find('Silo (2023)', type: 'TV', year: 2023);
-      expect((found.genres, found.source), (['Drama', 'Science-Fiction'], 'TVmaze'));
+      expect(found.genres, ['Drama', 'Science-Fiction']);
+      expect(found.source, 'TVmaze');
       expect((await lookup.find('Silos', type: 'TV')).found, isFalse);
     });
 
@@ -160,7 +161,8 @@ void main() {
         },
       }));
       final anime = await lookup.find('Shingeki no Kyojin', type: 'Anime');
-      expect((anime.genres, anime.source), (['Action', 'Drama', 'Fantasy', 'Mystery'], 'AniList')); // at most 4
+      expect(anime.genres, ['Action', 'Drama', 'Fantasy', 'Mystery']); // at most 4
+      expect(anime.source, 'AniList');
       expect((await lookup.find('Dune', type: 'Films', year: 1984)).genres, ['Drama']);
       expect((await lookup.find('Dune', type: 'Films', year: 2021)).genres, ['Sci-Fi & Fantasy']);
     });
