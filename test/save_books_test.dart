@@ -158,8 +158,12 @@ void main() {
     expect(place.position, const Duration(minutes: 1, seconds: 23));
 
     // Saving it again goes in a folder of its own.
+    final before = engine.jobs.length;
     await dl.saveBook(b, root);
-    await pumpEvents(); // handed to the engine
+    // Both handed to the engine before they can finish.
+    for (var i = 0; i < 100 && engine.jobs.length < before + 2; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
     for (final id in ['abs:abs1:item1:1', 'abs:abs1:item1:2']) {
       await engine.finish(id);
     }
