@@ -125,7 +125,10 @@ void main() {
     expect(dl.savingBookTo(b.id), root);
     expect(dl.isPending('abs:abs1:item1:1') && dl.isPending('abs:abs1:item1:2'), isTrue);
 
-    // Waiting is remembered across a restart.
+    // Waiting is remembered across a restart (once both are with the engine, as at a real close).
+    for (var i = 0; i < 100 && engine.jobs.length < 2; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
     dl.dispose();
     dl = await makeModel();
     expect(dl.isSavingBook(b.id), isTrue);

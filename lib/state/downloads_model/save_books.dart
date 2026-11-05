@@ -194,6 +194,10 @@ extension SaveBooks on DownloadsModel {
     for (final t in parts) {
       final e = _entries.remove(t.id);
       if (e != null) DownloadsModel._deleteFiles(e.file, e.subtitles);
+      // Nothing left over about them, so saving or downloading the book again starts afresh.
+      _inEngine.remove(t.id);
+      _jobs.remove(t.id);
+      _requests.remove(t.id);
     }
     notifyListeners();
     await _save();
