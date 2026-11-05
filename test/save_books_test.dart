@@ -109,7 +109,7 @@ void main() {
   test('the folder and metadata.json a book is saved with', () {
     final b = server();
     expect(SaveBooks.bookFolderNames(b), ['Terry Pratchett', 'Discworld', '1 - The Colour of Magic']);
-    final info = BookInfo.parse(jsonEncode(SaveBooks.bookMetadata(b)));
+    final info = BookInfo.parse(jsonEncode(SaveBooks.bookMetadata(b)))!;
     expect((info.title, info.series, info.seriesIndex, info.year), ('The Colour of Magic', 'Discworld', 1.0, 1983));
     expect(info.authors, ['Terry Pratchett']);
     expect(info.narrators, ['Nigel Planer']);
