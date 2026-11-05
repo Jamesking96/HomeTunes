@@ -159,6 +159,7 @@ void main() {
 
     // Saving it again goes in a folder of its own.
     await dl.saveBook(b, root);
+    await pumpEvents(); // handed to the engine
     for (final id in ['abs:abs1:item1:1', 'abs:abs1:item1:2']) {
       await engine.finish(id);
     }
@@ -172,6 +173,7 @@ void main() {
   test('a book already downloaded is saved straight away; Stop saving leaves its downloads', () async {
     final b = server();
     dl.download([for (final t in b.parts) DownloadItem.track(t, book: true)], const DownloadQuality.original());
+    await pumpEvents(); // handed to the engine
     await engine.finish('abs:abs1:item1:1');
     expect(await dl.saveBook(b, root), isNull);
     await dl.cancelSaveBook(b.id);
