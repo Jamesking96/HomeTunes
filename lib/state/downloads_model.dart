@@ -21,6 +21,7 @@
 // temporary), replays from here, and is cleared away some days after it's finished, or when its
 // own space fills. They never count against the downloads' space, and Keep makes one a download.
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -28,6 +29,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
+import '../models/book.dart';
 import '../models/download.dart';
 import '../models/track.dart';
 import '../models/video_item.dart';
@@ -44,6 +46,7 @@ import 'video_library_model.dart';
 import 'video_tracks.dart' show languageCodeFor;
 
 part 'downloads_model/temporary.dart';
+part 'downloads_model/save_books.dart';
 
 /// Where a download comes from: its address, the headers it needs, the file type, (videos) its
 /// subtitle files, and whether the address is a segmented playlist (a converted copy, 0.2.7).
@@ -107,6 +110,11 @@ class DownloadsModel extends ChangeNotifier {
     videos.addListener(_soon);
     listening?.addListener(_soon);
   }
+
+  // Books waiting for their files, to be saved into one of your folders (5 Nov 2026,
+  // downloads_model/save_books.dart): book id → folder.
+  final Map<String, String> _saveBooks = {};
+  bool _savingBooks = false, _saveBooksAgain = false;
 
   /// Audiobook places (0.2.4): a temporary copy of a book's file counts as finished once the
   /// book is. Null in some tests.
@@ -490,6 +498,12 @@ class DownloadsModel extends ChangeNotifier {
           }
         }
       }
+      final sb = j['saveBooks'];
+      if (sb is Map) {
+        for (final e in sb.entries) {
+          if (e.key is String && e.value is String && (e.value as String).isNotEmpty) _saveBooks[e.key as String] = e.value as String;
+        }
+      }
       final s = j['settings'];
       if (s is Map) {
         customFolder = s['folder'] is String && (s['folder'] as String).isNotEmpty ? s['folder'] as String : null;
@@ -536,6 +550,7 @@ class DownloadsModel extends ChangeNotifier {
   Future<void> _save() => storage.write(fileName, {
         'entries': [for (final e in entries) e.toJson()],
         if (_kept.isNotEmpty) 'kept': [for (final k in kept) k.toJson()],
+        if (_saveBooks.isNotEmpty) 'saveBooks': _saveBooks,
         if (_skipped.isNotEmpty) 'skipped': {for (final e in _skipped.entries) if (e.value.isNotEmpty) e.key: e.value.toList()},
         'settings': {
           if (customFolder != null) 'folder': customFolder,
@@ -904,6 +919,8 @@ class DownloadsModel extends ChangeNotifier {
       clearError: true,
     );
     _retriedSignIn.remove(e.id);
+    // The last file of a book waiting to be saved: save it (5 Nov 2026).
+    if (e.book && _saveBooks.isNotEmpty) unawaited(_saveReadyBooks());
   }
 
   /// A file type for what the server sent.
@@ -1086,6 +1103,8 @@ class DownloadsModel extends ChangeNotifier {
     if (!_started) return;
     _syncTimer?.cancel();
     _syncTimer = Timer(const Duration(seconds: 2), () {
+      // A book waiting to be saved whose files were all here before the library knew it.
+      if (_saveBooks.isNotEmpty) unawaited(_saveReadyBooks());
       _syncKept();
       _tidyAhead();
       _tidyTemporary();

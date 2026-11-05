@@ -254,6 +254,14 @@ than the video itself, so for an old, small video the 1080p and 720p copies are 
   was part of something kept offline, it isn't downloaded again.
 - **Make it mine…** copies a downloaded song or video into one of your own folders, tidily named,
   so it's one of your own files from then on (and where you got to in a video comes with it).
+- **Save to my audiobooks…** (an audiobook's ⋮ or right-click menu, or the download button on its
+  page) keeps a book from your server as your own files. Pick one of your audiobook folders;
+  HomeTunes downloads whatever isn't here yet (the book's page shows how far it's got), then
+  copies the whole book into `Author / Series / 1 - Title`, with its cover and a `metadata.json`
+  holding the title, author, narrator, series, description and chapters, so any other audiobook
+  app reads it too. Where you'd got to comes with it. The downloads it used are removed, and the
+  server still has the book. Select several books to save them all. On a TV it's in the book's
+  options.
 - The **Downloads** page (in the sidebar, at the top of Your Library › Playlists, or Settings >
   Downloads > See downloads) opens over whatever you were looking at, so **Back** takes you back
   there. It shows what's downloading, what's kept offline and

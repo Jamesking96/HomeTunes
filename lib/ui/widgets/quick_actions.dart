@@ -118,8 +118,8 @@ List<QuickAction> albumActions(BuildContext context, List<Album> albums) {
 
 /// The download options (0.2.3, download_ui.dart) as quick actions.
 List<QuickAction> _downloads(BuildContext context, List<DownloadItem> items,
-        {({KeepKind kind, String key, String label})? keep}) =>
-    [for (final o in downloadOptions(context, items, keep: keep)) QuickAction(o.icon, o.label, o.run)];
+        {({KeepKind kind, String key, String label})? keep, List<Book> books = const []}) =>
+    [for (final o in downloadOptions(context, items, keep: keep, books: books)) QuickAction(o.icon, o.label, o.run)];
 
 /// "Add to sidebar" / "Remove from sidebar" for one album or audiobook (quick links, 0.1.64).
 QuickAction _sidebarAction(LibraryModel lib, QuickLink link) {
@@ -155,7 +155,8 @@ List<QuickAction> bookActions(BuildContext context, List<Book> books) {
     if (n == 1) _sidebarAction(lib, QuickLink(QuickLinkKind.book, books.first.id, books.first.title)),
     if (n == 1) QuickAction(Icons.content_copy, 'Copy title', () => copyTitle(context, books.first.title)),
     ..._downloads(context, [for (final t in parts) DownloadItem.track(t, book: true)],
-        keep: n == 1 ? (kind: KeepKind.book, key: books.first.id, label: books.first.title) : null),
+        keep: n == 1 ? (kind: KeepKind.book, key: books.first.id, label: books.first.title) : null,
+        books: books),
     QuickAction(Icons.info_outline, 'Details…', () => openDetails(context,
         kind: n == 1 ? 'Audiobook' : '$n audiobooks',
         title: n == 1 ? books.first.title : books.map((b) => b.title).join(', '),
