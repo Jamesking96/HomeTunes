@@ -114,7 +114,7 @@ class DownloadsModel extends ChangeNotifier {
   // Books waiting for their files, to be saved into one of your folders (5 Nov 2026,
   // downloads_model/save_books.dart): book id → folder.
   final Map<String, String> _saveBooks = {};
-  bool _savingBooks = false;
+  bool _savingBooks = false, _saveBooksAgain = false;
 
   /// Audiobook places (0.2.4): a temporary copy of a book's file counts as finished once the
   /// book is. Null in some tests.

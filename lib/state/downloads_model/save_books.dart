@@ -60,32 +60,45 @@ extension SaveBooks on DownloadsModel {
 
   /// Saves the waiting books whose files are all here now (after each download, and at start).
   Future<void> _saveReadyBooks() async {
-    if (_savingBooks || _saveBooks.isEmpty) return;
+    if (_saveBooks.isEmpty) return;
+    // Already looking: look again when that's done (the last two files can finish together, and
+    // the first look would have seen the book one file short).
+    if (_savingBooks) {
+      _saveBooksAgain = true;
+      return;
+    }
     _savingBooks = true;
     try {
-      for (final e in _saveBooks.entries.toList()) {
-        final b = library.bookById(e.key);
-        // Not in the library (yet): the server hasn't been read since starting. Left waiting.
-        if (b == null) continue;
-        final parts = serverParts(b);
-        if (parts.isEmpty) {
-          _saveBooks.remove(e.key);
-          continue;
-        }
-        if (!parts.every((t) => isDownloaded(t.id))) continue;
-        _saveBooks.remove(e.key);
-        try {
-          final to = await _copyBook(b, e.value);
-          onNotice?.call('"${b.title}" is saved in $to');
-        } catch (x) {
-          onNotice?.call('Couldn\'t save "${b.title}" into ${e.value}: ${x is FileSystemException ? x.message : x}. '
-              'Its downloads are kept; try Save to my audiobooks again.');
-        }
-      }
-      await _save();
+      do {
+        _saveBooksAgain = false;
+        await _saveReadyBooksOnce();
+      } while (_saveBooksAgain && _saveBooks.isNotEmpty);
     } finally {
       _savingBooks = false;
     }
+  }
+
+  Future<void> _saveReadyBooksOnce() async {
+    for (final e in _saveBooks.entries.toList()) {
+      final b = library.bookById(e.key);
+      // Not in the library (yet): the server hasn't been read since starting. Left waiting.
+      if (b == null) continue;
+      final parts = serverParts(b);
+      if (parts.isEmpty) {
+        _saveBooks.remove(e.key);
+        continue;
+      }
+      if (!parts.every((t) => isDownloaded(t.id))) continue;
+      _saveBooks.remove(e.key);
+      try {
+        final to = await _copyBook(b, e.value);
+        onNotice?.call('"${b.title}" is saved in $to');
+      } catch (x) {
+        onNotice?.call('Couldn\'t save "${b.title}" into ${e.value}: ${x is FileSystemException ? x.message : x}. '
+            'Its downloads are kept; try Save to my audiobooks again.');
+      }
+    }
+    await _save();
   }
 
   /// The folders [b] goes in, under the one chosen: Author, Series (if any), "n - Title".
