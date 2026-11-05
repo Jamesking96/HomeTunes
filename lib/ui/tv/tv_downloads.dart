@@ -13,6 +13,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/book.dart';
 import '../../models/download.dart';
 import '../../models/track.dart';
 import '../../state/downloads_model.dart';
@@ -32,7 +33,7 @@ typedef TvKeep = ({KeepKind kind, String key, String label});
 
 /// The download choices for [items] in a TV options panel (none when nothing is from a server,
 /// or the app has no downloads). [keep]: what they're in, when it can be kept offline as a whole.
-List<TvOption> tvDownloadOptions(BuildContext context, List<DownloadItem> items, {TvKeep? keep}) {
+List<TvOption> tvDownloadOptions(BuildContext context, List<DownloadItem> items, {TvKeep? keep, Book? book}) {
   final dl = downloadsOf(context);
   if (dl == null) return const [];
   final server = [for (final it in items) if (isServerDownloadId(it.id)) it];
@@ -86,9 +87,42 @@ List<TvOption> tvDownloadOptions(BuildContext context, List<DownloadItem> items,
           () => kept
               ? tvStopKeeping(context, keep)
               : tvKeepOffline(context, keep, video: video, original: originalOnly([for (final it in server) it.id]))),
-    if (mine != null && dl.foldersFor(mine).isNotEmpty)
+    // A whole audiobook into your folders (5 Nov 2026).
+    if (book != null && dl.isSavingBook(book.id))
+      TvOption('Stop saving to my audiobooks', Icons.cancel_outlined, () {
+        dl.cancelSaveBook(book.id);
+        tvNotice(context, 'It won\'t be saved. Its downloads carry on');
+      })
+    else if (book != null)
+      TvOption('Save to my audiobooks', Icons.drive_file_move_outline, opensMore: true, () => tvSaveBook(context, book))
+    else if (mine != null && dl.foldersFor(mine).isNotEmpty)
       TvOption('Make it mine', Icons.drive_file_move_outline, opensMore: true, () => tvMakeItMine(context, mine)),
   ];
+}
+
+/// Save to my audiobooks › (5 Nov 2026): which of your folders; the book downloads first if need be.
+Future<void> tvSaveBook(BuildContext context, Book b) {
+  final dl = downloadsOf(context);
+  if (dl == null) return Future.value();
+  final folders = dl.bookFolders;
+  if (folders.isEmpty) {
+    tvNotice(context, 'Add an audiobook folder first, in Settings › Audiobooks');
+    return Future.value();
+  }
+  return showTvOptions(context,
+      title: 'Save "${b.title}" to your audiobooks',
+      subtitle: 'Downloaded if need be, then copied into the folder as ${SaveBooks.bookFolderNames(b).join(' / ')}',
+      options: [
+        for (final f in folders)
+          TvOption(f, Icons.folder_outlined, () async {
+            try {
+              final to = await dl.saveBook(b, f);
+              if (context.mounted) tvNotice(context, to != null ? 'Saved in $to' : 'Downloading. It\'s saved there once it\'s all here');
+            } on FileSystemException catch (x) {
+              if (context.mounted) tvNotice(context, 'Couldn\'t save it there: ${x.message}');
+            }
+          }),
+      ]);
 }
 
 /// The panel that asks which copy. [onPicked] gets the choice.
@@ -177,6 +211,11 @@ Future<void> tvStopKeeping(BuildContext context, TvKeep keep) {
 Future<void> tvMakeItMine(BuildContext context, DownloadEntry e) {
   final dl = downloadsOf(context);
   if (dl == null) return Future.value();
+  // An audiobook's file goes with the rest of its book (5 Nov 2026).
+  if (e.book) {
+    final b = context.read<LibraryModel>().bookOfTrack(e.id);
+    if (b != null) return tvSaveBook(context, b);
+  }
   return showTvOptions(context, title: 'Make "${e.title}" yours', subtitle: 'A copy goes into your folder; the download is removed', options: [
     for (final f in dl.foldersFor(e))
       TvOption(f, Icons.folder_outlined, () async {
