@@ -311,7 +311,7 @@ List<TvOption> bookOptions(BuildContext context, Book b, {bool onPage = false}) 
     else
       TvOption('Mark as not finished', Icons.remove_done, () => listening.setFinished(b, false)),
     ...tvDownloadOptions(context, [for (final t in b.parts) DownloadItem.track(t, book: true)],
-        keep: (kind: KeepKind.book, key: b.id, label: b.title)),
+        keep: (kind: KeepKind.book, key: b.id, label: b.title), book: b),
     ..._coverOptions(context, b.parts, () => showBookCoverSearch(context, title: b.title, author: b.author)),
     TvOption('Details', Icons.info_outline, () => openDetails(context, kind: 'Audiobook', title: b.title, tracks: b.parts, book: b)),
     TvOption('Edit details', Icons.edit_outlined, opensMore: true, () => showEditBook(context, b)),

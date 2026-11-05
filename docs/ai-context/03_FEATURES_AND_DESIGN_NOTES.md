@@ -441,6 +441,32 @@ Checked with +127: A Goofy Movie, Ratatouille, Treasure Planet play with a pictu
 
 **Subtitle size** (`VideoSettings.subtitleSize`, 0.75 / 1 / 1.25 / 1.5 / 2 = Small … Largest): Settings › Videos and the TV player's Audio & subtitles panel. On Android the app draws subtitles (`subtitleView(size:)`, 32 px × size); on the PC libass does (mpv `sub-scale`).
 
+## Save audiobooks to your folders (5 Nov 2026, branch `feature/save-audiobooks`)
+
+The user: "Give me the ability to download the audiobooks to save them locally." Downloads already
+covered server books (in the tile menus), but they stay in HomeTunes' data folder, the book's page
+had no download button, and Make it mine copied one file into a music-style Artist / Album folder.
+
+- **Save to my audiobooks…** (`downloads_model/save_books.dart`, the `SaveBooks` extension):
+  `saveBook(book, folder)` downloads the book's server files that aren't here (originals), and
+  remembers it as waiting (`saveBooks` in downloads.json: book id → folder; carries on after a
+  restart; `cancelSaveBook`). When the last file arrives (`_finished` → `_saveReadyBooks`, also
+  run from `_soon`) it's copied to `<folder>/<Author>/<Series>/<n - Title>/` (`bookFolderNames`;
+  " (2)" when that folder is already in use) as `01 - Part.ext` (a one-file book is named after the
+  book), `cover.jpg` from the server cover (or the one chosen), and an Audiobookshelf
+  `metadata.json` (`bookMetadata`: title, authors, narrators, "Series #n", year, genres,
+  description, a one-file book's chapters) that `book_sidecar.dart` reads back, so the user's edits
+  come along. Then: the book stops being kept offline, its download entries and files go, the
+  folder is rescanned, and the place (file, position, finished, speed) is recorded on the new
+  local book. The server copy stays in the library (the Source filter tells them apart).
+- **Where:** a server book's page has a download button (`DownloadMenuButton` with `book:`) by the
+  heart, and `BookSaveStatus` under the buttons ("Saving to …: 3 of 12 files here" and a bar);
+  `bookActions` (tile menus, the selection bar: several books at once) and the TV's book options
+  (`tvDownloadOptions(book:)`, `tvSaveBook`). Make it mine on a book's file (Downloads page) saves
+  its whole book. The folders offered are the audiobook folders, then the music folders
+  (`bookFolders`); with none, a notice opens Settings › Audiobooks › Audiobook folders.
+- Tests: `test/save_books_test.dart`.
+
 ## Video genres and polish (4 Nov 2026, branch `feature/genres-and-polish`)
 
 The user: "Pull the genres from jelly fin where possible and allow for filtering and sorting
