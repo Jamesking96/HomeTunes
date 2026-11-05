@@ -2,15 +2,20 @@
 // song, album, audiobook, playlist, video, collection and season menus and the selection bars:
 // Download… (asks which copy: the original file or a smaller one, each time, as the user chose),
 // Stop downloading, Remove download(s), Keep offline / Stop keeping offline, and Make it mine…
-// (copies a downloaded file into one of your own folders). Everything goes through DownloadsModel
+// (copies a downloaded file into one of your own folders), and for an audiobook Save to my
+// audiobooks… (5 Nov 2026: downloads the whole book and saves it into one of your folders as
+// Author / Series / Title with its cover and details). Everything goes through DownloadsModel
 // (state/downloads_model.dart); when there isn't one (some tests), no options are offered.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/book.dart';
 import '../../models/download.dart';
 import '../../state/downloads_model.dart';
+import '../../state/library_model.dart';
+import '../nav.dart';
 import '../../state/remote_books.dart' show isRemoteBookId;
 import '../theme.dart';
 
@@ -29,11 +34,12 @@ class DownloadOption {
 
 /// What a menu offers for [items] (only server ones count). [keep]: the thing they're in, when
 /// it can be kept offline as a whole (an album, a playlist, Liked Songs, a book, a collection, a
-/// season).
+/// season). [books]: the audiobooks they are, for Save to my audiobooks….
 List<DownloadOption> downloadOptions(
   BuildContext context,
   List<DownloadItem> items, {
   ({KeepKind kind, String key, String label})? keep,
+  List<Book> books = const [],
 }) {
   final dl = downloadsOf(context);
   final server = [for (final it in items) if (isServerDownloadId(it.id)) it];
@@ -69,8 +75,21 @@ List<DownloadOption> downloadOptions(
       DownloadOption(kept ? 'keep-off' : 'keep-on', kept ? Icons.cloud_off_outlined : Icons.offline_pin_outlined,
           kept ? 'Stop keeping offline' : 'Keep offline…',
           () => toggleKeepOffline(context, keep, video: video, original: originalOnly([for (final it in server) it.id]))),
-    if (mine != null && dl.foldersFor(mine).isNotEmpty)
-      DownloadOption('make-mine', Icons.drive_file_move_outline, 'Make it mine…', () => makeItMine(context, mine)),
+    // Whole audiobooks into your folders (5 Nov 2026).
+    if (books.any((b) => SaveBooks.serverParts(b).isNotEmpty))
+      books.every((b) => dl.isSavingBook(b.id))
+          ? DownloadOption('save-book-stop', Icons.cancel_outlined, 'Stop saving to my audiobooks', () async {
+              for (final b in books) {
+                await dl.cancelSaveBook(b.id);
+              }
+            })
+          : DownloadOption('save-book', Icons.drive_file_move_outline,
+              books.length == 1 ? 'Save to my audiobooks…' : 'Save ${books.length} books to my audiobooks…',
+              () => saveBooksToFolder(context, books))
+    // One file (a song, a video). A book's file is saved with the rest of its book.
+    else if (mine != null && dl.foldersFor(mine).isNotEmpty)
+      DownloadOption('make-mine', Icons.drive_file_move_outline, mine.book ? 'Save to my audiobooks…' : 'Make it mine…',
+          () => makeItMine(context, mine)),
   ];
 }
 
@@ -101,12 +120,16 @@ List<PopupMenuEntry<VoidCallback>> downloadMenuItems(BuildContext context, List<
 class DownloadMenuButton extends StatelessWidget {
   final List<DownloadItem> Function() items;
   final ({KeepKind kind, String key, String label})? keep;
-  const DownloadMenuButton({super.key, required this.items, this.keep});
+
+  /// The audiobook they are (5 Nov 2026: Save to my audiobooks…).
+  final Book? book;
+  const DownloadMenuButton({super.key, required this.items, this.keep, this.book});
+
 
   @override
   Widget build(BuildContext context) {
     downloadsOf(context, listen: true); // redraws as downloads change
-    final opts = downloadOptions(context, items(), keep: keep);
+    final opts = downloadOptions(context, items(), keep: keep, books: [?book]);
     if (opts.isEmpty) return const SizedBox.shrink();
     return PopupMenuButton<DownloadOption>(
       key: const ValueKey('download-menu'),
@@ -433,10 +456,15 @@ class _QualityDialogState extends State<_QualityDialog> {
 }
 
 /// Make it mine: copies download [e] into one of your folders (asking which when there are
-/// several), so it's one of your own files from then on.
+/// several), so it's one of your own files from then on. An audiobook's file is saved with the
+/// rest of its book ([saveBookToFolder]).
 Future<void> makeItMine(BuildContext context, DownloadEntry e) async {
   final dl = downloadsOf(context);
   if (dl == null) return;
+  if (e.book) {
+    final b = context.read<LibraryModel>().bookOfTrack(e.id);
+    if (b != null) return saveBooksToFolder(context, [b]);
+  }
   final folders = dl.foldersFor(e);
   if (folders.isEmpty) return;
   final messenger = ScaffoldMessenger.maybeOf(context);
@@ -470,5 +498,114 @@ Future<void> makeItMine(BuildContext context, DownloadEntry e) async {
   } on FileSystemException catch (x) {
     messenger?.showSnackBar(SnackBar(
         content: Text('Couldn\'t copy it there${Platform.isAndroid ? ' (Android may not let HomeTunes write to that folder)' : ''}: ${x.message}')));
+  }
+}
+
+/// Save to my audiobooks… (5 Nov 2026): asks which of your folders, then downloads what isn't
+/// here yet and saves each whole book there (DownloadsModel.saveBook).
+Future<void> saveBooksToFolder(BuildContext context, List<Book> chosen) async {
+  final dl = downloadsOf(context);
+  // Only books from a server: your own are in your folders already.
+  final books = [for (final b in chosen) if (SaveBooks.serverParts(b).isNotEmpty) b];
+  if (dl == null || books.isEmpty) return;
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final folders = dl.bookFolders;
+  if (folders.isEmpty) {
+    messenger?.showSnackBar(SnackBar(
+      content: const Text('Add an audiobook folder first: books are saved into it.'),
+      action: SnackBarAction(
+        label: 'Audiobook folders',
+        onPressed: () => context.read<AppNav>().openSettings('audiobooks', setting: 'book-folders'),
+      ),
+    ));
+    return;
+  }
+  final one = books.length == 1 ? books.single : null;
+  final parts = [for (final b in books) ...SaveBooks.serverParts(b)];
+  final missing = [for (final t in parts) if (!dl.isDownloaded(t.id)) t];
+  final listening = missing.fold<Duration>(Duration.zero, (a, t) => a + t.duration);
+  final where = one == null ? 'Author / Series / Title' : SaveBooks.bookFolderNames(one).join(' / ');
+  final folder = await showDialog<String>(
+    context: context,
+    builder: (ctx) => SimpleDialog(
+      key: const ValueKey('save-book-dialog'),
+      title: Text(one == null ? 'Save ${books.length} books to your audiobooks' : 'Save "${one.title}" to your audiobooks'),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+          child: Text(
+            [
+              if (missing.isNotEmpty)
+                'HomeTunes downloads ${missing.length == parts.length ? (one == null ? 'them' : 'it') : 'the ${missing.length} files not here yet'}'
+                    '${listening > Duration.zero ? ' (${formatLong(listening)} of listening)' : ''}, then',
+              '${missing.isEmpty ? 'A' : 'a'} copy goes into the folder you pick, as $where, with '
+                  '${one == null ? 'their' : 'its'} cover and details. Where you\'d got to comes with '
+                  '${one == null ? 'them' : 'it'}. The server still has ${one == null ? 'them' : 'it'}.',
+            ].join(' '),
+            style: TextStyle(fontSize: 13, color: AppColors.textDim),
+          ),
+        ),
+        for (final f in folders)
+          SimpleDialogOption(
+            key: ValueKey('save-book:$f'),
+            onPressed: () => Navigator.pop(ctx, f),
+            child: Row(children: [const Icon(Icons.folder_outlined, size: 20), const SizedBox(width: 12), Expanded(child: Text(f))]),
+          ),
+      ],
+    ),
+  );
+  if (folder == null) return;
+  var saved = 0, waiting = 0;
+  String? lastPath;
+  try {
+    for (final b in books) {
+      final to = await dl.saveBook(b, folder);
+      to == null ? waiting++ : saved++;
+      lastPath = to ?? lastPath;
+    }
+    messenger?.showSnackBar(SnackBar(
+        content: Text(one != null
+            ? (lastPath != null ? '"${one.title}" is saved in $lastPath' : 'Downloading "${one.title}". It\'s saved into $folder once it\'s all here.')
+            : [
+                if (saved > 0) '$saved saved in $folder.',
+                if (waiting > 0) '$waiting downloading; each is saved there once it\'s all here.',
+              ].join(' '))));
+  } on FileSystemException catch (x) {
+    messenger?.showSnackBar(SnackBar(
+        content: Text('Couldn\'t save it there${Platform.isAndroid ? ' (Android may not let HomeTunes write to that folder)' : ''}: ${x.message}')));
+  }
+}
+
+/// "Saving to your audiobooks: 3 of 12 files here" with a bar, while book [b] waits for its files
+/// (5 Nov 2026, on the book's page). Nothing otherwise.
+class BookSaveStatus extends StatelessWidget {
+  final Book b;
+  const BookSaveStatus({super.key, required this.b});
+
+  @override
+  Widget build(BuildContext context) {
+    final dl = downloadsOf(context, listen: true);
+    final to = dl?.savingBookTo(b.id);
+    if (dl == null || to == null) return const SizedBox.shrink();
+    final parts = SaveBooks.serverParts(b);
+    final here = parts.where((t) => dl.isDownloaded(t.id)).length;
+    final failed = parts.any((t) => dl.entryOf(t.id)?.state == DownloadState.failed);
+    return Padding(
+      key: const ValueKey('book-save-status'),
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        Text(
+          failed
+              ? 'Saving to $to: a file couldn\'t download. Try again on the Downloads page.'
+              : 'Saving to $to: $here of ${parts.length} ${parts.length == 1 ? 'file' : 'files'} here',
+          style: TextStyle(fontSize: 12, color: failed ? Colors.orangeAccent : AppColors.textDim),
+        ),
+        const SizedBox(height: 4),
+        SizedBox(
+          width: 260,
+          child: LinearProgressIndicator(value: parts.isEmpty ? null : here / parts.length, minHeight: 3),
+        ),
+      ]),
+    );
   }
 }

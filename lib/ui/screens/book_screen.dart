@@ -24,6 +24,9 @@ import '../theme.dart';
 import '../widgets/book_card.dart';
 import '../widgets/bookmark_widgets.dart';
 import '../widgets/cards.dart';
+import '../widgets/download_ui.dart';
+import '../../models/download.dart' show KeepKind;
+import '../../state/downloads_model.dart' show DownloadItem;
 import '../widgets/quick_links.dart';
 import 'details_screen.dart';
 import 'edit_book.dart';
@@ -163,6 +166,13 @@ class BookScreen extends StatelessWidget {
         }),
         // A quick link in the sidebar (0.1.64).
         QuickLinkButton(link: QuickLink(QuickLinkKind.book, book.id, book.title)),
+        // A server book (5 Nov 2026): Download…, Keep offline…, Save to my audiobooks….
+        // Nothing for your own files.
+        DownloadMenuButton(
+          items: () => [for (final t in book.parts) DownloadItem.track(t, book: true)],
+          keep: (kind: KeepKind.book, key: book.id, label: book.title),
+          book: book,
+        ),
         IconButton(
           tooltip: 'Edit book details',
           icon: const Icon(Icons.edit_outlined),
@@ -217,6 +227,7 @@ class BookScreen extends StatelessWidget {
               ]),
               const SizedBox(height: 16),
               actions,
+              BookSaveStatus(b: book),
             ])
           : Column(children: [
               BookCover(book: book, width: coverWidth),
@@ -224,6 +235,7 @@ class BookScreen extends StatelessWidget {
               info,
               const SizedBox(height: 12),
               actions,
+              BookSaveStatus(b: book),
             ]),
     );
 
