@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- HomeTunes' opening screen (0.2.12): the Default theme's background (AppColors.bg,
-     lib/ui/theme.dart), so opening goes straight from this to the app with no white flash. -->
+<!-- HomeTunes' opening screen: the colour round the edges of the user's picture
+     (HomeTunes_Splash, 0.2.13), so the picture sits on it without a seam on any screen shape.
+     (0.2.12 used the Default theme's background, #101114.) lib/ui/start_screen.dart uses the same. -->
 <resources>
-    <color name="launch_background">#FF101114</color>
+    <color name="launch_background">#FF0B0C0E</color>
 </resources>

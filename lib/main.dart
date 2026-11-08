@@ -66,10 +66,10 @@ import 'state/settings/settings_groups.dart' as prefs;
 Future<void> main() async {
   // Both of these must run before any plugin or media_kit Player is used.
   WidgetsFlutterBinding.ensureInitialized();
-  // Android (phone and TV, 0.2.12): something to look at at once, the same picture as the launch
-  // window (the dark background and the icon), while the files below are read; the app replaces
-  // it when they're ready. Before, the window stayed white until then (~3.5 s on the TV).
-  if (Platform.isAndroid) runApp(const StartScreen());
+  // Something to look at at once (0.2.12; 0.2.13: the user's picture, on the PC too), the same
+  // as Android's launch window, while the files below are read; the app replaces it when they're
+  // ready. Before, the TV's window stayed white until then (~3.5 s).
+  runApp(const StartScreen());
   // A picture file may have changed (a new cover, artist or series picture, playlist picture):
   // drop Flutter's cached copies so the new one shows (refactor phase 3: the models only say so).
   picturesChanged = () => PaintingBinding.instance.imageCache.clear();
@@ -236,6 +236,13 @@ Future<void> main() async {
     serverBooks: serverBooks,
     downloads: downloads,
   ));
+
+  // The opening picture isn't needed again: its memory goes (it's ~8 MB decoded; TVs are short).
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final shown = StartScreen.shown;
+    StartScreen.shown = null;
+    if (shown != null) unawaited(shown.evict());
+  });
 
   // Once the first screen has settled: is the internet reachable? If not, say which features
   // need it, with Carry on (0.1.50, offline_warning.dart). If online, look for a newer

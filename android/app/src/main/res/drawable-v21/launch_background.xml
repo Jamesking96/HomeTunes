@@ -1,11 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- HomeTunes' opening screen (0.2.12), as drawable/launch_background.xml: the app's dark
-     background with its icon in the middle (Flutter's template used the system's light colour). -->
+<!-- HomeTunes' opening screen (0.2.13), as drawable/launch_background.xml: the user's picture on
+     its edge colour, filling a TV's screen. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/launch_background" />
-    <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@drawable/launch_logo" />
-    </item>
+    <item android:width="960dp" android:height="540dp" android:gravity="center"
+        android:drawable="@drawable/launch_splash" />
 </layer-list>
