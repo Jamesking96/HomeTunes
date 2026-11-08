@@ -96,6 +96,23 @@ class _StartScreenState extends State<StartScreen> {
                         : AnimatedOpacity(opacity: frame == null ? 0 : 1, duration: const Duration(milliseconds: 200), child: child),
                   ),
                 ),
+                // Space above and below (a phone held upright): the picture's top and bottom fade
+                // into the background, so its glow doesn't end in a line.
+                if (box.maxHeight - h > 1)
+                  const Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [StartScreen.background, Color(0x000B0C0E), Color(0x000B0C0E), StartScreen.background],
+                            stops: [0, 0.12, 0.88, 1],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 Positioned(
                   left: 0,
                   right: 0,
