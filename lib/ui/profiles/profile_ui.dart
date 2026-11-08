@@ -16,6 +16,7 @@ import '../tv/tv_keyboard.dart' show showTvTextInput;
 import '../tv/tv_menus.dart' show tvNotice;
 import '../tv/tv_options.dart';
 import '../tv/tv_pictures.dart' show showTvPictureSearch;
+import 'profile_pin.dart' show askProfilePin;
 
 /// The profiles, or null (tests and previews that don't provide them). Watches when [listen].
 ProfilesModel? profilesOf(BuildContext context, {bool listen = true}) {
@@ -373,6 +374,12 @@ class _Pick extends StatelessWidget {
 Future<void> switchProfile(BuildContext context, String id) async {
   final profiles = profilesOf(context, listen: false);
   if (profiles == null) return;
+  // Phase 5: a profile with a PIN asks for it whenever someone comes into it (not when the one
+  // already using it taps their own picture).
+  final target = profiles.byId(id);
+  if (target != null && target.hasPin && (id != profiles.currentId || !profiles.chosen)) {
+    if (!await askProfilePin(context, target) || !context.mounted) return;
+  }
   if (id == profiles.currentId) {
     await profiles.switchTo(id); // just marks "Who's listening?" as answered
     return;
@@ -423,7 +430,8 @@ Future<void> showProfileSwitcher(BuildContext context) async {
       options: [
         for (final p in profiles.profiles)
           TvOption(p.name, Icons.person, () => chosen = p.id,
-              picture: ProfileAvatar(p, size: 36), subtitle: p.id == profiles.currentId ? 'Using now' : null),
+              picture: ProfileAvatar(p, size: 36),
+              subtitle: p.id == profiles.currentId ? 'Using now' : (p.hasPin ? 'Asks for a PIN' : null)),
       ],
     );
     if (chosen != null && context.mounted) await switchProfile(context, chosen!);
@@ -441,7 +449,10 @@ Future<void> showProfileSwitcher(BuildContext context) async {
               ProfileAvatar(p, size: 36),
               const SizedBox(width: 14),
               Expanded(child: Text(p.name, style: const TextStyle(fontSize: 16))),
-              if (p.id == profiles.currentId) Icon(Icons.check, color: Theme.of(ctx).colorScheme.primary),
+              if (p.id == profiles.currentId)
+                Icon(Icons.check, color: Theme.of(ctx).colorScheme.primary)
+              else if (p.hasPin)
+                Tooltip(message: 'Asks for a PIN', child: Icon(Icons.lock_outline, size: 18, color: AppColors.textDim)),
             ]),
           ),
       ],

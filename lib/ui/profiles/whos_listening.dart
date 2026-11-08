@@ -58,7 +58,18 @@ class WhosListeningScreen extends StatelessWidget {
                         const SizedBox(height: 10),
                         SizedBox(
                           width: card + 16,
-                          child: Text(p.name,
+                          child: Text.rich(
+                              TextSpan(children: [
+                                // Phase 5: this one asks for its PIN.
+                                if (p.hasPin)
+                                  WidgetSpan(
+                                      alignment: PlaceholderAlignment.middle,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(right: 4),
+                                        child: Icon(Icons.lock_outline, size: 16, color: AppColors.textDim),
+                                      )),
+                                TextSpan(text: p.name),
+                              ]),
                               textAlign: TextAlign.center,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,

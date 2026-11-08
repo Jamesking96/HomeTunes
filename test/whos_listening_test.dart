@@ -175,4 +175,75 @@ void main() {
     // The one in use can't be removed.
     expect(find.byTooltip('Remove'), findsOneWidget);
   });
+
+  // Phase 5: PINs.
+  testWidgets('a profile with a PIN asks for it: wrong stays out, right goes in', (tester) async {
+    final m = await twoProfiles(tester);
+    // Sam sets a PIN (inside Sam's profile), then HomeTunes starts again asking who's listening.
+    await tester.runAsync(() async {
+      await m.switchTo('p1');
+      await m.setPin('2468');
+      m.chosen = false;
+    });
+    await tester.pumpWidget(app(m, const WhosListeningGate(child: Text('The app'))));
+    expect(find.byIcon(Icons.lock_outline), findsOneWidget); // on Sam's card
+    await tester.tap(find.byKey(const ValueKey('whos:p1')));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter Sam\'s PIN'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('profile-pin-box')), '1111');
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    expect(find.text('That\'s not the PIN. Try again.'), findsOneWidget);
+    expect(find.text('The app'), findsNothing);
+    await tester.enterText(find.byKey(const ValueKey('profile-pin-box')), '2468');
+    await tester.runAsync(() async {
+      await tester.tap(find.text('OK'));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    });
+    await tester.pumpAndSettle();
+    expect(find.text('The app'), findsOneWidget);
+    expect(m.currentId, 'p1');
+  });
+
+  testWidgets('Cancel on the PIN keeps you where you were', (tester) async {
+    final m = await twoProfiles(tester);
+    await tester.runAsync(() async {
+      await m.switchTo('p1');
+      await m.setPin('2468');
+      await m.switchTo('p2');
+    });
+    await tester.pumpWidget(app(m, const Scaffold(body: Center(child: ProfileButton()))));
+    await tester.tap(find.byType(ProfileButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sam'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter Sam\'s PIN'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(m.currentId, 'p2');
+  });
+
+  testWidgets('Settings › Profiles offers a PIN for the one in use only', (tester) async {
+    final m = await twoProfiles(tester);
+    await tester.pumpWidget(app(m, const Scaffold(body: ProfileSettings())));
+    expect(find.text('PIN for Alex'), findsOneWidget);
+    await tester.tap(find.text('PIN for Alex'));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose a PIN for Alex'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('new-pin-1')), '1357');
+    await tester.enterText(find.byKey(const ValueKey('new-pin-2')), '1358');
+    await tester.tap(find.text('Save PIN'));
+    await tester.pumpAndSettle();
+    expect(find.text('The two didn\'t match.'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('new-pin-2')), '1357');
+    await tester.tap(find.text('Save PIN'));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+    }
+    await tester.pump();
+    expect(m.current?.hasPin, isTrue);
+    expect(find.text('PIN for Alex: on'), findsOneWidget);
+    expect(find.textContaining('PIN set'), findsOneWidget);
+  });
 }

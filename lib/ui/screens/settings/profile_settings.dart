@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../state/profiles_model.dart';
+import '../../profiles/profile_pin.dart';
 import '../../profiles/profile_ui.dart';
 import '../../theme.dart';
 import '../../tv/tv_focus.dart' show tvModeOf;
@@ -67,6 +68,7 @@ class _ProfileSettingsState extends State<ProfileSettings> {
         ],
       );
       if (kept == null || !mounted) return;
+      if (!await _pinToKeep(m, kept!)) return;
       await _run(() => m.turnOff(kept!));
       return;
     }
@@ -101,7 +103,48 @@ class _ProfileSettingsState extends State<ProfileSettings> {
       ),
     );
     if (ok != true || keep == null || !mounted) return;
+    if (!await _pinToKeep(m, keep!)) return;
     await _run(() => m.turnOff(keep!));
+  }
+
+  /// Keeping someone else's things means switching into them: their PIN is asked (phase 5).
+  Future<bool> _pinToKeep(ProfilesModel m, String id) async {
+    final p = m.byId(id);
+    if (p == null || id == m.currentId || !p.hasPin) return true;
+    return askProfilePin(context, p);
+  }
+
+  /// Settings › Profiles › PIN (phase 5): only for the profile in use (decision 4: set up inside
+  /// the profile). Changing or removing one asks for the current PIN first.
+  Future<void> _pin(ProfilesModel m) async {
+    final me = m.current;
+    if (me == null) return;
+    String? action = me.hasPin ? null : 'set';
+    if (me.hasPin) {
+      if (tvModeOf(context)) {
+        await showTvOptions(context, title: 'PIN for ${me.name}', options: [
+          TvOption('Change the PIN', Icons.password, () => action = 'set', opensMore: true),
+          TvOption('Remove the PIN', Icons.lock_open, () => action = 'remove'),
+        ]);
+      } else {
+        action = await showDialog<String>(
+          context: context,
+          builder: (ctx) => SimpleDialog(title: Text('PIN for ${me.name}'), children: [
+            SimpleDialogOption(onPressed: () => Navigator.pop(ctx, 'set'), child: const Text('Change the PIN')),
+            SimpleDialogOption(onPressed: () => Navigator.pop(ctx, 'remove'), child: const Text('Remove the PIN')),
+          ]),
+        );
+      }
+      if (action == null || !mounted) return;
+      if (!await askProfilePin(context, me) || !mounted) return;
+    }
+    if (action == 'remove') {
+      await _run(() => m.setPin(null));
+      return;
+    }
+    final pin = await choosePin(context, me.name);
+    if (pin == null || !mounted) return;
+    await _run(() => m.setPin(pin));
   }
 
   Future<void> _add(ProfilesModel m) async {
@@ -202,7 +245,9 @@ class _ProfileSettingsState extends State<ProfileSettings> {
               key: ValueKey('profile-row:${p.id}'),
               leading: ProfileAvatar(p),
               title: Text(p.name),
-              subtitle: p.id == m.currentId ? const Text('Using now') : null,
+              subtitle: p.id == m.currentId || p.hasPin
+                  ? Text([if (p.id == m.currentId) 'Using now', if (p.hasPin) 'PIN set'].join(' · '))
+                  : null,
               onTap: _busy || p.id == m.currentId ? null : () => switchProfile(context, p.id),
               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                 IconButton(
@@ -219,6 +264,19 @@ class _ProfileSettingsState extends State<ProfileSettings> {
               ]),
             ),
         ])),
+        // Phase 5: an optional PIN for the profile in use.
+        if (m.current case final me?)
+          ListTile(
+            key: const ValueKey('profiles-pin'),
+            leading: Icon(me.hasPin ? Icons.lock_outline : Icons.lock_open_outlined),
+            title: Text(me.hasPin ? 'PIN for ${me.name}: on' : 'PIN for ${me.name}'),
+            subtitle: Text(
+                me.hasPin
+                    ? 'Asked when someone switches to ${me.name}. Change or remove it'
+                    : 'Off: anyone can switch to ${me.name}. Set a PIN so it\'s asked for',
+                style: TextStyle(color: AppColors.textDim)),
+            onTap: _busy ? null : () => _pin(m),
+          ),
         SettingTarget('profiles-add', child: ListTile(
           leading: const CircleAvatar(child: Icon(Icons.add)),
           title: const Text('Add a profile'),

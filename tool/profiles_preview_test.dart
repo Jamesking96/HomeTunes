@@ -126,6 +126,35 @@ void main() {
   testWidgets('Sharing a playlist on the TV (phase 4)',
       (tester) => sharing(tester, const Size(1920, 1080), 'profiles-playlist-sharing-tv', tv: true));
 
+  // Phase 5: PINs.
+  Future<ProfilesModel> withPin(WidgetTester tester) async {
+    final m = await family(tester);
+    await tester.runAsync(() async {
+      await m.switchTo('p2');
+      await m.setPin('2468');
+      await m.switchTo('p1');
+    });
+    return m;
+  }
+
+  testWidgets('Who\'s listening? with a PIN (phase 5)', (tester) async {
+    final m = await withPin(tester);
+    await draw(tester, m, const Size(1280, 800), 'profiles-pin-whos', const WhosListeningScreen(),
+        then: () => tester.tap(find.byKey(const ValueKey('whos:p2'))));
+  });
+
+  testWidgets('Who\'s listening? with a PIN on the TV (phase 5)', (tester) async {
+    final m = await withPin(tester);
+    await draw(tester, m, const Size(1920, 1080), 'profiles-pin-whos-tv',
+        const TvFocus(enabled: true, sounds: false, child: WhosListeningScreen()),
+        then: () => tester.tap(find.byKey(const ValueKey('whos:p2'))));
+  });
+
+  testWidgets('Settings › Profiles with the PIN row (phase 5)', (tester) async {
+    final m = await withPin(tester);
+    await draw(tester, m, const Size(900, 760), 'profiles-pin-settings', const Scaffold(body: ProfileSettings()));
+  });
+
   testWidgets('Add a profile', (tester) async {
     final m = await family(tester);
     await draw(tester, m, const Size(900, 760), 'profiles-add',

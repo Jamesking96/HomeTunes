@@ -10,8 +10,11 @@
 //
 // The models themselves are switched by [ProfileHost] (main.dart): this file only decides whose
 // files are used and moves them.
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
@@ -23,7 +26,14 @@ import 'profile_session.dart';
 /// One person who uses HomeTunes on this device.
 @immutable
 class Profile {
-  const Profile({required this.id, required this.name, required this.colour, required this.icon, this.photo});
+  const Profile({required this.id, required this.name, required this.colour, required this.icon, this.photo, this.pin});
+
+  /// Phase 5: their PIN, only ever kept as `salt:sha256(salt + PIN)` in hex (the user's decision
+  /// 4: optional, set up inside the profile, asked when someone switches into it). Null: none.
+  final String? pin;
+
+  /// Whether switching into this profile asks for a PIN.
+  bool get hasPin => pin != null;
 
   /// Their own picture (8 Nov: "allow for users to upload their own images via something on the
   /// device or search for one online"): a file in art/profiles, or null for the colour and icon.
@@ -39,12 +49,15 @@ class Profile {
   /// Which picture its circle shows (a name from ui/screens/settings/profiles_ui.dart's list).
   final String icon;
 
-  Profile copyWith({String? name, int? colour, String? icon, String? photo, bool noPhoto = false}) => Profile(
+  Profile copyWith(
+          {String? name, int? colour, String? icon, String? photo, bool noPhoto = false, String? pin, bool noPin = false}) =>
+      Profile(
         id: id,
         name: name ?? this.name,
         colour: colour ?? this.colour,
         icon: icon ?? this.icon,
         photo: noPhoto ? null : (photo ?? this.photo),
+        pin: noPin ? null : (pin ?? this.pin),
       );
 
   Map<String, dynamic> toJson() => {
@@ -53,12 +66,13 @@ class Profile {
         'colour': '#${(colour & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}',
         'icon': icon,
         if (photo != null) 'photo': photo,
+        if (pin != null) 'pin': pin,
       };
 
   /// Null when [j] isn't a usable profile.
   static Profile? fromJson(Object? j) {
     if (j is! Map) return null;
-    final id = j['id'], name = j['name'], colour = j['colour'], icon = j['icon'], photo = j['photo'];
+    final id = j['id'], name = j['name'], colour = j['colour'], icon = j['icon'], photo = j['photo'], pin = j['pin'];
     if (id is! String || !ProfilesModel.goodId.hasMatch(id)) return null;
     final c = colour is String ? int.tryParse(colour.replaceFirst('#', ''), radix: 16) : null;
     return Profile(
@@ -67,8 +81,21 @@ class Profile {
       colour: 0xFF000000 | (c ?? ProfilesModel.colours.first),
       icon: icon is String && icon.isNotEmpty ? icon : 'person',
       photo: photo is String && photo.isNotEmpty ? photo : null,
+      pin: pin is String && RegExp(r'^[0-9a-f]{32}:[0-9a-f]{64}$').hasMatch(pin) ? pin : null,
     );
   }
+}
+
+/// What [ProfilesModel.checkPin] found.
+enum PinCheck {
+  /// Right (or the profile has no PIN).
+  right,
+
+  /// Wrong; another try is allowed.
+  wrong,
+
+  /// Too many wrong tries: wait ([ProfilesModel.pinWaitLeft]) before trying again.
+  wait,
 }
 
 /// What switching profile needs from the rest of the app (main.dart; a fake in tests).
@@ -177,8 +204,9 @@ class ProfilesModel extends ChangeNotifier {
   /// and be set to the most recent profile that's been signed into"). Off: it asks every time.
   bool openLast = true;
 
-  /// HomeTunes should ask who's listening before showing anything else.
-  bool get needsChoosing => on && !openLast && !chosen && profiles.isNotEmpty;
+  /// HomeTunes should ask who's listening before showing anything else: when it's set to ask, or
+  /// when the last profile used has a PIN (phase 5: opening straight into it would get round it).
+  bool get needsChoosing => on && !chosen && profiles.isNotEmpty && (!openLast || (current?.hasPin ?? false));
 
   /// Settings › Profiles › Open with the last profile used.
   Future<void> setOpenLast(bool value) async {
@@ -363,6 +391,72 @@ class ProfilesModel extends ChangeNotifier {
     profiles = [...profiles]..[i] = profiles[i].copyWith(name: name == null ? null : _cleanName(name), colour: colour, icon: icon);
     await _save();
     notifyListeners();
+  }
+
+  // ---- PINs (phase 5) ----
+
+  /// A PIN is 4 to 8 digits.
+  static final pinPattern = RegExp(r'^\d{4,8}$');
+
+  /// Wrong tries allowed before a wait, and how long the wait is.
+  static const pinTries = 5;
+  static const pinWait = Duration(seconds: 30);
+
+  final Map<String, int> _wrongPins = {};
+  final Map<String, DateTime> _pinWaitUntil = {};
+
+  /// For tests: the clock.
+  @visibleForTesting
+  DateTime Function() now = DateTime.now;
+
+  static String _pinHash(String salt, String pin) => sha256.convert(utf8.encode('$salt:$pin')).toString();
+
+  /// Sets (or with null, removes) the PIN of the profile **in use**: a PIN is set up inside its
+  /// own profile (decision 4). Throws on a PIN that isn't 4–8 digits.
+  Future<void> setPin(String? pin) async {
+    final id = currentId;
+    final i = profiles.indexWhere((x) => x.id == id);
+    if (!on || i < 0) return;
+    if (pin != null && !pinPattern.hasMatch(pin)) throw ArgumentError('A PIN is 4 to 8 numbers');
+    String? stored;
+    if (pin != null) {
+      final r = Random.secure();
+      final salt = [for (var k = 0; k < 16; k++) r.nextInt(256).toRadixString(16).padLeft(2, '0')].join();
+      stored = '$salt:${_pinHash(salt, pin)}';
+    }
+    profiles = [...profiles]..[i] = profiles[i].copyWith(pin: stored, noPin: stored == null);
+    await _save();
+    notifyListeners();
+  }
+
+  /// How long until profile [id]'s PIN can be tried again (zero: now).
+  Duration pinWaitLeft(String id) {
+    final until = _pinWaitUntil[id];
+    if (until == null) return Duration.zero;
+    final left = until.difference(now());
+    return left.isNegative ? Duration.zero : left;
+  }
+
+  /// Checks [pin] against profile [id]'s. After [pinTries] wrong ones in a row it waits
+  /// [pinWait] before taking more.
+  PinCheck checkPin(String id, String pin) {
+    final hash = byId(id)?.pin;
+    if (hash == null) return PinCheck.right;
+    if (pinWaitLeft(id) > Duration.zero) return PinCheck.wait;
+    final at = hash.indexOf(':');
+    if (_pinHash(hash.substring(0, at), pin.trim()) == hash.substring(at + 1)) {
+      _wrongPins.remove(id);
+      _pinWaitUntil.remove(id);
+      return PinCheck.right;
+    }
+    final wrong = (_wrongPins[id] ?? 0) + 1;
+    if (wrong >= pinTries) {
+      _wrongPins.remove(id);
+      _pinWaitUntil[id] = now().add(pinWait);
+      return PinCheck.wait;
+    }
+    _wrongPins[id] = wrong;
+    return PinCheck.wrong;
   }
 
   /// Where profile pictures are kept (art/profiles; named by their contents).
