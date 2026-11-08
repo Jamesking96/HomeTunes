@@ -64,8 +64,18 @@ PlayedItem? playedFrom(String? label, Track t, int atMs) {
 class PlayHistory extends ChangeNotifier {
   PlayHistory(this.storage);
 
-  final Storage storage;
+  /// Where history.json is: the profile's folder when profiles are on ([useStorage]).
+  Storage storage;
   static const file = 'history.json';
+
+  /// Someone else is listening (Profiles, phase 1): what's waiting is saved for the one leaving,
+  /// then their recently played is read from [s].
+  Future<void> useStorage(Storage s) async {
+    if (_saveTimer?.isActive ?? false) await save();
+    storage = s;
+    _lastTrackId = null;
+    await load();
+  }
   static const max = 50;
 
   /// For tests: the clock.

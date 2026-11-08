@@ -21,6 +21,9 @@ enum SettingsPage {
   music('Music', 'Listening to music: music videos', Icons.music_note_outlined),
   onlineLookups('Online lookups', 'Covers, song details and lyrics', Icons.travel_explore),
   playback('Playback', 'Equaliser, gapless playback and even volume', Icons.graphic_eq),
+  // 0.2.13 (Profiles plan, phase 1).
+  profiles('Profiles', 'Share HomeTunes: everyone keeps their own places, playlists and look',
+      Icons.people_outline),
   server('Servers', 'Stream music, audiobooks and videos from your own servers', Icons.dns_outlined),
   sleepTimer('Sleep timer', 'Timer lengths and fading out', Icons.bedtime_outlined),
   videos('Videos', 'Skipping, speed, equaliser, video folders and picture shapes', Icons.movie_outlined),
@@ -111,6 +114,10 @@ const settingsCatalog = <SettingInfo>[
   SettingInfo('video-nfo', SettingsPage.videos, 'Save edits into .nfo files', 'nfo kodi jellyfin plex details videos'),
   SettingInfo('video-shape', SettingsPage.videos, 'Video picture shape', 'look tall square wide thumbnail videos'),
   SettingInfo('collection-shape', SettingsPage.videos, 'Collection poster shape', 'look tall square wide poster collections'),
+  // Profiles (0.2.13).
+  // (Add a profile only shows with profiles on, so it isn't listed; these words find the page.)
+  SettingInfo('profiles-on', SettingsPage.profiles, 'Use profiles',
+      'profiles profile people family users accounts who is listening switch share person add new'),
   SettingInfo('add-server', SettingsPage.server, 'Add a server', 'new connection jellyfin plex emby audiobookshelf hometunes test'),
   SettingInfo('server', SettingsPage.server, 'Music servers', 'subsonic navidrome stream password username connect sync main'),
   SettingInfo('server-books', SettingsPage.server, 'Audiobook servers', 'audiobooks from the music server books stream audiobookshelf'),

@@ -568,6 +568,23 @@ class PlayerModel extends ChangeNotifier implements SleepTarget {
     return _player.pause();
   }
 
+  /// Someone else is listening (Profiles, phase 1): the book's place is saved for the one
+  /// leaving, then the music stops and the queue is emptied.
+  Future<void> stopAndEmpty() async {
+    saveBookPlace();
+    pausedOnPurpose = true;
+    try {
+      await _player.stop();
+    } catch (e) {
+      debugPrint('HomeTunes: couldn\'t stop the engine: $e');
+    }
+    _engineIds = [];
+    queue.clear();
+    if (_book != null) _setBook(null);
+    playing = false;
+    notifyListeners();
+  }
+
   // ---- the buttons ----
   // (Keeping "playing" honest is in player_model/stall_check.dart; the queue buttons and menus in
   // player_model/queue_actions.dart, refactor phase 11.)

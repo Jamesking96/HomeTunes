@@ -49,10 +49,18 @@ class _ServerDialogState extends State<_ServerDialog> {
   late Set<MediaKind> _uses;
   bool _showPass = false;
   bool _working = false;
+
+  /// With profiles on, a new server can be just for the person adding it (phase 3).
+  bool _justForMe = false;
   String? _message;
   bool _messageOk = false;
 
   ServerEntry? get _editing => widget.editing;
+
+  /// Profiles are on and this is one of the device's servers (not the main music server, whose
+  /// sign-in stays shared, nor one of the person's own): the user name is this person's.
+  bool get _signsInPerProfile =>
+      widget.servers.split && !_isMain && !(_editing != null && widget.servers.isMine(_editing!)) && !_justForMe;
   LibraryModel get _lib => widget.servers.library;
 
   /// Saving makes (or changes) the main music server: a Subsonic server when there isn't one yet,
@@ -155,6 +163,7 @@ class _ServerDialogState extends State<_ServerDialog> {
         username: _user.text,
         password: _pass.text,
         uses: _uses,
+        justForMe: _justForMe,
       );
     } else {
       await servers.update(
@@ -259,7 +268,15 @@ class _ServerDialogState extends State<_ServerDialog> {
                 key: const ValueKey('server-user'),
                 controller: _user,
                 autocorrect: false,
-                decoration: const InputDecoration(labelText: 'Username'),
+                decoration: InputDecoration(
+                  labelText: 'Username',
+                  // Profiles (phase 3): everyone signs in to the device's servers with their own.
+                  helperText: _signsInPerProfile
+                      ? 'Your own sign-in: everyone on this device signs in with their own user name. '
+                          'Until they do, nothing from this server shows for them.'
+                      : null,
+                  helperMaxLines: 3,
+                ),
               )),
               const SizedBox(height: 8),
               TvTextField(field: TextField(
@@ -276,6 +293,26 @@ class _ServerDialogState extends State<_ServerDialog> {
                   ),
                 ),
               )),
+              // Profiles (phase 3): a new server for everyone on this device, or just for you.
+              if (widget.servers.split && _editing == null && !_isMain) ...[
+                const SizedBox(height: 12),
+                const Text('Who it\'s for', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                Wrap(spacing: 8, runSpacing: 4, children: [
+                  ChoiceChip(
+                    key: const ValueKey('server-for-everyone'),
+                    label: const Text('Everyone on this device'),
+                    selected: !_justForMe,
+                    onSelected: (_) => setState(() => _justForMe = false),
+                  ),
+                  ChoiceChip(
+                    key: const ValueKey('server-just-for-me'),
+                    label: const Text('Just for me'),
+                    selected: _justForMe,
+                    onSelected: (_) => setState(() => _justForMe = true),
+                  ),
+                ]),
+              ],
               const SizedBox(height: 12),
               const Text('Use it for', style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 6),

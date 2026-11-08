@@ -70,8 +70,16 @@ enum BookState { notStarted, inProgress, finished }
 
 /// Remembers the listener's place in every audiobook (listening.json).
 class ListeningModel extends ChangeNotifier implements SongIdFollower {
-  final Storage storage;
+  /// Where listening.json is: the profile's folder when profiles are on ([useStorage]).
+  Storage storage;
   ListeningModel(this.storage);
+
+  /// Someone else is listening (Profiles, phase 1): their places are read from [s].
+  Future<void> useStorage(Storage s) async {
+    storage = s;
+    _partIndex = null;
+    await load();
+  }
 
   static const fileName = 'listening.json';
 

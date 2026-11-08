@@ -211,6 +211,10 @@ class _ServerCard extends StatelessWidget {
         status = lib.serverBooks ? 'Connected · its audiobooks show in the Books tab' : 'Its audiobooks are left out';
         ok = lib.serverBooks;
       }
+    } else if (reader != null && servers.split && s.username.trim().isEmpty) {
+      // Profiles (phase 3): this person hasn't signed in to it yet, so nothing from it shows.
+      status = 'Not signed in on your profile. Use Edit… to sign in with your own user name; '
+          'until then nothing from it shows for you.';
     } else if (reader != null) {
       // Signed in, how many, when it was last read.
       status = reader.statusFor(s);
@@ -251,6 +255,7 @@ class _ServerCard extends StatelessWidget {
                       children: [
                         Text(s.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                         if (s.isMain) _Tag('Main music server', color: accent),
+                        if (servers.isMine(s)) _Tag('Just for you', color: accent),
                         if (!s.type.playsKind(kind)) const _Tag('Coming later'),
                       ],
                     ),

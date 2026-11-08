@@ -30,6 +30,8 @@ import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
 import '../../state/video_library_model.dart';
 import '../nav.dart';
+import '../profiles/profile_ui.dart' show ProfileButton, profilesOf;
+import '../shell.dart' show Shell;
 import '../theme.dart';
 import '../widgets/book_card.dart';
 import '../widgets/cards.dart';
@@ -51,6 +53,19 @@ class HomeScreen extends StatelessWidget {
     return 'Good evening';
   }
 
+  /// The greeting, with the person's name when profiles are on ("Good evening, Sam").
+  static String _greetingFor(BuildContext context) {
+    final profiles = profilesOf(context);
+    final me = profiles?.on == true ? profiles!.current : null;
+    return me == null ? greeting() : '${greeting()}, ${me.name}';
+  }
+
+  /// The profile button on narrow screens (phones); wide windows have it in the sidebar.
+  static List<Widget>? _profileActions(BuildContext context) =>
+      profilesOf(context)?.on == true && MediaQuery.sizeOf(context).width < Shell.wideBreakpoint
+          ? const [ProfileButton(), SizedBox(width: 8)]
+          : null;
+
   static const _videoCardWidth = 220.0;
 
   @override
@@ -69,7 +84,7 @@ class HomeScreen extends StatelessWidget {
     if (!hasMusic && !hasBooks && !hasVideos) {
       final busy = lib.busy || (videos?.busy ?? false);
       return Scaffold(
-        appBar: AppBar(title: Text(greeting())),
+        appBar: AppBar(title: Text(_greetingFor(context)), actions: _profileActions(context)),
         body: EmptyState(
           icon: Icons.library_music_outlined,
           title: busy ? 'Looking through your folders…' : 'Nothing here yet',
@@ -152,7 +167,10 @@ class HomeScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(greeting(), style: const TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(_greetingFor(context), style: const TextStyle(fontWeight: FontWeight.w800)),
+        // With profiles on: who's listening, and switching (Profiles, phase 1; wide windows have
+        // it at the top of the sidebar).
+        actions: _profileActions(context),
       ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 24),

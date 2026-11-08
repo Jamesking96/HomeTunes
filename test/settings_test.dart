@@ -11,6 +11,7 @@ import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/downloads_model.dart';
 import 'package:hometunes/state/equalizer_model.dart';
 import 'package:hometunes/state/playlists_model.dart';
+import 'package:hometunes/state/profiles_model.dart';
 import 'package:hometunes/state/video_library_model.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/update_model.dart';
@@ -154,6 +155,8 @@ void main() {
               sources: FakeSources(),
             ),
           ),
+          // Settings › Profiles (0.2.13); off, as at first.
+          ChangeNotifierProvider<ProfilesModel?>(create: (_) => ProfilesModel(Storage.at(Directory.systemTemp))),
         ],
         child: MaterialApp(home: child),
       ));

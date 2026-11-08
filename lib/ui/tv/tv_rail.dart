@@ -24,7 +24,16 @@ class TvRail extends StatefulWidget {
     this.nowPlayingLabel,
     this.onNowPlaying,
     this.onOpenChange,
+    this.profile,
+    this.profileLabel,
+    this.onProfile,
   });
+
+  /// Whose things these are (Profiles, phase 2): their circle, its label, and what pressing it
+  /// does (the list to switch to). Null with profiles off.
+  final Widget? profile;
+  final String? profileLabel;
+  final VoidCallback? onProfile;
 
   final List<TvRailItem> items;
 
@@ -154,6 +163,22 @@ class TvRailState extends State<TvRail> {
               ),
             ),
           const Spacer(),
+          if (widget.profile != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: TvPressable(
+                key: const ValueKey('tv-rail-profile'),
+                semanticLabel: widget.profileLabel ?? 'Switch profile',
+                onPressed: widget.onProfile,
+                builder: (context, focused) => _item(
+                  icon: null,
+                  picture: SizedBox(width: 32, height: 32, child: widget.profile),
+                  label: widget.profileLabel ?? 'Switch profile',
+                  here: false,
+                  focused: focused,
+                ),
+              ),
+            ),
           if (widget.nowPlaying != null)
             TvPressable(
               key: const ValueKey('tv-rail-now-playing'),

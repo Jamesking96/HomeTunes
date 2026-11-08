@@ -35,6 +35,10 @@ import 'state/listening_model.dart';
 import 'state/lyrics_model.dart';
 import 'state/now_watching.dart';
 import 'state/play_history.dart';
+import 'state/profile_session.dart';
+import 'state/profiles_model.dart';
+import 'state/typed_words.dart';
+import 'ui/profiles/whos_listening.dart';
 import 'state/player_model.dart';
 import 'state/playlists_model.dart';
 import 'state/selection_model.dart';
@@ -91,12 +95,22 @@ Future<void> main() async {
   PlaybackLog.add('HomeTunes started');
   // Android TV / Google TV (0.2.0): asked once, before any screen is built.
   if (await DeviceKind.detect()) PlaybackLog.add('Running on a TV');
-  final library = LibraryModel(storage);
-  final playlists = PlaylistsModel(storage);
-  final listening = ListeningModel(storage);
-  final bookmarks = BookmarksModel(storage);
+  // Whose things these are (Profiles plan): the person's own files are saved through
+  // profile.storage, the shared ones through storage. With profiles off both are the data
+  // folder. With them on, the last profile used opens and "Who's listening?" asks (phase 1).
+  final profiles = ProfilesModel(storage);
+  try {
+    await profiles.load();
+  } catch (e) {
+    debugPrint('HomeTunes: loading profiles failed: $e');
+  }
+  final ProfileSession profile = profiles.session;
+  final library = LibraryModel(storage, personal: profile.storage, splitSettings: profiles.on);
+  final playlists = PlaylistsModel(profile.storage);
+  final listening = ListeningModel(profile.storage);
+  final bookmarks = BookmarksModel(profile.storage);
   final lyrics = LyricsModel(library, storage);
-  final equalizer = EqualizerModel(storage);
+  final equalizer = EqualizerModel(profile.storage);
   final updates = UpdateModel(storage, readVersion: () async => (await PackageInfo.fromPlatform()).version);
   // 2. Load all the saved JSON files at the same time, to keep start-up quick.
   //    HomeTunes: each model reads its file defensively, but as a last resort an unexpected
@@ -128,7 +142,7 @@ Future<void> main() async {
 
   // The Videos tab (0.1.40). Made after the library has loaded, as it follows the library's
   // video folders from their saved state.
-  final videos = VideoLibraryModel(storage, library)
+  final videos = VideoLibraryModel(storage, library, personal: profile.storage)
     ..thumbnailer = VideoThumbnailer(p.join(storage.artDir, 'video'))
     // Genres for collections with none (4 Nov 2026; Settings › Online lookups can switch it off).
     ..genreLookup = VideoGenreLookup();
@@ -162,16 +176,20 @@ Future<void> main() async {
   // The video playing on its page (30 Sep): the player bar and media keys follow it while it's in front.
   final watching = NowWatching(player);
   // Recently played music (0.1.45), for Home's "Jump back in".
-  final history = PlayHistory(storage);
+  final history = PlayHistory(profile.storage);
   await safely('history', history.load);
   history.attach(player);
   // Your servers for music, audiobooks and videos (0.1.46); the main music server stays in LibraryModel.
   final servers = ServersModel(storage, library);
   await safely('servers', servers.load);
+  // With profiles on, this person's own sign-ins and servers (phase 3).
+  if (profiles.on) await safely('server sign-ins', () => servers.usePersonal(profile.storage, split: true));
   // Videos from Jellyfin servers (0.2.1): what was read last time shows at once (before the video
-  // folders are scanned below); the servers are read again once the app is up.
+  // folders are scanned below); the servers are read again once the app is up. With profiles on,
+  // what this person's sign-in read (phase 3).
   final serverVideos = ServerVideosModel(
-    storage: storage,
+    storage: profile.storage,
+    shared: storage,
     servers: servers,
     videos: videos,
     appVersion: updates.currentVersion ?? '0',
@@ -179,7 +197,8 @@ Future<void> main() async {
   await safely('server videos', serverVideos.load);
   // Audiobooks from Audiobookshelf servers (0.2.7): what was read last time shows at once; the
   // servers are read again once the app is up. Places go both ways (ListeningModel.onPlaceSaved).
-  final serverBooks = ServerBooksModel(storage: storage, servers: servers, library: library, listening: listening);
+  final serverBooks = ServerBooksModel(
+      storage: profile.storage, shared: storage, servers: servers, library: library, listening: listening);
   await safely('server books', serverBooks.load);
   // The half-hourly server re-reads wait while a video is playing (0.2.12): one that finds
   // something new rebuilds the tabs, which can hold the picture for a moment on a TV.
@@ -198,6 +217,16 @@ Future<void> main() async {
     listening: listening,
   );
   await safely('downloads', downloads.load);
+  // What's downloaded on this device is everyone's (8 Nov): the server videos and books it holds
+  // are remembered in the data folder, so every profile has them, signed in to that server or not.
+  serverVideos.isDownloaded = downloads.isDownloaded;
+  serverBooks.isDownloaded = downloads.isDownloaded;
+  downloads.addListener(() {
+    serverVideos.downloadsChanged();
+    serverBooks.downloadsChanged();
+  });
+  serverVideos.downloadsChanged();
+  serverBooks.downloadsChanged();
   saveOnBackground.downloads = downloads;
   saveOnBackground.serverBooks = serverBooks;
   // Temporary copies (0.2.4): a server song or book file that starts playing is saved as it
@@ -213,6 +242,20 @@ Future<void> main() async {
   // A temporary copy that's playing isn't cleared to make room (0.2.5).
   downloads.inUse = (id) => player.current?.id == id || watching.video?.id == id;
   downloads.onNotice = (note) => appMessengerKey.currentState?.showSnackBar(SnackBar(content: Text(note)));
+  // Switching profile (phase 1): every personal model reads the new person's files.
+  profiles.host = _AppProfileHost(
+    player: player,
+    library: library,
+    videos: videos,
+    playlists: playlists,
+    listening: listening,
+    bookmarks: bookmarks,
+    equalizer: equalizer,
+    history: history,
+    servers: servers,
+    serverVideos: serverVideos,
+    serverBooks: serverBooks,
+  );
   final session = await MediaSession.start(player, library, watching: watching);
   debugPrint(session == null
       ? 'HomeTunes: system media controls are off'
@@ -235,6 +278,7 @@ Future<void> main() async {
     serverVideos: serverVideos,
     serverBooks: serverBooks,
     downloads: downloads,
+    profiles: profiles,
   ));
 
   // The opening picture isn't needed again: its memory goes (it's ~8 MB decoded; TVs are short).
@@ -275,6 +319,80 @@ Future<void> main() async {
     debugPrint('HomeTunes: downloads could not start: $e');
     PlaybackLog.add('Downloads could not start: $e');
   }));
+}
+
+/// Switches the personal models to another profile's files (Profiles, phase 1).
+class _AppProfileHost implements ProfileHost {
+  _AppProfileHost({
+    required this.player,
+    required this.library,
+    required this.videos,
+    required this.playlists,
+    required this.listening,
+    required this.bookmarks,
+    required this.equalizer,
+    required this.history,
+    required this.servers,
+    required this.serverVideos,
+    required this.serverBooks,
+  });
+  final ServersModel servers;
+  final ServerVideosModel serverVideos;
+  final ServerBooksModel serverBooks;
+  final PlayerModel player;
+  final LibraryModel library;
+  final VideoLibraryModel videos;
+  final PlaylistsModel playlists;
+  final ListeningModel listening;
+  final BookmarksModel bookmarks;
+  final EqualizerModel equalizer;
+  final PlayHistory history;
+
+  @override
+  Future<void> saveEverything() async {
+    player.saveBookPlace();
+    await Future.wait([
+      library.flushPendingSaves(),
+      videos.flushPendingSaves(),
+      equalizer.flush(),
+    ]);
+  }
+
+  @override
+  Map<String, dynamic> personalSettings() => library.settings.toJsonFor(prefs.SettingScope.profile);
+
+  @override
+  Future<void> use(Storage personal, {required bool split}) async {
+    PlaybackLog.add(split ? 'Switching profile' : 'Profiles switched off');
+    // What's playing was the last person's: it stops and the queue empties (the plan, step 5).
+    await player.stopAndEmpty();
+    TypedWords.forget();
+    await library.usePersonal(personal, split: split);
+    await Future.wait([
+      playlists.useStorage(personal),
+      listening.useStorage(personal),
+      bookmarks.useStorage(personal),
+      equalizer.useStorage(personal),
+      history.useStorage(personal),
+      videos.usePersonal(personal),
+    ]);
+    // Phase 3: this person's own server sign-ins and what they read. The readers take the new
+    // sign-ins as known before anyone is told, so a switch isn't taken for an edit (which would
+    // sign the last person out); then they read this person's catalogue and the servers again.
+    await servers.usePersonal(personal, split: split);
+    serverVideos.knowServers();
+    serverBooks.knowServers();
+    await serverVideos.useStorage(personal);
+    await serverBooks.useStorage(personal);
+    servers.announce();
+    listening.adoptMoved(library.books);
+  }
+
+  @override
+  Future<void> saveSettings() => library.saveSettingsNow();
+
+  @override
+  Map<String, dynamic> currentSignIns() => servers.currentSignIns();
 }
 
 /// Watches the app going into / coming out of the background (a Flutter lifecycle observer).
@@ -329,6 +447,9 @@ class HomeTunesApp extends StatelessWidget {
   final ServerVideosModel? serverVideos;
   final ServerBooksModel? serverBooks;
   final DownloadsModel? downloads;
+
+  /// Profiles (phase 1). Null in tests that don't need them.
+  final ProfilesModel? profiles;
   const HomeTunesApp({
     super.key,
     required this.library,
@@ -346,10 +467,25 @@ class HomeTunesApp extends StatelessWidget {
     this.serverVideos,
     this.serverBooks,
     this.downloads,
+    this.profiles,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Provided as ProfilesModel? (like downloads), so screens work without it in tests
+    // (profilesOf in ui/profiles/profile_ui.dart).
+    // Someone else picked (phase 1): every screen starts afresh for them (each tab back to its
+    // first page; the screens' own state goes), under a key of whose profile it is.
+    return ChangeNotifierProvider<ProfilesModel?>.value(
+      value: profiles,
+      child: Selector<ProfilesModel?, String>(
+        selector: (_, m) => m?.currentId ?? '',
+        builder: (context, id, _) => KeyedSubtree(key: ValueKey('profile:$id'), child: _app(context)),
+      ),
+    );
+  }
+
+  Widget _app(BuildContext context) {
     return MultiProvider(
       providers: [
         // Models made in main() are passed in with `.value`, so Provider won't dispose them.
@@ -419,8 +555,9 @@ class HomeTunesApp extends StatelessWidget {
                   ),
                 ),
               ),
-              // The TV frame in TV mode, else Shell (0.2.0: ui/tv/tv_shell.dart).
-              home: const AppHome(),
+              // The TV frame in TV mode, else Shell (0.2.0: ui/tv/tv_shell.dart). With profiles
+              // on, "Who's listening?" comes first (phase 1, ui/profiles/whos_listening.dart).
+              home: const WhosListeningGate(child: AppHome()),
             ),
           );
         },

@@ -42,6 +42,41 @@ class AppBackup {
     'downloads.json', // 0.2.3: what's kept offline and the download settings (not the files)
   ];
 
+  /// The data files that are each person's own (Profiles, phase 1): with profiles on they're in
+  /// the profile's folder, so a backup reads them from there and a restore puts them back there.
+  /// (videos.json's personal part is handled by [videosAll]; settings.json is split by
+  /// LibraryModel, which takes a restored file's personal settings into the profile.)
+  static const personalFiles = {
+    'edits.json',
+    'playlists.json',
+    'listening.json',
+    'bookmarks.json',
+    'equalizer.json',
+    'history.json',
+  };
+
+  /// The videos' data as one map, as videos.json held it before 0.2.13 (since then the person's
+  /// edits and places are in video_edits.json and video_places.json, VideoLibraryModel). Backups
+  /// keep the one-file form, so old and new backups restore the same way, and HomeTunes moves the
+  /// parts to their own files when it next opens them. Null when there's nothing.
+  static Future<Map<String, dynamic>?> videosAll(Storage storage, {Storage? personal}) async {
+    const personalKeys = {
+      'edits', 'pictures', 'posters', 'shapes', 'collectionShapes', 'seasonTitles', 'specialSeasons', 'descriptions', // video_edits.json
+      'places', 'favourites', 'speeds', 'shuffle', 'trackChoices', // video_places.json
+    };
+    final shared = await storage.read('videos.json');
+    final edits = await (personal ?? storage).read('video_edits.json');
+    final places = await (personal ?? storage).read('video_places.json');
+    if (shared is! Map && edits is! Map && places is! Map) return null;
+    // Still in the one-file form (not opened since 0.2.13, or just restored): that's the whole of it.
+    final oneFile = shared is Map && shared.keys.any(personalKeys.contains);
+    return {
+      if (!oneFile && edits is Map) ...edits.cast<String, dynamic>(),
+      if (!oneFile && places is Map) ...places.cast<String, dynamic>(),
+      if (shared is Map) ...shared.cast<String, dynamic>(),
+    };
+  }
+
   /// Folders under art/ holding pictures downloaded from servers, which backups leave out.
   static const serverArt = {'server', 'server-video'};
 
@@ -64,14 +99,30 @@ class AppBackup {
   /// The server password is never included (0.1.21, security review #6: it would be plain text
   /// in the file). Server covers downloaded for the media controls (art/server) are left out too;
   /// they're downloaded again when needed.
-  static Future<Uint8List> create(Storage storage, {bool includeCoverCache = true}) async {
+  ///
+  /// With profiles on, [personal] is the profile's folder: the backup holds that person's own
+  /// things (and their settings joined with the shared ones), the same as with profiles off.
+  static Future<Uint8List> create(Storage storage, {bool includeCoverCache = true, Storage? personal}) async {
     final root = storage.root.path;
+    final mine = personal ?? storage;
     // 1. The data files, with app paths made portable.
     final files = <String, dynamic>{};
     for (final name in dataFiles) {
-      final j = await storage.read(name);
+      final j = name == 'videos.json'
+          ? await videosAll(storage, personal: mine)
+          : await (personalFiles.contains(name) ? mine : storage).read(name);
       if (j == null) continue;
       files[name] = toPortable(j, root);
+    }
+    if (!identical(mine, storage)) {
+      final own = await mine.read('settings.json');
+      if (own is Map) {
+        final shared = files['settings.json'];
+        files['settings.json'] = {
+          if (shared is Map) ...shared,
+          ...(toPortable(own, root) as Map),
+        };
+      }
     }
     // 2. Never the server password. (Since 0.1.17 it's normally in protected storage anyway, but
     //    on a device without that it's still in settings.json.)
@@ -156,13 +207,20 @@ class AppBackup {
   /// and this device's server details and switches are kept if it has them.
   /// Music folders that don't exist on this device are left out and listed
   /// in the result. Reload the app's data and rescan afterwards.
-  static Future<RestoreResult> restore(Storage storage, BackupContents backup, {required bool merge}) async {
+  ///
+  /// With profiles on, [personal] is the profile's folder: the person's own files go there
+  /// ([personalFiles]); the shared ones, and settings.json and videos.json in their one-file
+  /// form, go in the data folder (LibraryModel and VideoLibraryModel move the personal parts into
+  /// the profile as they load them).
+  static Future<RestoreResult> restore(Storage storage, BackupContents backup,
+      {required bool merge, Storage? personal}) async {
     final root = storage.root.path;
+    Storage whose(String name) => personalFiles.contains(name) ? (personal ?? storage) : storage;
 
     // Every file must really be saved: a restore that half-worked must say so (0.1.16; the
     // results of these writes used to be ignored).
     Future<void> put(String name, Object json) async {
-      if (!await storage.write(name, json)) {
+      if (!await whose(name).write(name, json)) {
         throw FileSystemException('Couldn\'t save the ${Storage.describe(name)} from the backup', name);
       }
     }
@@ -189,8 +247,14 @@ class AppBackup {
     }
 
     Future<Map<String, dynamic>> currentFile(String name) async {
-      final j = await storage.read(name);
-      return j is Map<String, dynamic> ? j : <String, dynamic>{};
+      final j = await whose(name).read(name);
+      final here = j is Map<String, dynamic> ? j : <String, dynamic>{};
+      // This person's settings are in their profile's own settings.json (Profiles, phase 1).
+      if (name == 'settings.json' && personal != null && !identical(personal, storage)) {
+        final own = await personal.read(name);
+        if (own is Map<String, dynamic>) return {...here, ...own};
+      }
+      return here;
     }
 
     // ---- settings ----
@@ -363,7 +427,8 @@ class AppBackup {
     //      and keeps the latest place for each video ----
     final bv = backupFile('videos.json');
     if (merge) {
-      final cv = await currentFile('videos.json');
+      // (This device's in one map, 0.2.13: its edits and places are in their own files now.)
+      final cv = await videosAll(storage, personal: personal) ?? <String, dynamic>{};
       Map<String, dynamic> part(Map<String, dynamic> m, String key) =>
           m[key] is Map ? Map<String, dynamic>.from(m[key] as Map) : <String, dynamic>{};
       final places = part(cv, 'places');

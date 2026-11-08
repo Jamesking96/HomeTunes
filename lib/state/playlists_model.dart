@@ -21,12 +21,19 @@ import '../models/playlist.dart';
 import '../models/track.dart';
 import '../services/storage.dart';
 import 'song_id_follower.dart';
-import 'custom_art_store.dart' show picturesChanged;
+import 'custom_art_store.dart' show picturesChanged, usedByOthers;
 
 /// User playlists plus the special "Liked Songs" list.
 class PlaylistsModel extends ChangeNotifier implements SongIdFollower {
-  final Storage storage;
+  /// Where playlists.json is: the profile's folder when profiles are on ([useStorage]).
+  Storage storage;
   PlaylistsModel(this.storage);
+
+  /// Someone else is listening (Profiles, phase 1): their playlists are read from [s].
+  Future<void> useStorage(Storage s) async {
+    storage = s;
+    await load();
+  }
 
   /// The user's playlists, in the order they were made.
   List<Playlist> playlists = [];
@@ -239,7 +246,11 @@ class PlaylistsModel extends ChangeNotifier implements SongIdFollower {
   Future<void> _tidyPictures() async {
     final dir = Directory(pictureDir);
     if (!await dir.exists()) return;
-    final used = {for (final pl in playlists) ?pl.iconImage};
+    final used = {
+      for (final pl in playlists) ?pl.iconImage,
+      // The other profiles' playlist pictures stay too (Profiles, phase 1).
+      for (final s in await usedByOthers()) p.basename(s),
+    };
     await for (final f in dir.list()) {
       if (f is File && !used.contains(p.basename(f.path))) {
         // In use right now (e.g. being drawn on Windows): left for next time.
