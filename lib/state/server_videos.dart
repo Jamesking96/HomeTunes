@@ -522,7 +522,11 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
             notifyListeners();
           },
         );
+        var n = 0;
         for (final j in items) {
+          // A couple of hundred at a time, letting the screen draw and the remote work in between
+          // (0.2.12: the ~5,900 in one go held the test TV for about a second).
+          if (++n % 200 == 0) await Future<void>.delayed(Duration.zero);
           final made = videoFromJellyfin(j, serverKey: s.id, view: view, series: series, pictureDir: _pictureDir(s.id), existing: existing);
           if (made == null) continue;
           found.add(made.video);

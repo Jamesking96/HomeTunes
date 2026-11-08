@@ -17,6 +17,8 @@
 // /UserPlayedItems/…), which older 10.9+ servers have too.
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -176,11 +178,22 @@ class JellyfinClient {
     return res;
   }
 
+  /// Answers this big (or bigger) are decoded in an isolate (0.2.12).
+  static const bigAnswer = 64 * 1024;
+
+  /// Static, so the isolate is handed only the bytes, never this client.
+  static Future<Object?> _decodeInBackground(Uint8List bytes) => Isolate.run(() => jsonDecode(utf8.decode(bytes)));
+
   Future<Object?> _json(String method, Uri u, {Object? body}) async {
     final res = await _send(method, u, body: body);
     if (res.bodyBytes.isEmpty) return null;
     try {
-      return jsonDecode(utf8.decode(res.bodyBytes));
+      final bytes = res.bodyBytes;
+      // A big answer (a page of 200 videos with their stream details) is read in the background
+      // (0.2.12): on the test TV each one held the screen and the remote for up to a
+      // second while the server was read after opening.
+      if (bytes.length >= bigAnswer) return await _decodeInBackground(bytes);
+      return jsonDecode(utf8.decode(bytes));
     } catch (_) {
       throw const JellyfinException('The Jellyfin server sent something HomeTunes couldn\'t read.', fromServer: true);
     }

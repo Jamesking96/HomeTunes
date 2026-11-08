@@ -239,6 +239,23 @@ void main() {
     expect(await ok(), isTrue);
   }
 
+  test('a big answer from the server (a page of videos) is read in the background, the same (0.2.12)', () async {
+    final page = {
+      'Items': [
+        for (var i = 0; i < 400; i++)
+          {'Id': 'v$i', 'Type': 'Movie', 'Name': 'Film number $i — “quoted”', 'Overview': 'x' * 200},
+      ],
+      'TotalRecordCount': 400,
+    };
+    final body = utf8.encode(jsonEncode(page));
+    expect(body.length, greaterThan(JellyfinClient.bigAnswer));
+    final client = MockClient((req) async => http.Response.bytes(body, 200, headers: {'content-type': 'application/json'}));
+    final c = JellyfinClient(baseUrl: 'http://192.168.0.10:8096', deviceId: 'dev1', token: 't', userId: 'u', httpClient: client);
+    final items = await c.items(parentId: 'films', types: const ['Movie'], pageSize: 400);
+    expect(items, hasLength(400));
+    expect(items[7]['Name'], 'Film number 7 — “quoted”');
+  });
+
   group('the client', () {
     test('signs in with the password once, then sends only the token, never in an address', () async {
       final c = JellyfinClient(baseUrl: 'http://192.168.0.10:8096/', deviceId: 'dev1', httpClient: server.client);
