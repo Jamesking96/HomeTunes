@@ -43,9 +43,13 @@ class _ProfileSettingsState extends State<ProfileSettings> {
     final look = await showProfileEditor(context,
         title: 'Your profile',
         action: 'Turn on profiles',
-        start: (name: '', colour: m.nextColour(), icon: 'person'));
+        start: profileLook('', m.nextColour(), 'person'));
     if (look == null || !mounted) return;
-    await _run(() => m.turnOn(name: look.name, colour: look.colour, icon: look.icon));
+    await _run(() async {
+      await m.turnOn(name: look.name, colour: look.colour, icon: look.icon);
+      final id = m.currentId;
+      if (id != null && look.newPhoto != null) await m.setPhoto(id, look.newPhoto);
+    });
   }
 
   Future<void> _turnOff(ProfilesModel m) async {
@@ -102,16 +106,22 @@ class _ProfileSettingsState extends State<ProfileSettings> {
 
   Future<void> _add(ProfilesModel m) async {
     final look = await showProfileEditor(context,
-        title: 'Add a profile', action: 'Add', start: (name: '', colour: m.nextColour(), icon: 'person'));
+        title: 'Add a profile', action: 'Add', start: profileLook('', m.nextColour(), 'person'));
     if (look == null || !mounted) return;
-    await _run(() => m.add(name: look.name, colour: look.colour, icon: look.icon));
+    await _run(() async {
+      final added = await m.add(name: look.name, colour: look.colour, icon: look.icon);
+      if (look.newPhoto != null) await m.setPhoto(added.id, look.newPhoto);
+    });
   }
 
   Future<void> _change(ProfilesModel m, Profile p) async {
     final look = await showProfileEditor(context,
-        title: 'Change ${p.name}', action: 'Save', start: (name: p.name, colour: p.colour, icon: p.icon));
+        title: 'Change ${p.name}',
+        action: 'Save',
+        start: profileLook(p.name, p.colour, p.icon),
+        photoFile: m.photoFile(p));
     if (look == null || !mounted) return;
-    await _run(() => m.update(p.id, name: look.name, colour: look.colour, icon: look.icon));
+    await _run(() => applyProfileLook(m, p.id, look));
   }
 
   Future<void> _remove(ProfilesModel m, Profile p) async {
@@ -167,12 +177,24 @@ class _ProfileSettingsState extends State<ProfileSettings> {
       SettingTarget('profiles-on', child: SwitchListTile(
         title: const Text('Use profiles'),
         subtitle: Text(m.on
-            ? 'HomeTunes asks who\'s listening each time it opens'
+            ? 'Everyone keeps their own things'
             : 'Off: everyone shares the same things, as now'),
         value: m.on,
         onChanged: _busy ? null : (v) => v ? _turnOn(m) : _turnOff(m),
       )),
       if (_busy) const LinearProgressIndicator(),
+      if (m.on)
+        // 8 Nov: open straight into the last one used (on at first), or ask each time.
+        SwitchListTile(
+          key: const ValueKey('profiles-open-last'),
+          title: const Text('Open with the last profile used'),
+          subtitle: Text(m.openLast
+              ? 'HomeTunes opens as ${m.byId(m.last)?.name ?? 'the last one used'}; switch any time from '
+                  '${tvModeOf(context) ? 'the menu' : 'your picture'}'
+              : 'Off: HomeTunes asks who\'s listening each time it opens'),
+          value: m.openLast,
+          onChanged: _busy ? null : (v) => m.setOpenLast(v),
+        ),
       if (m.on) ...[
         SettingTarget('profiles-list', child: Column(children: [
           for (final p in m.profiles)

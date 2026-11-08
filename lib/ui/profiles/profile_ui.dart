@@ -1,14 +1,21 @@
 // Pieces of Profiles (phase 1) used on several screens: a profile's circle, the list of pictures
 // and colours to choose from, the add / change dialog, the switcher and switching itself.
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../state/profiles_model.dart';
 import '../screens/settings/update_ui.dart' show appNavigatorKey;
+import '../screens/video_pictures.dart' show preparePicture, showPictureSearch;
 import '../theme.dart';
 import '../tv/tv_focus.dart' show tvModeOf;
 import '../tv/tv_keyboard.dart' show showTvTextInput;
+import '../tv/tv_menus.dart' show tvNotice;
 import '../tv/tv_options.dart';
+import '../tv/tv_pictures.dart' show showTvPictureSearch;
 
 /// The profiles, or null (tests and previews that don't provide them). Watches when [listen].
 ProfilesModel? profilesOf(BuildContext context, {bool listen = true}) {
@@ -39,14 +46,34 @@ IconData profileIcon(String name) => profileIcons[name] ?? Icons.person;
 
 /// A profile's circle: its colour with its picture.
 class ProfileAvatar extends StatelessWidget {
-  const ProfileAvatar(this.profile, {super.key, this.size = 40});
+  const ProfileAvatar(this.profile, {super.key, this.size = 40, this.image});
   final Profile profile;
   final double size;
+
+  /// A picture to show instead of the profile's own (the editor's preview of a new one).
+  final ImageProvider? image;
 
   @override
   Widget build(BuildContext context) {
     final colour = Color(profile.colour);
     final dark = ThemeData.estimateBrightnessForColor(colour) == Brightness.dark;
+    // Their own picture, when they have one (8 Nov).
+    final file = image == null ? profilesOf(context, listen: false)?.photoFile(profile) : null;
+    final picture = image ?? (file == null ? null : FileImage(File(file)));
+    if (picture != null) {
+      final px = (size * MediaQuery.devicePixelRatioOf(context)).round();
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(color: colour, shape: BoxShape.circle),
+        clipBehavior: Clip.antiAlias,
+        child: Image(
+          image: ResizeImage.resizeIfNeeded(px * 2, null, picture),
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => Icon(profileIcon(profile.icon), size: size * 0.55),
+        ),
+      );
+    }
     return Container(
       width: size,
       height: size,
@@ -57,8 +84,31 @@ class ProfileAvatar extends StatelessWidget {
   }
 }
 
-/// What the add / change dialog gives back.
-typedef ProfileLook = ({String name, int colour, String icon});
+/// What the add / change dialog gives back. [newPhoto]: a picture chosen now (from the device or
+/// found online, already made a sensible size); [removePhoto]: back to the colour and icon.
+typedef ProfileLook = ({String name, int colour, String icon, List<int>? newPhoto, bool removePhoto});
+
+/// A look to start the editor with (no photo change).
+ProfileLook profileLook(String name, int colour, String icon) =>
+    (name: name, colour: colour, icon: icon, newPhoto: null, removePhoto: false);
+
+/// Saves [look] for [id] (name, colour, icon, and the photo when it changed).
+Future<void> applyProfileLook(ProfilesModel m, String id, ProfileLook look) async {
+  await m.update(id, name: look.name, colour: look.colour, icon: look.icon);
+  if (look.newPhoto != null) {
+    await m.setPhoto(id, look.newPhoto);
+  } else if (look.removePhoto) {
+    await m.setPhoto(id, null);
+  }
+}
+
+/// A picture from a file on this device, made a sensible size; null if none was picked.
+Future<List<int>?> pickProfilePhoto() async {
+  final file = await FilePicker.pickFile(type: FileType.image, dialogTitle: 'Choose a picture');
+  final path = file?.path;
+  if (path == null) return null;
+  return preparePicture(await File(path).readAsBytes());
+}
 
 /// The colours' names, for the TV's list (same order as [ProfilesModel.colours]).
 const profileColourNames = ['Coral', 'Sky blue', 'Green', 'Purple', 'Yellow', 'Pink', 'Teal', 'Grey'];
@@ -79,22 +129,54 @@ const profileIconNames = <String, String>{
   'sun': 'Sun',
 };
 
-/// Asks for a profile's name, colour and picture. [start] fills it in (changing a profile). On
-/// the TV (phase 2) it's three steps with the remote: the name on the TV keyboard, then the colour
-/// and the picture from the options panel.
+/// Asks for a profile's name, colour and picture. [start] fills it in (changing a profile), with
+/// [photoFile] its own picture if it has one. A picture can come from this device or be found
+/// online (8 Nov). On the TV (phase 2) it's steps with the remote: the name on the TV keyboard,
+/// then the picture, colour and icon from the options panel.
 Future<ProfileLook?> showProfileEditor(BuildContext context,
-    {required String title, required String action, required ProfileLook start}) {
-  if (tvModeOf(context)) return _tvProfileEditor(context, title: title, start: start);
+    {required String title, required String action, required ProfileLook start, String? photoFile}) {
+  if (tvModeOf(context)) return _tvProfileEditor(context, title: title, start: start, photoFile: photoFile);
   return showDialog<ProfileLook>(
     context: context,
-    builder: (ctx) => _ProfileEditor(title: title, action: action, start: start),
+    builder: (ctx) => _ProfileEditor(title: title, action: action, start: start, photoFile: photoFile),
   );
 }
 
-Future<ProfileLook?> _tvProfileEditor(BuildContext context, {required String title, required ProfileLook start}) async {
+Future<ProfileLook?> _tvProfileEditor(BuildContext context,
+    {required String title, required ProfileLook start, String? photoFile}) async {
   final typed = await showTvTextInput(context, title: '$title: name', initial: start.name, maxLength: 30);
   final name = typed?.trim() ?? '';
   if (name.isEmpty || !context.mounted) return null;
+  // Their own picture, or a colour and icon.
+  String? how;
+  await showTvOptions(
+    context,
+    title: 'A picture for $name',
+    options: [
+      if (photoFile != null) TvOption('Keep this picture', Icons.check, () => how = 'keep'),
+      TvOption('Search online', Icons.travel_explore, opensMore: true,
+          subtitle: 'Characters, shows and more from AniList, TVmaze and Wikipedia', () => how = 'online'),
+      TvOption('Choose a picture file', Icons.folder_open, opensMore: true,
+          subtitle: 'A picture on this TV or a USB drive', () => how = 'file'),
+      TvOption('A colour and an icon', Icons.palette_outlined, opensMore: true, () => how = 'icon'),
+    ],
+  );
+  if (how == null || !context.mounted) return null;
+  if (how != 'icon') {
+    List<int>? photo;
+    try {
+      photo = how == 'keep'
+          ? null
+          : how == 'online'
+              ? await showTvPictureSearch(context, query: name)
+              : await pickProfilePhoto();
+    } catch (e) {
+      if (context.mounted) tvNotice(context, 'Couldn\'t use that picture: ${e is FormatException ? e.message : e}');
+      return null;
+    }
+    if (how != 'keep' && photo == null) return null;
+    return (name: name, colour: start.colour, icon: start.icon, newPhoto: photo, removePhoto: false);
+  }
   int? colour;
   await showTvOptions(
     context,
@@ -111,7 +193,7 @@ Future<ProfileLook?> _tvProfileEditor(BuildContext context, {required String tit
   final icons = profileIcons.keys.toList();
   await showTvOptions(
     context,
-    title: 'A picture for $name',
+    title: 'An icon for $name',
     focusIndex: icons.indexOf(start.icon).clamp(0, icons.length - 1),
     options: [
       for (final k in icons)
@@ -120,13 +202,14 @@ Future<ProfileLook?> _tvProfileEditor(BuildContext context, {required String tit
     ],
   );
   if (icon == null) return null;
-  return (name: name, colour: colour!, icon: icon!);
+  return (name: name, colour: colour!, icon: icon!, newPhoto: null, removePhoto: photoFile != null);
 }
 
 class _ProfileEditor extends StatefulWidget {
-  const _ProfileEditor({required this.title, required this.action, required this.start});
+  const _ProfileEditor({required this.title, required this.action, required this.start, this.photoFile});
   final String title, action;
   final ProfileLook start;
+  final String? photoFile;
 
   @override
   State<_ProfileEditor> createState() => _ProfileEditorState();
@@ -137,6 +220,13 @@ class _ProfileEditorState extends State<_ProfileEditor> {
   late int _colour = widget.start.colour;
   late String _icon = widget.start.icon;
 
+  /// A picture chosen now, and whether the one they had is being taken away.
+  List<int>? _photo;
+  bool _removed = false;
+  bool _getting = false;
+
+  bool get _hasPhoto => _photo != null || (widget.photoFile != null && !_removed);
+
   @override
   void dispose() {
     _name.dispose();
@@ -146,20 +236,68 @@ class _ProfileEditorState extends State<_ProfileEditor> {
   void _done() {
     final name = _name.text.trim();
     if (name.isEmpty) return;
-    Navigator.pop(context, (name: name, colour: _colour, icon: _icon));
+    Navigator.pop(context,
+        (name: name, colour: _colour, icon: _icon, newPhoto: _photo, removePhoto: _removed && _photo == null));
+  }
+
+  Future<void> _getPhoto(Future<List<int>?> Function() get) async {
+    setState(() => _getting = true);
+    try {
+      final bytes = await get();
+      if (bytes != null && mounted) setState(() => _photo = bytes);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)
+            ?.showSnackBar(SnackBar(content: Text('Couldn\'t use that picture: ${e is FormatException ? e.message : e}')));
+      }
+    } finally {
+      if (mounted) setState(() => _getting = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final preview = Profile(id: 'p0', name: _name.text, colour: _colour, icon: _icon);
+    final ImageProvider? image = _photo != null
+        ? MemoryImage(Uint8List.fromList(_photo!))
+        : (widget.photoFile != null && !_removed ? FileImage(File(widget.photoFile!)) : null);
     return AlertDialog(
       title: Text(widget.title),
       content: SizedBox(
-        width: 380,
+        width: 400,
         child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Center(child: ProfileAvatar(preview, size: 72)),
-            const SizedBox(height: 16),
+            Center(child: ProfileAvatar(preview, size: 72, image: image)),
+            const SizedBox(height: 10),
+            // Their own picture (8 Nov): from this device or found online.
+            Center(
+              child: Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 4, children: [
+                OutlinedButton.icon(
+                  key: const ValueKey('profile-photo-file'),
+                  icon: const Icon(Icons.image_outlined, size: 18),
+                  label: const Text('Picture from this device…'),
+                  onPressed: _getting ? null : () => _getPhoto(pickProfilePhoto),
+                ),
+                OutlinedButton.icon(
+                  key: const ValueKey('profile-photo-online'),
+                  icon: const Icon(Icons.travel_explore, size: 18),
+                  label: const Text('Search online…'),
+                  onPressed: _getting
+                      ? null
+                      : () => _getPhoto(() => showPictureSearch(context, query: _name.text.trim())),
+                ),
+                if (_hasPhoto)
+                  TextButton(
+                    key: const ValueKey('profile-photo-remove'),
+                    onPressed: () => setState(() {
+                      _photo = null;
+                      _removed = true;
+                    }),
+                    child: const Text('Use a colour and icon'),
+                  ),
+              ]),
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: _name,
               autofocus: true,

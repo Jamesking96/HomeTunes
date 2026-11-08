@@ -154,7 +154,9 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
     this.listening,
     SecretStore? secrets,
     http.Client Function()? httpClient,
+    Storage? shared,
   })  : secrets = secrets ?? servers.secrets,
+        shared = shared ?? storage,
         _makeHttp = httpClient {
     _known = {for (final s in servers.all) s.id: s};
     servers.addListener(_onServers);
@@ -173,6 +175,91 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
   /// Goes up when someone else is picked (see ServerVideosModel).
   int _generation = 0;
 
+  // ---- downloads are everyone's (8 Nov; see ServerVideosModel) ----
+
+  /// The data folder: [offlineFileName] is kept there.
+  final Storage shared;
+
+  /// Every server book with a part downloaded on this device: {server: [its files as Tracks]}.
+  static const offlineFileName = 'downloaded_books.json';
+
+  /// Whether a book file is downloaded on this device (DownloadsModel; main.dart sets it).
+  bool Function(String id)? isDownloaded;
+
+  Map<String, List<Track>> _offline = {};
+  Timer? _offlineTimer;
+
+  /// Server [server]'s books as this person's sign-in read them, and the downloaded ones it doesn't have.
+  List<Track> _tracksOf(String server, {bool read = true}) {
+    final mine = read ? [for (final i in _of(server).items.values) ...i.tracks] : <Track>[];
+    final extra = _offline[server];
+    if (extra == null || extra.isEmpty) return mine;
+    final have = {for (final t in mine) t.id};
+    return [...mine, for (final t in extra) if (!have.contains(t.id)) t];
+  }
+
+  Future<void> _loadOffline() async {
+    final j = await shared.read(offlineFileName);
+    final out = <String, List<Track>>{};
+    if (j is Map) {
+      for (final e in j.entries) {
+        if (e.key is! String || e.value is! List) continue;
+        final list = <Track>[];
+        for (final t in e.value as List) {
+          try {
+            list.add(Track.fromJson(Map<String, dynamic>.from(t as Map)));
+          } catch (_) {}
+        }
+        if (list.isNotEmpty) out[e.key as String] = list;
+      }
+    }
+    _offline = out;
+  }
+
+  /// The downloads changed (or a server was read): the downloaded books are remembered a moment later.
+  void downloadsChanged() {
+    _offlineTimer?.cancel();
+    _offlineTimer = Timer(const Duration(seconds: 2), () => unawaited(rememberDownloaded()));
+  }
+
+  /// Brings [offlineFileName] up to date: whole books with any file downloaded.
+  @visibleForTesting
+  Future<void> rememberDownloaded() async {
+    final done = isDownloaded;
+    if (done == null || _disposed) return;
+    final next = <String, List<Track>>{};
+    final seen = <String>{};
+    void addBook(String server, List<Track> parts) {
+      if (!parts.any((t) => done(t.id))) return;
+      for (final t in parts) {
+        if (seen.add(t.id)) (next[server] ??= []).add(t);
+      }
+    }
+
+    for (final e in _state.entries) {
+      for (final i in e.value.items.values) {
+        addBook(e.key, i.tracks);
+      }
+    }
+    for (final e in _offline.entries) {
+      // Grouped back into books by their item.
+      final byItem = <String, List<Track>>{};
+      for (final t in e.value) {
+        (byItem[remoteBookParts(t.id)?.item ?? t.id] ??= []).add(t);
+      }
+      for (final parts in byItem.values) {
+        addBook(e.key, parts);
+      }
+    }
+    String ids(Map<String, List<Track>> m) =>
+        ([for (final e in m.entries) for (final t in e.value) '${e.key}/${t.id}']..sort()).join(',');
+    if (ids(next) == ids(_offline)) return;
+    _offline = next;
+    await shared.write(offlineFileName, {
+      for (final e in next.entries) e.key: [for (final t in e.value) t.toJson()],
+    });
+  }
+
   /// Takes the servers as they are now as already known, so a profile switch (another user name
   /// on the same server) isn't taken for an edit that signs the last person out (phase 3).
   void knowServers() => _known = {for (final s in servers.all) s.id: s};
@@ -184,6 +271,9 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
   Future<void> useStorage(Storage s) async {
     knowServers();
     _generation++;
+    // What the last person downloaded stays everyone's.
+    _offlineTimer?.cancel();
+    await rememberDownloaded();
     _sendTimer?.cancel();
     _sendTimer = null;
     for (final x in _toSend.values) {
@@ -199,7 +289,7 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
     _signIns.clear();
     _signing.clear();
     _syncing.clear();
-    for (final id in _state.keys.toList()) {
+    for (final id in {..._state.keys, ..._offline.keys}) {
       library.removeServerBookTracks(id);
     }
     _state.clear();
@@ -330,9 +420,12 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
     }
     // Servers that went while HomeTunes was closed are forgotten; the rest show at once.
     _state.removeWhere((id, _) => servers.byId(id)?.type != ServerType.audiobookshelf);
-    for (final s in bookServers) {
-      final st = _state[s.id];
-      if (st != null && st.items.isNotEmpty) _giveTracks(s);
+    // With the books downloaded on this device, whoever's sign-in found them (8 Nov).
+    await _loadOffline();
+    final shown = {for (final s in bookServers) s.id};
+    for (final id in {...shown, ..._offline.keys}) {
+      final list = _tracksOf(id, read: shown.contains(id));
+      if (list.isNotEmpty) library.setServerBookTracks(id, list);
     }
     _known = {for (final s in servers.all) s.id: s};
     notifyListeners();
@@ -383,8 +476,7 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
 
   /// Hands [s]'s books to the library (leaving out libraries the user left out).
   void _giveTracks(ServerEntry s) {
-    final st = _of(s.id);
-    library.setServerBookTracks(s.id, [for (final i in st.items.values) ...i.tracks]);
+    library.setServerBookTracks(s.id, _tracksOf(s.id));
   }
 
   // ---- following Settings › Servers ----
@@ -628,6 +720,8 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
         if (!nothingNew) _giveTracks(s);
         _applyPlaces(s, places);
       }
+      // Downloaded books it found are remembered for everyone (8 Nov).
+      if (!nothingNew) downloadsChanged();
       if (!nothingNew) await _save();
       notifyListeners();
       await _fetchCovers(s, c);
@@ -893,6 +987,7 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
     _disposed = true;
     _resync?.cancel();
     _sendTimer?.cancel();
+    _offlineTimer?.cancel();
     servers.removeListener(_onServers);
     if (identical(library.remoteBooks, this)) library.remoteBooks = null;
     if (listening?.onPlaceSaved == _placeSaved) listening?.onPlaceSaved = null;

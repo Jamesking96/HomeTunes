@@ -149,10 +149,17 @@ void main() {
     expect(host.playlists.liked, ['a', 'b']);
     expect(host.lib.settings.appearance.textSize, 1.3);
 
-    // Opening again: profiles on, the last one loaded, "Who's listening?" asks.
+    // Opening again: profiles on, the last one loaded and opened straight away (8 Nov: "a
+    // default profile to be loaded in, this should be on by default").
     (profiles, host) = await open();
     expect(profiles.on, isTrue);
     expect(profiles.currentId, 'p1');
+    expect(profiles.openLast, isTrue);
+    expect(profiles.needsChoosing, isFalse);
+    // With that switched off, "Who's listening?" asks.
+    await profiles.setOpenLast(false);
+    (profiles, host) = await open();
+    expect(profiles.openLast, isFalse);
     expect(profiles.needsChoosing, isTrue);
     expect(host.playlists.liked, ['a', 'b']);
     expect(host.lib.settings.appearance.textSize, 1.3);
@@ -279,6 +286,31 @@ void main() {
     await CustomArtStore(folder.path).removeUnused(const {});
     expect(theirs.existsSync(), isTrue);
     expect(nobodys.existsSync(), isFalse);
+  });
+
+  test('a profile\'s own picture is kept in art/profiles, and goes when nobody uses it', () async {
+    final (profiles, _) = await open();
+    await profiles.turnOn(name: 'Sam');
+    final alex = await profiles.add(name: 'Alex');
+    expect(profiles.photoFile(profiles.current!), isNull);
+    await profiles.setPhoto('p1', [1, 2, 3]);
+    await profiles.setPhoto(alex.id, [4, 5, 6]);
+    final mine = profiles.photoFile(profiles.byId('p1')!)!;
+    final theirs = profiles.photoFile(profiles.byId(alex.id)!)!;
+    expect(File(mine).readAsBytesSync(), [1, 2, 3]);
+    expect(p.dirname(mine), p.join(storage.artDir, 'profiles'));
+    // Only the file's name is kept in profiles.json.
+    expect((json('profiles.json')?['profiles'] as List).first['photo'], p.basename(mine));
+    final again = ProfilesModel(storage);
+    await again.load();
+    expect(again.photoFile(again.byId('p1')!), mine);
+    // Back to the colour and icon: the picture goes.
+    await profiles.setPhoto('p1', null);
+    expect(profiles.photoFile(profiles.byId('p1')!), isNull);
+    expect(File(mine).existsSync(), isFalse);
+    // Removing the profile takes its picture too.
+    await profiles.remove(alex.id);
+    expect(File(theirs).existsSync(), isFalse);
   });
 
   test('renaming and recolouring are saved', () async {

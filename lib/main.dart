@@ -189,6 +189,7 @@ Future<void> main() async {
   // what this person's sign-in read (phase 3).
   final serverVideos = ServerVideosModel(
     storage: profile.storage,
+    shared: storage,
     servers: servers,
     videos: videos,
     appVersion: updates.currentVersion ?? '0',
@@ -196,7 +197,8 @@ Future<void> main() async {
   await safely('server videos', serverVideos.load);
   // Audiobooks from Audiobookshelf servers (0.2.7): what was read last time shows at once; the
   // servers are read again once the app is up. Places go both ways (ListeningModel.onPlaceSaved).
-  final serverBooks = ServerBooksModel(storage: profile.storage, servers: servers, library: library, listening: listening);
+  final serverBooks = ServerBooksModel(
+      storage: profile.storage, shared: storage, servers: servers, library: library, listening: listening);
   await safely('server books', serverBooks.load);
   // The half-hourly server re-reads wait while a video is playing (0.2.12): one that finds
   // something new rebuilds the tabs, which can hold the picture for a moment on a TV.
@@ -215,6 +217,16 @@ Future<void> main() async {
     listening: listening,
   );
   await safely('downloads', downloads.load);
+  // What's downloaded on this device is everyone's (8 Nov): the server videos and books it holds
+  // are remembered in the data folder, so every profile has them, signed in to that server or not.
+  serverVideos.isDownloaded = downloads.isDownloaded;
+  serverBooks.isDownloaded = downloads.isDownloaded;
+  downloads.addListener(() {
+    serverVideos.downloadsChanged();
+    serverBooks.downloadsChanged();
+  });
+  serverVideos.downloadsChanged();
+  serverBooks.downloadsChanged();
   saveOnBackground.downloads = downloads;
   saveOnBackground.serverBooks = serverBooks;
   // Temporary copies (0.2.4): a server song or book file that starts playing is saved as it

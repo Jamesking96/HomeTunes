@@ -10,7 +10,10 @@
 //
 // The models themselves are switched by [ProfileHost] (main.dart): this file only decides whose
 // files are used and moves them.
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 
 import '../services/storage.dart';
 import 'custom_art_store.dart' as art;
@@ -19,7 +22,11 @@ import 'profile_session.dart';
 /// One person who uses HomeTunes on this device.
 @immutable
 class Profile {
-  const Profile({required this.id, required this.name, required this.colour, required this.icon});
+  const Profile({required this.id, required this.name, required this.colour, required this.icon, this.photo});
+
+  /// Their own picture (8 Nov: "allow for users to upload their own images via something on the
+  /// device or search for one online"): a file in art/profiles, or null for the colour and icon.
+  final String? photo;
 
   /// Never changes (it names the profile's folder).
   final String id;
@@ -31,20 +38,26 @@ class Profile {
   /// Which picture its circle shows (a name from ui/screens/settings/profiles_ui.dart's list).
   final String icon;
 
-  Profile copyWith({String? name, int? colour, String? icon}) =>
-      Profile(id: id, name: name ?? this.name, colour: colour ?? this.colour, icon: icon ?? this.icon);
+  Profile copyWith({String? name, int? colour, String? icon, String? photo, bool noPhoto = false}) => Profile(
+        id: id,
+        name: name ?? this.name,
+        colour: colour ?? this.colour,
+        icon: icon ?? this.icon,
+        photo: noPhoto ? null : (photo ?? this.photo),
+      );
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
         'colour': '#${(colour & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}',
         'icon': icon,
+        if (photo != null) 'photo': photo,
       };
 
   /// Null when [j] isn't a usable profile.
   static Profile? fromJson(Object? j) {
     if (j is! Map) return null;
-    final id = j['id'], name = j['name'], colour = j['colour'], icon = j['icon'];
+    final id = j['id'], name = j['name'], colour = j['colour'], icon = j['icon'], photo = j['photo'];
     if (id is! String || !ProfilesModel.goodId.hasMatch(id)) return null;
     final c = colour is String ? int.tryParse(colour.replaceFirst('#', ''), radix: 16) : null;
     return Profile(
@@ -52,6 +65,7 @@ class Profile {
       name: name is String && name.trim().isNotEmpty ? name.trim() : 'Profile',
       colour: 0xFF000000 | (c ?? ProfilesModel.colours.first),
       icon: icon is String && icon.isNotEmpty ? icon : 'person',
+      photo: photo is String && photo.isNotEmpty ? photo : null,
     );
   }
 }
@@ -151,8 +165,21 @@ class ProfilesModel extends ChangeNotifier {
   /// "Who's listening?" has been answered since HomeTunes opened.
   bool chosen = false;
 
+  /// HomeTunes opens straight into the last profile used, without asking who's listening (the
+  /// user, 8 Nov: "a toggle for a default profile to be loaded in, this should be on by default
+  /// and be set to the most recent profile that's been signed into"). Off: it asks every time.
+  bool openLast = true;
+
   /// HomeTunes should ask who's listening before showing anything else.
-  bool get needsChoosing => on && !chosen && profiles.isNotEmpty;
+  bool get needsChoosing => on && !openLast && !chosen && profiles.isNotEmpty;
+
+  /// Settings › Profiles › Open with the last profile used.
+  Future<void> setOpenLast(bool value) async {
+    if (openLast == value) return;
+    openLast = value;
+    await _save();
+    notifyListeners();
+  }
 
   Profile? get current => byId(currentId);
 
@@ -174,6 +201,7 @@ class ProfilesModel extends ChangeNotifier {
     last = null;
     _moved = true;
     chosen = false;
+    openLast = true;
     final j = await data.read(fileName);
     if (j is Map) {
       final seen = <String>{};
@@ -183,6 +211,7 @@ class ProfilesModel extends ChangeNotifier {
       }
       on = j['on'] == true && profiles.isNotEmpty;
       last = j['last'] is String ? j['last'] as String : null;
+      openLast = j['openLast'] != false;
       _moved = j['moved'] != false;
     } else if (data.profileFolders().isNotEmpty) {
       // The list is missing or damaged (set aside by Storage) but the folders are there: make it
@@ -209,6 +238,7 @@ class ProfilesModel extends ChangeNotifier {
         'on': on,
         'profiles': [for (final p in profiles) p.toJson()],
         if (last != null) 'last': last,
+        if (!openLast) 'openLast': false,
         if (!_moved) 'moved': false,
       });
 
@@ -328,6 +358,36 @@ class ProfilesModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Where profile pictures are kept (art/profiles; named by their contents).
+  String get photoDir => p.join(data.artDir, 'profiles');
+
+  /// The file of [profile]'s own picture, or null (the colour and icon show). Only a file in
+  /// [photoDir] counts (profiles.json holds just its name).
+  String? photoFile(Profile profile) {
+    final name = profile.photo;
+    if (name == null) return null;
+    final f = p.join(photoDir, p.basename(name));
+    return File(f).existsSync() ? f : null;
+  }
+
+  /// Gives [id] its own picture ([bytes], already made a sensible size), or takes it away (null).
+  /// Pictures nobody uses any more are deleted.
+  Future<void> setPhoto(String id, List<int>? bytes) async {
+    final i = profiles.indexWhere((x) => x.id == id);
+    if (i < 0) return;
+    final store = art.CustomArtStore(photoDir);
+    final file = bytes == null ? null : await store.store(bytes, '.jpg');
+    profiles = [...profiles]
+      ..[i] = file == null ? profiles[i].copyWith(noPhoto: true) : profiles[i].copyWith(photo: p.basename(file));
+    await _save();
+    await store.removeUnused({
+      for (final x in profiles)
+        if (x.photo != null) p.join(photoDir, p.basename(x.photo!)),
+    });
+    art.picturesChanged();
+    notifyListeners();
+  }
+
   /// Removes a profile and everything that was theirs. Not the one in use, nor the last one.
   Future<bool> remove(String id) async {
     if (id == currentId || profiles.length < 2 || byId(id) == null) return false;
@@ -335,6 +395,11 @@ class ProfilesModel extends ChangeNotifier {
     if (last == id) last = currentId ?? profiles.first.id;
     await _save();
     await data.deleteProfile(id);
+    // Their picture goes too, unless someone else uses the same one.
+    await art.CustomArtStore(photoDir).removeUnused({
+      for (final x in profiles)
+        if (x.photo != null) p.join(photoDir, p.basename(x.photo!)),
+    });
     notifyListeners();
     return true;
   }

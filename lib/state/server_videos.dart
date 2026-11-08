@@ -116,7 +116,9 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
     this.appVersion = '0',
     http.Client Function()? httpClient,
     String? deviceName,
+    Storage? shared,
   })  : secrets = secrets ?? servers.secrets,
+        shared = shared ?? storage,
         _makeHttp = httpClient,
         deviceName = deviceName ?? _thisDevice() {
     _known = {for (final s in servers.all) s.id: s};
@@ -133,6 +135,90 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
   /// doesn't land in the new person's videos.
   int _generation = 0;
 
+  // ---- downloads are everyone's (the user, 8 Nov: "If content is downloaded onto the device it
+  // should be accessible to all profiles") ----
+
+  /// The data folder (with profiles off, the same as [storage]): [offlineFileName] is kept there.
+  final Storage shared;
+
+  /// The details of every server video downloaded on this device, by server, so each profile
+  /// sees them even without its own sign-in to that server (or when the server is someone
+  /// else's). {server: [video, …]}.
+  static const offlineFileName = 'downloaded_videos.json';
+
+  /// Whether a video is downloaded on this device (DownloadsModel; main.dart sets it).
+  bool Function(String id)? isDownloaded;
+
+  Map<String, List<VideoItem>> _offline = {};
+  Timer? _offlineTimer;
+
+  /// [list] (a server's videos as this person's sign-in read them) and the downloaded ones from
+  /// that server it doesn't have.
+  List<VideoItem> _withDownloaded(String server, List<VideoItem> list) {
+    final extra = _offline[server];
+    if (extra == null || extra.isEmpty) return list;
+    final have = {for (final v in list) v.id};
+    return [...list, for (final v in extra) if (!have.contains(v.id)) v];
+  }
+
+  Future<void> _loadOffline() async {
+    final j = await shared.read(offlineFileName);
+    final out = <String, List<VideoItem>>{};
+    if (j is Map) {
+      for (final e in j.entries) {
+        if (e.key is! String || e.value is! List) continue;
+        final list = <VideoItem>[];
+        for (final v in e.value as List) {
+          try {
+            final item = VideoItem.fromJson(Map<String, dynamic>.from(v as Map));
+            if (isRemoteVideoId(item.id)) list.add(item);
+          } catch (_) {}
+        }
+        if (list.isNotEmpty) out[e.key as String] = list;
+      }
+    }
+    _offline = out;
+  }
+
+  /// The downloads changed (or a server was read): the list of downloaded videos is brought up
+  /// to date a moment later (downloads tell their progress many times a second).
+  void downloadsChanged() {
+    _offlineTimer?.cancel();
+    _offlineTimer = Timer(const Duration(seconds: 2), () => unawaited(rememberDownloaded()));
+  }
+
+  /// Brings [offlineFileName] up to date: the downloaded videos this person's servers know of, and
+  /// the ones already remembered that are still downloaded.
+  @visibleForTesting
+  Future<void> rememberDownloaded() async {
+    final done = isDownloaded;
+    if (done == null || _disposed) return;
+    final next = <String, List<VideoItem>>{};
+    final seen = <String>{};
+    void add(String server, VideoItem v) {
+      if (!done(v.id) || !seen.add(v.id)) return;
+      (next[server] ??= []).add(v);
+    }
+
+    for (final e in _state.entries) {
+      for (final v in e.value.videos) {
+        add(e.key, v);
+      }
+    }
+    for (final e in _offline.entries) {
+      for (final v in e.value) {
+        add(e.key, v);
+      }
+    }
+    String ids(Map<String, List<VideoItem>> m) =>
+        ([for (final e in m.entries) for (final v in e.value) '${e.key}/${v.id}']..sort()).join(',');
+    if (ids(next) == ids(_offline)) return;
+    _offline = next;
+    await shared.write(offlineFileName, {
+      for (final e in next.entries) e.key: [for (final v in e.value) v.toJson()],
+    });
+  }
+
   /// Takes the servers as they are now as already known, so a profile switch (another user name
   /// on the same server) isn't taken for an edit that signs the last person out (phase 3).
   void knowServers() => _known = {for (final s in servers.all) s.id: s};
@@ -143,13 +229,16 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
   Future<void> useStorage(Storage s) async {
     knowServers();
     _generation++;
+    // What the last person downloaded stays everyone's.
+    _offlineTimer?.cancel();
+    await rememberDownloaded();
     if (_state.values.any((st) => st.pending.isNotEmpty)) await _savePending();
     for (final c in _clients.values) {
       c.close();
     }
     _clients.clear();
     _syncing.clear();
-    for (final id in _state.keys.toList()) {
+    for (final id in {..._state.keys, ..._offline.keys}) {
       videos.removeServerVideos(id);
     }
     _state.clear();
@@ -315,9 +404,13 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
     }
     // Servers that went while HomeTunes was closed are forgotten; the rest show at once.
     _state.removeWhere((id, _) => servers.byId(id)?.type != ServerType.jellyfin);
-    for (final s in videoServers) {
-      final st = _state[s.id];
-      if (st != null && st.videos.isNotEmpty) videos.setServerVideos(s.id, st.videos);
+    // With the videos downloaded on this device, whoever's sign-in found them (8 Nov).
+    await _loadOffline();
+    final shown = {for (final s in videoServers) s.id};
+    for (final id in {...shown, ..._offline.keys}) {
+      // A server not switched on for videos here shows just its downloaded videos.
+      final list = _withDownloaded(id, shown.contains(id) ? (_state[id]?.videos ?? const []) : const []);
+      if (list.isNotEmpty) videos.setServerVideos(id, list);
     }
     _known = {for (final s in servers.all) s.id: s};
     notifyListeners();
@@ -587,15 +680,18 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
       // rebuilt every video screen and wrote the whole catalogue: about two seconds frozen on
       // the test TV. Only places the server has that are newer still come in.
       // (The Videos tab must still have them: switched off for videos and on again, it doesn't.)
-      final same = videos.serverVideosOf(s.id).length == st.videos.length && await sameVideos(st.videos, unique);
+      final same = videos.serverVideosOf(s.id).length == _withDownloaded(s.id, st.videos).length &&
+          await sameVideos(st.videos, unique);
       st.videos = unique;
       st.count = unique.length;
       st.syncedMs = now();
       st.status = null;
       st.error = null;
       if (_isVideoServer(servers.byId(s.id) ?? s)) {
-        same ? videos.applyServerPlaces(places) : videos.setServerVideos(s.id, unique, places: places);
+        same ? videos.applyServerPlaces(places) : videos.setServerVideos(s.id, _withDownloaded(s.id, unique), places: places);
       }
+      // Downloaded videos it found are remembered for everyone (8 Nov).
+      if (!same) downloadsChanged();
       if (!same || viewsChanged) await _save();
       notifyListeners();
       await _fetchPictures(s, c, pictures, existing);
@@ -915,6 +1011,7 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
   void dispose() {
     _disposed = true;
     _resync?.cancel();
+    _offlineTimer?.cancel();
     servers.removeListener(_onServers);
     if (identical(videos.remote, this)) videos.remote = null;
     for (final c in _clients.values) {

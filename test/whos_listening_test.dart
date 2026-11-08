@@ -40,6 +40,8 @@ void main() {
           {'id': 'p2', 'name': 'Alex', 'colour': '#4FC3F7', 'icon': 'star'},
         ],
         'last': 'p2',
+        // Ask at the start (8 Nov: opening with the last one used is the usual).
+        'openLast': false,
       });
       await m.load();
     });
@@ -160,7 +162,12 @@ void main() {
 
     final m = await twoProfiles(tester);
     await tester.pumpWidget(app(m, const Scaffold(body: ProfileSettings())));
-    expect(tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value, isTrue);
+    expect(tester.widget<SwitchListTile>(find.byType(SwitchListTile).first).value, isTrue);
+    // Open with the last profile used (8 Nov): off in this house, so it asks.
+    expect(tester.widget<SwitchListTile>(find.byKey(const ValueKey('profiles-open-last'))).value, isFalse);
+    await tester.runAsync(() => m.setOpenLast(true));
+    await tester.pump();
+    expect(find.textContaining('opens as Alex'), findsOneWidget);
     expect(find.text('Sam'), findsOneWidget);
     expect(find.text('Alex'), findsOneWidget);
     expect(find.text('Using now'), findsOneWidget);

@@ -153,6 +153,28 @@ void main() {
     expect(jellyfin.signIns, signInsBefore);
   });
 
+  test('what\'s downloaded on this device is everyone\'s, signed in to the server or not (8 Nov)', () async {
+    final downloaded = 'jf:${den.id}:ep1';
+    host.serverVideos.isDownloaded = (id) => id == downloaded;
+    await profiles.turnOn(name: 'James');
+    await profiles.add(name: 'Sam');
+    await profiles.switchTo('p2');
+    await settle();
+    // Sam hasn't signed in: just the downloaded episode shows.
+    expect([for (final v in host.videos.serverVideosOf(den.id)) v.id], [downloaded]);
+    expect(File(p.join(dir.path, 'data', ServerVideosModel.offlineFileName)).existsSync(), isTrue);
+    // Back as James: everything, the downloaded one once.
+    await profiles.switchTo('p1');
+    await settle();
+    expect(serverVideos(), 4);
+    // Removed from the downloads: Sam no longer has it.
+    host.serverVideos.isDownloaded = (id) => false;
+    await host.serverVideos.rememberDownloaded();
+    await profiles.switchTo('p2');
+    await settle();
+    expect(serverVideos(), 0);
+  });
+
   test('signing in on one profile is that profile\'s alone; the address is everyone\'s', () async {
     await profiles.turnOn(name: 'James');
     await profiles.add(name: 'Sam');
