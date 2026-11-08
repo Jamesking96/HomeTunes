@@ -282,6 +282,52 @@ class Storage with ChangeNotifier {
         }
       });
 
+  /// Whether data file [name] is here (after any save of it that's waiting).
+  Future<bool> has(String name) => _serial(name, () => File(p.join(root.path, name)).exists());
+
+  /// Copies data file [name] to [to] (another folder's view), as it is, if it's here. Returns
+  /// whether there was one. For moving a person's files in and out of their profile (phase 1).
+  Future<bool> copyTo(Storage to, String name) => _serial(name, () async {
+        final f = File(p.join(root.path, name));
+        if (!await f.exists()) return false;
+        final bytes = await f.readAsBytes();
+        await to._serial(name, () async {
+          final dest = File(p.join(to.root.path, name));
+          final tmp = File('${dest.path}.tmp');
+          await tmp.writeAsBytes(bytes, flush: true);
+          await tmp.rename(dest.path);
+          to._big.remove(name);
+        });
+        return true;
+      });
+
+  /// Deletes data file [name] (and any unfinished save of it). For the person's files left in
+  /// the data folder once they've moved into a profile (phase 1).
+  Future<void> remove(String name) => _serial(name, () async {
+        for (final f in [File(p.join(root.path, name)), File(p.join(root.path, '$name.tmp'))]) {
+          if (await f.exists()) await f.delete();
+        }
+        _big.remove(name);
+      });
+
+  /// The ids of the profile folders there are (`profiles/<id>/`).
+  List<String> profileFolders() {
+    final dir = Directory(p.join((_parent ?? this).root.path, 'profiles'));
+    if (!dir.existsSync()) return const [];
+    return [
+      for (final e in dir.listSync())
+        if (e is Directory) p.basename(e.path),
+    ]..sort();
+  }
+
+  /// Deletes profile [id]'s folder and everything in it (Settings › Profiles › Remove).
+  Future<void> deleteProfile(String id) async {
+    if (_parent != null) return _parent.deleteProfile(id);
+    final view = forProfile(id);
+    _views.remove(id);
+    if (await view.root.exists()) await view.root.delete(recursive: true);
+  }
+
   /// A data file's name in words, for messages ("playlists and Liked Songs").
   static String describe(String name) => switch (name) {
         'settings.json' => 'settings',
@@ -295,6 +341,7 @@ class Storage with ChangeNotifier {
         'videos.json' => 'list of videos',
         'video_edits.json' => 'video edits',
         'video_places.json' => 'watched videos and places',
+        'profiles.json' => 'list of profiles',
         _ => name,
       };
 }

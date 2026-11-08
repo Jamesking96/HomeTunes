@@ -59,8 +59,15 @@ class Bookmark {
 /// Bookmarks in audiobooks (bookmarks.json). They point at a file and a
 /// position, so they follow a book when it's renamed or its files move.
 class BookmarksModel extends ChangeNotifier implements SongIdFollower {
-  final Storage storage;
+  /// Where bookmarks.json is: the profile's folder when profiles are on ([useStorage]).
+  Storage storage;
   BookmarksModel(this.storage);
+
+  /// Someone else is listening (Profiles, phase 1): their bookmarks are read from [s].
+  Future<void> useStorage(Storage s) async {
+    storage = s;
+    await load();
+  }
 
   static const fileName = 'bookmarks.json';
 

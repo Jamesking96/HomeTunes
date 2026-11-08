@@ -37,8 +37,9 @@ class VideoLibraryModel extends ChangeNotifier {
   final Storage storage;
 
   /// Where the person's own part is kept (Profiles plan, phase 0): their edits and their places.
-  /// With profiles off it's the same folder as [storage].
-  final Storage personal;
+  /// With profiles off it's the same folder as [storage]. Changes when someone else is picked
+  /// ([usePersonal], phase 1).
+  Storage personal;
   final LibraryModel library;
 
   /// The data file this model owns: since 0.2.13 the shared part only (the videos found, the
@@ -883,10 +884,20 @@ class VideoLibraryModel extends ChangeNotifier {
 
   // ---- loading and saving ----
 
-  Future<void> load() async {
+  Future<void> load() => _load(switching: false);
+
+  /// Someone else is watching (Profiles, phase 1): what's waiting is saved for the one leaving,
+  /// then their edits and places are read from [mine]. The videos found stay as they are.
+  Future<void> usePersonal(Storage mine) async {
+    await flushPendingSaves();
+    personal = mine;
+    await _load(switching: true);
+  }
+
+  Future<void> _load({required bool switching}) async {
     final shared = await storage.read(fileName);
     final mine = await personal.read(editsFileName), places_ = await personal.read(placesFileName);
-    if (shared is! Map && mine is! Map && places_ is! Map) return;
+    if (!switching && shared is! Map && mine is! Map && places_ is! Map) return;
     // Before 0.2.13 everything was in videos.json; a restored backup still has it there. Then
     // videos.json is the newest and whole account of the person's part (a restore writes only
     // that file), so the person's own files are set aside, and it moves to them at the end.

@@ -15,8 +15,17 @@ enum EqTarget { music, books, videos }
 class EqualizerModel extends ChangeNotifier {
   static const fileName = 'equalizer.json';
 
-  final Storage storage;
+  /// Where equalizer.json is: the profile's folder when profiles are on ([useStorage]).
+  Storage storage;
   EqualizerModel(this.storage);
+
+  /// Someone else is listening (Profiles, phase 1): anything waiting is saved for the one
+  /// leaving, then their equaliser is read from [s].
+  Future<void> useStorage(Storage s) async {
+    await flush();
+    storage = s;
+    await load();
+  }
 
   /// The equaliser is switched on.
   bool enabled = false;

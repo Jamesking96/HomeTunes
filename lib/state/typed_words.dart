@@ -15,7 +15,8 @@ class TypedWords {
   static Map<String, int>? _words;
 
   static Future<Map<String, int>> load(LibraryModel lib) async {
-    final storage = lib.storage;
+    // Each person's own words (Profiles, phase 1: the profile's folder; [forget] on a switch).
+    final storage = lib.personal;
     if (_words != null) return _words!;
     final out = <String, int>{};
     try {
@@ -42,9 +43,9 @@ class TypedWords {
       final keep = (m.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).take(most);
       _words = {for (final e in keep) e.key: e.value};
     }
-    await lib.storage.write(file, _words!);
+    await lib.personal.write(file, _words!);
   }
 
-  /// For tests.
+  /// Read again next time (tests; and someone else is using HomeTunes, Profiles phase 1).
   static void forget() => _words = null;
 }

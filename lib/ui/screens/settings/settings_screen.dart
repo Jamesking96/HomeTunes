@@ -22,6 +22,7 @@ import 'library_settings.dart';
 import 'music_settings.dart';
 import 'online_settings.dart';
 import 'playback_settings.dart';
+import 'profile_settings.dart';
 import 'download_settings.dart' show DownloadsSettingsPage;
 import 'server_settings.dart';
 import 'settings_catalog.dart';
@@ -44,6 +45,7 @@ Widget settingsPageBody(SettingsPage page) => switch (page) {
       SettingsPage.about => const AboutSettings(),
       SettingsPage.videos => const VideoSettings(),
       SettingsPage.music => const MusicSettings(),
+      SettingsPage.profiles => const ProfileSettings(),
     };
 
 /// Settings: a list of pages with a search box. Wide windows show the list and

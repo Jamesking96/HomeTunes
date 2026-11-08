@@ -12,6 +12,10 @@ import 'package:path/path.dart' as p;
 /// copy. main.dart sets it to clear Flutter's image cache (state/ doesn't draw pictures itself).
 void Function() picturesChanged = () {};
 
+/// Picture files the profiles not in use right now point at (Profiles, phase 1), so tidying up
+/// doesn't delete them. Set by ProfilesModel; nothing while profiles are off.
+Future<Set<String>> Function() usedByOthers = () async => const {};
+
 /// A folder of pictures the user chose.
 class CustomArtStore {
   CustomArtStore(this.dir, {this.protectNew = false});
@@ -51,7 +55,10 @@ class CustomArtStore {
     // or after [importGrace] if it's never used.
     final now = DateTime.now();
     _justStored.removeWhere((path, at) => inUse.contains(path) || now.difference(at) > importGrace);
-    final keep = {...inUse, ..._justStored.keys};
+    // Pictures the other profiles chose stay too (Profiles, phase 1: the files are shared, the
+    // choices are each person's).
+    final others = {for (final f in await usedByOthers()) p.normalize(f)};
+    final keep = {...inUse, ..._justStored.keys, ...others};
     await for (final f in folder.list()) {
       if (f is File && !keep.contains(p.normalize(f.path))) {
         try {

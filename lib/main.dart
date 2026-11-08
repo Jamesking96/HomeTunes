@@ -36,6 +36,9 @@ import 'state/lyrics_model.dart';
 import 'state/now_watching.dart';
 import 'state/play_history.dart';
 import 'state/profile_session.dart';
+import 'state/profiles_model.dart';
+import 'state/typed_words.dart';
+import 'ui/profiles/whos_listening.dart';
 import 'state/player_model.dart';
 import 'state/playlists_model.dart';
 import 'state/selection_model.dart';
@@ -92,11 +95,17 @@ Future<void> main() async {
   PlaybackLog.add('HomeTunes started');
   // Android TV / Google TV (0.2.0): asked once, before any screen is built.
   if (await DeviceKind.detect()) PlaybackLog.add('Running on a TV');
-  // Whose things these are (Profiles plan, phase 0): the person's own files are saved through
-  // profile.storage, the shared ones through storage. No profiles yet, so both are the data
-  // folder and nothing moves.
-  final profile = ProfileSession.of(storage, null);
-  final library = LibraryModel(storage, personal: profile.storage);
+  // Whose things these are (Profiles plan): the person's own files are saved through
+  // profile.storage, the shared ones through storage. With profiles off both are the data
+  // folder. With them on, the last profile used opens and "Who's listening?" asks (phase 1).
+  final profiles = ProfilesModel(storage);
+  try {
+    await profiles.load();
+  } catch (e) {
+    debugPrint('HomeTunes: loading profiles failed: $e');
+  }
+  final ProfileSession profile = profiles.session;
+  final library = LibraryModel(storage, personal: profile.storage, splitSettings: profiles.on);
   final playlists = PlaylistsModel(profile.storage);
   final listening = ListeningModel(profile.storage);
   final bookmarks = BookmarksModel(profile.storage);
@@ -218,6 +227,17 @@ Future<void> main() async {
   // A temporary copy that's playing isn't cleared to make room (0.2.5).
   downloads.inUse = (id) => player.current?.id == id || watching.video?.id == id;
   downloads.onNotice = (note) => appMessengerKey.currentState?.showSnackBar(SnackBar(content: Text(note)));
+  // Switching profile (phase 1): every personal model reads the new person's files.
+  profiles.host = _AppProfileHost(
+    player: player,
+    library: library,
+    videos: videos,
+    playlists: playlists,
+    listening: listening,
+    bookmarks: bookmarks,
+    equalizer: equalizer,
+    history: history,
+  );
   final session = await MediaSession.start(player, library, watching: watching);
   debugPrint(session == null
       ? 'HomeTunes: system media controls are off'
@@ -240,6 +260,7 @@ Future<void> main() async {
     serverVideos: serverVideos,
     serverBooks: serverBooks,
     downloads: downloads,
+    profiles: profiles,
   ));
 
   // The opening picture isn't needed again: its memory goes (it's ~8 MB decoded; TVs are short).
@@ -280,6 +301,62 @@ Future<void> main() async {
     debugPrint('HomeTunes: downloads could not start: $e');
     PlaybackLog.add('Downloads could not start: $e');
   }));
+}
+
+/// Switches the personal models to another profile's files (Profiles, phase 1).
+class _AppProfileHost implements ProfileHost {
+  _AppProfileHost({
+    required this.player,
+    required this.library,
+    required this.videos,
+    required this.playlists,
+    required this.listening,
+    required this.bookmarks,
+    required this.equalizer,
+    required this.history,
+  });
+  final PlayerModel player;
+  final LibraryModel library;
+  final VideoLibraryModel videos;
+  final PlaylistsModel playlists;
+  final ListeningModel listening;
+  final BookmarksModel bookmarks;
+  final EqualizerModel equalizer;
+  final PlayHistory history;
+
+  @override
+  Future<void> saveEverything() async {
+    player.saveBookPlace();
+    await Future.wait([
+      library.flushPendingSaves(),
+      videos.flushPendingSaves(),
+      equalizer.flush(),
+    ]);
+  }
+
+  @override
+  Map<String, dynamic> personalSettings() => library.settings.toJsonFor(prefs.SettingScope.profile);
+
+  @override
+  Future<void> use(Storage personal, {required bool split}) async {
+    PlaybackLog.add(split ? 'Switching profile' : 'Profiles switched off');
+    // What's playing was the last person's: it stops and the queue empties (the plan, step 5).
+    await player.stopAndEmpty();
+    TypedWords.forget();
+    await library.usePersonal(personal, split: split);
+    await Future.wait([
+      playlists.useStorage(personal),
+      listening.useStorage(personal),
+      bookmarks.useStorage(personal),
+      equalizer.useStorage(personal),
+      history.useStorage(personal),
+      videos.usePersonal(personal),
+    ]);
+    listening.adoptMoved(library.books);
+  }
+
+  @override
+  Future<void> saveSettings() => library.saveSettingsNow();
 }
 
 /// Watches the app going into / coming out of the background (a Flutter lifecycle observer).
@@ -334,6 +411,9 @@ class HomeTunesApp extends StatelessWidget {
   final ServerVideosModel? serverVideos;
   final ServerBooksModel? serverBooks;
   final DownloadsModel? downloads;
+
+  /// Profiles (phase 1). Null in tests that don't need them.
+  final ProfilesModel? profiles;
   const HomeTunesApp({
     super.key,
     required this.library,
@@ -351,10 +431,25 @@ class HomeTunesApp extends StatelessWidget {
     this.serverVideos,
     this.serverBooks,
     this.downloads,
+    this.profiles,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Provided as ProfilesModel? (like downloads), so screens work without it in tests
+    // (profilesOf in ui/profiles/profile_ui.dart).
+    // Someone else picked (phase 1): every screen starts afresh for them (each tab back to its
+    // first page; the screens' own state goes), under a key of whose profile it is.
+    return ChangeNotifierProvider<ProfilesModel?>.value(
+      value: profiles,
+      child: Selector<ProfilesModel?, String>(
+        selector: (_, m) => m?.currentId ?? '',
+        builder: (context, id, _) => KeyedSubtree(key: ValueKey('profile:$id'), child: _app(context)),
+      ),
+    );
+  }
+
+  Widget _app(BuildContext context) {
     return MultiProvider(
       providers: [
         // Models made in main() are passed in with `.value`, so Provider won't dispose them.
@@ -424,8 +519,9 @@ class HomeTunesApp extends StatelessWidget {
                   ),
                 ),
               ),
-              // The TV frame in TV mode, else Shell (0.2.0: ui/tv/tv_shell.dart).
-              home: const AppHome(),
+              // The TV frame in TV mode, else Shell (0.2.0: ui/tv/tv_shell.dart). With profiles
+              // on, "Who's listening?" comes first (phase 1, ui/profiles/whos_listening.dart).
+              home: const WhosListeningGate(child: AppHome()),
             ),
           );
         },

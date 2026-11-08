@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import '../../state/library_model.dart';
 import '../../state/playlists_model.dart';
 import '../nav.dart';
+import '../profiles/profile_ui.dart' show ProfileButton, profilesOf;
 import '../theme.dart';
 import 'download_ui.dart' show downloadsOf;
 import 'quick_links.dart';
@@ -163,14 +164,18 @@ class _SidebarContent extends StatelessWidget {
       onPressed: onToggle,
     );
 
+    // With profiles on, whose things these are (and switching), at the top (Profiles, phase 1).
+    final me = profilesOf(context)?.on == true ? const ProfileButton(size: 28) : null;
+
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (iconsOnly)
-        Padding(padding: const EdgeInsets.fromLTRB(0, 14, 0, 6), child: Center(child: foldButton))
-      else
+      if (iconsOnly) ...[
+        Padding(padding: const EdgeInsets.fromLTRB(0, 14, 0, 6), child: Center(child: foldButton)),
+        if (me != null) Center(child: me),
+      ] else
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 4, 6),
           child: Row(children: [
-            Icon(Icons.graphic_eq, color: accent),
+            me ?? Icon(Icons.graphic_eq, color: accent),
             const SizedBox(width: 8),
             const Expanded(
               child: Text(

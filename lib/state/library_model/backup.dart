@@ -7,7 +7,7 @@ extension LibraryBackup on LibraryModel {
   /// The server password is never included (0.1.21, security review #6): it would be readable
   /// by anyone with the file. After restoring on another device it's typed in once.
   Future<Uint8List> createBackup({bool includeCoverCache = true}) =>
-      AppBackup.create(storage, includeCoverCache: includeCoverCache);
+      AppBackup.create(storage, includeCoverCache: includeCoverCache, personal: splitSettings ? personal : null);
 
   /// Where the automatic "just before restoring" backup is kept.
   String get beforeRestorePath => p.join(storage.root.path, AppBackup.beforeRestoreName);
@@ -28,11 +28,13 @@ extension LibraryBackup on LibraryModel {
       try {
         // 1. Save everything as it is now, so a bad restore can be undone. (Without the server
         //    password since 0.1.17: it stays in protected storage, so undoing keeps it anyway.)
-        final undo = await AppBackup.create(storage);
+        final mine = splitSettings ? personal : null;
+        final undo = await AppBackup.create(storage, personal: mine);
         await File(beforeRestorePath).writeAsBytes(undo, flush: true);
         // 2. Write the backup's files, then reload this model and the others from them.
         //    (AppBackup.restore throws if a file can't be saved; the error reaches the caller.)
-        result = await AppBackup.restore(storage, backup, merge: merge);
+        //    With profiles on, into the person who's listening (Profiles, phase 1).
+        result = await AppBackup.restore(storage, backup, merge: merge, personal: mine);
         await load();
         await reloadOthers();
         // The same server's password is still in protected storage: no need to type it again.

@@ -862,6 +862,19 @@ class AppSettings {
     return r.damaged;
   }
 
+  /// Reads just the settings that belong to [scope] from [raw] (each missing one back to its
+  /// default); the others keep their values. For switching profile (phase 1). True when
+  /// something had the wrong type.
+  bool loadScope(Map<String, dynamic> raw, SettingScope scope) {
+    final r = SettingsReader(raw);
+    for (final g in groups) {
+      for (final s in g.settings) {
+        if (g.scopeOf(s) == scope) s.load(r);
+      }
+    }
+    return r.damaged;
+  }
+
   /// Whose each setting is, by its key in settings.json (Profiles plan, phase 0).
   Map<String, SettingScope> get scopes => {
         for (final g in groups)

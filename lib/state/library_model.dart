@@ -62,15 +62,20 @@ class LibraryModel extends ChangeNotifier {
   final Storage storage;
 
   /// Where the person's own song and book edits are kept (edits.json; Profiles plan, phase 0).
-  /// With profiles off it's the same folder as [storage].
-  final Storage personal;
+  /// With profiles off it's the same folder as [storage]. Changes when someone else is picked
+  /// ([usePersonal], phase 1).
+  Storage personal;
+
+  /// Profiles are on (phase 1): the person's own settings (SettingScope.profile) are saved in
+  /// [personal]'s settings.json, the shared and this-device ones in [storage]'s.
+  bool splitSettings;
   final LocalScanner _scanner;
 
   /// Where the server password is kept (see secret_store.dart). Null on platforms without
   /// protected storage, where it stays in settings.json as before.
   final SecretStore? secrets;
 
-  LibraryModel(this.storage, {SecretStore? secrets, Storage? personal})
+  LibraryModel(this.storage, {SecretStore? secrets, Storage? personal, this.splitSettings = false})
       : personal = personal ?? storage,
         _scanner = LocalScanner(storage.artDir),
         secrets = secrets ?? SecretStore.forPlatform() {
@@ -322,10 +327,7 @@ class LibraryModel extends ChangeNotifier {
     //    HomeTunes: a wrong type used to throw here, before the first screen, so the app
     //    wouldn't start. Now that one value falls back, and a copy of the file is kept.
     //    (Refactor phase 3: each setting's key, default and checks are in settings_groups.dart.)
-    final raw = await storage.read('settings.json');
-    var settingsDamaged = raw != null && raw is! Map<String, dynamic>;
-    if (raw is Map<String, dynamic>) settingsDamaged = settings.load(raw);
-    if (settingsDamaged) await storage.keepCopy('settings.json');
+    await _readSettings(await storage.read('settings.json'));
     // The pin (0.1.60): put the window back on top if it was left that way.
     unawaited(WindowPin.set(settings.playback.alwaysOnTop));
     // The server password lives in the system's protected storage (0.1.17). A plain-text one in
@@ -335,18 +337,7 @@ class LibraryModel extends ChangeNotifier {
     connection.reconnect();
     // 2. The user's edits. A damaged entry is skipped (and a copy of the file kept), rather
     //    than losing every edit.
-    final edits = await personal.read('edits.json');
-    var editsDamaged = edits != null && edits is! Map;
-    if (edits is Map) {
-      for (final e in edits.entries) {
-        try {
-          _edits['${e.key}'] = TrackEdit.fromJson(e.value as Map<String, dynamic>);
-        } catch (_) {
-          editsDamaged = true;
-        }
-      }
-    }
-    if (editsDamaged) await personal.keepCopy('edits.json');
+    await _readEdits();
     // 3. The library as last scanned/synced, so the app opens instantly without rescanning.
     //    Damaged entries are skipped; the next scan finds those files again.
     final lib = await storage.read('library.json');
@@ -383,8 +374,93 @@ class LibraryModel extends ChangeNotifier {
 
   // The server password: kept in the protected storage by ServerConnection (loadPassword /
   // storePassword); settings.json holds it only when that isn't possible.
-  /// Writes every setting to settings.json.
-  Future<void> _saveSettings() => storage.write('settings.json', settings.toJson());
+  /// Reads [raw] (the data folder's settings.json) into the settings; with [splitSettings] the
+  /// person's own ones come from [personal]'s settings.json instead (Profiles, phase 1).
+  Future<void> _readSettings(Object? raw) async {
+    var settingsDamaged = raw != null && raw is! Map<String, dynamic>;
+    final all = <String, dynamic>{if (raw is Map<String, dynamic>) ...raw};
+    var mineDamaged = false, moving = false;
+    if (splitSettings) {
+      final whose = settings.scopes;
+      // The data folder's file still holding personal settings means it was just restored from
+      // a backup (which keeps the one-file form): those are this person's now, and win.
+      moving = all.keys.any((k) => whose[k] == SettingScope.profile);
+      final mine = await personal.read('settings.json');
+      mineDamaged = mine != null && mine is! Map<String, dynamic>;
+      if (!moving && mine is Map<String, dynamic>) {
+        for (final e in mine.entries) {
+          if (whose[e.key] == SettingScope.profile) all[e.key] = e.value;
+        }
+      }
+    }
+    if (raw is Map<String, dynamic> || all.isNotEmpty) {
+      if (settings.load(all)) settingsDamaged = true;
+    }
+    if (settingsDamaged) await storage.keepCopy('settings.json');
+    if (mineDamaged) await personal.keepCopy('settings.json');
+    if (moving) await _saveSettings();
+  }
+
+  /// Reads the person's song and book edits (edits.json). A damaged entry is skipped (and a copy
+  /// of the file kept), rather than losing every edit.
+  Future<void> _readEdits() async {
+    _edits = {};
+    final edits = await personal.read('edits.json');
+    var editsDamaged = edits != null && edits is! Map;
+    if (edits is Map) {
+      for (final e in edits.entries) {
+        try {
+          _edits['${e.key}'] = TrackEdit.fromJson(e.value as Map<String, dynamic>);
+        } catch (_) {
+          editsDamaged = true;
+        }
+      }
+    }
+    if (editsDamaged) await personal.keepCopy('edits.json');
+  }
+
+  /// Writes every setting to settings.json: with [splitSettings], the person's own ones to
+  /// [personal]'s and the rest to the data folder's.
+  Future<void> _saveSettings() async {
+    if (!splitSettings) {
+      await storage.write('settings.json', settings.toJson());
+      return;
+    }
+    final all = settings.toJson(), whose = settings.scopes;
+    await personal.write('settings.json', {
+      for (final e in all.entries)
+        if (whose[e.key] == SettingScope.profile) e.key: e.value,
+    });
+    await storage.write('settings.json', {
+      for (final e in all.entries)
+        if (whose[e.key] != SettingScope.profile) e.key: e.value,
+    });
+  }
+
+  /// Saves the settings now (ProfilesModel, when profiles are switched on or off).
+  Future<void> saveSettingsNow() => _saveSettings();
+
+  /// Someone else is listening (Profiles, phase 1): their own settings and song edits are read
+  /// from [mine]; the shared and this-device settings stay as they are. [split] is false when
+  /// profiles are switched off again (everything then lives in the data folder).
+  Future<void> usePersonal(Storage mine, {required bool split}) async {
+    await flushPendingSaves();
+    personal = mine;
+    splitSettings = split;
+    if (split) {
+      // Only the person's own settings change; the shared and this-device ones (and the server
+      // password, which is held in them) stay as they are.
+      final raw = await mine.read('settings.json');
+      final damaged = raw != null && raw is! Map<String, dynamic>;
+      final loadDamaged = settings.loadScope(raw is Map<String, dynamic> ? raw : const {}, SettingScope.profile);
+      if (damaged || loadDamaged) await mine.keepCopy('settings.json');
+    }
+    await _readEdits();
+    _quietSettings = true;
+    settings.changedAll();
+    _quietSettings = false;
+    _rebuild();
+  }
 
   /// Adds a saved theme, or replaces the one with the same id (Settings › Appearance ›
   /// Advanced). [use] switches to it.
