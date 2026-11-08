@@ -8,6 +8,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/video_item.dart';
+import 'package:hometunes/services/engine/engines.dart' show VideoBuffer;
 import 'package:hometunes/services/jellyfin_client.dart';
 import 'package:hometunes/services/secret_store.dart';
 import 'package:hometunes/services/server_probe.dart';
@@ -647,6 +648,25 @@ void main() {
       expect(engine.calls.first, startsWith('open stream at'));
       expect(isRemoteVideoId('jf:${entry.id}:ep2'), isTrue);
     });
+
+    test('a streamed video gets the bigger buffer, on disk, and a head start (0.2.12)', () async {
+      VideoBuffer.cacheDir = p.join(dir.path, 'video-buffer');
+      addTearDown(() => VideoBuffer.cacheDir = null);
+      start('ep2');
+      await until(() => engine.openPath != null);
+      expect(engine.options['cache-dir'], VideoBuffer.cacheDir);
+      expect(engine.options['demuxer-max-bytes'], '${VideoBuffer.streamAhead}');
+      expect(engine.options['demuxer-max-back-bytes'], '${VideoBuffer.streamBehind}');
+      expect(engine.options['cache-pause-initial'], 'yes');
+      expect(engine.options['cache-pause-wait'], '${VideoBuffer.headStart}');
+    });
+  });
+
+  test('files on the device keep the engine\'s usual buffer', () {
+    final s = Map.fromEntries([for (final (k, v) in VideoBuffer.settings(streamed: false)) MapEntry(k, v)]);
+    expect(s['cache-dir'], '');
+    expect(s['demuxer-max-bytes'], '${32 * 1024 * 1024}');
+    expect(s['cache-pause-initial'], 'no');
   });
 
   test('Test connection signs in to a Jellyfin server, then signs out', () async {

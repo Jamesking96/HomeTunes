@@ -14,11 +14,13 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as p;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import 'services/app_licences.dart';
 import 'services/device_kind.dart';
 import 'services/download_engine.dart';
+import 'services/engine/engines.dart' show VideoBuffer;
 import 'services/internet_check.dart';
 import 'services/media_session.dart';
 import 'services/playback_log.dart';
@@ -77,6 +79,14 @@ Future<void> main() async {
 
   // 1. Open the data folder and create the models (nothing is read from disk yet).
   final storage = await Storage.open();
+  // Streamed videos are buffered on disk here, not in memory (0.2.12, engines.dart VideoBuffer).
+  try {
+    final buffer = Directory(p.join((await getTemporaryDirectory()).path, 'video-buffer'));
+    await buffer.create(recursive: true);
+    VideoBuffer.cacheDir = buffer.path;
+  } catch (e) {
+    debugPrint('HomeTunes: no folder for the video buffer ($e); it stays in memory');
+  }
   await PlaybackLog.attach(storage.root.path);
   PlaybackLog.add('HomeTunes started');
   // Android TV / Google TV (0.2.0): asked once, before any screen is built.
