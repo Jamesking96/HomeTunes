@@ -111,7 +111,7 @@ class _ServerState {
         if (hidden.isNotEmpty) 'hidden': hidden.toList()..sort(),
         if (syncedMs != null) 'syncedMs': syncedMs,
         'items': {for (final e in items.entries) e.key: e.value.toJson()},
-        if (pending.isNotEmpty) 'pending': pending,
+        // [pending] has its own small file since 0.2.12 (ServerBooksModel.pendingFileName).
       };
 
   static _ServerState fromJson(Object? j) {
@@ -129,19 +129,21 @@ class _ServerState {
         if (item != null) s.items[e.key as String] = item;
       }
     }
-    final pend = j['pending'];
-    if (pend is Map) {
-      for (final e in pend.entries) {
-        if (e.key is String && e.value is Map) {
-          s.pending[e.key as String] = {
-            for (final x in (e.value as Map).entries)
-              if (x.key is String && (x.value is num || x.value is bool)) x.key as String: x.value as Object,
-          };
-        }
-      }
-    }
+    // Before 0.2.12 the places waiting to be sent were kept in this file.
+    s.pending.addAll(pendingFromJson(j['pending']));
     return s;
   }
+
+  /// Places waiting to be sent, from either file: {item: {t, d, f, u}}.
+  static Map<String, Map<String, Object>> pendingFromJson(Object? pend) => {
+        if (pend is Map)
+          for (final e in pend.entries)
+            if (e.key is String && e.value is Map)
+              e.key as String: {
+                for (final x in (e.value as Map).entries)
+                  if (x.key is String && (x.value is num || x.value is bool)) x.key as String: x.value as Object,
+              },
+      };
 }
 
 class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, ServerReader {
@@ -168,6 +170,10 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
   final http.Client Function()? _makeHttp;
 
   static const fileName = 'server_books.json';
+
+  /// Places waiting to be sent (0.2.12): {server: {item: …}}. They used to be in [fileName], so
+  /// one that couldn't be sent wrote the whole catalogue (see ServerVideosModel.pendingFileName).
+  static const pendingFileName = 'server_books_pending.json';
 
   /// How often the servers are read again while HomeTunes is open.
   static const resyncEvery = Duration(minutes: 30);
@@ -269,6 +275,18 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
         if (e.key is String) _state[e.key as String] = _ServerState.fromJson(e.value);
       }
     }
+    // Places waiting to be sent (their own file since 0.2.12); old ones move there, once.
+    final hadOld = _state.values.any((st) => st.pending.isNotEmpty);
+    final pend = await storage.read(pendingFileName);
+    if (pend is Map) {
+      for (final e in pend.entries) {
+        if (e.key is String) _of(e.key as String).pending.addAll(_ServerState.pendingFromJson(e.value));
+      }
+    }
+    if (hadOld) {
+      await _savePending();
+      await _save();
+    }
     // Servers that went while HomeTunes was closed are forgotten; the rest show at once.
     _state.removeWhere((id, _) => servers.byId(id)?.type != ServerType.audiobookshelf);
     for (final s in bookServers) {
@@ -282,6 +300,15 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
   Future<void> _save() async {
     if (_disposed) return;
     await storage.write(fileName, {'servers': {for (final e in _state.entries) e.key: e.value.toJson()}});
+  }
+
+  /// Saves just the places waiting to be sent (a few bytes; 0.2.12).
+  Future<void> _savePending() async {
+    if (_disposed) return;
+    await storage.write(pendingFileName, {
+      for (final e in _state.entries)
+        if (e.value.pending.isNotEmpty) e.key: e.value.pending,
+    });
   }
 
   /// Reads every book server now, then again every [resyncEvery] while HomeTunes is open.
@@ -365,6 +392,7 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
     if (_disposed) return;
     notifyListeners();
     await _save();
+    await _savePending();
   }
 
   // ---- signing in ----
@@ -678,11 +706,11 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
       try {
         final c = await _signedIn(x.server);
         await c.setProgress(x.item, currentTime: x.time, duration: x.length, finished: x.finished);
-        if (_state[x.server.id]?.pending.remove(x.item) != null) await _save();
+        if (_state[x.server.id]?.pending.remove(x.item) != null) await _savePending();
       } catch (_) {
         // Sent at the next sync instead (unless the server's place is newer by then).
         _of(x.server.id).pending[x.item] = {'t': x.time, 'd': x.length, 'f': x.finished, 'u': x.at};
-        await _save();
+        await _savePending();
       }
     }());
   }
@@ -710,7 +738,7 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
         if (!x.fromServer) break;
       }
     }
-    await _save();
+    await _savePending();
   }
 
   // ---- playing and downloading (RemoteBookSource) ----

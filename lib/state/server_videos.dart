@@ -72,7 +72,7 @@ class _ServerState {
         if (hidden.isNotEmpty) 'hidden': hidden.toList()..sort(),
         if (syncedMs != null) 'syncedMs': syncedMs,
         'videos': [for (final v in videos) v.toJson()],
-        if (pending.isNotEmpty) 'pending': pending,
+        // [pending] has its own small file since 0.2.12 (ServerVideosModel.pendingFileName).
       };
 
   static _ServerState fromJson(Object? j) {
@@ -90,19 +90,21 @@ class _ServerState {
       } catch (_) {}
     }
     s.count = s.videos.length;
-    final pend = j['pending'];
-    if (pend is Map) {
-      for (final e in pend.entries) {
-        if (e.key is String && e.value is Map) {
-          s.pending[e.key as String] = {
-            for (final x in (e.value as Map).entries)
-              if (x.key is String && (x.value is int || x.value is bool)) x.key as String: x.value as Object,
-          };
-        }
-      }
-    }
+    // Before 0.2.12 the places waiting to be sent were kept in this file.
+    s.pending.addAll(pendingFromJson(j['pending']));
     return s;
   }
+
+  /// Places waiting to be sent, from either file: {item: {positionMs, watched, updatedMs}}.
+  static Map<String, Map<String, Object>> pendingFromJson(Object? pend) => {
+        if (pend is Map)
+          for (final e in pend.entries)
+            if (e.key is String && e.value is Map)
+              e.key as String: {
+                for (final x in (e.value as Map).entries)
+                  if (x.key is String && (x.value is int || x.value is bool)) x.key as String: x.value as Object,
+              },
+      };
 }
 
 class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, ServerReader {
@@ -131,6 +133,12 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
   final http.Client Function()? _makeHttp;
 
   static const fileName = 'server_videos.json';
+
+  /// Places and watched marks waiting to be sent to a server (0.2.12): {server: {item: …}}. They
+  /// used to be in [fileName], so a place that couldn't be sent mid-film (a Wi-Fi blip) wrote
+  /// the whole catalogue, twice (when it failed, and when it went at last): 7.4 MB, about a
+  /// second's freeze each on the test TV. Now a few bytes.
+  static const pendingFileName = 'server_videos_pending.json';
 
   /// The types of item read as videos.
   static const videoTypes = ['Movie', 'Episode', 'Video'];
@@ -253,9 +261,21 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
         }
       }
     }
+    // Places waiting to be sent (their own file since 0.2.12). Ones still in the old place, in
+    // the catalogue, were read with it above: they move to the small file, once.
+    final hadOld = _state.values.any((st) => st.pending.isNotEmpty);
+    final pend = await storage.read(pendingFileName);
+    if (pend is Map) {
+      for (final e in pend.entries) {
+        if (e.key is String) _of(e.key as String).pending.addAll(_ServerState.pendingFromJson(e.value));
+      }
+    }
     if (deviceId.isEmpty) {
       final r = Random.secure();
       deviceId = 'hometunes-${List.generate(16, (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0')).join()}';
+      await _save();
+    } else if (hadOld) {
+      await _savePending();
       await _save();
     }
     // Servers that went while HomeTunes was closed are forgotten; the rest show at once.
@@ -271,6 +291,12 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
   Future<void> _save() => storage.write(fileName, {
         'deviceId': deviceId,
         'servers': {for (final e in _state.entries) e.key: e.value.toJson()},
+      });
+
+  /// Saves just the places waiting to be sent (a few bytes; 0.2.12).
+  Future<void> _savePending() => storage.write(pendingFileName, {
+        for (final e in _state.entries)
+          if (e.value.pending.isNotEmpty) e.key: e.value.pending,
       });
 
   /// Reads every video server now, then again every [resyncEvery] while HomeTunes is open.
@@ -347,6 +373,7 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
     if (_disposed) return; // closed down meanwhile: don't save either
     notifyListeners();
     await _save();
+    await _savePending();
   }
 
   // ---- signing in ----
@@ -735,11 +762,11 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
       try {
         final c = await _signedIn(s);
         await send(c, item);
-        if (_state[s.id]?.pending.remove(item) != null) await _save();
+        if (_state[s.id]?.pending.remove(item) != null) await _savePending();
       } catch (_) {
         if (orLater == null) return;
         _of(s.id).pending[item] = orLater;
-        await _save();
+        await _savePending();
       }
     }());
   }
@@ -764,7 +791,7 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
         if (!x.fromServer) break;
       }
     }
-    await _save();
+    await _savePending();
   }
 
   /// Reads and syncs finish in the background; one that finishes after this was closed down

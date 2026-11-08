@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
+<!-- HomeTunes' opening screen (0.2.12): the app's dark background with its icon in the middle,
+     shown by Android while HomeTunes starts. Before, Flutter's template left it white (the user,
+     8 Nov 2026: "update the TV build so that the opening screen isn't just a white screen").
+     lib/ui/start_screen.dart draws the same picture once Flutter is running, so the two meet
+     without a jump. launch_logo.png is the 192-pixel app icon; in drawable-xhdpi it's 96 dp. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
-
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
+    <item android:drawable="@color/launch_background" />
+    <item>
         <bitmap
             android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+            android:src="@drawable/launch_logo" />
+    </item>
 </layer-list>

@@ -50,6 +50,7 @@ import 'ui/screens/settings/appearance_settings.dart';
 import 'ui/screens/settings/update_ui.dart';
 import 'ui/screens/settings/whats_new_ui.dart';
 import 'ui/shell.dart';
+import 'ui/start_screen.dart';
 import 'ui/theme.dart';
 import 'ui/tv/tv_focus.dart';
 import 'ui/tv/tv_shell.dart' show AppHome;
@@ -63,6 +64,10 @@ import 'state/settings/settings_groups.dart' as prefs;
 Future<void> main() async {
   // Both of these must run before any plugin or media_kit Player is used.
   WidgetsFlutterBinding.ensureInitialized();
+  // Android (phone and TV, 0.2.12): something to look at at once, the same picture as the launch
+  // window (the dark background and the icon), while the files below are read; the app replaces
+  // it when they're ready. Before, the window stayed white until then (~3.5 s on the TV).
+  if (Platform.isAndroid) runApp(const StartScreen());
   // A picture file may have changed (a new cover, artist or series picture, playlist picture):
   // drop Flutter's cached copies so the new one shows (refactor phase 3: the models only say so).
   picturesChanged = () => PaintingBinding.instance.imageCache.clear();

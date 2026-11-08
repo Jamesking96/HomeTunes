@@ -230,6 +230,14 @@ void main() {
     expect(ok(), isTrue);
   }
 
+  /// [until] for a check that reads a file.
+  Future<void> untilRead(Future<bool> Function() ok) async {
+    for (var i = 0; i < 400 && !await ok(); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(await ok(), isTrue);
+  }
+
   group('the client', () {
     test('signs in with the password once, then sends only the token, never in an address', () async {
       final c = JellyfinClient(baseUrl: 'http://192.168.0.10:8096/', deviceId: 'dev1', httpClient: server.client);
@@ -415,6 +423,46 @@ void main() {
       expect(sent['PlaybackPositionTicks'], const Duration(minutes: 30).inMicroseconds * 10);
       // The server's older place didn't overwrite this one.
       expect(videos.placeOf(id)!.position, const Duration(minutes: 30));
+    });
+
+    test('a place that can\'t be sent waits in its own small file, not the catalogue (0.2.12)', () async {
+      await model.sync(entry);
+      await Future<void>.delayed(const Duration(milliseconds: 300)); // the sync's own saves
+      final catalogue = File(p.join(storage.root.path, ServerVideosModel.fileName));
+      final before = catalogue.lastModifiedSync();
+      await Future<void>.delayed(const Duration(milliseconds: 1100)); // file times are to the second
+      server.up = false;
+      final id = 'jf:${entry.id}:ep2';
+      model.stopped(videos.byId(id)!, const Duration(minutes: 12), const Duration(minutes: 50));
+      await untilRead(() async => jsonEncode(await storage.read(ServerVideosModel.pendingFileName)).contains('ep2'));
+      expect(catalogue.lastModifiedSync(), before);
+      expect(jsonEncode(await storage.read(ServerVideosModel.fileName)), isNot(contains('pending')));
+      // Sent at the next sync, and the small file is emptied.
+      server.up = true;
+      await model.sync(entry);
+      expect(server.requests.any((r) => r.startsWith('POST /UserItems/ep2/UserData')), isTrue);
+      await untilRead(() async => !jsonEncode(await storage.read(ServerVideosModel.pendingFileName)).contains('ep2'));
+    });
+
+    test('places waiting in an older catalogue file move to the small file and are still sent', () async {
+      await model.sync(entry);
+      await videos.settle();
+      await Future<void>.delayed(const Duration(milliseconds: 300)); // the sync's own saves
+      // As 0.2.11 left it: the waiting place inside the catalogue.
+      final old = await storage.read(ServerVideosModel.fileName) as Map;
+      (old['servers'] as Map)[entry.id]['pending'] = {
+        'ep1': {'positionMs': 600000, 'watched': false, 'updatedMs': DateTime.now().millisecondsSinceEpoch},
+      };
+      await storage.write(ServerVideosModel.fileName, old);
+      final again = ServerVideosModel(storage: storage, servers: servers, videos: videos, secrets: secrets,
+          httpClient: () => server.client);
+      addTearDown(again.dispose);
+      await again.load();
+      expect(jsonEncode(await storage.read(ServerVideosModel.pendingFileName)), contains('ep1'));
+      expect(jsonEncode(await storage.read(ServerVideosModel.fileName)), isNot(contains('pending')));
+      server.requests.clear();
+      await again.sync(entry);
+      expect(server.requests.any((r) => r.startsWith('POST /UserItems/ep1/UserData')), isTrue);
     });
 
     test('marking watched tells the server', () async {
