@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nothing (0.2.13): Android 12's own opening screen can only show an icon in a circle in the
+     middle; the user's picture has its own icon higher up and bigger, so Android's is left empty
+     and it shows just the background until HomeTunes draws the picture. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@android:color/transparent" />
+    <size android:width="1dp" android:height="1dp" />
+</shape>

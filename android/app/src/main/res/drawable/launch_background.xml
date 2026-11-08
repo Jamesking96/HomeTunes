@@ -1,14 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- HomeTunes' opening screen (0.2.12): the app's dark background with its icon in the middle,
-     shown by Android while HomeTunes starts. Before, Flutter's template left it white (the user,
-     8 Nov 2026: "update the TV build so that the opening screen isn't just a white screen").
-     lib/ui/start_screen.dart draws the same picture once Flutter is running, so the two meet
-     without a jump. launch_logo.png is the 192-pixel app icon; in drawable-xhdpi it's 96 dp. -->
+<!-- HomeTunes' opening screen. 0.2.12: the app's dark background with its icon, instead of
+     Flutter's white (the user, 8 Nov 2026: "update the TV build so that the opening screen isn't
+     just a white screen"). 0.2.13: the user's own picture (HomeTunes_Splash, 16:9;
+     drawable-nodpi/launch_splash.png is its 1920 x 1080 copy), filling a TV's 960 x 540 dp screen
+     on the edge colour (res/values/colors.xml). drawable-port has the phone-upright version.
+     lib/ui/start_screen.dart shows the same picture once Flutter is running, so the two meet
+     without a jump. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/launch_background" />
-    <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@drawable/launch_logo" />
-    </item>
+    <item android:width="960dp" android:height="540dp" android:gravity="center"
+        android:drawable="@drawable/launch_splash" />
 </layer-list>
