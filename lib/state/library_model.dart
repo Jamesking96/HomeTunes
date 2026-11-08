@@ -60,14 +60,19 @@ typedef PictureSource = ({String? file, String? url});
 /// derived album/artist lists.
 class LibraryModel extends ChangeNotifier {
   final Storage storage;
+
+  /// Where the person's own song and book edits are kept (edits.json; Profiles plan, phase 0).
+  /// With profiles off it's the same folder as [storage].
+  final Storage personal;
   final LocalScanner _scanner;
 
   /// Where the server password is kept (see secret_store.dart). Null on platforms without
   /// protected storage, where it stays in settings.json as before.
   final SecretStore? secrets;
 
-  LibraryModel(this.storage, {SecretStore? secrets})
-      : _scanner = LocalScanner(storage.artDir),
+  LibraryModel(this.storage, {SecretStore? secrets, Storage? personal})
+      : personal = personal ?? storage,
+        _scanner = LocalScanner(storage.artDir),
         secrets = secrets ?? SecretStore.forPlatform() {
     // Damaged files, recoveries and failed saves show in the status strip as they happen.
     storage.addListener(notifyListeners);
@@ -330,7 +335,7 @@ class LibraryModel extends ChangeNotifier {
     connection.reconnect();
     // 2. The user's edits. A damaged entry is skipped (and a copy of the file kept), rather
     //    than losing every edit.
-    final edits = await storage.read('edits.json');
+    final edits = await personal.read('edits.json');
     var editsDamaged = edits != null && edits is! Map;
     if (edits is Map) {
       for (final e in edits.entries) {
@@ -341,7 +346,7 @@ class LibraryModel extends ChangeNotifier {
         }
       }
     }
-    if (editsDamaged) await storage.keepCopy('edits.json');
+    if (editsDamaged) await personal.keepCopy('edits.json');
     // 3. The library as last scanned/synced, so the app opens instantly without rescanning.
     //    Damaged entries are skipped; the next scan finds those files again.
     final lib = await storage.read('library.json');
@@ -647,7 +652,7 @@ class LibraryModel extends ChangeNotifier {
       _edits.putIfAbsent(e.value, () => edit);
     }
     if (editsChanged) {
-      await storage.write('edits.json', {for (final e in _edits.entries) e.key: e.value.toJson()});
+      await personal.write('edits.json', {for (final e in _edits.entries) e.key: e.value.toJson()});
     }
     var overridesChanged = false;
     for (final e in moved.entries) {
@@ -827,7 +832,7 @@ class LibraryModel extends ChangeNotifier {
 
   /// Saves edits.json, rebuilds so the change shows, and deletes custom covers no longer used.
   Future<void> _saveEdits() async {
-    await storage.write('edits.json', {for (final e in _edits.entries) e.key: e.value.toJson()});
+    await personal.write('edits.json', {for (final e in _edits.entries) e.key: e.value.toJson()});
     _rebuild();
     await _removeUnusedCustomArt();
   }

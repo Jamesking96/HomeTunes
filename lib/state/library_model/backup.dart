@@ -92,7 +92,7 @@ extension LibraryBackup on LibraryModel {
           }
         }
       }
-      await storage.write('edits.json', {for (final e in _edits.entries) e.key: e.value.toJson()});
+      await personal.write('edits.json', {for (final e in _edits.entries) e.key: e.value.toJson()});
       // Re-read the changed files so the library shows their new tags.
       status = 'Re-reading changed files…';
       _changed();

@@ -33,11 +33,27 @@ import 'video_shuffle.dart';
 import 'video_types.dart' show collectionType;
 
 class VideoLibraryModel extends ChangeNotifier {
+  /// Where the shared part is kept: the videos found and the genres found online.
   final Storage storage;
+
+  /// Where the person's own part is kept (Profiles plan, phase 0): their edits and their places.
+  /// With profiles off it's the same folder as [storage].
+  final Storage personal;
   final LibraryModel library;
 
-  /// The data file this model owns.
+  /// The data file this model owns: since 0.2.13 the shared part only (the videos found, the
+  /// genres found online, the .nfo switch).
   static const fileName = 'videos.json';
+
+  /// The person's edits (0.2.13; were in [fileName]): edits, chosen pictures and posters, picture
+  /// shapes, season titles, special seasons, collection descriptions.
+  static const editsFileName = 'video_edits.json';
+  static const editKeys = {'edits', 'pictures', 'posters', 'shapes', 'collectionShapes', 'seasonTitles', 'specialSeasons', 'descriptions'};
+
+  /// The person's places (0.2.13; were in [fileName]): places and watched, favourite collections,
+  /// speeds, shuffle choices, audio and subtitle choices.
+  static const placesFileName = 'video_places.json';
+  static const placeKeys = {'places', 'favourites', 'speeds', 'shuffle', 'trackChoices'};
 
   /// Makes thumbnails after a scan. Null (no thumbnails) unless main.dart sets one: tests have
   /// no video engine.
@@ -51,7 +67,7 @@ class VideoLibraryModel extends ChangeNotifier {
 
   final VideoScanner _scanner = VideoScanner();
 
-  VideoLibraryModel(this.storage, this.library) {
+  VideoLibraryModel(this.storage, this.library, {Storage? personal}) : personal = personal ?? storage {
     _knownFolders = List.of(library.videoFolders);
     _knownHidden = _hiddenKey();
     library.addListener(_onLibraryChanged);
@@ -868,8 +884,18 @@ class VideoLibraryModel extends ChangeNotifier {
   // ---- loading and saving ----
 
   Future<void> load() async {
-    final j = await storage.read(fileName);
-    if (j is! Map) return;
+    final shared = await storage.read(fileName);
+    final mine = await personal.read(editsFileName), places_ = await personal.read(placesFileName);
+    if (shared is! Map && mine is! Map && places_ is! Map) return;
+    // Before 0.2.13 everything was in videos.json; a restored backup still has it there. Then
+    // videos.json is the newest and whole account of the person's part (a restore writes only
+    // that file), so the person's own files are set aside, and it moves to them at the end.
+    final moving = shared is Map && shared.keys.any((k) => editKeys.contains(k) || placeKeys.contains(k));
+    final Map j = {
+      if (!moving && mine is Map) ...mine,
+      if (!moving && places_ is Map) ...places_,
+      if (shared is Map) ...shared,
+    };
     var damaged = false;
     final scanned = <VideoItem>[];
     for (final v in (j['videos'] is List ? j['videos'] as List : const [])) {
@@ -1000,14 +1026,15 @@ class VideoLibraryModel extends ChangeNotifier {
             },
     }..removeWhere((_, v) => v.isEmpty);
     _rebuild();
+    if (moving) await _save();
   }
 
   Timer? _saveTimer;
 
-  Future<bool> _save() {
+  Future<bool> _save() async {
     _saveTimer?.cancel();
     _saveTimer = null;
-    return storage.write(fileName, {
+    final all = <String, dynamic>{
       'videos': [for (final v in _scanned) v.toJson()],
       'edits': {for (final e in _edits.entries) e.key: e.value.toJson()},
       'places': {for (final e in _places.entries) e.key: e.value.toJson()},
@@ -1048,7 +1075,17 @@ class VideoLibraryModel extends ChangeNotifier {
               if (e.value.subtitles != null) 'subtitles': e.value.subtitles!.toJson(),
             }
         },
+    };
+    // Three files since 0.2.13 (Profiles plan, phase 0): the person's edits and places first, then
+    // the shared part, so a save cut short never leaves the personal part only in the old place.
+    Map<String, dynamic> only(Set<String> keys) => {for (final k in keys) if (all.containsKey(k)) k: all[k]};
+    final edits = await personal.write(editsFileName, only(editKeys));
+    final places = await personal.write(placesFileName, only(placeKeys));
+    final shared = await storage.write(fileName, {
+      for (final e in all.entries)
+        if (!editKeys.contains(e.key) && !placeKeys.contains(e.key)) e.key: e.value,
     });
+    return edits && places && shared;
   }
 
   /// Saves a couple of seconds from now (places change often while a video plays).

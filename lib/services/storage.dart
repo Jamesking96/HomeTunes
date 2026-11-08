@@ -38,7 +38,30 @@ class Storage with ChangeNotifier {
   /// How many damaged copies of each file are kept (older ones are deleted).
   static const keepCorruptCopies = 3;
 
-  Storage._(this.root);
+  Storage._(this.root, [this._parent]);
+
+  /// The storage this is a profile's view of (null: this is the data folder itself).
+  final Storage? _parent;
+
+  /// Where messages about damaged files and failed saves are kept and shown: the data folder's
+  /// storage, whichever view saved.
+  Storage get _owner => _parent ?? this;
+
+  final Map<String, Storage> _views = {};
+
+  /// Where profile [id]'s own files are kept (Profiles plan, phase 0: claude/06_PROFILES_PLAN.md):
+  /// `profiles/<id>/` under this folder, with the same safe saving, sharing this folder's art
+  /// folder and its messages. With profiles off ([id] null) it's this folder itself, so nothing
+  /// moves and every file stays where it was.
+  Storage forProfile(String? id) {
+    if (id == null) return _parent == null ? this : _parent.forProfile(null);
+    if (_parent != null) return _parent.forProfile(id);
+    if (!RegExp(r'^[A-Za-z0-9_-]{1,40}$').hasMatch(id)) throw ArgumentError.value(id, 'id', 'not a profile id');
+    return _views[id] ??= () {
+      final dir = Directory(p.join(root.path, 'profiles', id))..createSync(recursive: true);
+      return Storage._(dir, this);
+    }();
+  }
 
   /// Finds (and creates if needed) the data folder. On Windows this is under AppData\Roaming,
   /// on Android inside the app's private storage.
@@ -54,7 +77,7 @@ class Storage with ChangeNotifier {
   factory Storage.at(Directory dir) => Storage._(dir);
 
   /// Folder for cached cover images (see local_scanner.dart).
-  String get artDir => p.join(root.path, 'art');
+  String get artDir => _parent?.artDir ?? p.join(root.path, 'art');
 
   /// Saves that failed, by file name, with the message to show. Cleared when that file next
   /// saves successfully (0.1.16: failed saves used to be silent).
@@ -66,6 +89,7 @@ class Storage with ChangeNotifier {
 
   /// Adds a message for the user (see [problems]).
   void report(String message) {
+    if (_parent != null) return _parent.report(message);
     debugPrint('HomeTunes: $message');
     if (!problems.contains(message)) {
       problems.add(message);
@@ -242,7 +266,7 @@ class Storage with ChangeNotifier {
           length >= bigFileBytes ? _big.add(name) : _big.remove(name);
           await tmp.rename(f.path);
           // A save that works again clears its failure message.
-          if (_saveFailures.remove(name) != null) notifyListeners();
+          if (_owner._saveFailures.remove(name) != null) _owner.notifyListeners();
           return true;
         } catch (e) {
           debugPrint('HomeTunes: could not save $name: $e');
@@ -250,9 +274,9 @@ class Storage with ChangeNotifier {
           final reason = e is FileSystemException ? (e.osError?.message ?? e.message) : '$e';
           final message = 'HomeTunes couldn\'t save your ${describe(name)} ($reason). '
               'Recent changes may be lost when the app closes.';
-          if (_saveFailures[name] != message) {
-            _saveFailures[name] = message;
-            notifyListeners();
+          if (_owner._saveFailures[name] != message) {
+            _owner._saveFailures[name] = message;
+            _owner.notifyListeners();
           }
           return false;
         }
@@ -268,7 +292,9 @@ class Storage with ChangeNotifier {
         'bookmarks.json' => 'bookmarks',
         'lyrics.json' => 'saved lyrics',
         'equalizer.json' => 'equaliser settings',
-        'videos.json' => 'videos, their edits and watched places',
+        'videos.json' => 'list of videos',
+        'video_edits.json' => 'video edits',
+        'video_places.json' => 'watched videos and places',
         _ => name,
       };
 }

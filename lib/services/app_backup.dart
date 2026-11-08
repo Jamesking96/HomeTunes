@@ -42,6 +42,28 @@ class AppBackup {
     'downloads.json', // 0.2.3: what's kept offline and the download settings (not the files)
   ];
 
+  /// The videos' data as one map, as videos.json held it before 0.2.13 (since then the person's
+  /// edits and places are in video_edits.json and video_places.json, VideoLibraryModel). Backups
+  /// keep the one-file form, so old and new backups restore the same way, and HomeTunes moves the
+  /// parts to their own files when it next opens them. Null when there's nothing.
+  static Future<Map<String, dynamic>?> videosAll(Storage storage, {Storage? personal}) async {
+    const personalKeys = {
+      'edits', 'pictures', 'posters', 'shapes', 'collectionShapes', 'seasonTitles', 'specialSeasons', 'descriptions', // video_edits.json
+      'places', 'favourites', 'speeds', 'shuffle', 'trackChoices', // video_places.json
+    };
+    final shared = await storage.read('videos.json');
+    final edits = await (personal ?? storage).read('video_edits.json');
+    final places = await (personal ?? storage).read('video_places.json');
+    if (shared is! Map && edits is! Map && places is! Map) return null;
+    // Still in the one-file form (not opened since 0.2.13, or just restored): that's the whole of it.
+    final oneFile = shared is Map && shared.keys.any(personalKeys.contains);
+    return {
+      if (!oneFile && edits is Map) ...edits.cast<String, dynamic>(),
+      if (!oneFile && places is Map) ...places.cast<String, dynamic>(),
+      if (shared is Map) ...shared.cast<String, dynamic>(),
+    };
+  }
+
   /// Folders under art/ holding pictures downloaded from servers, which backups leave out.
   static const serverArt = {'server', 'server-video'};
 
@@ -69,7 +91,7 @@ class AppBackup {
     // 1. The data files, with app paths made portable.
     final files = <String, dynamic>{};
     for (final name in dataFiles) {
-      final j = await storage.read(name);
+      final j = name == 'videos.json' ? await videosAll(storage) : await storage.read(name);
       if (j == null) continue;
       files[name] = toPortable(j, root);
     }
@@ -363,7 +385,8 @@ class AppBackup {
     //      and keeps the latest place for each video ----
     final bv = backupFile('videos.json');
     if (merge) {
-      final cv = await currentFile('videos.json');
+      // (This device's in one map, 0.2.13: its edits and places are in their own files now.)
+      final cv = await videosAll(storage) ?? <String, dynamic>{};
       Map<String, dynamic> part(Map<String, dynamic> m, String key) =>
           m[key] is Map ? Map<String, dynamic>.from(m[key] as Map) : <String, dynamic>{};
       final places = part(cv, 'places');

@@ -35,6 +35,7 @@ import 'state/listening_model.dart';
 import 'state/lyrics_model.dart';
 import 'state/now_watching.dart';
 import 'state/play_history.dart';
+import 'state/profile_session.dart';
 import 'state/player_model.dart';
 import 'state/playlists_model.dart';
 import 'state/selection_model.dart';
@@ -91,12 +92,16 @@ Future<void> main() async {
   PlaybackLog.add('HomeTunes started');
   // Android TV / Google TV (0.2.0): asked once, before any screen is built.
   if (await DeviceKind.detect()) PlaybackLog.add('Running on a TV');
-  final library = LibraryModel(storage);
-  final playlists = PlaylistsModel(storage);
-  final listening = ListeningModel(storage);
-  final bookmarks = BookmarksModel(storage);
+  // Whose things these are (Profiles plan, phase 0): the person's own files are saved through
+  // profile.storage, the shared ones through storage. No profiles yet, so both are the data
+  // folder and nothing moves.
+  final profile = ProfileSession.of(storage, null);
+  final library = LibraryModel(storage, personal: profile.storage);
+  final playlists = PlaylistsModel(profile.storage);
+  final listening = ListeningModel(profile.storage);
+  final bookmarks = BookmarksModel(profile.storage);
   final lyrics = LyricsModel(library, storage);
-  final equalizer = EqualizerModel(storage);
+  final equalizer = EqualizerModel(profile.storage);
   final updates = UpdateModel(storage, readVersion: () async => (await PackageInfo.fromPlatform()).version);
   // 2. Load all the saved JSON files at the same time, to keep start-up quick.
   //    HomeTunes: each model reads its file defensively, but as a last resort an unexpected
@@ -128,7 +133,7 @@ Future<void> main() async {
 
   // The Videos tab (0.1.40). Made after the library has loaded, as it follows the library's
   // video folders from their saved state.
-  final videos = VideoLibraryModel(storage, library)
+  final videos = VideoLibraryModel(storage, library, personal: profile.storage)
     ..thumbnailer = VideoThumbnailer(p.join(storage.artDir, 'video'))
     // Genres for collections with none (4 Nov 2026; Settings › Online lookups can switch it off).
     ..genreLookup = VideoGenreLookup();
@@ -162,7 +167,7 @@ Future<void> main() async {
   // The video playing on its page (30 Sep): the player bar and media keys follow it while it's in front.
   final watching = NowWatching(player);
   // Recently played music (0.1.45), for Home's "Jump back in".
-  final history = PlayHistory(storage);
+  final history = PlayHistory(profile.storage);
   await safely('history', history.load);
   history.attach(player);
   // Your servers for music, audiobooks and videos (0.1.46); the main music server stays in LibraryModel.

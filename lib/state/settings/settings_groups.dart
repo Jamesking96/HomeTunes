@@ -19,9 +19,32 @@ import 'setting.dart';
 /// Evening out loudness between songs with ReplayGain information in the files.
 enum ReplayGainMode { off, track, album }
 
+/// Whose a setting is, when profiles are on (Profiles plan, phase 0: claude/06_PROFILES_PLAN.md).
+/// With profiles off every setting is saved in settings.json as before.
+enum SettingScope {
+  /// This device's, whoever is using it (a window's width, TV mode, smoother video).
+  device,
+
+  /// Everyone's on this device, set once (the folders, the servers, online look-ups).
+  shared,
+
+  /// Each person's own (the theme, playback choices, quick links).
+  profile,
+}
+
 /// One part of the settings: its fields, and [settings], the list that loads, saves and resets them.
 abstract class SettingsGroup extends ChangeNotifier {
   List<Setting> get settings;
+
+  /// Whose this group's settings are when profiles are on, unless [scopeExceptions] says
+  /// otherwise for one of them.
+  SettingScope get scope;
+
+  /// Settings in this group that belong to someone else than [scope], by key.
+  Map<String, SettingScope> get scopeExceptions => const {};
+
+  /// Whose setting [s] is.
+  SettingScope scopeOf(Setting s) => scopeExceptions[s.key] ?? scope;
 
   /// Every setting back to its default.
   void reset() {
@@ -59,6 +82,10 @@ abstract class SettingsGroup extends ChangeNotifier {
 /// Folders and what's in them: music, audiobook and video folders, file types switched off,
 /// the genres that make a file an audiobook, and "Move to Books / Music" choices.
 class FolderSettings extends SettingsGroup {
+  /// Profiles (phase 0): The folders and their rules are the device's, set once for everyone.
+  @override
+  SettingScope get scope => SettingScope.shared;
+
   /// The music folders the user picked.
   List<String> folders = [];
 
@@ -115,6 +142,10 @@ class FolderSettings extends SettingsGroup {
 /// The music server: its address and login, the on / off switch, a host allowed over plain http,
 /// and whether its audiobooks show.
 class ServerSettings extends SettingsGroup {
+  /// Profiles (phase 0): The music server is set up once for the device (sign-ins per person: phase 3).
+  @override
+  SettingScope get scope => SettingScope.shared;
+
   /// The Subsonic server's address and login.
   ServerConfig server = const ServerConfig(url: '', username: '', password: '');
 
@@ -170,6 +201,10 @@ class ServerSettings extends SettingsGroup {
 
 /// Settings › Online lookups.
 class OnlineSettings extends SettingsGroup {
+  /// Profiles (phase 0): Whether HomeTunes looks things up online is the device's choice.
+  @override
+  SettingScope get scope => SettingScope.shared;
+
   /// Offer to look up missing cover art online (MusicBrainz / Cover Art Archive).
   bool onlineCovers = true;
 
@@ -223,6 +258,13 @@ class OnlineSettings extends SettingsGroup {
 
 /// Settings › Playback and Settings › Music, plus the PC's always-on-top pin.
 class PlaybackSettings extends SettingsGroup {
+  /// Profiles (phase 0): How each person likes things to play; keeping the window on top is the computer's.
+  @override
+  SettingScope get scope => SettingScope.profile;
+
+  @override
+  Map<String, SettingScope> get scopeExceptions => const {'alwaysOnTop': SettingScope.device};
+
   /// Load the next song ahead so it follows with no gap.
   bool gaplessPlayback = true;
 
@@ -313,6 +355,10 @@ class PlaybackSettings extends SettingsGroup {
 
 /// Settings › Audiobooks and Settings › Sleep timer.
 class ListeningSettings extends SettingsGroup {
+  /// Profiles (phase 0): Each person's audiobook and sleep choices.
+  @override
+  SettingScope get scope => SettingScope.profile;
+
   /// Show book covers tall like a book, rather than square like music.
   bool bookCoversTall = false;
 
@@ -386,6 +432,13 @@ class ListeningSettings extends SettingsGroup {
 
 /// Settings › Videos (0.1.40).
 class VideoSettings extends SettingsGroup {
+  /// Profiles (phase 0): Each person's video choices; "Smoother video" is about the device's video chip.
+  @override
+  SettingScope get scope => SettingScope.profile;
+
+  @override
+  Map<String, SettingScope> get scopeExceptions => const {'videoDirectDrawing': SettingScope.device};
+
   /// Titles offered when marking a video season as special (0.1.66).
   static const defaultSpecialSeasonTitles = ['Specials', 'OVA', 'Movies', 'Bonus episodes'];
   List<String> specialSeasonTitles = List.of(defaultSpecialSeasonTitles);
@@ -494,6 +547,13 @@ enum TvMode { automatic, on, off }
 /// Settings › Appearance: colour themes, text size, corners, the video player's look,
 /// shrinking to fit small windows, and TV mode.
 class AppearanceSettings extends SettingsGroup {
+  /// Profiles (phase 0): Each person's look (it also shows whose profile is on); TV mode, its sounds and scaling with the window are the device's.
+  @override
+  SettingScope get scope => SettingScope.profile;
+
+  @override
+  Map<String, SettingScope> get scopeExceptions => const {'scaleWithWindow': SettingScope.device, 'tvMode': SettingScope.device, 'tvSounds': SettingScope.device};
+
   /// The colour theme, and "Your own" colours ("#RRGGBB"). See LibraryModel.setTheme.
   String themeId = 'default';
   String? customAccent;
@@ -658,6 +718,13 @@ class AppearanceSettings extends SettingsGroup {
 /// How the library is laid out on the computer: the sidebar (width, folded, quick links), the
 /// Artists tab's grid, and pictures chosen for artists and series.
 class LayoutSettings extends SettingsGroup {
+  /// Profiles (phase 0): Each person's quick links, artist pictures and series details; the sidebar's width is the window's.
+  @override
+  SettingScope get scope => SettingScope.profile;
+
+  @override
+  Map<String, SettingScope> get scopeExceptions => const {'sidebarWidth': SettingScope.device, 'sidebarFolded': SettingScope.device};
+
   /// Your Library › Artists shows round pictures in a grid instead of a list (0.1.52).
   bool artistsGrid = false;
 
@@ -793,6 +860,19 @@ class AppSettings {
       g.load(r);
     }
     return r.damaged;
+  }
+
+  /// Whose each setting is, by its key in settings.json (Profiles plan, phase 0).
+  Map<String, SettingScope> get scopes => {
+        for (final g in groups)
+          for (final s in g.settings) s.key: g.scopeOf(s),
+      };
+
+  /// The part of settings.json that belongs to [scope] (Profiles: personal settings are saved in
+  /// the profile's own settings.json, the rest in the data folder's).
+  Map<String, dynamic> toJsonFor(SettingScope scope) {
+    final all = toJson(), whose = scopes;
+    return {for (final e in all.entries) if (whose[e.key] == scope) e.key: e.value};
   }
 
   /// What settings.json holds.
