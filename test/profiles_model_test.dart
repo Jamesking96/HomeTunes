@@ -60,6 +60,10 @@ class TestHost implements ProfileHost {
 
   @override
   Future<void> saveSettings() => lib.saveSettingsNow();
+
+  // The servers are in profile_servers_test.dart.
+  @override
+  Map<String, dynamic> currentSignIns() => {'signIns': <String, String>{}, 'servers': <Object>[]};
 }
 
 void main() {

@@ -162,12 +162,53 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
     listening?.onPlaceSaved = _placeSaved;
   }
 
-  final Storage storage;
+  /// Where the catalogue is kept: the profile's folder with profiles on (phase 3, [useStorage]).
+  Storage storage;
   final ServersModel servers;
   final LibraryModel library;
   final ListeningModel? listening;
   final SecretStore? secrets;
   final http.Client Function()? _makeHttp;
+
+  /// Goes up when someone else is picked (see ServerVideosModel).
+  int _generation = 0;
+
+  /// Takes the servers as they are now as already known, so a profile switch (another user name
+  /// on the same server) isn't taken for an edit that signs the last person out (phase 3).
+  void knowServers() => _known = {for (final s in servers.all) s.id: s};
+
+  /// Someone else is listening (Profiles, phase 3): places not sent yet are kept for the last
+  /// person (sent at their next read), their server books leave the Books tab, and this person's
+  /// own catalogue (read with their own sign-in) is used. Nothing shows from a server they
+  /// haven't signed in to.
+  Future<void> useStorage(Storage s) async {
+    knowServers();
+    _generation++;
+    _sendTimer?.cancel();
+    _sendTimer = null;
+    for (final x in _toSend.values) {
+      _of(x.server.id).pending[x.item] = {'t': x.time, 'd': x.length, 'f': x.finished, 'u': x.at};
+    }
+    _toSend.clear();
+    _lastSent.clear();
+    if (_state.values.any((st) => st.pending.isNotEmpty)) await _savePending();
+    for (final c in _clients.values) {
+      c.close();
+    }
+    _clients.clear();
+    _signIns.clear();
+    _signing.clear();
+    _syncing.clear();
+    for (final id in _state.keys.toList()) {
+      library.removeServerBookTracks(id);
+    }
+    _state.clear();
+    _problems.clear();
+    storage = s;
+    await load();
+    _lastRead = now();
+    unawaited(syncAll());
+  }
 
   static const fileName = 'server_books.json';
 
@@ -478,6 +519,12 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
   }
 
   Future<AbsClient> _keep(ServerEntry s, AbsClient c, AbsSignIn r, String base) async {
+    // A sign-in for someone who has since left (Profiles, phase 3) isn't kept for the next person.
+    final refresh0 = r.refreshToken;
+    if (servers.byId(s.id)?.username.trim() != s.username.trim()) {
+      if (refresh0 != null) await secrets?.write(refreshKey(s), refresh0);
+      return c;
+    }
     final st = _of(s.id);
     final old = _clients[s.id];
     if (!identical(old, c)) old?.close();
@@ -499,13 +546,14 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
     final job = _sync(s);
     _syncing[s.id] = job;
     job.whenComplete(() {
-      _syncing.remove(s.id);
+      if (identical(_syncing[s.id], job)) _syncing.remove(s.id);
       if (!_disposed) notifyListeners();
     });
     return job;
   }
 
   Future<void> _sync(ServerEntry s) async {
+    final generation = _generation;
     final st = _of(s.id);
     st.error = null;
     st.status = 'Signing in…';
@@ -565,6 +613,8 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
           );
         }
       }
+      // Someone else was picked while this was reading: it was the last person's.
+      if (generation != _generation) return;
       st.items = items;
       // Covers already here stay on the files.
       for (final i in items.values) {
@@ -725,12 +775,17 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
     final x = _toSend.remove(bookId);
     if (x == null) return;
     _lastSent[bookId] = now();
+    final generation = _generation;
     unawaited(() async {
       try {
         final c = await _signedIn(x.server);
         await c.setProgress(x.item, currentTime: x.time, duration: x.length, finished: x.finished);
+        if (generation != _generation) return; // someone else since: their list isn't touched
         if (_state[x.server.id]?.pending.remove(x.item) != null) await _savePending();
       } catch (_) {
+        // Someone else was picked meanwhile: this place isn't theirs to keep (it was saved for
+        // the last person when they left).
+        if (generation != _generation) return;
         // Sent at the next sync instead (unless the server's place is newer by then).
         _of(x.server.id).pending[x.item] = {'t': x.time, 'd': x.length, 'f': x.finished, 'u': x.at};
         await _savePending();

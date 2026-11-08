@@ -124,9 +124,44 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
     videos.remote = this;
   }
 
-  final Storage storage;
+  /// Where the catalogue is kept: the profile's folder with profiles on (phase 3, [useStorage]).
+  Storage storage;
   final ServersModel servers;
   final VideoLibraryModel videos;
+
+  /// Goes up when someone else is picked: a read that was under way for the person before
+  /// doesn't land in the new person's videos.
+  int _generation = 0;
+
+  /// Takes the servers as they are now as already known, so a profile switch (another user name
+  /// on the same server) isn't taken for an edit that signs the last person out (phase 3).
+  void knowServers() => _known = {for (final s in servers.all) s.id: s};
+
+  /// Someone else is watching (Profiles, phase 3): what the last person had from the servers
+  /// leaves the Videos tab, and this person's own catalogue (read with their own sign-in) is used.
+  /// A profile that hasn't signed in to a server sees nothing from it (the user's answer, 8 Nov).
+  Future<void> useStorage(Storage s) async {
+    knowServers();
+    _generation++;
+    if (_state.values.any((st) => st.pending.isNotEmpty)) await _savePending();
+    for (final c in _clients.values) {
+      c.close();
+    }
+    _clients.clear();
+    _syncing.clear();
+    for (final id in _state.keys.toList()) {
+      videos.removeServerVideos(id);
+    }
+    _state.clear();
+    _problems.clear();
+    _sessions.clear();
+    _lastProgress.clear();
+    deviceId = '';
+    storage = s;
+    await load();
+    _lastRead = now();
+    unawaited(syncAll());
+  }
   final SecretStore? secrets;
   final String appVersion;
   final String deviceName;
@@ -442,6 +477,12 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
       final c = _newClient(base);
       try {
         final r = await c.signIn(s.username.trim(), password);
+        // Someone else was picked meanwhile (Profiles, phase 3): the token is kept for its user,
+        // but this client isn't handed to the next person.
+        if (servers.byId(s.id)?.username.trim() != s.username.trim()) {
+          await secrets?.write(tokenKey(s), r.token);
+          return c;
+        }
         st.base = base;
         st.userId = r.userId;
         await secrets?.write(tokenKey(s), r.token);
@@ -467,13 +508,14 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
     final job = _sync(s);
     _syncing[s.id] = job;
     job.whenComplete(() {
-      _syncing.remove(s.id);
+      if (identical(_syncing[s.id], job)) _syncing.remove(s.id);
       if (!_disposed) notifyListeners();
     });
     return job;
   }
 
   Future<void> _sync(ServerEntry s) async {
+    final generation = _generation;
     final st = _of(s.id);
     st.error = null;
     st.status = 'Signing in…';
@@ -538,6 +580,8 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
       // The same item can be in two libraries (a "mixed" one and a films one): once each.
       final seen = <String>{};
       final unique = [for (final v in found) if (seen.add(v.id)) v];
+      // Someone else was picked while this was reading: it was the last person's.
+      if (generation != _generation) return;
       // 0.2.12: a re-read that brings nothing new changes nothing. Before, every one (at start-up
       // and every half hour, while a film played too) sorted and grouped every video again,
       // rebuilt every video screen and wrote the whole catalogue: about two seconds frozen on

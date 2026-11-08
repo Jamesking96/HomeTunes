@@ -70,6 +70,10 @@ abstract class ProfileHost {
 
   /// Saves the settings as they are now (after [use], into whichever files they now belong in).
   Future<void> saveSettings();
+
+  /// The server sign-ins in use now (ServersModel.currentSignIns), which become the first
+  /// profile's when profiles are switched on (phase 3). Saved as [ProfilesModel.serversFile].
+  Map<String, dynamic> currentSignIns();
 }
 
 class ProfilesModel extends ChangeNotifier {
@@ -97,7 +101,16 @@ class ProfilesModel extends ChangeNotifier {
     'equalizer.json',
     'history.json',
     'tv_words.json',
+    // Phase 3: what each person's own sign-in reads from the servers, and places waiting to go.
+    'server_videos.json',
+    'server_videos_pending.json',
+    'server_books.json',
+    'server_books_pending.json',
   ];
+
+  /// The person's server sign-ins and own servers (ServersModel.mineFile; phase 3). Not in
+  /// [personalFiles]: with profiles off they're folded into the data folder's servers.json.
+  static const serversFile = 'my_servers.json';
 
   /// The edits a new profile starts with, copied from the one it's added from (the user, 8 Nov).
   static const editFiles = ['edits.json', 'video_edits.json'];
@@ -230,7 +243,11 @@ class ProfilesModel extends ChangeNotifier {
     for (final f in personalFiles) {
       if (!await data.copyTo(dest, f)) await dest.remove(f);
     }
-    if (h != null) await dest.write('settings.json', h.personalSettings());
+    if (h != null) {
+      await dest.write('settings.json', h.personalSettings());
+      // The sign-ins in use now are this person's (the user, 8 Nov: only they have server users).
+      await dest.write(serversFile, h.currentSignIns());
+    }
     // 2. From now on the profile's files are the ones used.
     on = true;
     currentId = id;

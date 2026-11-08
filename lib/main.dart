@@ -182,10 +182,13 @@ Future<void> main() async {
   // Your servers for music, audiobooks and videos (0.1.46); the main music server stays in LibraryModel.
   final servers = ServersModel(storage, library);
   await safely('servers', servers.load);
+  // With profiles on, this person's own sign-ins and servers (phase 3).
+  if (profiles.on) await safely('server sign-ins', () => servers.usePersonal(profile.storage, split: true));
   // Videos from Jellyfin servers (0.2.1): what was read last time shows at once (before the video
-  // folders are scanned below); the servers are read again once the app is up.
+  // folders are scanned below); the servers are read again once the app is up. With profiles on,
+  // what this person's sign-in read (phase 3).
   final serverVideos = ServerVideosModel(
-    storage: storage,
+    storage: profile.storage,
     servers: servers,
     videos: videos,
     appVersion: updates.currentVersion ?? '0',
@@ -193,7 +196,7 @@ Future<void> main() async {
   await safely('server videos', serverVideos.load);
   // Audiobooks from Audiobookshelf servers (0.2.7): what was read last time shows at once; the
   // servers are read again once the app is up. Places go both ways (ListeningModel.onPlaceSaved).
-  final serverBooks = ServerBooksModel(storage: storage, servers: servers, library: library, listening: listening);
+  final serverBooks = ServerBooksModel(storage: profile.storage, servers: servers, library: library, listening: listening);
   await safely('server books', serverBooks.load);
   // The half-hourly server re-reads wait while a video is playing (0.2.12): one that finds
   // something new rebuilds the tabs, which can hold the picture for a moment on a TV.
@@ -237,6 +240,9 @@ Future<void> main() async {
     bookmarks: bookmarks,
     equalizer: equalizer,
     history: history,
+    servers: servers,
+    serverVideos: serverVideos,
+    serverBooks: serverBooks,
   );
   final session = await MediaSession.start(player, library, watching: watching);
   debugPrint(session == null
@@ -314,7 +320,13 @@ class _AppProfileHost implements ProfileHost {
     required this.bookmarks,
     required this.equalizer,
     required this.history,
+    required this.servers,
+    required this.serverVideos,
+    required this.serverBooks,
   });
+  final ServersModel servers;
+  final ServerVideosModel serverVideos;
+  final ServerBooksModel serverBooks;
   final PlayerModel player;
   final LibraryModel library;
   final VideoLibraryModel videos;
@@ -352,11 +364,23 @@ class _AppProfileHost implements ProfileHost {
       history.useStorage(personal),
       videos.usePersonal(personal),
     ]);
+    // Phase 3: this person's own server sign-ins and what they read. The readers take the new
+    // sign-ins as known before anyone is told, so a switch isn't taken for an edit (which would
+    // sign the last person out); then they read this person's catalogue and the servers again.
+    await servers.usePersonal(personal, split: split);
+    serverVideos.knowServers();
+    serverBooks.knowServers();
+    await serverVideos.useStorage(personal);
+    await serverBooks.useStorage(personal);
+    servers.announce();
     listening.adoptMoved(library.books);
   }
 
   @override
   Future<void> saveSettings() => library.saveSettingsNow();
+
+  @override
+  Map<String, dynamic> currentSignIns() => servers.currentSignIns();
 }
 
 /// Watches the app going into / coming out of the background (a Flutter lifecycle observer).

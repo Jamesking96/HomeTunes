@@ -206,6 +206,90 @@ class ServersModel extends ChangeNotifier {
   List<ServerEntry> _others = [];
   String? _mainName;
 
+  // ---- profiles (phase 3, 8 Nov 2026) ----
+  // With profiles on, the servers set up for the device (servers.json) are shared, but each
+  // person signs in with their own user name (the user's answer, 8 Nov: a profile that hasn't
+  // signed in shows nothing from that server), and can add servers just for themselves. Both are
+  // kept in the profile's folder, in [mineFile]. The main (Subsonic) music server's sign-in stays
+  // shared. With profiles off, the user names in servers.json are used, as before.
+
+  /// The person's sign-ins and own servers, in their profile's folder.
+  static const mineFile = 'my_servers.json';
+
+  Storage? _personal;
+  bool _split = false;
+
+  /// This person's user name on each of the device's servers (by server id).
+  Map<String, String> _signIns = {};
+
+  /// Servers this person added just for themselves.
+  List<ServerEntry> _mine = [];
+
+  /// Profiles are on: the device's servers use this person's own sign-in.
+  bool get split => _split;
+
+  /// [s] was added by this person just for themselves.
+  bool isMine(ServerEntry s) => _mine.any((m) => m.id == s.id);
+
+  ServerEntry _withMySignIn(ServerEntry shared) => _split ? shared.copyWith(username: _signIns[shared.id] ?? '') : shared;
+
+  /// Someone else is listening (or profiles were switched on or off): whose sign-ins and own
+  /// servers to use. Doesn't tell the listeners (main.dart's host switches the server readers
+  /// first, then calls [announce]), so a switch isn't taken for a change of user name.
+  Future<void> usePersonal(Storage personal, {required bool split}) async {
+    if (_split && !split) {
+      // Profiles off: the kept person's sign-ins and own servers become everyone's.
+      _others = [
+        for (final s in _others) s.copyWith(username: _signIns[s.id] ?? ''),
+        ..._mine,
+      ];
+      _signIns = {};
+      _mine = [];
+      _split = false;
+      _personal = null;
+      await _save();
+      return;
+    }
+    _split = split;
+    _personal = split ? personal : null;
+    _signIns = {};
+    _mine = [];
+    if (!split) return;
+    final j = await personal.read(mineFile);
+    if (j is Map) {
+      final si = j['signIns'];
+      if (si is Map) {
+        _signIns = {
+          for (final e in si.entries)
+            if (e.key is String && e.value is String && (e.value as String).isNotEmpty) e.key as String: e.value as String,
+        };
+      }
+      final list = j['servers'];
+      _mine = [for (final x in (list is List ? list : const [])) ?ServerEntry.fromJson(x)];
+    }
+  }
+
+  /// Tells the listeners after [usePersonal].
+  void announce() => notifyListeners();
+
+  /// What a person starts with when profiles are switched on: the sign-ins in use now.
+  Map<String, dynamic> currentSignIns() => {
+        'signIns': {
+          for (final s in all)
+            if (!s.isMain && s.username.isNotEmpty) s.id: s.username,
+        },
+        'servers': <Object>[],
+      };
+
+  Future<void> _saveMine() async {
+    final p = _personal;
+    if (!_split || p == null) return;
+    await p.write(mineFile, {
+      'signIns': _signIns,
+      'servers': [for (final s in _mine) s.toJson()],
+    });
+  }
+
   Future<void> load() async {
     final j = await storage.read(file);
     final list = j is Map ? j['servers'] : null;
@@ -240,10 +324,17 @@ class ServersModel extends ChangeNotifier {
     );
   }
 
-  /// Every server: the main one first, then the rest in the order they were added.
-  List<ServerEntry> get all => [?main, ..._others];
+  /// Every server: the main one first, then the rest in the order they were added (with profiles
+  /// on: with this person's sign-in, then their own servers).
+  List<ServerEntry> get all => [?main, for (final s in _others) _withMySignIn(s), ..._mine];
 
-  ServerEntry? byId(String id) => id == mainId ? main : _others.where((s) => s.id == id).firstOrNull;
+  ServerEntry? byId(String id) {
+    if (id == mainId) return main;
+    for (final s in _others) {
+      if (s.id == id) return _withMySignIn(s);
+    }
+    return _mine.where((s) => s.id == id).firstOrNull;
+  }
 
   /// The servers that can hold [kind] (used for it or not), main first. A server that can hold
   /// all three shows in each section.
@@ -259,7 +350,9 @@ class ServersModel extends ChangeNotifier {
 
   String _newId() => 's${now()}';
 
-  /// Adds a server that isn't the main one. Its password goes to the protected storage.
+  /// Adds a server that isn't the main one. Its password goes to the protected storage. With
+  /// profiles on, [justForMe] keeps it in this person's own list; otherwise it's the device's
+  /// (everyone sees it, and signs in with their own user name: this one is this person's).
   Future<ServerEntry> add({
     required ServerType type,
     required String name,
@@ -267,6 +360,7 @@ class ServersModel extends ChangeNotifier {
     String username = '',
     String password = '',
     required Set<MediaKind> uses,
+    bool justForMe = false,
   }) async {
     final entry = ServerEntry(
       id: _newId(),
@@ -276,19 +370,40 @@ class ServersModel extends ChangeNotifier {
       username: username.trim(),
       uses: uses.intersection(type.can),
     );
-    _others = [..._others, entry];
+    if (_split && justForMe) {
+      _mine = [..._mine, entry];
+    } else if (_split) {
+      // The device's list holds the address; the sign-in is this person's.
+      _others = [..._others, entry.copyWith(username: '')];
+      if (entry.username.isNotEmpty) _signIns = {..._signIns, entry.id: entry.username};
+    } else {
+      _others = [..._others, entry];
+    }
     await _storePassword(entry, password);
     notifyListeners();
     await _save();
+    await _saveMine();
     return entry;
   }
 
-  /// Changes a server that isn't the main one ([password] null: keep the saved one).
+  /// Changes a server that isn't the main one ([password] null: keep the saved one). With
+  /// profiles on, a device server's user name is this person's sign-in; its address, name and
+  /// uses are everyone's.
   Future<void> update(ServerEntry changed, {String? password}) async {
     final old = byId(changed.id);
     if (old == null || old.isMain) return;
     final entry = changed.copyWith(uses: changed.uses.intersection(changed.type.can));
-    _others = [for (final s in _others) s.id == entry.id ? entry : s];
+    if (isMine(entry)) {
+      _mine = [for (final s in _mine) s.id == entry.id ? entry : s];
+    } else if (_split) {
+      _others = [
+        for (final s in _others) s.id == entry.id ? entry.copyWith(username: s.username) : s,
+      ];
+      _signIns = {..._signIns}..remove(entry.id);
+      if (entry.username.isNotEmpty) _signIns[entry.id] = entry.username;
+    } else {
+      _others = [for (final s in _others) s.id == entry.id ? entry : s];
+    }
     if (password != null || old.url != entry.url || old.username != entry.username) {
       final keep = password ?? await passwordOf(old);
       if (old.url != entry.url || old.username != entry.username) await _deletePassword(old);
@@ -296,6 +411,7 @@ class ServersModel extends ChangeNotifier {
     }
     notifyListeners();
     await _save();
+    await _saveMine();
   }
 
   /// The name shown for the main server.
@@ -332,9 +448,15 @@ class ServersModel extends ChangeNotifier {
       for (final s in _others)
         if (s.id != server.id) s,
     ];
+    _mine = [
+      for (final s in _mine)
+        if (s.id != server.id) s,
+    ];
+    if (_signIns.containsKey(server.id)) _signIns = {..._signIns}..remove(server.id);
     await _deletePassword(server);
     notifyListeners();
     await _save();
+    await _saveMine();
   }
 
   /// Makes a saved Subsonic server the main one: it's connected and synced, and the old main
@@ -376,12 +498,13 @@ class ServersModel extends ChangeNotifier {
     final result = await probe(server.type, server.url, username: server.username, password: await passwordOf(server));
     if (!server.isMain) {
       final now = this.now();
-      _others = [
-        for (final s in _others)
-          s.id == server.id ? s.copyWith(lastCheck: result.message, reachable: result.ok, checkedMs: now) : s,
-      ];
+      ServerEntry checked(ServerEntry s) =>
+          s.id == server.id ? s.copyWith(lastCheck: result.message, reachable: result.ok, checkedMs: now) : s;
+      _others = [for (final s in _others) checked(s)];
+      _mine = [for (final s in _mine) checked(s)];
       notifyListeners();
       await _save();
+      await _saveMine();
     }
     return result;
   }
