@@ -11,6 +11,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -105,6 +106,11 @@ class Storage with ChangeNotifier {
         String? keptAs;
         if (await f.exists()) {
           try {
+            final size = await f.length();
+            if (size >= bigFileBytes) {
+              _big.add(name);
+              return await _decodeFileInBackground(f.path);
+            }
             return _decode(await f.readAsString());
           } catch (_) {
             keptAs = await _setAside(f, name);
@@ -144,6 +150,34 @@ class Storage with ChangeNotifier {
         } catch (e) {
           report('Part of your ${describe(name)} couldn\'t be read.');
         }
+      });
+
+  /// Files this big (or bigger) are read, turned into text and written in a background isolate
+  /// (0.2.12). The user (8 Nov 2026): the TVs "can stutter sometimes while streaming and … [are]
+  /// rather slow to respond". server_videos.json (the Jellyfin catalogue, 7.4 MB for ~5,900
+  /// videos) was encoded on the thread that draws the screen and handles the remote: ~100 ms on
+  /// the PC, about a second on the test TV, at every sync and more. In an isolate the
+  /// screen's thread only hands the data over (~20 ms on the PC). Small files stay as they were:
+  /// for them an isolate costs more than it saves.
+  static const bigFileBytes = 256 * 1024;
+
+  /// Files known to be big (from their last read or save).
+  final Set<String> _big = {};
+
+  /// Whether [name] is saved in the background (tests).
+  @visibleForTesting
+  bool isBig(String name) => _big.contains(name);
+
+  /// Reads and decodes [path] in an isolate; the result comes back without being copied.
+  static Future<dynamic> _decodeFileInBackground(String path) =>
+      Isolate.run(() => _decode(File(path).readAsStringSync()));
+
+  /// Encodes [json] and writes it to [path] (flushed) in an isolate; returns the text's length.
+  /// Static, so the isolate is handed only [path] and [json], never this Storage.
+  static Future<int> _writeInBackground(String path, Object json) => Isolate.run(() {
+        final text = jsonEncode(json);
+        File(path).writeAsStringSync(text, flush: true);
+        return text.length;
       });
 
   /// Decodes JSON text; an empty file counts as damaged (it's what an interrupted write
@@ -196,7 +230,16 @@ class Storage with ChangeNotifier {
         final f = File(p.join(root.path, name));
         final tmp = File('${f.path}.tmp');
         try {
-          await tmp.writeAsString(jsonEncode(json), flush: true);
+          final int length;
+          if (_big.contains(name)) {
+            length = await _writeInBackground(tmp.path, json);
+          } else {
+            final text = jsonEncode(json);
+            length = text.length;
+            await tmp.writeAsString(text, flush: true);
+          }
+          // Big enough that the next save is made in the background; small again: here.
+          length >= bigFileBytes ? _big.add(name) : _big.remove(name);
           await tmp.rename(f.path);
           // A save that works again clears its failure message.
           if (_saveFailures.remove(name) != null) notifyListeners();

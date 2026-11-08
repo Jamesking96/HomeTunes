@@ -14,11 +14,13 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as p;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import 'services/app_licences.dart';
 import 'services/device_kind.dart';
 import 'services/download_engine.dart';
+import 'services/engine/engines.dart' show VideoBuffer;
 import 'services/internet_check.dart';
 import 'services/media_session.dart';
 import 'services/playback_log.dart';
@@ -50,6 +52,7 @@ import 'ui/screens/settings/appearance_settings.dart';
 import 'ui/screens/settings/update_ui.dart';
 import 'ui/screens/settings/whats_new_ui.dart';
 import 'ui/shell.dart';
+import 'ui/start_screen.dart';
 import 'ui/theme.dart';
 import 'ui/tv/tv_focus.dart';
 import 'ui/tv/tv_shell.dart' show AppHome;
@@ -63,6 +66,10 @@ import 'state/settings/settings_groups.dart' as prefs;
 Future<void> main() async {
   // Both of these must run before any plugin or media_kit Player is used.
   WidgetsFlutterBinding.ensureInitialized();
+  // Android (phone and TV, 0.2.12): something to look at at once, the same picture as the launch
+  // window (the dark background and the icon), while the files below are read; the app replaces
+  // it when they're ready. Before, the window stayed white until then (~3.5 s on the TV).
+  if (Platform.isAndroid) runApp(const StartScreen());
   // A picture file may have changed (a new cover, artist or series picture, playlist picture):
   // drop Flutter's cached copies so the new one shows (refactor phase 3: the models only say so).
   picturesChanged = () => PaintingBinding.instance.imageCache.clear();
@@ -72,6 +79,14 @@ Future<void> main() async {
 
   // 1. Open the data folder and create the models (nothing is read from disk yet).
   final storage = await Storage.open();
+  // Streamed videos are buffered on disk here, not in memory (0.2.12, engines.dart VideoBuffer).
+  try {
+    final buffer = Directory(p.join((await getTemporaryDirectory()).path, 'video-buffer'));
+    await buffer.create(recursive: true);
+    VideoBuffer.cacheDir = buffer.path;
+  } catch (e) {
+    debugPrint('HomeTunes: no folder for the video buffer ($e); it stays in memory');
+  }
   await PlaybackLog.attach(storage.root.path);
   PlaybackLog.add('HomeTunes started');
   // Android TV / Google TV (0.2.0): asked once, before any screen is built.
@@ -166,6 +181,11 @@ Future<void> main() async {
   // servers are read again once the app is up. Places go both ways (ListeningModel.onPlaceSaved).
   final serverBooks = ServerBooksModel(storage: storage, servers: servers, library: library, listening: listening);
   await safely('server books', serverBooks.load);
+  // The half-hourly server re-reads wait while a video is playing (0.2.12): one that finds
+  // something new rebuilds the tabs, which can hold the picture for a moment on a TV.
+  bool videoPlaying() => watching.video != null && watching.playing;
+  serverVideos.holdResync = videoPlaying;
+  serverBooks.holdResync = videoPlaying;
   // Downloads from the servers (0.2.3): what was downloaded plays from here, even with the
   // server off. The engine (background_downloader) starts once the app is up.
   final downloads = DownloadsModel(

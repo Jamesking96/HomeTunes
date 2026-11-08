@@ -77,6 +77,51 @@ List<(String, String)> engineSettings(EngineUse use) => switch (use) {
         ],
     };
 
+/// How the video page's player buffers what it plays (0.2.12). The user (8 Nov 2026): "Are we
+/// also able to buffer the streamed content to help preventing issues with playbacks
+/// stuttering?"
+///
+/// What it was: media_kit's defaults, `cache=yes` and `cache-on-disk=yes` with a 32 MB limit ahead
+/// and 32 MB behind, but no `cache-dir`, and mpv only buffers on disk when it has one: so the
+/// buffer was in memory, on TVs already short of it. 32 MB is also only ~20–30 s of a big
+/// original from a server.
+///
+/// Now, for something streamed: the buffer goes on disk in the app's temporary folder
+/// ([cacheDir], set by main.dart; mpv deletes its file when the video closes), up to
+/// [streamAhead] ahead and [streamBehind] behind (going back a little needs no fetching again),
+/// and a short head start: playing begins, and carries on after it had to wait (a skip, a slow
+/// moment), once [headStart] is in hand, so a skip isn't play, stall, play.
+/// Files on the device keep mpv's usual settings: they're read straight from the disk.
+abstract final class VideoBuffer {
+  /// Where streamed videos are buffered (null: in memory, as before; tests).
+  static String? cacheDir;
+
+  static const streamAhead = 150 * 1024 * 1024, streamBehind = 50 * 1024 * 1024;
+
+  /// Seconds of video in hand before playing starts or carries on.
+  static const headStart = 3;
+
+  /// media_kit's own (PlayerConfiguration.bufferSize), for files on the device.
+  static const fileBuffer = 32 * 1024 * 1024;
+
+  /// The mpv settings for the next file the video page opens.
+  static List<(String, String)> settings({required bool streamed}) => streamed
+      ? [
+          if (cacheDir != null) ('cache-dir', cacheDir!),
+          ('demuxer-max-bytes', '$streamAhead'),
+          ('demuxer-max-back-bytes', '$streamBehind'),
+          ('cache-pause-initial', 'yes'),
+          ('cache-pause-wait', '$headStart'),
+        ]
+      : const [
+          ('cache-dir', ''),
+          ('demuxer-max-bytes', '$fileBuffer'),
+          ('demuxer-max-back-bytes', '$fileBuffer'),
+          ('cache-pause-initial', 'no'),
+          ('cache-pause-wait', '1'),
+        ];
+}
+
 /// mpv's own properties and commands for a player.
 class Mpv {
   Mpv._(this._native);

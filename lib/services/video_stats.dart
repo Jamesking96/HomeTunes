@@ -254,6 +254,10 @@ class VideoStats {
     _logDeviceOnce();
   }
 
+  /// How often, and how far apart, the start line asks again while the picture isn't showing.
+  static const startTries = 6;
+  static Duration startRetry = const Duration(seconds: 2);
+
   static bool _deviceLogged = false;
   static void _logDeviceOnce() {
     if (_deviceLogged) return;
@@ -262,7 +266,7 @@ class VideoStats {
         '${Platform.numberOfProcessors} processor cores');
   }
 
-  Future<void> _logStart() async {
+  Future<void> _logStart([int tries = 0]) async {
     final name = _name;
     if (name == null || _disposed) return;
     final p = <String, String>{};
@@ -278,6 +282,14 @@ class VideoStats {
       p[k] = await _get(k);
     }
     if (_disposed || name != _name) return;
+    // Not showing yet (0.2.12: a streamed video now waits for a few seconds in hand before it
+    // starts, and the line said "decoding: software … drawing: null" for videos the video chip
+    // was playing): asked again a little later, up to [startTries] times.
+    final vo = p['current-vo'] ?? '';
+    if ((vo.isEmpty || vo == 'null' || (p['video-params/w'] ?? '').isEmpty) && tries < startTries) {
+      _startTimer = Timer(startRetry, () => _logStart(tries + 1));
+      return;
+    }
     PlaybackLog.add(startLine(label, name, p));
     // Start counting drops from here.
     _lastDecoder = int.tryParse(await _get('decoder-frame-drop-count')) ?? 0;

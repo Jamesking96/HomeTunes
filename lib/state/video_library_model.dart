@@ -95,6 +95,25 @@ class VideoLibraryModel extends ChangeNotifier {
     _saveSoon();
   }
 
+  /// Just the places from a server read whose videos didn't change (0.2.12): each is used when
+  /// it's newer than the one here. Screens are told, and the file saved, only if one was. (A
+  /// re-read used to go through [setServerVideos] every time: every video sorted and grouped
+  /// again and every video screen rebuilt, about a second on the test TV.)
+  void applyServerPlaces(Map<String, VideoPlace> places) {
+    var changed = false;
+    for (final e in places.entries) {
+      final mine = _places[e.key];
+      if (mine == null || e.value.updatedMs > mine.updatedMs) {
+        if (mine != null && mine.position == e.value.position && mine.watched == e.value.watched) continue;
+        _places[e.key] = e.value;
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    notifyListeners();
+    _saveSoon();
+  }
+
   /// Takes away every video from server [serverKey] (it was removed or switched off for videos).
   /// With [forget], their places and edits go too.
   void removeServerVideos(String serverKey, {bool forget = false}) {
@@ -248,6 +267,7 @@ class VideoLibraryModel extends ChangeNotifier {
   Future<void> lookUpMissingGenres({Duration gap = const Duration(seconds: 1)}) async {
     if (!_genresOnline || _genreRunning) return;
     _genreRunning = true;
+    var unshown = 0;
     try {
       for (final c in _genreCandidates()) {
         if (!_genresOnline || _disposed) break;
@@ -267,15 +287,23 @@ class VideoLibraryModel extends ChangeNotifier {
             source: found.source,
             at: DateTime.now().millisecondsSinceEpoch,
           );
-          if (found.found) _rebuild(lookUp: false);
+          // 0.2.12: shown a batch at a time, not one rebuild of every video per genre found.
+          if (found.found && ++unshown >= genresShownEvery) {
+            unshown = 0;
+            _rebuild(lookUp: false);
+          }
           _saveSoon();
         }
         if (gap > Duration.zero) await Future<void>.delayed(gap);
       }
     } finally {
       _genreRunning = false;
+      if (unshown > 0 && !_disposed) _rebuild(lookUp: false);
     }
   }
+
+  /// How many genres found online are shown together (0.2.12).
+  static const genresShownEvery = 20;
 
   /// Forgets the genres found online (Settings, or tests); they're looked up again.
   void forgetFoundGenres() {
@@ -1136,6 +1164,7 @@ class VideoLibraryModel extends ChangeNotifier {
   }
 
   void _rebuild({bool lookUp = true}) {
+    _lengthsWaiting = false; // anything waiting is in this one
     final everything = [..._scanned, ..._remote];
     _rawById = {for (final v in everything) v.id: v};
     final all = _fillGenres([for (final v in everything) if (!_formatHidden(v)) _edits[v.id]?.applyTo(v) ?? v])
@@ -1404,9 +1433,19 @@ class VideoLibraryModel extends ChangeNotifier {
     final raw = _rawById[id];
     if (raw != null && length > Duration.zero && (raw.duration - length).abs() > const Duration(seconds: 2)) {
       _update(id, (v) => v.copyWith(duration: length));
-      _rebuild();
-    } else if (!quiet || becameWatched) {
-      notifyListeners();
+      // 0.2.12: while it plays, the new length waits for the next pause or stop (the rebuild
+      // sorts and groups every video and redraws every video screen: on the TV, a hitch a few
+      // seconds into such a video). Before, it was rebuilt at once.
+      _rawById[id] = (_rawById[id] ?? raw).copyWith(duration: length);
+      _lengthsWaiting = true;
+    }
+    if (!quiet || becameWatched) {
+      if (_lengthsWaiting) {
+        _lengthsWaiting = false;
+        _rebuild();
+      } else {
+        notifyListeners();
+      }
     }
     if (quiet && !becameWatched) {
       _saveLater();
@@ -1417,6 +1456,9 @@ class VideoLibraryModel extends ChangeNotifier {
 
   /// How often a quiet place save (while a video plays) is written to disk at most (0.2.8).
   static const quietSaveEvery = Duration(seconds: 30);
+
+  /// A playing video's length was corrected and the screens haven't been told yet (0.2.12).
+  bool _lengthsWaiting = false;
 
   /// Marks videos as watched or not (not watched also starts them again from the beginning).
   Future<void> setWatched(Iterable<String> ids, bool watched) async {

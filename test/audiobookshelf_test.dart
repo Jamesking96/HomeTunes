@@ -514,10 +514,12 @@ void main() {
       server.up = false;
       clock += 60000;
       await listening.setFinished(h, false);
-      for (var i = 0; i < 200 && !jsonEncode(await storage.read(ServerBooksModel.fileName)).contains('pending'); i++) {
+      // (Kept in its own small file since 0.2.12, not in the catalogue.)
+      for (var i = 0; i < 200 && !jsonEncode(await storage.read(ServerBooksModel.pendingFileName)).contains('hhgttg'); i++) {
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
-      expect(jsonEncode(await storage.read(ServerBooksModel.fileName)), contains('pending'));
+      expect(jsonEncode(await storage.read(ServerBooksModel.pendingFileName)), contains('hhgttg'));
+      expect(jsonEncode(await storage.read(ServerBooksModel.fileName)), isNot(contains('pending')));
       server.up = true;
       clock += 60000;
       await model.sync(entry);

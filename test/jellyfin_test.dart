@@ -8,6 +8,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/video_item.dart';
+import 'package:hometunes/services/engine/engines.dart' show VideoBuffer;
 import 'package:hometunes/services/jellyfin_client.dart';
 import 'package:hometunes/services/secret_store.dart';
 import 'package:hometunes/services/server_probe.dart';
@@ -230,6 +231,31 @@ void main() {
     expect(ok(), isTrue);
   }
 
+  /// [until] for a check that reads a file.
+  Future<void> untilRead(Future<bool> Function() ok) async {
+    for (var i = 0; i < 400 && !await ok(); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(await ok(), isTrue);
+  }
+
+  test('a big answer from the server (a page of videos) is read in the background, the same (0.2.12)', () async {
+    final page = {
+      'Items': [
+        for (var i = 0; i < 400; i++)
+          {'Id': 'v$i', 'Type': 'Movie', 'Name': 'Film number $i — “quoted”', 'Overview': 'x' * 200},
+      ],
+      'TotalRecordCount': 400,
+    };
+    final body = utf8.encode(jsonEncode(page));
+    expect(body.length, greaterThan(JellyfinClient.bigAnswer));
+    final client = MockClient((req) async => http.Response.bytes(body, 200, headers: {'content-type': 'application/json'}));
+    final c = JellyfinClient(baseUrl: 'http://192.168.0.10:8096', deviceId: 'dev1', token: 't', userId: 'u', httpClient: client);
+    final items = await c.items(parentId: 'films', types: const ['Movie'], pageSize: 400);
+    expect(items, hasLength(400));
+    expect(items[7]['Name'], 'Film number 7 — “quoted”');
+  });
+
   group('the client', () {
     test('signs in with the password once, then sends only the token, never in an address', () async {
       final c = JellyfinClient(baseUrl: 'http://192.168.0.10:8096/', deviceId: 'dev1', httpClient: server.client);
@@ -417,6 +443,104 @@ void main() {
       expect(videos.placeOf(id)!.position, const Duration(minutes: 30));
     });
 
+    test('a place that can\'t be sent waits in its own small file, not the catalogue (0.2.12)', () async {
+      await model.sync(entry);
+      await Future<void>.delayed(const Duration(milliseconds: 300)); // the sync's own saves
+      final catalogue = File(p.join(storage.root.path, ServerVideosModel.fileName));
+      final before = catalogue.lastModifiedSync();
+      await Future<void>.delayed(const Duration(milliseconds: 1100)); // file times are to the second
+      server.up = false;
+      final id = 'jf:${entry.id}:ep2';
+      model.stopped(videos.byId(id)!, const Duration(minutes: 12), const Duration(minutes: 50));
+      await untilRead(() async => jsonEncode(await storage.read(ServerVideosModel.pendingFileName)).contains('ep2'));
+      expect(catalogue.lastModifiedSync(), before);
+      expect(jsonEncode(await storage.read(ServerVideosModel.fileName)), isNot(contains('pending')));
+      // Sent at the next sync, and the small file is emptied.
+      server.up = true;
+      await model.sync(entry);
+      expect(server.requests.any((r) => r.startsWith('POST /UserItems/ep2/UserData')), isTrue);
+      await untilRead(() async => !jsonEncode(await storage.read(ServerVideosModel.pendingFileName)).contains('ep2'));
+    });
+
+    test('places waiting in an older catalogue file move to the small file and are still sent', () async {
+      await model.sync(entry);
+      await videos.settle();
+      await Future<void>.delayed(const Duration(milliseconds: 300)); // the sync's own saves
+      // As 0.2.11 left it: the waiting place inside the catalogue.
+      final old = await storage.read(ServerVideosModel.fileName) as Map;
+      (old['servers'] as Map)[entry.id]['pending'] = {
+        'ep1': {'positionMs': 600000, 'watched': false, 'updatedMs': DateTime.now().millisecondsSinceEpoch},
+      };
+      await storage.write(ServerVideosModel.fileName, old);
+      final again = ServerVideosModel(storage: storage, servers: servers, videos: videos, secrets: secrets,
+          httpClient: () => server.client);
+      addTearDown(again.dispose);
+      await again.load();
+      expect(jsonEncode(await storage.read(ServerVideosModel.pendingFileName)), contains('ep1'));
+      expect(jsonEncode(await storage.read(ServerVideosModel.fileName)), isNot(contains('pending')));
+      server.requests.clear();
+      await again.sync(entry);
+      expect(server.requests.any((r) => r.startsWith('POST /UserItems/ep1/UserData')), isTrue);
+    });
+
+    test('a re-read that brings nothing new rebuilds nothing and saves nothing (0.2.12)', () async {
+      await model.sync(entry);
+      await until(() => videos.byId('jf:${entry.id}:ep1')?.thumb != null);
+      await videos.settle();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      final catalogue = File(p.join(storage.root.path, ServerVideosModel.fileName));
+      final before = catalogue.lastModifiedSync();
+      await Future<void>.delayed(const Duration(milliseconds: 1100)); // file times are to the second
+      var told = 0;
+      void count() => told++;
+      videos.addListener(count);
+      addTearDown(() => videos.removeListener(count));
+      final shown = videos.videos;
+      await model.sync(entry);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(told, 0);
+      expect(identical(videos.videos, shown), isTrue);
+      expect(catalogue.lastModifiedSync(), before);
+      // Pictures stay on the videos.
+      expect(videos.byId('jf:${entry.id}:ep1')?.thumb, isNotNull);
+    });
+
+    test('a re-read that finds a newer place brings just that in', () async {
+      await model.sync(entry);
+      await videos.settle();
+      final id = 'jf:${entry.id}:ep1';
+      final shown = videos.videos;
+      server.userData['ep1'] = {
+        'PlaybackPositionTicks': const Duration(minutes: 7).inMicroseconds * 10,
+        'Played': false,
+        'LastPlayedDate': DateTime.now().add(const Duration(minutes: 1)).toUtc().toIso8601String(),
+      };
+      await model.sync(entry);
+      expect(videos.placeOf(id)?.position, const Duration(minutes: 7));
+      expect(identical(videos.videos, shown), isTrue);
+    });
+
+    test('the half-hourly re-read waits while a video plays', () async {
+      var clock = DateTime.now().millisecondsSinceEpoch;
+      model.now = () => clock;
+      var playing = true;
+      model.holdResync = () => playing;
+      model.start();
+      await until(() => !model.isSyncing(entry));
+      server.requests.clear();
+      clock += const Duration(minutes: 10).inMilliseconds;
+      model.resyncIfDue();
+      expect(model.isSyncing(entry), isFalse); // not due yet
+      clock += ServerVideosModel.resyncEvery.inMilliseconds;
+      model.resyncIfDue();
+      expect(model.isSyncing(entry), isFalse); // due, but a video is playing
+      playing = false;
+      model.resyncIfDue();
+      expect(model.isSyncing(entry), isTrue);
+      await until(() => !model.isSyncing(entry));
+      expect(server.requests, isNotEmpty);
+    });
+
     test('marking watched tells the server', () async {
       await model.sync(entry);
       server.requests.clear();
@@ -541,6 +665,25 @@ void main() {
       expect(engine.calls.first, startsWith('open stream at'));
       expect(isRemoteVideoId('jf:${entry.id}:ep2'), isTrue);
     });
+
+    test('a streamed video gets the bigger buffer, on disk, and a head start (0.2.12)', () async {
+      VideoBuffer.cacheDir = p.join(dir.path, 'video-buffer');
+      addTearDown(() => VideoBuffer.cacheDir = null);
+      start('ep2');
+      await until(() => engine.openPath != null);
+      expect(engine.options['cache-dir'], VideoBuffer.cacheDir);
+      expect(engine.options['demuxer-max-bytes'], '${VideoBuffer.streamAhead}');
+      expect(engine.options['demuxer-max-back-bytes'], '${VideoBuffer.streamBehind}');
+      expect(engine.options['cache-pause-initial'], 'yes');
+      expect(engine.options['cache-pause-wait'], '${VideoBuffer.headStart}');
+    });
+  });
+
+  test('files on the device keep the engine\'s usual buffer', () {
+    final s = Map.fromEntries([for (final (k, v) in VideoBuffer.settings(streamed: false)) MapEntry(k, v)]);
+    expect(s['cache-dir'], '');
+    expect(s['demuxer-max-bytes'], '${32 * 1024 * 1024}');
+    expect(s['cache-pause-initial'], 'no');
   });
 
   test('Test connection signs in to a Jellyfin server, then signs out', () async {

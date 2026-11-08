@@ -13,6 +13,7 @@ import '../models/eq_preset.dart' show EqPreset;
 import '../models/video_item.dart';
 import '../models/volume_boost.dart';
 import '../services/engine/audio_chain.dart';
+import '../services/engine/engines.dart' show VideoBuffer;
 import '../services/engine/video_engine.dart';
 import '../services/path_safety.dart';
 import '../services/playback_log.dart';
@@ -572,7 +573,18 @@ class VideoSession extends ChangeNotifier {
     // A converted server stream already begins at [start] (the server starts it there) and keeps
     // the original's clock, so the player shouldn't move its times back to zero.
     final startsThere = address.startsAt != null && address.startsAt! > Duration.zero;
-    if (engine.hasOptions) await engine.setOption('rebase-start-time', startsThere ? 'no' : 'yes');
+    if (engine.hasOptions) {
+      await engine.setOption('rebase-start-time', startsThere ? 'no' : 'yes');
+      // Streamed: a bigger buffer, on disk, and a short head start (0.2.12, VideoBuffer).
+      for (final (name, value) in VideoBuffer.settings(streamed: address.remote)) {
+        try {
+          await engine.setOption(name, value);
+        } catch (e) {
+          PlaybackLog.add('Video buffer: mpv refused $name ($e)');
+        }
+      }
+    }
+    if (_disposed || _id != id) return;
     await engine.open(
       address.uri,
       start: startsThere || start <= Duration.zero ? null : start,
