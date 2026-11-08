@@ -278,11 +278,13 @@ Future<void> showAddToPlaylist(BuildContext context, List<Track> tracks) async {
             if (name != null && ctx.mounted) Navigator.pop(ctx, model.create(name));
           },
         ),
+        // Yours, and ones shared with you that you may change (Profiles, phase 4).
         for (final p in model.playlists)
+          if (p.canChangeSongs)
           ListTile(
             leading: const Icon(Icons.queue_music),
             title: Text(p.name),
-            subtitle: Text('${p.trackIds.length} songs'),
+            subtitle: Text([if (!p.isMine) 'From ${p.ownerName}', '${p.trackIds.length} songs'].join(' · ')),
             onTap: () => Navigator.pop(ctx, p),
           ),
       ]),

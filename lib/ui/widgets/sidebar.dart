@@ -270,6 +270,8 @@ class _SidebarContent extends StatelessWidget {
                   key: ValueKey('sidebar-playlist:${p.id}'),
                   dense: true,
                   title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  // Profiles, phase 4: a playlist someone shared with you.
+                  trailing: p.isMine ? null : Tooltip(message: 'From ${p.ownerName}', child: Icon(Icons.group_outlined, size: 16, color: AppColors.textDim)),
                   onTap: () {
                     nav.selectTab(AppNav.libraryTab);
                     nav.openPlaylist(p);

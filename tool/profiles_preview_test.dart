@@ -9,8 +9,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hometunes/models/playlist.dart';
 import 'package:hometunes/services/storage.dart';
+import 'package:hometunes/state/playlists_model.dart';
 import 'package:hometunes/state/profiles_model.dart';
+import 'package:hometunes/ui/widgets/playlist_sharing.dart';
 import 'package:hometunes/ui/profiles/profile_ui.dart';
 import 'package:hometunes/ui/profiles/whos_listening.dart';
 import 'package:hometunes/ui/screens/settings/profile_settings.dart';
@@ -104,6 +107,24 @@ void main() {
     await draw(tester, m, const Size(900, 700), 'profiles-settings',
         Scaffold(appBar: AppBar(title: const Text('Profiles'), actions: const [ProfileButton()]), body: const ProfileSettings()));
   });
+
+  // Phase 4: the owner chooses what everyone else may do with a playlist.
+  Future<void> sharing(WidgetTester tester, Size size, String name, {bool tv = false}) async {
+    final m = await family(tester);
+    final pl = PlaylistsModel(Storage.at(dir).forProfile('p1'));
+    final road = Playlist(id: '1', name: 'Road trip', sharing: PlaylistSharing.play);
+    pl.playlists.add(road);
+    Widget page = Scaffold(
+      body: Builder(builder: (c) => Center(child: TextButton(onPressed: () => showPlaylistSharing(c, road), child: const Text('Share')))),
+    );
+    if (tv) page = TvFocus(enabled: true, sounds: false, child: page);
+    await draw(tester, m, size, name, ChangeNotifierProvider.value(value: pl, child: page),
+        then: () => tester.tap(find.text('Share')));
+  }
+
+  testWidgets('Sharing a playlist (phase 4)', (tester) => sharing(tester, const Size(900, 700), 'profiles-playlist-sharing'));
+  testWidgets('Sharing a playlist on the TV (phase 4)',
+      (tester) => sharing(tester, const Size(1920, 1080), 'profiles-playlist-sharing-tv', tv: true));
 
   testWidgets('Add a profile', (tester) async {
     final m = await family(tester);

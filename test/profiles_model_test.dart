@@ -1,11 +1,12 @@
 // Profiles, phase 1 (state/profiles_model.dart; plan: claude/06_PROFILES_PLAN.md): turning them
 // on moves the person's things into a profile (nothing lost), a new profile starts with a copy
 // of the edits only, switching swaps whose files every personal model uses (the shared and
-// this-device settings stay), and on → off → on gives back the same things.
+// this-device settings stay), and on â†’ off â†’ on gives back the same things.
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hometunes/models/playlist.dart';
 import 'package:hometunes/models/track_edit.dart';
 import 'package:hometunes/services/app_backup.dart';
 import 'package:hometunes/services/storage.dart';
@@ -342,5 +343,78 @@ void main() {
     expect(file('playlists.json').existsSync(), isFalse);
     expect(json('settings.json')?.containsKey('textSize'), isFalse);
     expect(json('profiles/p1/settings.json')?['textSize'], 1.3);
+  });
+
+  // ---- Phase 4: shared playlists (the owner chooses: play it, or play and change it) ----
+
+  test('a shared playlist shows for everyone else; only "play and change" lets them change it', () async {
+    final (profiles, host) = await open();
+    await profiles.turnOn(name: 'Sam');
+    final pl = host.playlists;
+    final mineOnly = pl.create('Sam only');
+    final road = pl.create('Road trip')..trackIds.addAll(['a', 'b', 'c']);
+    pl.setSharing(road, PlaylistSharing.play);
+    final party = pl.create('Party')..trackIds.addAll(['x', 'y']);
+    pl.setSharing(party, PlaylistSharing.change);
+    expect(mineOnly.sharing, PlaylistSharing.off);
+    await host.saveEverything();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(json('profiles/p1/playlists.json')?['playlists'][1]['sharing'], 'play');
+
+    await profiles.add(name: 'Alex');
+    await profiles.switchTo('p2');
+    // Alex sees Sam's two shared playlists, not the private one, marked as Sam's.
+    expect([for (final p in pl.playlists) p.name], ['Road trip', 'Party']);
+    final seenRoad = pl.playlists.first, seenParty = pl.playlists.last;
+    expect(seenRoad.isMine, isFalse);
+    expect(seenRoad.ownerName, 'Sam');
+    expect(seenRoad.canChangeSongs, isFalse);
+    expect(seenParty.canChangeSongs, isTrue);
+
+    // Play only: nothing changes, not even the name.
+    pl.removeAt(seenRoad, 0);
+    pl.rename(seenRoad, 'Mine now');
+    pl.delete(seenRoad);
+    expect(seenRoad.trackIds, ['a', 'b', 'c']);
+    expect(seenRoad.name, 'Road trip');
+    expect(pl.playlists, contains(seenRoad));
+    // Play and change: songs can move and go, written into Sam's file; the name is still Sam's.
+    pl.setOrder(seenParty, ['y', 'x']);
+    pl.removeAt(seenParty, 1);
+    pl.rename(seenParty, 'Alex party');
+    await pl.flush();
+    final samParty = (json('profiles/p1/playlists.json')?['playlists'] as List).firstWhere((p) => p['name'] == 'Party');
+    expect(samParty['trackIds'], ['y']);
+    // Alex's own playlists file holds only Alex's (none yet).
+    expect(json('profiles/p2/playlists.json')?['playlists'] ?? const [], isEmpty);
+
+    // A new playlist of Alex's comes before the shared ones.
+    pl.create('Alex mix');
+    expect(pl.playlists.first.name, 'Alex mix');
+
+    // Back to Sam: the change is there, and nothing of Alex's is shown (not shared).
+    await profiles.switchTo('p1');
+    expect([for (final p in pl.playlists) p.name], ['Sam only', 'Road trip', 'Party']);
+    expect(pl.byId(party.id)?.trackIds, ['y']);
+    expect(pl.playlists.every((p) => p.isMine), isTrue);
+  });
+
+  test('with sharing turned back off, the others no longer see it; with profiles off nobody does', () async {
+    final (profiles, host) = await open();
+    await profiles.turnOn(name: 'Sam');
+    final pl = host.playlists;
+    final road = pl.create('Road trip');
+    pl.setSharing(road, PlaylistSharing.change);
+    await profiles.add(name: 'Alex');
+    await profiles.switchTo('p2');
+    expect(pl.playlists.single.name, 'Road trip');
+    await profiles.switchTo('p1');
+    pl.setSharing(pl.byId(road.id)!, PlaylistSharing.off);
+    await profiles.switchTo('p2');
+    expect(pl.playlists, isEmpty);
+    await profiles.switchTo('p1');
+    await profiles.turnOff('p1');
+    expect([for (final p in pl.playlists) p.name], ['Road trip']);
+    expect(pl.playlists.single.isMine, isTrue);
   });
 }

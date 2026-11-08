@@ -120,7 +120,8 @@ TvTile tvPlaylistTile(BuildContext context, Playlist p, {FocusNode? node, double
     width: width,
     picture: PlaylistArt(playlist: p, radius: 0),
     title: p.name,
-    subtitle: _count(p.trackIds.length, 'song'),
+    // Profiles, phase 4: whose a shared playlist is.
+    subtitle: p.isMine ? _count(p.trackIds.length, 'song') : 'From ${p.ownerName}',
     onPressed: () => nav.openPlaylist(p),
     onHold: () => showPlaylistOptions(context, p),
   );

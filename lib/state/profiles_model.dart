@@ -17,6 +17,7 @@ import 'package:path/path.dart' as p;
 
 import '../services/storage.dart';
 import 'custom_art_store.dart' as art;
+import 'playlists_model.dart' show playlistOwners;
 import 'profile_session.dart';
 
 /// One person who uses HomeTunes on this device.
@@ -94,6 +95,12 @@ class ProfilesModel extends ChangeNotifier {
   ProfilesModel(this.data, {this.host}) {
     // The pictures other profiles chose aren't tidied away (the files are shared).
     art.usedByOthers = _picturesOfOthers;
+    // Their shared playlists are shown to the person using HomeTunes (phase 4).
+    playlistOwners = () async => [
+          if (on)
+            for (final x in profiles)
+              if (x.id != currentId) (id: x.id, name: x.name, storage: data.forProfile(x.id)),
+        ];
   }
 
   /// The data folder.

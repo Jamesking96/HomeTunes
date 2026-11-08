@@ -20,6 +20,15 @@ class Playlist {
   int? iconColour;
   String? iconImage;
 
+  /// Profiles, phase 4: what the other profiles may do with it, as the owner chose
+  /// ([PlaylistSharing]). Saved with the owner's playlist.
+  PlaylistSharing sharing;
+
+  /// Set on another profile's shared playlist while it's shown to someone else (never saved):
+  /// whose it is. Null on your own.
+  String? ownerId;
+  String? ownerName;
+
   Playlist({
     required this.id,
     required this.name,
@@ -28,11 +37,20 @@ class Playlist {
     this.iconName,
     this.iconColour,
     this.iconImage,
+    this.sharing = PlaylistSharing.off,
+    this.ownerId,
+    this.ownerName,
   })  : trackIds = trackIds ?? [],
         createdMs = createdMs ?? DateTime.now().millisecondsSinceEpoch;
 
   /// Whether the user gave it an icon or picture of its own.
   bool get hasOwnIcon => iconName != null || iconImage != null;
+
+  /// Yours (not another profile's shared playlist).
+  bool get isMine => ownerId == null;
+
+  /// Songs can be added, removed and moved: yours, or shared with "play and change".
+  bool get canChangeSongs => isMine || sharing == PlaylistSharing.change;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -42,6 +60,7 @@ class Playlist {
         if (iconName != null) 'iconName': iconName,
         if (iconColour != null) 'iconColour': iconColour,
         if (iconImage != null) 'iconImage': iconImage,
+        if (sharing != PlaylistSharing.off) 'sharing': sharing.name,
       };
 
   factory Playlist.fromJson(Map<String, dynamic> j) {
@@ -56,6 +75,22 @@ class Playlist {
       iconName: text(j['iconName']),
       iconColour: j['iconColour'] is int ? j['iconColour'] as int : null,
       iconImage: image != null && RegExp(r'^[\w.-]+$').hasMatch(image) && !image.startsWith('.') ? image : null,
+      sharing: PlaylistSharing.values.where((s) => s.name == j['sharing']).firstOrNull ?? PlaylistSharing.off,
     );
   }
+}
+
+/// What the other profiles may do with a playlist (Profiles, phase 4; the owner chooses).
+enum PlaylistSharing {
+  /// Only its owner sees it.
+  off('Not shared', 'Only you see it'),
+
+  /// Everyone else sees it and can play it.
+  play('Others can play it', 'Everyone else sees it and can play it'),
+
+  /// Everyone else can also add, remove and move its songs.
+  change('Others can play and change it', 'Everyone else can play it and add, remove or move songs');
+
+  const PlaylistSharing(this.label, this.detail);
+  final String label, detail;
 }

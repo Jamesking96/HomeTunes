@@ -22,6 +22,7 @@ import '../../state/library_model.dart';
 import '../../state/listening_model.dart';
 import '../../state/player_model.dart';
 import '../../state/playlists_model.dart';
+import '../../state/profiles_model.dart' show ProfilesModel;
 import '../../state/video_library_model.dart';
 import '../../state/video_shuffle.dart' show shuffledByDefault;
 import '../nav.dart';
@@ -39,6 +40,7 @@ import '../theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/book_card.dart' show BookCover;
 import '../widgets/playlist_art.dart';
+import '../widgets/playlist_sharing.dart' show showPlaylistSharing;
 import '../widgets/series_card.dart' show seriesProgress, playSeries, markSeriesFinished;
 import '../widgets/video_shuffle_ui.dart';
 import 'tv_downloads.dart' show tvDownloadOptions;
@@ -87,8 +89,11 @@ TvOption tvAddToPlaylist(BuildContext context, List<Track> tracks, {String? what
           pl.toggleLike(tracks.single);
           tvNotice(context, 'Added to Liked Songs');
         }),
-      for (final p in pl.playlists)
-        TvOption(p.name, Icons.queue_music, subtitle: _songs(p.trackIds.length), picture: PlaylistArt(playlist: p, radius: 0), () {
+      // Yours, and ones shared with you that you may change (Profiles, phase 4).
+      for (final p in pl.playlists.where((p) => p.canChangeSongs))
+        TvOption(p.name, Icons.queue_music,
+            subtitle: [if (!p.isMine) 'From ${p.ownerName}', _songs(p.trackIds.length)].join(' · '),
+            picture: PlaylistArt(playlist: p, radius: 0), () {
           final added = pl.addTracks(p, tracks);
           tvNotice(context, added == 0 ? 'Already in ${p.name}' : 'Added to ${p.name}');
         }),
@@ -258,12 +263,15 @@ List<TvOption> playlistOptions(BuildContext context, Playlist? p, {bool onPage =
     }),
     ...tvDownloadOptions(context, [for (final t in songs()) DownloadItem.track(t)],
         keep: p == null ? (kind: KeepKind.liked, key: '', label: 'Liked Songs') : (kind: KeepKind.playlist, key: p.id, label: p.name)),
-    if (p != null)
+    if (p != null && p.isMine)
       TvOption('Rename', Icons.drive_file_rename_outline, opensMore: true, () async {
         final to = await showTvTextInput(context, title: 'Rename the playlist', initial: p.name);
         if (to != null && to.trim().isNotEmpty) pl.rename(p, to.trim());
       }),
-    if (p != null)
+    // Profiles, phase 4: the owner chooses what everyone else may do with it.
+    if (p != null && p.isMine && (context.read<ProfilesModel?>()?.on ?? false))
+      TvOption('Sharing: ${p.sharing.label}', Icons.group_outlined, opensMore: true, () => showPlaylistSharing(context, p)),
+    if (p != null && p.isMine)
       TvOption('Delete the playlist', Icons.delete_outline, opensMore: true, () {
         tvConfirm(context, title: 'Delete "${p.name}"?', subtitle: 'The songs stay in your library', yes: 'Delete it', run: () {
           if (onPage) Navigator.of(context).maybePop();

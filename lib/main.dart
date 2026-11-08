@@ -358,6 +358,7 @@ class _AppProfileHost implements ProfileHost {
       library.flushPendingSaves(),
       videos.flushPendingSaves(),
       equalizer.flush(),
+      playlists.flush(),
     ]);
   }
 

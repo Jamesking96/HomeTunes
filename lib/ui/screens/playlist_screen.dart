@@ -8,7 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/download.dart' show KeepKind;
+import '../../models/playlist.dart';
 import '../../models/track.dart';
+import '../../state/profiles_model.dart' show ProfilesModel;
 import '../../state/downloads_model.dart' show DownloadItem;
 import '../../state/library_model.dart';
 import '../../state/playlists_model.dart';
@@ -17,6 +19,7 @@ import '../widgets/cards.dart';
 import '../widgets/collection_header.dart';
 import '../widgets/download_ui.dart';
 import '../widgets/playlist_art.dart';
+import '../widgets/playlist_sharing.dart';
 import '../widgets/quick_links.dart';
 import '../widgets/track_tile.dart';
 
@@ -106,6 +109,11 @@ class PlaylistScreen extends StatelessWidget {
     final missing = playlist.trackIds.length - tracks.length;
     final total = tracks.fold(Duration.zero, (a, t) => a + t.duration);
     final label = 'Playlist · ${playlist.name}';
+    // Profiles, phase 4: someone else's shared playlist can't be renamed, re-pictured or deleted
+    // here, and its songs only change when its owner allows it.
+    final mine = playlist.isMine;
+    final canChange = playlist.canChangeSongs;
+    final profilesOn = context.watch<ProfilesModel?>()?.on ?? false;
     // Songs from the music server: Download… / Remove downloads / Keep offline… (0.2.3).
     // (Worked out when the menu opens, so it's never stale.)
     List<DownloadOption> downloads() => downloadOptions(context, [for (final t in tracks) DownloadItem.track(t)],
@@ -123,6 +131,8 @@ class PlaylistScreen extends StatelessWidget {
             }
             if (v == 'icon') {
               await showPlaylistIconPicker(context, playlist);
+            } else if (v == 'share') {
+              await showPlaylistSharing(context, playlist);
             } else if (v == 'rename') {
               final name = await askForName(context, title: 'Rename playlist', initial: playlist.name);
               if (name != null) pl.rename(playlist, name);
@@ -150,11 +160,20 @@ class PlaylistScreen extends StatelessWidget {
           itemBuilder: (_) {
             final dl = downloads();
             return [
-              // Its own icon or picture (0.1.67).
-              const PopupMenuItem(key: ValueKey('playlist-change-icon'), value: 'icon', child: Text('Change icon…')),
-              const PopupMenuItem(value: 'rename', child: Text('Rename')),
-              const PopupMenuItem(value: 'delete', child: Text('Delete playlist')),
-              if (dl.isNotEmpty) const PopupMenuDivider(),
+              if (mine) ...[
+                // Its own icon or picture (0.1.67).
+                const PopupMenuItem(key: ValueKey('playlist-change-icon'), value: 'icon', child: Text('Change icon…')),
+                const PopupMenuItem(value: 'rename', child: Text('Rename')),
+                // Profiles, phase 4: the owner chooses what everyone else may do with it.
+                if (profilesOn)
+                  PopupMenuItem(
+                    key: const ValueKey('playlist-sharing'),
+                    value: 'share',
+                    child: Text('Sharing: ${playlist.sharing.label}…'),
+                  ),
+                const PopupMenuItem(value: 'delete', child: Text('Delete playlist')),
+              ],
+              if (dl.isNotEmpty && mine) const PopupMenuDivider(),
               for (final o in dl) PopupMenuItem(key: ValueKey('menu-${o.key}'), value: 'dl:${o.key}', child: Text(o.label)),
             ];
           },
@@ -165,17 +184,20 @@ class PlaylistScreen extends StatelessWidget {
         SliverToBoxAdapter(
           child: CollectionHeader(
             // Its own icon or picture, else the first song's cover; a click changes it (0.1.67).
-            art: Tooltip(
-              message: 'Change icon',
-              child: InkWell(
-                key: const ValueKey('playlist-art'),
-                onTap: () => showPlaylistIconPicker(context, playlist),
-                child: PlaylistArt(playlist: playlist, radius: 6),
-              ),
-            ),
-            kind: 'Playlist',
+            art: mine
+                ? Tooltip(
+                    message: 'Change icon',
+                    child: InkWell(
+                      key: const ValueKey('playlist-art'),
+                      onTap: () => showPlaylistIconPicker(context, playlist),
+                      child: PlaylistArt(playlist: playlist, radius: 6),
+                    ),
+                  )
+                : PlaylistArt(playlist: playlist, radius: 6),
+            kind: mine ? (profilesOn && playlist.sharing != PlaylistSharing.off ? 'Shared playlist' : 'Playlist') : 'Shared playlist',
             title: playlist.name,
             subtitle: [
+              if (!mine) sharedByLine(playlist),
               '${tracks.length} songs',
               if (tracks.isNotEmpty) formatLong(total),
               // Kept for when they're back (files missing, or server switched off).
@@ -213,13 +235,14 @@ class PlaylistScreen extends StatelessWidget {
               key: ValueKey('${t.id}#$pIndex'),
               color: Colors.transparent,
               child: Row(children: [
-                ReorderableDragStartListener(
-                  index: i,
-                  child: Padding(
-                    padding: EdgeInsets.only(left: 8),
-                    child: Icon(Icons.drag_indicator, color: AppColors.textDim),
+                if (canChange)
+                  ReorderableDragStartListener(
+                    index: i,
+                    child: Padding(
+                      padding: EdgeInsets.only(left: 8),
+                      child: Icon(Icons.drag_indicator, color: AppColors.textDim),
+                    ),
                   ),
-                ),
                 Expanded(
                   child: TrackTile(
                     track: t,
@@ -228,14 +251,16 @@ class PlaylistScreen extends StatelessWidget {
                     contextLabel: label,
                     // An extra item in the song's ⋮ menu. Its value is the action to run
                     // when it's picked.
-                    extraAction: PopupMenuItem(
-                      value: () => pl.removeAt(playlist, pIndex),
-                      child: const Row(children: [
-                        Icon(Icons.remove_circle_outline, size: 20),
-                        SizedBox(width: 12),
-                        Text('Remove from this playlist'),
-                      ]),
-                    ),
+                    extraAction: canChange
+                        ? PopupMenuItem(
+                            value: () => pl.removeAt(playlist, pIndex),
+                            child: const Row(children: [
+                              Icon(Icons.remove_circle_outline, size: 20),
+                              SizedBox(width: 12),
+                              Text('Remove from this playlist'),
+                            ]),
+                          )
+                        : null,
                   ),
                 ),
               ]),

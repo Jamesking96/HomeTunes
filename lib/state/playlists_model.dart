@@ -23,7 +23,20 @@ import '../services/storage.dart';
 import 'song_id_follower.dart';
 import 'custom_art_store.dart' show picturesChanged, usedByOthers;
 
+/// Another profile whose shared playlists can be shown (Profiles, phase 4).
+typedef PlaylistOwner = ({String id, String name, Storage storage});
+
+/// The other profiles (not the one in use), set by ProfilesModel while profiles are on. With
+/// profiles off there's nobody else, so nothing is shared.
+Future<List<PlaylistOwner>> Function() playlistOwners = () async => const [];
+
 /// User playlists plus the special "Liked Songs" list.
+///
+/// Profiles, phase 4: [playlists] also holds the other profiles' shared playlists (after your
+/// own, [Playlist.ownerId] set), read from their playlists.json at [load]. Only yours are saved
+/// in your file; a song change to a playlist shared with "play and change" is written into its
+/// owner's file ([_saveToOwner]). Renaming, the picture, deleting and the sharing choice are the
+/// owner's only.
 class PlaylistsModel extends ChangeNotifier implements SongIdFollower {
   /// Where playlists.json is: the profile's folder when profiles are on ([useStorage]).
   Storage storage;
@@ -90,11 +103,90 @@ class PlaylistsModel extends ChangeNotifier implements SongIdFollower {
     }
     if (damaged) await storage.keepCopy('playlists.json');
     _likedSet = liked.toSet();
+    await _loadShared();
     notifyListeners();
   }
 
+  /// Your own playlists (without the ones shared with you).
+  Iterable<Playlist> get mine => playlists.where((p) => p.isMine);
+
+  /// Adds the other profiles' shared playlists after yours.
+  Future<void> _loadShared() async {
+    final me = storage.root.path;
+    List<PlaylistOwner> owners;
+    try {
+      owners = await playlistOwners();
+    } catch (_) {
+      return;
+    }
+    for (final o in owners) {
+      if (o.storage.root.path == me) continue;
+      try {
+        final j = await o.storage.read('playlists.json');
+        final lists = j is Map ? j['playlists'] : null;
+        for (final x in lists is List ? lists : const []) {
+          try {
+            final p = Playlist.fromJson(x as Map<String, dynamic>);
+            if (p.sharing == PlaylistSharing.off) continue;
+            playlists.add(p
+              ..ownerId = o.id
+              ..ownerName = o.name);
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
+  }
+
+  /// Reads the other profiles' shared playlists again (e.g. after a profile was renamed).
+  Future<void> reloadShared() async {
+    playlists.removeWhere((p) => !p.isMine);
+    await _loadShared();
+    notifyListeners();
+  }
+
+  /// A song change to someone else's playlist goes into their file, if they still let others
+  /// change it there.
+  Future<void> _saveToOwner(Playlist pl) async {
+    final owners = await playlistOwners();
+    final o = owners.where((o) => o.id == pl.ownerId).firstOrNull;
+    if (o == null) return;
+    final j = await o.storage.read('playlists.json');
+    if (j is! Map || j['playlists'] is! List) return;
+    final lists = j['playlists'] as List;
+    for (final x in lists) {
+      if (x is Map && x['id'] == pl.id) {
+        if (x['sharing'] != PlaylistSharing.change.name) return;
+        x['trackIds'] = [...pl.trackIds];
+        await o.storage.write('playlists.json', j);
+        return;
+      }
+    }
+  }
+
+  /// After a change to [pl]'s songs: yours are saved in your file, a shared one in its owner's.
+  void _songsChanged(Playlist pl) {
+    if (pl.isMine) return _changed();
+    notifyListeners();
+    // One at a time, so two quick changes can't read the owner's file at once.
+    _ownerWrites = _ownerWrites
+        .then((_) => _saveToOwner(pl))
+        .catchError((Object e) => debugPrint('HomeTunes: a shared playlist change could not be saved ($e)'));
+  }
+
+  Future<void> _ownerWrites = Future.value();
+
+  /// Waits for song changes to shared playlists to reach their owners' files (tests, switching).
+  Future<void> flush() => _ownerWrites;
+
+  /// The owner chooses what the other profiles may do with [pl].
+  void setSharing(Playlist pl, PlaylistSharing sharing) {
+    if (!pl.isMine || pl.sharing == sharing) return;
+    pl.sharing = sharing;
+    _changed();
+  }
+
   Future<void> _save() => storage.write('playlists.json', {
-        'playlists': [for (final p in playlists) p.toJson()],
+        'playlists': [for (final p in mine) p.toJson()],
         'liked': liked,
         'favouriteAlbums': _favAlbums.toList(),
         'favouriteBooks': _favBooks.toList(),
@@ -168,21 +260,30 @@ class PlaylistsModel extends ChangeNotifier implements SongIdFollower {
     _changed();
   }
 
-  /// Makes a new empty playlist. Its id is the current time in microseconds, which is unique
-  /// enough for playlists made by hand.
+  /// Makes a new empty playlist. Its id is the current time in microseconds (one more if that's
+  /// taken).
   Playlist create(String name) {
-    final p = Playlist(id: DateTime.now().microsecondsSinceEpoch.toString(), name: name.trim());
-    playlists.add(p);
+    // The clock can give the same time twice (Windows' is coarse): never reuse an id, as shared
+    // playlists are found in their owner's file by it (phase 4).
+    var stamp = DateTime.now().microsecondsSinceEpoch;
+    while (byId('$stamp') != null) {
+      stamp++;
+    }
+    final p = Playlist(id: '$stamp', name: name.trim());
+    // After your own, before the ones shared with you.
+    playlists.insert(mine.length, p);
     _changed();
     return p;
   }
 
   void rename(Playlist p, String name) {
+    if (!p.isMine) return;
     p.name = name.trim();
     _changed();
   }
 
   void delete(Playlist p) {
+    if (!p.isMine) return;
     playlists.remove(p);
     _changed();
     _tidyPictures();
@@ -206,6 +307,7 @@ class PlaylistsModel extends ChangeNotifier implements SongIdFollower {
   /// Gives [pl] a built-in icon ([name], see widgets/playlist_art.dart) on [colour] (null = the
   /// accent), in place of any picture.
   void setIcon(Playlist pl, String name, int? colour) {
+    if (!pl.isMine) return;
     pl.iconName = name;
     pl.iconColour = colour;
     pl.iconImage = null;
@@ -216,6 +318,7 @@ class PlaylistsModel extends ChangeNotifier implements SongIdFollower {
   /// Gives [pl] a picture: a copy of [source] goes into [pictureDir] (named by its contents, so
   /// the same picture is kept once), so moving or deleting the original doesn't matter.
   Future<void> setPicture(Playlist pl, String source) async {
+    if (!pl.isMine) return;
     final bytes = await File(source).readAsBytes();
     var ext = p.extension(source).toLowerCase();
     if (!RegExp(r'^\.[a-z0-9]{1,5}$').hasMatch(ext)) ext = '.img';
@@ -235,6 +338,7 @@ class PlaylistsModel extends ChangeNotifier implements SongIdFollower {
 
   /// Back to the first song's cover.
   void clearIcon(Playlist pl) {
+    if (!pl.isMine) return;
     pl.iconName = null;
     pl.iconColour = null;
     pl.iconImage = null;
@@ -263,6 +367,7 @@ class PlaylistsModel extends ChangeNotifier implements SongIdFollower {
 
   /// Adds tracks, skipping ones already in the playlist. Returns how many were added.
   int addTracks(Playlist p, Iterable<Track> tracks) {
+    if (!p.canChangeSongs) return 0;
     var added = 0;
     for (final t in tracks) {
       if (!p.trackIds.contains(t.id)) {
@@ -270,22 +375,24 @@ class PlaylistsModel extends ChangeNotifier implements SongIdFollower {
         added++;
       }
     }
-    if (added > 0) _changed();
+    if (added > 0) _songsChanged(p);
     return added;
   }
 
   /// Removes the song at position [index] in the playlist.
   void removeAt(Playlist p, int index) {
+    if (!p.canChangeSongs) return;
     p.trackIds.removeAt(index);
-    _changed();
+    _songsChanged(p);
   }
 
   /// Replaces the order of a playlist's songs.
   void setOrder(Playlist p, List<String> ids) {
+    if (!p.canChangeSongs) return;
     p.trackIds
       ..clear()
       ..addAll(ids);
-    _changed();
+    _songsChanged(p);
   }
 
   /// Every track id used by a playlist, Liked Songs or a favourite album or book.
@@ -311,7 +418,8 @@ class PlaylistsModel extends ChangeNotifier implements SongIdFollower {
       return out;
     }
 
-    for (final p in playlists) {
+    // Only yours: a shared playlist is its owner's to keep (it's read again from their file).
+    for (final p in mine) {
       final ids = remap(p.trackIds);
       p.trackIds
         ..clear()
@@ -328,7 +436,7 @@ class PlaylistsModel extends ChangeNotifier implements SongIdFollower {
   @override
   void removeIds(Set<String> ids) {
     if (ids.isEmpty) return;
-    for (final p in playlists) {
+    for (final p in mine) {
       p.trackIds.removeWhere(ids.contains);
     }
     liked.removeWhere(ids.contains);
@@ -340,6 +448,7 @@ class PlaylistsModel extends ChangeNotifier implements SongIdFollower {
 
   /// Finds a playlist by its id, or null if it has been deleted.
   Playlist? byId(String id) {
+    // Yours first: they come first in the list.
     for (final p in playlists) {
       if (p.id == id) return p;
     }
