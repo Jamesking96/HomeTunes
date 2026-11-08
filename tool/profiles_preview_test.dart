@@ -15,6 +15,7 @@ import 'package:hometunes/ui/profiles/profile_ui.dart';
 import 'package:hometunes/ui/profiles/whos_listening.dart';
 import 'package:hometunes/ui/screens/settings/profile_settings.dart';
 import 'package:hometunes/ui/theme.dart';
+import 'package:hometunes/ui/tv/tv_focus.dart' show TvFocus;
 import 'package:provider/provider.dart';
 
 void main() {
@@ -83,6 +84,19 @@ void main() {
   testWidgets('Who\'s listening? on a phone', (tester) async {
     final m = await family(tester);
     await draw(tester, m, const Size(412, 860), 'profiles-whos-listening-phone', const WhosListeningScreen());
+  });
+
+  testWidgets('Who\'s listening? on the TV (phase 2)', (tester) async {
+    final m = await family(tester);
+    await draw(tester, m, const Size(1920, 1080), 'profiles-whos-listening-tv',
+        const TvFocus(enabled: true, sounds: false, child: WhosListeningScreen()));
+  });
+
+  testWidgets('Switch profile on the TV (phase 2)', (tester) async {
+    final m = await family(tester);
+    await draw(tester, m, const Size(1920, 1080), 'profiles-switch-tv',
+        const TvFocus(enabled: true, sounds: false, child: Scaffold(body: Center(child: ProfileButton(size: 48)))),
+        then: () => tester.tap(find.byType(ProfileButton)));
   });
 
   testWidgets('Settings › Profiles', (tester) async {

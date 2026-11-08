@@ -18,6 +18,7 @@ import '../../state/now_watching.dart';
 import '../../state/player_model.dart';
 import '../../state/settings/settings_groups.dart' as prefs;
 import '../nav.dart';
+import '../profiles/profile_ui.dart' show ProfileAvatar, profilesOf, showProfileSwitcher;
 import '../shell.dart';
 import '../theme.dart';
 import '../widgets/artwork.dart';
@@ -145,6 +146,8 @@ class _TvShellState extends State<TvShell> {
     final track = player.current;
     final video = (watching?.inFront ?? false) ? watching : null;
     final place = tvRailPlaces.indexWhere((p) => p.$2 == nav.tab);
+    final profiles = profilesOf(context);
+    final me = profiles?.on == true ? profiles!.current : null;
 
     final tabs = IndexedStack(
       index: nav.tab,
@@ -186,6 +189,10 @@ class _TvShellState extends State<TvShell> {
                 selected: place < 0 ? 0 : place,
                 onSelect: (i) => _select(nav, i),
                 onOpenChange: (open) => setState(() => _railOpen = open),
+                // Whose things these are, and switching (Profiles, phase 2).
+                profile: me == null ? null : ProfileAvatar(me, size: 32),
+                profileLabel: me == null ? null : '${me.name} · Switch profile',
+                onProfile: () => showProfileSwitcher(context),
                 nowPlaying: video != null
                     ? const ColoredBox(color: Color(0xFF24272E), child: Icon(Icons.movie_outlined, size: 20))
                     : (track == null ? null : Artwork(track: track, size: 36)),

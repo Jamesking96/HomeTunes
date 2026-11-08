@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import '../../../state/profiles_model.dart';
 import '../../profiles/profile_ui.dart';
 import '../../theme.dart';
+import '../../tv/tv_focus.dart' show tvModeOf;
+import '../../tv/tv_options.dart';
 import 'settings_widgets.dart';
 
 class ProfileSettings extends StatefulWidget {
@@ -47,6 +49,23 @@ class _ProfileSettingsState extends State<ProfileSettings> {
   }
 
   Future<void> _turnOff(ProfilesModel m) async {
+    if (tvModeOf(context)) {
+      // The TV's options panel (phase 2): whose things to keep, on the one in use.
+      String? kept;
+      await showTvOptions(
+        context,
+        title: 'Turn off profiles',
+        subtitle: 'Whose things should everyone use? The others are kept.',
+        focusIndex: m.profiles.indexWhere((p) => p.id == m.currentId).clamp(0, m.profiles.length - 1),
+        options: [
+          for (final p in m.profiles)
+            TvOption('Keep ${p.name}\'s', Icons.person, () => kept = p.id, picture: ProfileAvatar(p, size: 36)),
+        ],
+      );
+      if (kept == null || !mounted) return;
+      await _run(() => m.turnOff(kept!));
+      return;
+    }
     String? keep = m.currentId;
     final ok = await showDialog<bool>(
       context: context,
@@ -96,6 +115,22 @@ class _ProfileSettingsState extends State<ProfileSettings> {
   }
 
   Future<void> _remove(ProfilesModel m, Profile p) async {
+    if (tvModeOf(context)) {
+      var yes = false;
+      await showTvOptions(
+        context,
+        title: 'Remove ${p.name}?',
+        subtitle: 'Their places, playlists, edits and settings go',
+        picture: ProfileAvatar(p, size: 64),
+        focusIndex: 1,
+        options: [
+          TvOption('Remove ${p.name}', Icons.delete_outline, () => yes = true),
+          TvOption('Keep ${p.name}', Icons.close, () {}),
+        ],
+      );
+      if (yes && mounted) await _run(() => m.remove(p.id));
+      return;
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

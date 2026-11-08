@@ -4,6 +4,8 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import '../tv/tv_focus.dart' show tvModeOf;
+import '../tv/tv_widgets.dart' show TvFocusFrame, TvPressable;
 import 'profile_ui.dart';
 
 /// Shows [child] (the app), or "Who's listening?" first when profiles are on and nobody has been
@@ -83,10 +85,28 @@ class _ProfileCard extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => InkWell(
+  Widget build(BuildContext context) {
+    // On the TV (phase 2): the remote's focus ring, and the card grows a little, as elsewhere.
+    if (tvModeOf(context)) {
+      return TvPressable(
         autofocus: autofocus,
-        borderRadius: BorderRadius.circular(16),
-        onTap: onPick,
-        child: Padding(padding: const EdgeInsets.all(8), child: child),
+        onPressed: onPick,
+        builder: (context, focused) => TvFocusFrame(
+          focused: focused,
+          radius: 20,
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            color: focused ? AppColors.surfaceHigh : Colors.transparent,
+            child: child,
+          ),
+        ),
       );
+    }
+    return InkWell(
+      autofocus: autofocus,
+      borderRadius: BorderRadius.circular(16),
+      onTap: onPick,
+      child: Padding(padding: const EdgeInsets.all(8), child: child),
+    );
+  }
 }

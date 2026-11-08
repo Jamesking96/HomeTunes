@@ -6,6 +6,9 @@ import 'package:provider/provider.dart';
 import '../../state/profiles_model.dart';
 import '../screens/settings/update_ui.dart' show appNavigatorKey;
 import '../theme.dart';
+import '../tv/tv_focus.dart' show tvModeOf;
+import '../tv/tv_keyboard.dart' show showTvTextInput;
+import '../tv/tv_options.dart';
 
 /// The profiles, or null (tests and previews that don't provide them). Watches when [listen].
 ProfilesModel? profilesOf(BuildContext context, {bool listen = true}) {
@@ -57,13 +60,67 @@ class ProfileAvatar extends StatelessWidget {
 /// What the add / change dialog gives back.
 typedef ProfileLook = ({String name, int colour, String icon});
 
-/// Asks for a profile's name, colour and picture. [start] fills it in (changing a profile).
+/// The colours' names, for the TV's list (same order as [ProfilesModel.colours]).
+const profileColourNames = ['Coral', 'Sky blue', 'Green', 'Purple', 'Yellow', 'Pink', 'Teal', 'Grey'];
+
+/// The pictures' names, for the TV's list.
+const profileIconNames = <String, String>{
+  'person': 'Person',
+  'headphones': 'Headphones',
+  'music': 'Music note',
+  'book': 'Book',
+  'movie': 'Film',
+  'star': 'Star',
+  'heart': 'Heart',
+  'pets': 'Paw',
+  'rocket': 'Rocket',
+  'game': 'Game controller',
+  'flower': 'Flower',
+  'sun': 'Sun',
+};
+
+/// Asks for a profile's name, colour and picture. [start] fills it in (changing a profile). On
+/// the TV (phase 2) it's three steps with the remote: the name on the TV keyboard, then the colour
+/// and the picture from the options panel.
 Future<ProfileLook?> showProfileEditor(BuildContext context,
     {required String title, required String action, required ProfileLook start}) {
+  if (tvModeOf(context)) return _tvProfileEditor(context, title: title, start: start);
   return showDialog<ProfileLook>(
     context: context,
     builder: (ctx) => _ProfileEditor(title: title, action: action, start: start),
   );
+}
+
+Future<ProfileLook?> _tvProfileEditor(BuildContext context, {required String title, required ProfileLook start}) async {
+  final typed = await showTvTextInput(context, title: '$title: name', initial: start.name, maxLength: 30);
+  final name = typed?.trim() ?? '';
+  if (name.isEmpty || !context.mounted) return null;
+  int? colour;
+  await showTvOptions(
+    context,
+    title: 'A colour for $name',
+    focusIndex: ProfilesModel.colours.indexOf(start.colour).clamp(0, ProfilesModel.colours.length - 1),
+    options: [
+      for (var i = 0; i < ProfilesModel.colours.length; i++)
+        TvOption(profileColourNames[i], Icons.circle, () => colour = ProfilesModel.colours[i],
+            picture: ColoredBox(color: Color(ProfilesModel.colours[i]))),
+    ],
+  );
+  if (colour == null || !context.mounted) return null;
+  String? icon;
+  final icons = profileIcons.keys.toList();
+  await showTvOptions(
+    context,
+    title: 'A picture for $name',
+    focusIndex: icons.indexOf(start.icon).clamp(0, icons.length - 1),
+    options: [
+      for (final k in icons)
+        TvOption(profileIconNames[k] ?? k, profileIcons[k]!, () => icon = k,
+            picture: ProfileAvatar(Profile(id: 'p0', name: name, colour: colour!, icon: k), size: 36)),
+    ],
+  );
+  if (icon == null) return null;
+  return (name: name, colour: colour!, icon: icon!);
 }
 
 class _ProfileEditor extends StatefulWidget {
@@ -217,6 +274,23 @@ Future<void> switchProfile(BuildContext context, String id) async {
 Future<void> showProfileSwitcher(BuildContext context) async {
   final profiles = profilesOf(context, listen: false);
   if (profiles == null || !profiles.on) return;
+  if (tvModeOf(context)) {
+    // The TV's options panel, on the one in use (phase 2).
+    String? chosen;
+    await showTvOptions(
+      context,
+      title: 'Who\'s listening?',
+      subtitle: 'Switch profile',
+      focusIndex: profiles.profiles.indexWhere((p) => p.id == profiles.currentId).clamp(0, profiles.profiles.length - 1),
+      options: [
+        for (final p in profiles.profiles)
+          TvOption(p.name, Icons.person, () => chosen = p.id,
+              picture: ProfileAvatar(p, size: 36), subtitle: p.id == profiles.currentId ? 'Using now' : null),
+      ],
+    );
+    if (chosen != null && context.mounted) await switchProfile(context, chosen!);
+    return;
+  }
   final picked = await showDialog<String>(
     context: context,
     builder: (ctx) => SimpleDialog(
