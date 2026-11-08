@@ -92,11 +92,22 @@ List<(String, String)> engineSettings(EngineUse use) => switch (use) {
 /// and a short head start: playing begins, and carries on after it had to wait (a skip, a slow
 /// moment), once [headStart] is in hand, so a skip isn't play, stall, play.
 /// Files on the device keep mpv's usual settings: they're read straight from the disk.
+///
+/// **0.2.13+140 (8 Nov 2026): back in memory, and only a minute ahead.** Measured on the Sony TV
+/// (KD-55XH8096, 2 GB, Wi-Fi): with the buffer on disk the limit wasn't kept. mpv's disk cache only
+/// ever grows (space it lets go of isn't reused), so it read the whole film as fast as the Wi-Fi
+/// allowed (~80 Mbit/s, "read ahead 6309 s" of a 1 h 49 film within 3 minutes), wrote it all to
+/// the TV's small storage (+400 MB, under 1 GB left), and the picture froze for up to 1 s every
+/// few seconds while it did; once the whole film was in, it played smoothly. Now a streamed video
+/// keeps at most [streamSeconds] ahead and [streamAhead] bytes, in memory: after the first minute
+/// it reads only as fast as it plays.
 abstract final class VideoBuffer {
-  /// Where streamed videos are buffered (null: in memory, as before; tests).
+  /// The old disk buffer's folder; main.dart empties it at start (left-overs from 0.2.12).
   static String? cacheDir;
 
-  static const streamAhead = 150 * 1024 * 1024, streamBehind = 50 * 1024 * 1024;
+  /// At most this much ahead of where you are (whichever comes first) and kept behind.
+  static const streamAhead = 64 * 1024 * 1024, streamBehind = 16 * 1024 * 1024;
+  static const streamSeconds = 60;
 
   /// Seconds of video in hand before playing starts or carries on.
   static const headStart = 3;
@@ -104,17 +115,24 @@ abstract final class VideoBuffer {
   /// media_kit's own (PlayerConfiguration.bufferSize), for files on the device.
   static const fileBuffer = 32 * 1024 * 1024;
 
+  /// mpv's own `cache-secs` (1000 hours: no time limit), for files on the device.
+  static const noTimeLimit = 3600000;
+
   /// The mpv settings for the next file the video page opens.
   static List<(String, String)> settings({required bool streamed}) => streamed
-      ? [
-          if (cacheDir != null) ('cache-dir', cacheDir!),
+      ? const [
+          ('cache-on-disk', 'no'),
+          ('cache-dir', ''),
+          ('cache-secs', '$streamSeconds'),
           ('demuxer-max-bytes', '$streamAhead'),
           ('demuxer-max-back-bytes', '$streamBehind'),
           ('cache-pause-initial', 'yes'),
           ('cache-pause-wait', '$headStart'),
         ]
       : const [
+          ('cache-on-disk', 'no'),
           ('cache-dir', ''),
+          ('cache-secs', '$noTimeLimit'),
           ('demuxer-max-bytes', '$fileBuffer'),
           ('demuxer-max-back-bytes', '$fileBuffer'),
           ('cache-pause-initial', 'no'),

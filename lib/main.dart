@@ -83,14 +83,17 @@ Future<void> main() async {
 
   // 1. Open the data folder and create the models (nothing is read from disk yet).
   final storage = await Storage.open();
-  // Streamed videos are buffered on disk here, not in memory (0.2.12, engines.dart VideoBuffer).
-  try {
-    final buffer = Directory(p.join((await getTemporaryDirectory()).path, 'video-buffer'));
-    await buffer.create(recursive: true);
-    VideoBuffer.cacheDir = buffer.path;
-  } catch (e) {
-    debugPrint('HomeTunes: no folder for the video buffer ($e); it stays in memory');
-  }
+  // 0.2.12 buffered streamed videos on disk here; since 0.2.13+140 they're buffered in memory
+  // (engines.dart VideoBuffer), so anything left behind is deleted, in the background.
+  unawaited(() async {
+    try {
+      final buffer = Directory(p.join((await getTemporaryDirectory()).path, 'video-buffer'));
+      VideoBuffer.cacheDir = buffer.path;
+      if (await buffer.exists()) await buffer.delete(recursive: true);
+    } catch (e) {
+      debugPrint('HomeTunes: the old video buffer folder could not be emptied ($e)');
+    }
+  }());
   await PlaybackLog.attach(storage.root.path);
   PlaybackLog.add('HomeTunes started');
   // Android TV / Google TV (0.2.0): asked once, before any screen is built.

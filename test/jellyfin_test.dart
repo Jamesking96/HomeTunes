@@ -666,13 +666,14 @@ void main() {
       expect(isRemoteVideoId('jf:${entry.id}:ep2'), isTrue);
     });
 
-    test('a streamed video gets the bigger buffer, on disk, and a head start (0.2.12)', () async {
-      VideoBuffer.cacheDir = p.join(dir.path, 'video-buffer');
-      addTearDown(() => VideoBuffer.cacheDir = null);
+    test('a streamed video keeps a minute ahead, in memory, with a head start (0.2.13+140)', () async {
       start('ep2');
       await until(() => engine.openPath != null);
-      expect(engine.options['cache-dir'], VideoBuffer.cacheDir);
-      expect(engine.options['demuxer-max-bytes'], '${VideoBuffer.streamAhead}');
+      // Not on disk: mpv's disk cache ignored the limit and read the whole film (Sony TV, 8 Nov).
+      expect(engine.options['cache-on-disk'], 'no');
+      expect(engine.options['cache-dir'], '');
+      expect(engine.options['cache-secs'], '60');
+      expect(engine.options['demuxer-max-bytes'], '${64 * 1024 * 1024}');
       expect(engine.options['demuxer-max-back-bytes'], '${VideoBuffer.streamBehind}');
       expect(engine.options['cache-pause-initial'], 'yes');
       expect(engine.options['cache-pause-wait'], '${VideoBuffer.headStart}');
@@ -682,6 +683,8 @@ void main() {
   test('files on the device keep the engine\'s usual buffer', () {
     final s = Map.fromEntries([for (final (k, v) in VideoBuffer.settings(streamed: false)) MapEntry(k, v)]);
     expect(s['cache-dir'], '');
+    expect(s['cache-on-disk'], 'no');
+    expect(s['cache-secs'], '${VideoBuffer.noTimeLimit}');
     expect(s['demuxer-max-bytes'], '${32 * 1024 * 1024}');
     expect(s['cache-pause-initial'], 'no');
   });
