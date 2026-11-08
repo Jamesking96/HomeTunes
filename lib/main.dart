@@ -171,6 +171,11 @@ Future<void> main() async {
   // servers are read again once the app is up. Places go both ways (ListeningModel.onPlaceSaved).
   final serverBooks = ServerBooksModel(storage: storage, servers: servers, library: library, listening: listening);
   await safely('server books', serverBooks.load);
+  // The half-hourly server re-reads wait while a video is playing (0.2.12): one that finds
+  // something new rebuilds the tabs, which can hold the picture for a moment on a TV.
+  bool videoPlaying() => watching.video != null && watching.playing;
+  serverVideos.holdResync = videoPlaying;
+  serverBooks.holdResync = videoPlaying;
   // Downloads from the servers (0.2.3): what was downloaded plays from here, even with the
   // server off. The engine (background_downloader) starts once the app is up.
   final downloads = DownloadsModel(

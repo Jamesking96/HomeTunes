@@ -95,6 +95,25 @@ class VideoLibraryModel extends ChangeNotifier {
     _saveSoon();
   }
 
+  /// Just the places from a server read whose videos didn't change (0.2.12): each is used when
+  /// it's newer than the one here. Screens are told, and the file saved, only if one was. (A
+  /// re-read used to go through [setServerVideos] every time: every video sorted and grouped
+  /// again and every video screen rebuilt, about a second on the test TV.)
+  void applyServerPlaces(Map<String, VideoPlace> places) {
+    var changed = false;
+    for (final e in places.entries) {
+      final mine = _places[e.key];
+      if (mine == null || e.value.updatedMs > mine.updatedMs) {
+        if (mine != null && mine.position == e.value.position && mine.watched == e.value.watched) continue;
+        _places[e.key] = e.value;
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    notifyListeners();
+    _saveSoon();
+  }
+
   /// Takes away every video from server [serverKey] (it was removed or switched off for videos).
   /// With [forget], their places and edits go too.
   void removeServerVideos(String serverKey, {bool forget = false}) {

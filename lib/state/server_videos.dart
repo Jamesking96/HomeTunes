@@ -299,11 +299,33 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
           if (e.value.pending.isNotEmpty) e.key: e.value.pending,
       });
 
+  /// While this says yes (a video is playing; main.dart sets it), the half-hourly re-read waits
+  /// (0.2.12). The user agreed (8 Nov 2026) that new things on the server show once the video is
+  /// paused or stopped. A re-read that does find something rebuilds the Videos tab, which can
+  /// hold the picture for a moment on a TV.
+  bool Function()? holdResync;
+
+  /// How often the clock is looked at for the next re-read (so one held by a video goes soon
+  /// after it stops).
+  static Duration resyncCheckEvery = const Duration(minutes: 1);
+
+  int _lastRead = 0;
+
   /// Reads every video server now, then again every [resyncEvery] while HomeTunes is open.
   void start() {
+    _lastRead = now();
     unawaited(syncAll());
     _resync?.cancel();
-    _resync = Timer.periodic(resyncEvery, (_) => syncAll());
+    _resync = Timer.periodic(resyncCheckEvery, (_) => resyncIfDue());
+  }
+
+  /// The half-hourly re-read, when it's due and nothing is playing.
+  @visibleForTesting
+  void resyncIfDue() {
+    if (now() - _lastRead < resyncEvery.inMilliseconds) return;
+    if (holdResync?.call() ?? false) return;
+    _lastRead = now();
+    unawaited(syncAll());
   }
 
   /// Reads every Jellyfin server that's switched on for videos.
@@ -470,8 +492,12 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
         views = await c.views();
       }
       await _sendPending(s, c);
+      final oldViews = jsonEncode(st.views);
       st.views = [for (final v in views) if (v.holdsVideos) v];
+      final viewsChanged = jsonEncode(st.views) != oldViews;
       final shown = [for (final v in st.views) if (!st.hidden.contains(v.id)) v];
+      // The pictures already here, listed once in the background (0.2.12; see videoFromJellyfin).
+      final existing = await _picturesHere(s.id);
       final found = <VideoItem>[];
       final places = <String, VideoPlace>{};
       final pictures = <ServerPicture>[];
@@ -497,7 +523,7 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
           },
         );
         for (final j in items) {
-          final made = videoFromJellyfin(j, serverKey: s.id, view: view, series: series, pictureDir: _pictureDir(s.id));
+          final made = videoFromJellyfin(j, serverKey: s.id, view: view, series: series, pictureDir: _pictureDir(s.id), existing: existing);
           if (made == null) continue;
           found.add(made.video);
           pictures.addAll(made.pictures);
@@ -508,15 +534,23 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
       // The same item can be in two libraries (a "mixed" one and a films one): once each.
       final seen = <String>{};
       final unique = [for (final v in found) if (seen.add(v.id)) v];
+      // 0.2.12: a re-read that brings nothing new changes nothing. Before, every one (at start-up
+      // and every half hour, while a film played too) sorted and grouped every video again,
+      // rebuilt every video screen and wrote the whole catalogue: about two seconds frozen on
+      // the test TV. Only places the server has that are newer still come in.
+      // (The Videos tab must still have them: switched off for videos and on again, it doesn't.)
+      final same = videos.serverVideosOf(s.id).length == st.videos.length && await sameVideos(st.videos, unique);
       st.videos = unique;
       st.count = unique.length;
       st.syncedMs = now();
       st.status = null;
       st.error = null;
-      if (_isVideoServer(servers.byId(s.id) ?? s)) videos.setServerVideos(s.id, unique, places: places);
-      await _save();
+      if (_isVideoServer(servers.byId(s.id) ?? s)) {
+        same ? videos.applyServerPlaces(places) : videos.setServerVideos(s.id, unique, places: places);
+      }
+      if (!same || viewsChanged) await _save();
       notifyListeners();
-      await _fetchPictures(s, c, pictures);
+      await _fetchPictures(s, c, pictures, existing);
     } on JellyfinException catch (e) {
       st.status = null;
       st.error = 'Couldn\'t read it: ${e.message}';
@@ -534,16 +568,38 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
 
   String _pictureDir(String serverKey) => p.join(storage.artDir, 'server-video', serverKey);
 
-  Future<void> _fetchPictures(ServerEntry s, JellyfinClient c, List<ServerPicture> jobs) async {
+  /// The picture files downloaded for server [serverKey] (normalised paths), from one listing of
+  /// its folder (the disk is read in the background; 0.2.12).
+  Future<Set<String>> _picturesHere(String serverKey) async {
+    final found = <String>{};
+    try {
+      final dir = Directory(_pictureDir(serverKey));
+      if (await dir.exists()) {
+        await for (final e in dir.list()) {
+          if (e is File && !e.path.endsWith('.tmp')) found.add(p.normalize(e.path));
+        }
+      }
+    } catch (_) {}
+    return found;
+  }
+
+  /// How often newly downloaded pictures are put on the videos while a big batch comes in
+  /// (0.2.12; before, every 12 pictures: each time every video sorted again, every video screen
+  /// rebuilt and the whole catalogue saved, which kept the TV slow for minutes).
+  static Duration picturesShownEvery = const Duration(seconds: 30);
+
+  Future<void> _fetchPictures(ServerEntry s, JellyfinClient c, List<ServerPicture> jobs, Set<String> existing) async {
     final st = _of(s.id);
     final wanted = <String>{};
     var got = 0;
     final missing = <String, ServerPicture>{};
     for (final j in jobs) {
-      wanted.add(p.normalize(j.file));
-      if (!File(j.file).existsSync()) missing[j.file] = j;
+      final file = p.normalize(j.file);
+      wanted.add(file);
+      if (!existing.contains(file)) missing[j.file] = j;
     }
     var tried = 0;
+    var shownAt = now(), unshown = 0;
     for (final j in missing.values) {
       if (_disposed || _state[s.id] != st) return;
       if (tried++ % 10 == 0) {
@@ -557,14 +613,20 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
         final tmp = File('${j.file}.tmp');
         await tmp.writeAsBytes(bytes, flush: true);
         await tmp.rename(j.file);
+        existing.add(p.normalize(j.file));
         got++;
+        unshown++;
       } catch (_) {
         continue;
       }
-      // Show pictures as they arrive, a batch at a time.
-      if (got % 12 == 0) _applyPictures(s, jobs);
+      // A big batch (the first read of a server): show what's arrived now and then.
+      if (now() - shownAt >= picturesShownEvery.inMilliseconds) {
+        _applyPictures(s, jobs, existing);
+        shownAt = now();
+        unshown = 0;
+      }
     }
-    if (got > 0) _applyPictures(s, jobs);
+    if (got > 0 && unshown > 0) _applyPictures(s, jobs, existing);
     if (st.status != null) {
       st.status = null;
       notifyListeners();
@@ -585,11 +647,11 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
   }
 
   /// Puts the downloaded pictures on the videos.
-  void _applyPictures(ServerEntry s, List<ServerPicture> jobs) {
+  void _applyPictures(ServerEntry s, List<ServerPicture> jobs, Set<String> existing) {
     final st = _of(s.id);
     final thumbs = <String, String>{}, covers = <String, String>{};
     for (final j in jobs) {
-      if (!File(j.file).existsSync()) continue;
+      if (!existing.contains(p.normalize(j.file))) continue;
       (j.cover ? covers : thumbs)[j.videoId] = j.file;
     }
     st.videos = [
@@ -814,6 +876,39 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
   }
 }
 
+/// Whether [a] and [b] hold the same videos with the same details, in the same order (0.2.12: a
+/// server re-read that changed nothing). A few hundred at a time, letting the screen draw in
+/// between.
+@visibleForTesting
+Future<bool> sameVideos(List<VideoItem> a, List<VideoItem> b) async {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i].id != b[i].id || !sameJson(a[i].toJson(), b[i].toJson())) return false;
+    if (i % 250 == 249) await Future<void>.delayed(Duration.zero);
+  }
+  return true;
+}
+
+/// Deep equality of JSON-shaped values (maps, lists, strings, numbers, booleans, null).
+@visibleForTesting
+bool sameJson(Object? x, Object? y) {
+  if (x is Map && y is Map) {
+    if (x.length != y.length) return false;
+    for (final e in x.entries) {
+      if (!y.containsKey(e.key) || !sameJson(e.value, y[e.key])) return false;
+    }
+    return true;
+  }
+  if (x is List && y is List) {
+    if (x.length != y.length) return false;
+    for (var i = 0; i < x.length; i++) {
+      if (!sameJson(x[i], y[i])) return false;
+    }
+    return true;
+  }
+  return x == y;
+}
+
 /// A picture to download for a server video.
 class ServerPicture {
   final String videoId, itemId, type, file;
@@ -876,6 +971,7 @@ String? _seasonTitle(Object? name) {
   required JellyfinView view,
   Map<String, Map<String, dynamic>> series = const {},
   required String pictureDir,
+  Set<String>? existing,
 }) {
   final itemId = j['Id'];
   final type = j['Type'];
@@ -948,9 +1044,12 @@ String? _seasonTitle(Object? name) {
     }
     if (tags['Primary'] is String) add(itemId, 'Primary', tags['Primary'] as String, ServerVideosModel.posterWidth, cover: true);
   }
+  // [existing] (0.2.12): the picture files already downloaded, listed once per sync in the
+  // background, instead of asking the disk about each one here (about 12,000 checks for the
+  // user's ~5,900 videos, on the thread that draws the screen).
   String? have(bool cover) {
     for (final x in jobs) {
-      if (x.cover == cover && File(x.file).existsSync()) return x.file;
+      if (x.cover == cover && (existing?.contains(p.normalize(x.file)) ?? File(x.file).existsSync())) return x.file;
     }
     return null;
   }

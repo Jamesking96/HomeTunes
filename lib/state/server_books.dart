@@ -311,11 +311,31 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
     });
   }
 
+  /// While this says yes (a video is playing; main.dart sets it), the half-hourly re-read waits
+  /// (0.2.12, as ServerVideosModel.holdResync): a re-read that finds something rebuilds the
+  /// Books tab, which can hold a video's picture for a moment on a TV.
+  bool Function()? holdResync;
+
+  /// How often the clock is looked at for the next re-read.
+  static Duration resyncCheckEvery = const Duration(minutes: 1);
+
+  int _lastRead = 0;
+
   /// Reads every book server now, then again every [resyncEvery] while HomeTunes is open.
   void start() {
+    _lastRead = now();
     unawaited(syncAll());
     _resync?.cancel();
-    _resync = Timer.periodic(resyncEvery, (_) => syncAll());
+    _resync = Timer.periodic(resyncCheckEvery, (_) => resyncIfDue());
+  }
+
+  /// The half-hourly re-read, when it's due and no video is playing.
+  @visibleForTesting
+  void resyncIfDue() {
+    if (now() - _lastRead < resyncEvery.inMilliseconds) return;
+    if (holdResync?.call() ?? false) return;
+    _lastRead = now();
+    unawaited(syncAll());
   }
 
   Future<void> syncAll() => Future.wait([for (final s in bookServers) sync(s)]);
@@ -524,6 +544,9 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
           if (st.items[e.key]?.updatedAt != stamp(e.value) || st.items[e.key] == null) e.key,
       ];
       final items = <String, _Item>{for (final e in st.items.entries) if (brief.containsKey(e.key)) e.key: e.value};
+      // Nothing new, changed or gone (0.2.12): the Books tab isn't rebuilt and nothing is saved;
+      // only newer places come in.
+      final nothingNew = changed.isEmpty && items.length == st.items.length && st.syncedMs != null;
       if (changed.isNotEmpty) {
         for (final j in await c.fullItems(changed, onProgress: (done, total) {
           st.status = 'Reading books $done / $total';
@@ -552,10 +575,10 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
       st.status = null;
       st.error = null;
       if (_isBookServer(servers.byId(s.id) ?? s)) {
-        _giveTracks(s);
+        if (!nothingNew) _giveTracks(s);
         _applyPlaces(s, places);
       }
-      await _save();
+      if (!nothingNew) await _save();
       notifyListeners();
       await _fetchCovers(s, c);
     } on AbsException catch (e) {

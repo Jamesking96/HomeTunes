@@ -465,6 +465,64 @@ void main() {
       expect(server.requests.any((r) => r.startsWith('POST /UserItems/ep1/UserData')), isTrue);
     });
 
+    test('a re-read that brings nothing new rebuilds nothing and saves nothing (0.2.12)', () async {
+      await model.sync(entry);
+      await until(() => videos.byId('jf:${entry.id}:ep1')?.thumb != null);
+      await videos.settle();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      final catalogue = File(p.join(storage.root.path, ServerVideosModel.fileName));
+      final before = catalogue.lastModifiedSync();
+      await Future<void>.delayed(const Duration(milliseconds: 1100)); // file times are to the second
+      var told = 0;
+      void count() => told++;
+      videos.addListener(count);
+      addTearDown(() => videos.removeListener(count));
+      final shown = videos.videos;
+      await model.sync(entry);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(told, 0);
+      expect(identical(videos.videos, shown), isTrue);
+      expect(catalogue.lastModifiedSync(), before);
+      // Pictures stay on the videos.
+      expect(videos.byId('jf:${entry.id}:ep1')?.thumb, isNotNull);
+    });
+
+    test('a re-read that finds a newer place brings just that in', () async {
+      await model.sync(entry);
+      await videos.settle();
+      final id = 'jf:${entry.id}:ep1';
+      final shown = videos.videos;
+      server.userData['ep1'] = {
+        'PlaybackPositionTicks': const Duration(minutes: 7).inMicroseconds * 10,
+        'Played': false,
+        'LastPlayedDate': DateTime.now().add(const Duration(minutes: 1)).toUtc().toIso8601String(),
+      };
+      await model.sync(entry);
+      expect(videos.placeOf(id)?.position, const Duration(minutes: 7));
+      expect(identical(videos.videos, shown), isTrue);
+    });
+
+    test('the half-hourly re-read waits while a video plays', () async {
+      var clock = DateTime.now().millisecondsSinceEpoch;
+      model.now = () => clock;
+      var playing = true;
+      model.holdResync = () => playing;
+      model.start();
+      await until(() => !model.isSyncing(entry));
+      server.requests.clear();
+      clock += const Duration(minutes: 10).inMilliseconds;
+      model.resyncIfDue();
+      expect(model.isSyncing(entry), isFalse); // not due yet
+      clock += ServerVideosModel.resyncEvery.inMilliseconds;
+      model.resyncIfDue();
+      expect(model.isSyncing(entry), isFalse); // due, but a video is playing
+      playing = false;
+      model.resyncIfDue();
+      expect(model.isSyncing(entry), isTrue);
+      await until(() => !model.isSyncing(entry));
+      expect(server.requests, isNotEmpty);
+    });
+
     test('marking watched tells the server', () async {
       await model.sync(entry);
       server.requests.clear();
