@@ -170,4 +170,28 @@ void main() {
     expect(PlaybackLog.lines.last, contains('Video finished: Film · played 1:30 · 7 pictures dropped, jumped back into step 1 time, paused to load 1 time'));
     await tester.pump(const Duration(seconds: 10)); // no timers left running
   });
+
+  testWidgets('the start line waits until the picture is showing (0.2.12: the head start)', (tester) async {
+    final props = <String, String>{'hwdec-current': '', 'current-vo': 'null'};
+    Future<String> read(String name) async => props[name] ?? '';
+    final stats = VideoStats('Video', read, reportEvery: 2);
+    stats.started('Show S1 E4');
+    await tester.pump(const Duration(seconds: 3));
+    expect(PlaybackLog.lines.where((l) => l.contains('Video started: Show S1 E4')), isEmpty);
+    // Showing now, from the video chip.
+    props.addAll({
+      'video-params/w': '1920',
+      'video-params/h': '1080',
+      'video-format': 'h264',
+      'container-fps': '23.976',
+      'hwdec-current': 'mediacodec',
+      'current-vo': 'mediacodec_embed',
+    });
+    await tester.pump(VideoStats.startRetry);
+    final line = PlaybackLog.lines.where((l) => l.contains('Video started: Show S1 E4')).single;
+    expect(line, contains('video chip'));
+    expect(line, isNot(contains('null')));
+    stats.dispose();
+    await tester.pump(const Duration(seconds: 15));
+  });
 }
