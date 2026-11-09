@@ -25,6 +25,7 @@ import 'screens/video_player_screen.dart';
 import 'tv/tv_book_pages.dart';
 import 'tv/tv_collection_page.dart';
 import 'tv/tv_downloads.dart' show TvDownloadsPage;
+import 'tv/tv_groups.dart' show TvGroupPage;
 import 'tv/tv_pages.dart';
 import 'tv/tv_video_player.dart';
 
@@ -191,7 +192,7 @@ class AppNav extends ChangeNotifier {
       tab = videosTab;
       notifyListeners();
     }
-    _afterFrame(() => push(VideoGroupScreen(groupId: id)));
+    _afterFrame(() => push(tv ? TvGroupPage(groupId: id) : VideoGroupScreen(groupId: id)));
   }
 
   /// Opens a video's player page on the Videos tab (0.1.40). On the TV (step 5) the TV player

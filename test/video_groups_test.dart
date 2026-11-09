@@ -14,6 +14,11 @@ import 'package:hometunes/ui/screens/video_collection_screen.dart' show Collecti
 import 'package:hometunes/ui/screens/video_group_screen.dart';
 import 'package:hometunes/ui/screens/videos_screen.dart';
 import 'package:hometunes/ui/widgets/fold_heading.dart';
+import 'package:hometunes/ui/theme.dart';
+import 'package:hometunes/ui/tv/tv_focus.dart';
+import 'package:hometunes/ui/tv/tv_groups.dart';
+import 'package:hometunes/ui/tv/tv_menus.dart' show showCollectionOptions;
+import 'package:hometunes/ui/tv/tv_videos.dart';
 import 'package:provider/provider.dart';
 import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/library_model.dart';
@@ -314,6 +319,78 @@ void main() {
     await videos.setGroupPoster(g, null);
     expect(videos.groupPosterFile(g), isNull);
     expect(File(file).existsSync(), isFalse); // tidied away
+  });
+
+  // ---- step 4: the TV ----
+
+  Future<void> tv(WidgetTester tester, Widget home) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ...libraryProviders(lib),
+        ChangeNotifierProvider.value(value: videos),
+        ChangeNotifierProvider(create: (_) => AppNav()),
+      ],
+      child: MaterialApp(
+        theme: tvTheme(buildTheme(), AppColors.accent),
+        builder: (context, child) => TvFocus(enabled: true, sounds: false, child: child!),
+        home: Scaffold(body: home),
+      ),
+    ));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('TV: Collections has the collection first, All videos every show and film, Every video each video', (tester) async {
+    await tester.runAsync(scan);
+    final g = videos.groups.create('Pokémon', [for (final c in videos.collections) if (c.name.startsWith('Pokemon')) c]);
+    await tv(tester, const TvVideosScreen());
+    expect(find.byKey(ValueKey('tv-group:${g.id}')), findsOneWidget);
+    expect(find.byKey(const ValueKey('tv-collection:Pokemon 3')), findsNothing);
+    expect(find.byKey(const ValueKey('tv-collection:Snatch')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('tv-tab-All videos')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tv-collection:Pokemon 3')), findsOneWidget);
+    expect(find.byKey(ValueKey('tv-group:${g.id}')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('tv-tab-Every video')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tv-collection:Snatch')), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('TV: a collection\'s page, and a film\'s options add it to a collection', (tester) async {
+    await tester.runAsync(scan);
+    final g = videos.groups.create('Pokémon', [for (final c in videos.collections) if (c.name.startsWith('Pokemon')) c]);
+    await tv(tester, TvGroupPage(groupId: g.id));
+    expect(find.text('Pokémon'), findsOneWidget);
+    expect(find.text('Play: Pokemon The First Movie'), findsOneWidget);
+    expect(find.byKey(const ValueKey('tv-collection:Pokemon 2000')), findsOneWidget);
+
+    await tv(tester, Builder(
+      builder: (context) => Center(
+        child: TextButton(
+          onPressed: () => showCollectionOptions(context, videos.collectionNamed('Snatch')!),
+          child: const Text('Options'),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add to a collection'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pokémon').last);
+    await tester.pumpAndSettle();
+    expect(g.keys, contains('snatch'));
+    await tester.tap(find.text('Options'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remove from Pokémon'), findsOneWidget);
+    await tester.tap(find.text('Remove from Pokémon'));
+    await tester.pumpAndSettle();
+    expect(g.keys, isNot(contains('snatch')));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 3));
   });
 
   test('a damaged group in the file is skipped', () {

@@ -44,6 +44,7 @@ import '../widgets/playlist_sharing.dart' show showPlaylistSharing;
 import '../widgets/series_card.dart' show seriesProgress, playSeries, markSeriesFinished;
 import '../widgets/video_shuffle_ui.dart';
 import 'tv_downloads.dart' show tvDownloadOptions;
+import 'tv_groups.dart' show tvGroupOptionsFor;
 import 'tv_keyboard.dart' show showTvTextInput;
 import 'tv_options.dart';
 import 'tv_pictures.dart' show tvChangePictureOption, tvChangePosterOption;
@@ -441,6 +442,8 @@ List<TvOption> collectionOptions(BuildContext context, VideoCollection c,
         () => model.setFavourite(c, !fav)),
     TvOption(allWatched ? 'Mark all as not watched' : 'Mark all as watched', allWatched ? Icons.remove_done : Icons.done_all,
         () => model.setWatched([for (final v in c.main) v.id], !allWatched)),
+    // Film collections (step 4): Add to a collection ›, Remove from "Pokémon".
+    ...tvGroupOptionsFor(context, c),
     // From a server: the whole collection, and the season showing (0.2.3).
     ...tvDownloadOptions(context, [for (final v in c.videos) DownloadItem.video(v)],
         keep: (kind: KeepKind.collection, key: c.key, label: c.name)),
