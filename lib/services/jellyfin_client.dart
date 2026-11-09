@@ -52,6 +52,15 @@ class JellyfinSignIn {
   const JellyfinSignIn({required this.token, required this.userId, required this.serverId, this.serverName});
 }
 
+/// One of the server's collections (box sets): its films' ids (9 Nov 2026).
+class JellyfinCollection {
+  const JellyfinCollection({required this.id, required this.name, this.overview, this.items = const []});
+  final String id;
+  final String name;
+  final String? overview;
+  final List<String> items;
+}
+
 /// One of the user's libraries ("Films", "TV Shows", "Home videos").
 class JellyfinView {
   final String id;
@@ -272,30 +281,108 @@ class JellyfinClient {
 
   /// The server's own collections of films (box sets, 9 Nov 2026): each one's name and the ids
   /// of the films in it. Offered as suggested film collections; nothing is changed on the server.
-  Future<List<({String name, List<String> items})>> boxSets() async {
+  Future<List<({String id, String name, List<String> items})>> boxSets() async => [
+        for (final c in await collections())
+          if (c.items.length >= 2) (id: c.id, name: c.name, items: c.items),
+      ];
+
+  // ---- collections, for sharing them (9 Nov 2026; docs/ai-context/09_COLLECTION_SHARING_PLAN.md) ----
+
+  /// Every collection (box set) this user can see, with its films' ids.
+  Future<List<JellyfinCollection>> collections() async {
     final u = _need();
     final j = await _json('GET', uri('/Items', {
       'userId': u,
       'recursive': 'true',
       'includeItemTypes': 'BoxSet',
+      'fields': 'Overview',
       'sortBy': 'SortName',
-      'limit': '500',
+      'limit': '1000',
     }));
     final sets = j is Map && j['Items'] is List ? j['Items'] as List : const [];
-    final out = <({String name, List<String> items})>[];
+    final out = <JellyfinCollection>[];
     for (final s in sets) {
       if (s is! Map || s['Id'] is! String || s['Name'] is! String) continue;
       final k = await _json('GET', uri('/Items', {
         'userId': u,
         'parentId': s['Id'] as String,
         'includeItemTypes': 'Movie',
-        'limit': '500',
+        'limit': '1000',
       }));
       final films = k is Map && k['Items'] is List ? k['Items'] as List : const [];
-      final ids = [for (final f in films) if (f is Map && f['Id'] is String) f['Id'] as String];
-      if (ids.length >= 2) out.add((name: (s['Name'] as String).trim(), items: ids));
+      out.add(JellyfinCollection(
+        id: s['Id'] as String,
+        name: (s['Name'] as String).trim(),
+        overview: s['Overview'] is String ? s['Overview'] as String : null,
+        items: [for (final f in films) if (f is Map && f['Id'] is String) f['Id'] as String],
+      ));
     }
     return out;
+  }
+
+  /// What this user may do with collections: make them and change their films ([manage]: an
+  /// administrator, or "Allow this user to manage collections"), and rename them or change their
+  /// description ([admin] only).
+  Future<({bool admin, bool manage})> collectionRights() async {
+    _need();
+    final j = await _json('GET', uri('/Users/Me'));
+    final p = j is Map && j['Policy'] is Map ? j['Policy'] as Map : const {};
+    final admin = p['IsAdministrator'] == true;
+    return (admin: admin, manage: admin || p['EnableCollectionManagement'] == true);
+  }
+
+  /// Makes a collection called [name] holding [items]. Returns its id.
+  Future<String> createCollection(String name, List<String> items) async {
+    _need();
+    final j = await _json('POST', uri('/Collections', {'name': name, if (items.isNotEmpty) 'ids': items.take(40).toList()}));
+    final id = j is Map ? j['Id'] : null;
+    if (id is! String || id.isEmpty) {
+      throw const JellyfinException('The Jellyfin server didn\'t say which collection it made.', fromServer: true);
+    }
+    if (items.length > 40) await addToCollection(id, items.sublist(40));
+    return id;
+  }
+
+  /// Adds / takes out films (a few at a time, so the address stays short).
+  Future<void> addToCollection(String id, List<String> items) => _collectionItems('POST', id, items);
+  Future<void> removeFromCollection(String id, List<String> items) => _collectionItems('DELETE', id, items);
+
+  Future<void> _collectionItems(String method, String id, List<String> items) async {
+    _need();
+    for (var i = 0; i < items.length; i += 40) {
+      await _send(method, uri('/Collections/$id/Items', {'ids': items.skip(i).take(40).toList()}));
+    }
+  }
+
+  /// Renames a collection and sets its description (administrators only).
+  Future<void> updateCollection(String id, {required String name, String? overview}) async {
+    final u = _need();
+    final j = await _json('GET', uri('/Items/$id', {'userId': u}));
+    if (j is! Map) throw const JellyfinException('The Jellyfin server sent something HomeTunes couldn\'t read.', fromServer: true);
+    final item = Map<String, dynamic>.from(j)
+      ..['Name'] = name
+      ..['Overview'] = overview ?? '';
+    await _send('POST', uri('/Items/$id'), body: item);
+  }
+
+  /// Deletes an item (a collection: its films stay).
+  Future<void> deleteItem(String id) async {
+    _need();
+    await _send('DELETE', uri('/Items/$id'));
+  }
+
+  /// HomeTunes' own note on the server, kept with this user's display settings (any user may
+  /// keep these): [CustomPrefs] values are text. Returns the whole record, to write back.
+  Future<Map<String, dynamic>> readNote(String name) async {
+    final u = _need();
+    final j = await _json('GET', uri('/DisplayPreferences/$name', {'userId': u, 'client': clientName}));
+    return j is Map ? Map<String, dynamic>.from(j) : <String, dynamic>{'Id': name};
+  }
+
+  Future<void> writeNote(String name, Map<String, dynamic> record) async {
+    final u = _need();
+    await _send('POST', uri('/DisplayPreferences/$name', {'userId': u, 'client': clientName}),
+        body: {...record, 'Id': name, 'Client': clientName});
   }
 
   /// Everything of [types] inside library [parentId], a page at a time ([pageSize] each), with

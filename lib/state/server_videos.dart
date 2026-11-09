@@ -33,9 +33,11 @@ import '../services/secret_store.dart';
 import '../services/server_probe.dart' show candidateUrls;
 import '../services/storage.dart';
 import '../services/subsonic_client.dart' show isPlainHttpToInternet;
+import 'collection_sharing.dart';
 import 'remote_videos.dart';
 import 'server_reader.dart';
 import 'servers_model.dart';
+import 'video_group_suggestions.dart' show ServerFilmSet;
 import 'video_library_model.dart';
 import 'video_types.dart' show videoType;
 
@@ -125,6 +127,62 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
     servers.addListener(_onServers);
     videos.remote = this;
     videos.serverFilmSets = boxSets;
+    videos.onGroupsChanged = _groupsChanged;
+  }
+
+  // ---- sharing film collections (9 Nov 2026; docs/ai-context/09_COLLECTION_SHARING_PLAN.md) ----
+
+  /// How long after a change to the collections they're shared (several quick changes go as one).
+  static Duration shareDelay = const Duration(seconds: 4);
+  Timer? _shareTimer;
+  final Map<String, Future<void>> _shareJobs = {};
+
+  void _groupsChanged() {
+    if (_disposed || !videos.shareGroups) return;
+    _shareTimer?.cancel();
+    _shareTimer = Timer(shareDelay, () {
+      for (final s in videoServers) {
+        if (_state[s.id]?.syncedMs != null) unawaited(shareGroupsWith(s));
+      }
+    });
+  }
+
+  /// Shares the film collections with [s]: one at a time per server. Never throws; how it went
+  /// is in [VideoLibraryModel.sharing].
+  Future<void> shareGroupsWith(ServerEntry s, {JellyfinClient? client}) {
+    final running = _shareJobs[s.id];
+    final job = (running ?? Future<void>.value()).then((_) => _share(s, client));
+    _shareJobs[s.id] = job;
+    job.whenComplete(() {
+      if (identical(_shareJobs[s.id], job)) _shareJobs.remove(s.id);
+    });
+    return job;
+  }
+
+  Future<void> _share(ServerEntry s, JellyfinClient? client) async {
+    if (_disposed || !videos.shareGroups) return;
+    final generation = _generation;
+    try {
+      final c = client ?? await _signedIn(s);
+      final out = await shareCollections(
+        serverKey: s.id,
+        serverName: s.name,
+        userName: s.username,
+        server: JellyfinCollectionServer(c),
+        groups: videos.groups,
+        filmsByItem: videos.serverFilms(s.id),
+        find: videos.collectionByKey,
+      );
+      if (generation != _generation || _disposed) return;
+      videos.setSharing(s.id, (server: s.name, shared: out.shared, problem: out.problem));
+    } catch (_) {
+      if (generation != _generation || _disposed) return;
+      videos.setSharing(s.id, (
+        server: s.name,
+        shared: videos.sharing[s.id]?.shared ?? 0,
+        problem: 'Couldn\'t reach ${s.name} to share collections just now. HomeTunes tries again with the next read.',
+      ));
+    }
   }
 
   /// Where the catalogue is kept: the profile's folder with profiles on (phase 3, [useStorage]).
@@ -695,6 +753,14 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
       if (!same) downloadsChanged();
       if (!same || viewsChanged) await _save();
       notifyListeners();
+      // Film collections shared through this server (9 Nov 2026), now its videos are here.
+      if (videos.shareGroups) {
+        st.status = 'Sharing collections…';
+        notifyListeners();
+        await shareGroupsWith(s, client: c);
+        st.status = null;
+        notifyListeners();
+      }
       await _fetchPictures(s, c, pictures, existing);
     } on JellyfinException catch (e) {
       st.status = null;
@@ -823,13 +889,15 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
   /// Each video server's own collections of films (box sets, 9 Nov 2026), with HomeTunes' ids
   /// for the films (`jf:<server>:<item>`): offered as suggested film collections. A server that
   /// can't be reached is skipped.
-  Future<List<({String name, String server, List<String> ids})>> boxSets() async {
-    final out = <({String name, String server, List<String> ids})>[];
+  Future<List<ServerFilmSet>> boxSets() async {
+    final out = <ServerFilmSet>[];
     for (final s in videoServers) {
       try {
         final c = await _signedIn(s);
         for (final b in await c.boxSets().timeout(const Duration(seconds: 20))) {
-          out.add((name: b.name, server: s.name, ids: [for (final i in b.items) 'jf:${s.id}:$i']));
+          // Already one of the user's (shared, 9 Nov): not a suggestion.
+          if (videos.groups.linkedTo(s.id, b.id) != null) continue;
+          out.add((name: b.name, server: s.name, ids: [for (final i in b.items) 'jf:${s.id}:$i'], link: (server: s.id, id: b.id)));
         }
       } catch (_) {
         // Not signed in, or away: no suggestions from it this time.
@@ -1032,9 +1100,11 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
     _resync?.cancel();
     _offlineTimer?.cancel();
     servers.removeListener(_onServers);
+    _shareTimer?.cancel();
     if (identical(videos.remote, this)) {
       videos.remote = null;
       videos.serverFilmSets = null;
+      videos.onGroupsChanged = null;
     }
     for (final c in _clients.values) {
       c.close();

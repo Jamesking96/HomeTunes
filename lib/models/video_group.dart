@@ -31,8 +31,21 @@ class VideoGroup {
     this.order = VideoGroupOrder.year,
     this.poster,
     int? createdMs,
+    int? changedMs,
+    Map<String, String>? links,
   })  : keys = keys ?? [],
-        createdMs = createdMs ?? DateTime.now().millisecondsSinceEpoch;
+        createdMs = createdMs ?? DateTime.now().millisecondsSinceEpoch,
+        links = links ?? {} {
+    this.changedMs = changedMs ?? this.createdMs;
+  }
+
+  /// When it was last changed (made, renamed, a film added…), on whichever device: sharing
+  /// (9 Nov 2026, docs/ai-context/09_COLLECTION_SHARING_PLAN.md) keeps the newest.
+  late int changedMs;
+
+  /// The Jellyfin collection it's shared as, on each server (server key → the collection's id
+  /// there).
+  final Map<String, String> links;
 
   /// Never changes ("g" + a number); the group's poster and favourite are kept under it.
   final String id;
@@ -60,6 +73,8 @@ class VideoGroup {
         if (order != VideoGroupOrder.year) 'order': order.name,
         if (poster != null) 'poster': poster,
         'createdMs': createdMs,
+        if (changedMs != createdMs) 'changedMs': changedMs,
+        if (links.isNotEmpty) 'links': links,
       };
 
   /// Null when [j] isn't a usable group.
@@ -83,6 +98,12 @@ class VideoGroup {
           ? j['poster'] as String
           : null,
       createdMs: j['createdMs'] is int ? j['createdMs'] as int : null,
+      changedMs: j['changedMs'] is int ? j['changedMs'] as int : null,
+      links: {
+        if (j['links'] is Map)
+          for (final e in (j['links'] as Map).entries)
+            if (e.key is String && e.value is String && (e.value as String).isNotEmpty) e.key as String: e.value as String,
+      },
     );
   }
 }

@@ -209,7 +209,56 @@ class VideoLibraryModel extends ChangeNotifier {
   late final VideoGroups groups = VideoGroups(changed: () {
     notifyListeners();
     _save();
+    onGroupsChanged?.call();
   });
+
+  // ---- sharing collections through Jellyfin (9 Nov 2026; docs/ai-context/09_COLLECTION_SHARING_PLAN.md) ----
+
+  /// "Share film collections through Jellyfin" (Settings › Servers; on unless turned off). For
+  /// the device, kept in the shared videos.json.
+  bool shareGroups = true;
+
+  Future<void> setShareGroups(bool on) async {
+    if (shareGroups == on) return;
+    shareGroups = on;
+    notifyListeners();
+    await _save();
+    if (on) onGroupsChanged?.call();
+  }
+
+  /// Told after any change to the collections (ServerVideosModel shares them a moment later).
+  void Function()? onGroupsChanged;
+
+  /// How sharing went with each server (server key → its name, how many are shared, what's wrong).
+  final Map<String, ({String server, int shared, String? problem})> sharing = {};
+
+  void setSharing(String serverKey, ({String server, int shared, String? problem})? how) {
+    if (how == null) {
+      if (sharing.remove(serverKey) == null) return;
+    } else {
+      final was = sharing[serverKey];
+      if (was == how) return;
+      sharing[serverKey] = how;
+    }
+    notifyListeners();
+  }
+
+  /// The servers [g] is shared through ("Den").
+  List<String> sharedThrough(VideoGroup g) => [
+        for (final k in g.links.keys) ?sharing[k]?.server,
+      ];
+
+  /// The films from server [serverKey], by their id there.
+  Map<String, VideoCollection> serverFilms(String serverKey) {
+    final prefix = 'jf:$serverKey:';
+    return {
+      for (final c in collections)
+        if (isFilm(c) && c.main.single.id.startsWith(prefix)) c.main.single.id.substring(prefix.length): c,
+    };
+  }
+
+  /// A film or show by its key.
+  VideoCollection? collectionByKey(String key) => _collectionByKey[key];
 
   /// [g]'s films that are here now, in its order.
   List<VideoCollection> filmsIn(VideoGroup g) => groups.films(g, (k) => _collectionByKey[k]);
@@ -258,7 +307,10 @@ class VideoLibraryModel extends ChangeNotifier {
       groups.add(into, films);
       return into;
     }
-    return groups.create(name ?? s.name, films);
+    final g = groups.create(name ?? s.name, films);
+    // One of the server's own collections: shared as that one (9 Nov 2026), not made again.
+    if (s.link case final l?) groups.link(g, l.server, l.id);
+    return g;
   }
 
   /// "No thanks" to [s]: not suggested again.
@@ -1078,7 +1130,7 @@ class VideoLibraryModel extends ChangeNotifier {
     };
     if (damaged) await storage.keepCopy(fileName);
     // Film collections (8 Nov 2026): the user's groups of films, shared by every profile.
-    groups.load(j['groups']);
+    groups.load(j['groups'], j['groupsRemoved']);
     _dismissedSuggestions = {
       if (j['groupsDismissed'] is List)
         for (final d in j['groupsDismissed'] as List) if (d is String) d,
@@ -1091,6 +1143,7 @@ class VideoLibraryModel extends ChangeNotifier {
     _descriptions = descriptions;
     _trackChoices = choices;
     saveNfo = j['saveNfo'] != false;
+    shareGroups = j['shareGroups'] != false;
     Map<String, String> strings(Object? m) =>
         m is Map ? {for (final e in m.entries) if (e.key is String && e.value is String) e.key as String: e.value as String} : {};
     _pictures = strings(j['pictures']);
@@ -1162,6 +1215,7 @@ class VideoLibraryModel extends ChangeNotifier {
       'edits': {for (final e in _edits.entries) e.key: e.value.toJson()},
       'places': {for (final e in _places.entries) e.key: e.value.toJson()},
       if (!saveNfo) 'saveNfo': false,
+      if (!shareGroups) 'shareGroups': false,
       if (_pictures.isNotEmpty) 'pictures': _pictures,
       if (_posters.isNotEmpty) 'posters': _posters,
       if (_shapes.isNotEmpty) 'shapes': {for (final e in _shapes.entries) e.key: e.value.name},
@@ -1180,6 +1234,7 @@ class VideoLibraryModel extends ChangeNotifier {
           for (final e in _shuffleChoices.entries) e.key: {for (final s in e.value.entries) s.key: s.value},
         },
       if (!groups.isEmpty) 'groups': groups.toJson(),
+      if (groups.removed.isNotEmpty) 'groupsRemoved': groups.removed,
       if (_dismissedSuggestions.isNotEmpty) 'groupsDismissed': _dismissedSuggestions.toList()..sort(),
       if (_favourites.isNotEmpty) 'favourites': _favourites.toList()..sort(),
       if (_descriptions.isNotEmpty) 'descriptions': _descriptions,

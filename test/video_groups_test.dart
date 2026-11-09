@@ -1,6 +1,7 @@
 // Film collections, step 1 (plan: docs/ai-context/07_FILM_COLLECTIONS_PLAN.md): the user's own
 // groups of films. Films only (shows stay their own collections), kept in the shared
 // videos.json, following a film's rename, in the group's order, with "what to watch next".
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -391,6 +392,33 @@ void main() {
     expect(g.keys, isNot(contains('snatch')));
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 3));
+  });
+
+  // ---- sharing through Jellyfin (9 Nov 2026): what the user sees ----
+
+  testWidgets('a collection says whether it\'s shared, and why not', (tester) async {
+    await tester.runAsync(scan);
+    final g = videos.groups.create('Pokémon', [for (final c in videos.collections) if (c.name.startsWith('Pokemon')) c]);
+    await show(tester, VideoGroupScreen(groupId: g.id));
+    // These films are this device's own files.
+    expect(find.textContaining('Only on this device'), findsOneWidget);
+
+    videos.groups.link(g, 'den', 'box1');
+    videos.setSharing('den', (server: 'Den', shared: 1, problem: null));
+    await tester.pump();
+    expect(find.text('Shared through Den'), findsOneWidget);
+
+    await show(tester, const VideosScreen());
+    expect(find.byKey(const ValueKey('group-shared')), findsOneWidget);
+
+    // Turned off: nothing said.
+    await show(tester, VideoGroupScreen(groupId: g.id));
+    expect(find.byKey(const ValueKey('group-share-line')), findsOneWidget);
+    unawaited(videos.setShareGroups(false));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('group-share-line')), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
   });
 
   test('a damaged group in the file is skipped', () {
