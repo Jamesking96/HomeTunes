@@ -14,6 +14,7 @@ import 'dart:math' show Random;
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../models/video_group.dart';
 import '../models/video_item.dart';
 import '../services/music_permission.dart';
 import '../services/path_safety.dart';
@@ -29,6 +30,7 @@ import 'media_folders.dart';
 import 'custom_art_store.dart';
 import 'remote_videos.dart';
 import 'video_filters.dart';
+import 'video_groups.dart';
 import 'video_shuffle.dart';
 import 'video_types.dart' show collectionType;
 
@@ -199,6 +201,35 @@ class VideoLibraryModel extends ChangeNotifier {
 
   /// The collection a video is in.
   VideoCollection? collectionOf(VideoItem v) => collectionNamed(v.collection);
+
+  // ---- film collections (8 Nov 2026; plan: docs/ai-context/07_FILM_COLLECTIONS_PLAN.md) ----
+
+  /// The user's own groups of films ("Pokémon", "James Bond"), shared by every profile.
+  late final VideoGroups groups = VideoGroups(changed: () {
+    notifyListeners();
+    _save();
+  });
+
+  /// [g]'s films that are here now, in its order.
+  List<VideoCollection> filmsIn(VideoGroup g) => groups.films(g, (k) => _collectionByKey[k]);
+
+  /// The shows and films that aren't in any group (the Collections tab lists these after the
+  /// groups, so each thing shows once).
+  List<VideoCollection> get ungrouped =>
+      groups.isEmpty ? collections : [for (final c in collections) if (!groups.contains(c.key)) c];
+
+  /// The film to watch next in [g]: the first one started and not finished, else the first not
+  /// watched, in its order. Null when every one is watched.
+  VideoCollection? nextInGroup(VideoGroup g) {
+    final films = filmsIn(g);
+    bool watched(VideoCollection c) => c.main.every((v) => _places[v.id]?.watched ?? false);
+    return films.where((c) => c.main.any((v) => _places[v.id]?.inProgress ?? false)).firstOrNull ??
+        films.where((c) => !watched(c)).firstOrNull;
+  }
+
+  /// How many of [g]'s films are watched.
+  int watchedInGroup(VideoGroup g) =>
+      filmsIn(g).where((c) => c.main.every((v) => _places[v.id]?.watched ?? false)).length;
 
   bool _disposed = false;
 
@@ -472,6 +503,7 @@ class VideoLibraryModel extends ChangeNotifier {
       description.trim().isEmpty ? _descriptions.remove(oldKey) : _descriptions[oldKey] = description.trim();
     }
     if (newKey != oldKey) {
+      groups.renameKey(oldKey, newKey);
       if (_favourites.remove(oldKey)) _favourites.add(newKey);
       final d = _descriptions.remove(oldKey);
       if (d != null) _descriptions[newKey] = d;
@@ -971,6 +1003,8 @@ class VideoLibraryModel extends ChangeNotifier {
             ),
     };
     if (damaged) await storage.keepCopy(fileName);
+    // Film collections (8 Nov 2026): the user's groups of films, shared by every profile.
+    groups.load(j['groups']);
     _foundGenres = foundGenres;
     _scanned = scanned;
     _edits = edits;
@@ -1067,6 +1101,7 @@ class VideoLibraryModel extends ChangeNotifier {
         'shuffle': {
           for (final e in _shuffleChoices.entries) e.key: {for (final s in e.value.entries) s.key: s.value},
         },
+      if (!groups.isEmpty) 'groups': groups.toJson(),
       if (_favourites.isNotEmpty) 'favourites': _favourites.toList()..sort(),
       if (_descriptions.isNotEmpty) 'descriptions': _descriptions,
       if (_foundGenres.isNotEmpty)
