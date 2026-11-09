@@ -33,7 +33,9 @@ const _taggedExtensions = {'.mp4', '.m4v', '.mov'};
 
 /// The current version of the name-reading rules. Videos saved by an older one are read again
 /// once (keeping their thumbnail, length and "added" date).
-const videoScanVersion = 5; // 3: .nfo files; 4: season titles; 5: season sub numbers (1.2)
+// 3: .nfo files; 4: season titles; 5: season sub numbers (1.2); 6: `<set>` is a suggested film
+// collection, not the collection's name.
+const videoScanVersion = 6;
 
 /// Picture names that are a collection's poster, best first (lower case, without extension).
 const _posterNames = ['poster', 'folder', 'cover', 'season-all-poster', 'show', 'movie'];
@@ -173,7 +175,10 @@ VideoItem readVideo(String path, int modifiedMs, int sizeBytes,
     id: VideoItem.idFor(path),
     path: path,
     title: nfo?.title ?? title ?? info.title,
-    collection: nfo?.showTitle ?? nfo?.set ?? show?.title ?? info.collection,
+    // An .nfo `<set>` (a film series) no longer joins films into one show (9 Nov 2026): each
+    // stays its own film, and the set is offered as a suggested film collection.
+    collection: nfo?.showTitle ?? show?.title ?? info.collection,
+    setName: nfo?.showTitle == null ? nfo?.set : null,
     category: info.category,
     season: season,
     episode: episode,

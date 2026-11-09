@@ -26,6 +26,7 @@ import '../widgets/cards.dart';
 import '../widgets/download_ui.dart' show downloadsOf;
 import '../widgets/filter_sheet.dart';
 import '../widgets/playlist_art.dart';
+import '../widgets/playlist_sharing.dart' show sharedTag;
 import '../widgets/quick_links.dart';
 import '../widgets/rescan_button.dart';
 import '../widgets/track_tile.dart';
@@ -115,7 +116,8 @@ class _PlaylistsTab extends StatelessWidget {
             // Its own icon or picture, else the first song's cover (0.1.67).
             leading: PlaylistArt(playlist: p, size: 52),
             title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text('Playlist · ${p.trackIds.length} songs'),
+            // Profiles, phase 4: whose a shared playlist is.
+            subtitle: Text([sharedTag(p) ?? 'Playlist', '${p.trackIds.length} songs'].join(' · ')),
             onTap: () => nav.openPlaylist(p),
           ),
         ),

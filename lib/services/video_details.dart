@@ -190,7 +190,7 @@ VideoFileReport inspectVideoNow({
       'Collection',
       scanned.collection,
       shown.collection,
-      fromNfo: nfo?.showTitle ?? nfo?.set,
+      fromNfo: nfo?.showTitle,
       fromShow: show?.title,
       fromFileName: looseFilm ? info.collection : null,
       fromFolder: info?.collection,

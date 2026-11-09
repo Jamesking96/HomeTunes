@@ -147,8 +147,8 @@ void main() {
       expect(find.byKey(const ValueKey('tv-collection:Daria')), findsNothing);
       expect(find.byKey(const ValueKey('tv-collection:Dune')), findsNothing);
 
-      // The same type carries into All videos.
-      await tester.tap(find.byKey(const ValueKey('tv-tab-All videos')));
+      // The same type carries into Every video (each video on its own).
+      await tester.tap(find.byKey(const ValueKey('tv-tab-Every video')));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('tv-video:jf:s1:a1')), findsOneWidget);
       expect(find.byKey(const ValueKey('tv-video:jf:s1:t1')), findsNothing);
@@ -317,7 +317,7 @@ void main() {
       expect(shown('Dune'), findsNothing);
 
       // All videos: the same type.
-      await tap(tester, find.text('All videos'));
+      await tap(tester, find.text('Every video'));
       expect(shown('Attack on Titan a1'), findsOneWidget);
       expect(shown('Daria'), findsNothing);
       await tap(tester, find.byKey(const ValueKey('video-type:Films')));

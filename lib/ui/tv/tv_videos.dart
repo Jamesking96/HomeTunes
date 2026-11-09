@@ -15,20 +15,27 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/video_group.dart';
 import '../../models/video_item.dart';
 import '../../state/library_index.dart' show sortKey;
 import '../../state/library_model.dart';
+import '../../state/video_groups.dart' show isFilm;
 import '../../state/video_library_model.dart';
 import '../../state/video_types.dart';
 import '../nav.dart';
 import 'tv_browse.dart';
+import 'tv_groups.dart' show tvGroupTile, showTvGroupSuggestions;
 import 'tv_items.dart';
 import 'tv_music.dart' show tvEmptyLibraryHints, tvLibraryHints;
 import 'tv_options.dart';
 
+/// Film collections (step 4, 9 Nov 2026), as on the PC: Collections holds the user's groups of
+/// films and the shows and films not in one; All videos is every show and film; Every video is
+/// each video on its own.
 enum TvVideoTab {
   collections('Collections'),
   all('All videos'),
+  every('Every video'),
   continueWatching('Continue watching'),
   favourites('Favourites');
 
@@ -107,7 +114,7 @@ class _TvVideosScreenState extends State<TvVideosScreen> {
 
   Future<void> _chooseSort(BuildContext context) => showTvOptions(context, title: 'Sort videos', options: [
         for (final s in TvVideoSort.values)
-          if (_tab != TvVideoTab.all || s.forVideos)
+          if (_tab != TvVideoTab.every || s.forVideos)
             TvOption(s.label, s == _sort ? Icons.check : Icons.sort, () => setState(() => _sort = s)),
         TvOption(_reverse ? 'Reverse the order: on' : 'Reverse the order: off', _reverse ? Icons.check : Icons.swap_vert,
             subtitle: 'The same sort, the other way round', () => setState(() => _reverse = !_reverse)),
@@ -149,7 +156,7 @@ class _TvVideosScreenState extends State<TvVideosScreen> {
     final lib = context.read<LibraryModel>();
     final nav = context.read<AppNav>();
     if (nav.takeView(AppNav.favouriteVideosView)) _tab = TvVideoTab.favourites;
-    if (_tab == TvVideoTab.all && !_sort.forVideos) _sort = TvVideoSort.title;
+    if (_tab == TvVideoTab.every && !_sort.forVideos) _sort = TvVideoSort.title;
     final collectionAspect = lib.settings.video.collectionPictureShape.aspect;
     final videoAspect = lib.settings.video.videoPictureShape.aspect;
 
@@ -161,7 +168,7 @@ class _TvVideosScreenState extends State<TvVideosScreen> {
     List<VideoCollection> chosen(List<VideoCollection> list) => chooseCollections(list, _choice, stateOf: (c) => _stateOf(videos, c));
     List<VideoItem> chosenVideos(List<VideoItem> list) => chooseVideos(list, _choice, placeOf: videos.placeOf);
     // The genres the Filter offers: those among what the type shows.
-    final genres = _tab == TvVideoTab.all || _tab == TvVideoTab.continueWatching
+    final genres = _tab == TvVideoTab.every || _tab == TvVideoTab.continueWatching
         ? genresOf(videos: chooseVideos(videos.videos, VideoChoice(type: _choice.type), placeOf: videos.placeOf))
         : genresOf(collections: chooseCollections(videos.collections, VideoChoice(type: _choice.type), stateOf: (c) => _stateOf(videos, c)));
 
@@ -191,6 +198,29 @@ class _TvVideosScreenState extends State<TvVideosScreen> {
       );
     }
 
+    // The Collections tab (step 4): the user's groups of films first, then the shows and films
+    // not in one. A group shows when any of its films passes the type and filters.
+    Widget withGroups() {
+      final groups = [
+        for (final g in videos.groups.all)
+          if (chosen(videos.filmsIn(g)).isNotEmpty || (g.keys.isEmpty && _choice.type == null && _choice.filters == 0)) g,
+      ];
+      final rest = _sortedCollections(videos, chosen(videos.ungrouped));
+      if (groups.isEmpty && rest.isEmpty) return nothing();
+      final items = <Object>[...groups, ...rest];
+      String name(Object x) => x is VideoGroup ? x.name : (x as VideoCollection).name;
+      return TvAzGrid<Object>(
+        key: ValueKey('collections-$key-${groups.length}'),
+        items: items,
+        tileWidth: collectionAspect < 1 ? 132 : 180,
+        aspectRatio: collectionAspect,
+        letterOf: _azStrip && groups.isEmpty ? (x) => tvLetterOf(name(x)) : null,
+        itemBuilder: (context, x, i, node, w) => x is VideoGroup
+            ? tvGroupTile(context, x, node: node, width: w, aspectRatio: collectionAspect)
+            : tvCollectionTile(context, x as VideoCollection, node: node, width: w, aspectRatio: collectionAspect),
+      );
+    }
+
     final Widget body;
     if (videos.videos.isEmpty) {
       body = TvEmpty(
@@ -207,14 +237,15 @@ class _TvVideosScreenState extends State<TvVideosScreen> {
       );
     } else {
       final grid = switch (_tab) {
-        TvVideoTab.collections => collections(videos.collections, 'collections'),
+        TvVideoTab.collections => withGroups(),
+        TvVideoTab.all => collections(videos.collections, 'all'),
         TvVideoTab.favourites => videos.favouriteCollections.isEmpty
             ? const TvEmpty(
                 icon: Icons.favorite_border,
                 title: 'No favourites yet',
                 message: 'Hold OK on a collection and choose Add to favourites.')
             : collections(videos.favouriteCollections, 'favourites'),
-        TvVideoTab.all => () {
+        TvVideoTab.every => () {
             final shown = chosenVideos(videos.videos);
             if (shown.isEmpty) return nothing();
             return TvAzGrid<VideoItem>(
@@ -258,6 +289,16 @@ class _TvVideosScreenState extends State<TvVideosScreen> {
                 ),
               ),
             ),
+            // Suggested collections (step 5): made only on a yes.
+            if (_tab == TvVideoTab.collections && videos.ungrouped.where(isFilm).length >= 2) ...[
+              TvButton(
+                key: const ValueKey('tv-suggest'),
+                label: 'Suggested',
+                icon: Icons.auto_awesome_outlined,
+                onPressed: () => showTvGroupSuggestions(context),
+              ),
+              const SizedBox(width: 10),
+            ],
             TvButton(
               key: const ValueKey('tv-video-filter'),
               label: _choice.filters == 0 ? 'Filter' : 'Filter (${_choice.filters})',

@@ -13,6 +13,7 @@ import '../../state/playlists_model.dart';
 import '../theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/playlist_art.dart';
+import '../widgets/playlist_sharing.dart' show sharedByLine;
 import 'tv_browse.dart';
 import 'tv_detail.dart';
 import 'tv_items.dart';
@@ -196,9 +197,11 @@ class TvPlaylistPage extends StatelessWidget {
         picture: playlist == null
             ? TvColourPicture(colour: AppColors.accent, icon: Icons.favorite)
             : PlaylistArt(playlist: playlist, radius: 0),
-        kind: playlist == null ? 'Playlist' : 'Playlist',
+        kind: playlist == null || playlist.isMine ? 'Playlist' : 'Shared playlist',
         title: name,
         lines: [
+          // Profiles, phase 4: someone else's playlist, shared with you.
+          if (playlist != null && !playlist.isMine) sharedByLine(playlist),
           [_songs(tracks.length), if (length > Duration.zero) formatLong(length), if (missing > 0) '$missing not available now'].join(' · '),
         ],
         buttons: [
@@ -219,7 +222,8 @@ class TvPlaylistPage extends StatelessWidget {
           node: node,
           highlight: t.id == playing,
           extra: [
-            if (playlist != null) TvOption('Remove from this playlist', Icons.remove_circle_outline, () => pl.removeAt(playlist, at)),
+            if (playlist != null && playlist.canChangeSongs)
+              TvOption('Remove from this playlist', Icons.remove_circle_outline, () => pl.removeAt(playlist, at)),
           ],
         );
       },

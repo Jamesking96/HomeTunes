@@ -9,8 +9,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hometunes/models/playlist.dart';
 import 'package:hometunes/services/storage.dart';
+import 'package:hometunes/state/playlists_model.dart';
 import 'package:hometunes/state/profiles_model.dart';
+import 'package:hometunes/ui/widgets/playlist_sharing.dart';
 import 'package:hometunes/ui/profiles/profile_ui.dart';
 import 'package:hometunes/ui/profiles/whos_listening.dart';
 import 'package:hometunes/ui/screens/settings/profile_settings.dart';
@@ -103,6 +106,53 @@ void main() {
     final m = await family(tester);
     await draw(tester, m, const Size(900, 700), 'profiles-settings',
         Scaffold(appBar: AppBar(title: const Text('Profiles'), actions: const [ProfileButton()]), body: const ProfileSettings()));
+  });
+
+  // Phase 4: the owner chooses what everyone else may do with a playlist.
+  Future<void> sharing(WidgetTester tester, Size size, String name, {bool tv = false}) async {
+    final m = await family(tester);
+    final pl = PlaylistsModel(Storage.at(dir).forProfile('p1'));
+    final road = Playlist(id: '1', name: 'Road trip', sharing: PlaylistSharing.play);
+    pl.playlists.add(road);
+    Widget page = Scaffold(
+      body: Builder(builder: (c) => Center(child: TextButton(onPressed: () => showPlaylistSharing(c, road), child: const Text('Share')))),
+    );
+    if (tv) page = TvFocus(enabled: true, sounds: false, child: page);
+    await draw(tester, m, size, name, ChangeNotifierProvider.value(value: pl, child: page),
+        then: () => tester.tap(find.text('Share')));
+  }
+
+  testWidgets('Sharing a playlist (phase 4)', (tester) => sharing(tester, const Size(900, 700), 'profiles-playlist-sharing'));
+  testWidgets('Sharing a playlist on the TV (phase 4)',
+      (tester) => sharing(tester, const Size(1920, 1080), 'profiles-playlist-sharing-tv', tv: true));
+
+  // Phase 5: PINs.
+  Future<ProfilesModel> withPin(WidgetTester tester) async {
+    final m = await family(tester);
+    await tester.runAsync(() async {
+      await m.switchTo('p2');
+      await m.setPin('2468');
+      await m.switchTo('p1');
+    });
+    return m;
+  }
+
+  testWidgets('Who\'s listening? with a PIN (phase 5)', (tester) async {
+    final m = await withPin(tester);
+    await draw(tester, m, const Size(1280, 800), 'profiles-pin-whos', const WhosListeningScreen(),
+        then: () => tester.tap(find.byKey(const ValueKey('whos:p2'))));
+  });
+
+  testWidgets('Who\'s listening? with a PIN on the TV (phase 5)', (tester) async {
+    final m = await withPin(tester);
+    await draw(tester, m, const Size(1920, 1080), 'profiles-pin-whos-tv',
+        const TvFocus(enabled: true, sounds: false, child: WhosListeningScreen()),
+        then: () => tester.tap(find.byKey(const ValueKey('whos:p2'))));
+  });
+
+  testWidgets('Settings › Profiles with the PIN row (phase 5)', (tester) async {
+    final m = await withPin(tester);
+    await draw(tester, m, const Size(900, 760), 'profiles-pin-settings', const Scaffold(body: ProfileSettings()));
   });
 
   testWidgets('Add a profile', (tester) async {

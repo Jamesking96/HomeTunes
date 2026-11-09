@@ -14,6 +14,7 @@ import 'dart:math' show Random;
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../models/video_group.dart';
 import '../models/video_item.dart';
 import '../services/music_permission.dart';
 import '../services/path_safety.dart';
@@ -29,6 +30,8 @@ import 'media_folders.dart';
 import 'custom_art_store.dart';
 import 'remote_videos.dart';
 import 'video_filters.dart';
+import 'video_group_suggestions.dart';
+import 'video_groups.dart';
 import 'video_shuffle.dart';
 import 'video_types.dart' show collectionType;
 
@@ -199,6 +202,85 @@ class VideoLibraryModel extends ChangeNotifier {
 
   /// The collection a video is in.
   VideoCollection? collectionOf(VideoItem v) => collectionNamed(v.collection);
+
+  // ---- film collections (8 Nov 2026; plan: docs/ai-context/07_FILM_COLLECTIONS_PLAN.md) ----
+
+  /// The user's own groups of films ("Pokémon", "James Bond"), shared by every profile.
+  late final VideoGroups groups = VideoGroups(changed: () {
+    notifyListeners();
+    _save();
+  });
+
+  /// [g]'s films that are here now, in its order.
+  List<VideoCollection> filmsIn(VideoGroup g) => groups.films(g, (k) => _collectionByKey[k]);
+
+  /// The shows and films that aren't in any group (the Collections tab lists these after the
+  /// groups, so each thing shows once).
+  List<VideoCollection> get ungrouped =>
+      groups.isEmpty ? collections : [for (final c in collections) if (!groups.contains(c.key)) c];
+
+  /// The film to watch next in [g]: the first one started and not finished, else the first not
+  /// watched, in its order. Null when every one is watched.
+  VideoCollection? nextInGroup(VideoGroup g) {
+    final films = filmsIn(g);
+    bool watched(VideoCollection c) => c.main.every((v) => _places[v.id]?.watched ?? false);
+    return films.where((c) => c.main.any((v) => _places[v.id]?.inProgress ?? false)).firstOrNull ??
+        films.where((c) => !watched(c)).firstOrNull;
+  }
+
+  // ---- suggested film collections (step 5, 9 Nov 2026) ----
+
+  /// The video servers' own collections (set by ServerVideosModel); null with no server.
+  Future<List<ServerFilmSet>> Function()? serverFilmSets;
+
+  /// Suggestion names the user said "No thanks" to (any case), shared like the groups.
+  Set<String> _dismissedSuggestions = {};
+
+  /// The suggestions from the films' .nfo files and similar names (straight away).
+  List<GroupSuggestion> get localSuggestions =>
+      suggestGroups(collections: collections, groups: groups, dismissed: _dismissedSuggestions);
+
+  /// Every suggestion, the server's own collections too (asks each video server).
+  Future<List<GroupSuggestion>> groupSuggestions() async {
+    List<ServerFilmSet> sets = const [];
+    try {
+      sets = await serverFilmSets?.call() ?? const [];
+    } catch (_) {
+      // Away: the others still show.
+    }
+    return suggestGroups(collections: collections, groups: groups, serverSets: sets, dismissed: _dismissedSuggestions);
+  }
+
+  /// Yes to [s]: makes the collection [name] (or adds to the one named the same) with [films].
+  VideoGroup acceptSuggestion(GroupSuggestion s, Iterable<VideoCollection> films, {String? name}) {
+    final into = s.into == null ? null : groups.byId(s.into!.id);
+    if (into != null) {
+      groups.add(into, films);
+      return into;
+    }
+    return groups.create(name ?? s.name, films);
+  }
+
+  /// "No thanks" to [s]: not suggested again.
+  Future<void> dismissSuggestion(GroupSuggestion s) async {
+    if (!_dismissedSuggestions.add(s.dismissKey)) return;
+    notifyListeners();
+    await _save();
+  }
+
+  /// Suggestions said "No thanks" to are offered again.
+  Future<void> undismissSuggestions() async {
+    if (_dismissedSuggestions.isEmpty) return;
+    _dismissedSuggestions = {};
+    notifyListeners();
+    await _save();
+  }
+
+  bool get hasDismissedSuggestions => _dismissedSuggestions.isNotEmpty;
+
+  /// How many of [g]'s films are watched.
+  int watchedInGroup(VideoGroup g) =>
+      filmsIn(g).where((c) => c.main.every((v) => _places[v.id]?.watched ?? false)).length;
 
   bool _disposed = false;
 
@@ -472,6 +554,7 @@ class VideoLibraryModel extends ChangeNotifier {
       description.trim().isEmpty ? _descriptions.remove(oldKey) : _descriptions[oldKey] = description.trim();
     }
     if (newKey != oldKey) {
+      groups.renameKey(oldKey, newKey);
       if (_favourites.remove(oldKey)) _favourites.add(newKey);
       final d = _descriptions.remove(oldKey);
       if (d != null) _descriptions[newKey] = d;
@@ -586,8 +669,10 @@ class VideoLibraryModel extends ChangeNotifier {
           if (series) 'showtitle': v.collection,
           if (series) 'season': v.season?.toString(),
           if (series) 'episode': v.episode?.toString(),
-          // A film on its own is its own collection: no set then.
-          if (!series) 'set': (c != null && c.videos.length > 1) || v.collection != v.title ? v.collection : null,
+          // A film's `<set>` is the film collection it's in (9 Nov 2026), so Jellyfin, Kodi and
+          // Plex group it the same way (and HomeTunes suggests it on a new install); none when
+          // it isn't in one.
+          if (!series) 'set': c == null ? null : groups.of(c.key).firstOrNull?.name,
           'year': v.year?.toString(),
           'genre': v.genre,
           'plot': v.description,
@@ -878,8 +963,29 @@ class VideoLibraryModel extends ChangeNotifier {
   Future<void> _afterPictureChange() async {
     notifyListeners();
     await _save();
-    // Pictures no longer used by anything go.
-    await _pictureStore.removeUnused({..._pictures.values, ..._posters.values});
+    // Pictures no longer used by anything go (film collections' own pictures too).
+    await _pictureStore.removeUnused({
+      ..._pictures.values,
+      ..._posters.values,
+      for (final g in groups.all) ?groupPosterFile(g),
+    });
+  }
+
+  // ---- a film collection's own picture (9 Nov 2026, step 3) ----
+
+  /// The picture chosen for film collection [g], or null (its films' posters are tiled).
+  String? groupPosterFile(VideoGroup g) {
+    final name = g.poster;
+    if (name == null) return null;
+    final f = p.join(customPictureDir, p.basename(name));
+    return File(f).existsSync() ? f : null;
+  }
+
+  /// Gives film collection [g] the picture [bytes], or with null goes back to its films' posters.
+  /// Kept with the collection, so it's the same for every profile.
+  Future<void> setGroupPoster(VideoGroup g, List<int>? bytes) async {
+    g.poster = bytes == null ? null : p.basename(await _keep(bytes));
+    await _afterPictureChange();
   }
 
   // ---- loading and saving ----
@@ -971,6 +1077,12 @@ class VideoLibraryModel extends ChangeNotifier {
             ),
     };
     if (damaged) await storage.keepCopy(fileName);
+    // Film collections (8 Nov 2026): the user's groups of films, shared by every profile.
+    groups.load(j['groups']);
+    _dismissedSuggestions = {
+      if (j['groupsDismissed'] is List)
+        for (final d in j['groupsDismissed'] as List) if (d is String) d,
+    };
     _foundGenres = foundGenres;
     _scanned = scanned;
     _edits = edits;
@@ -1067,6 +1179,8 @@ class VideoLibraryModel extends ChangeNotifier {
         'shuffle': {
           for (final e in _shuffleChoices.entries) e.key: {for (final s in e.value.entries) s.key: s.value},
         },
+      if (!groups.isEmpty) 'groups': groups.toJson(),
+      if (_dismissedSuggestions.isNotEmpty) 'groupsDismissed': _dismissedSuggestions.toList()..sort(),
       if (_favourites.isNotEmpty) 'favourites': _favourites.toList()..sort(),
       if (_descriptions.isNotEmpty) 'descriptions': _descriptions,
       if (_foundGenres.isNotEmpty)

@@ -189,7 +189,7 @@ void main() {
 
     // 1. The grid.
     await show(const VideosScreen());
-    await tester.tap(find.text('All videos'));
+    await tester.tap(find.text('Every video'));
     await tester.pumpAndSettle();
     await shoot('videos-grid');
 

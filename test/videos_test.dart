@@ -427,7 +427,7 @@ void main() {
       expect(find.widgetWithText(CollectionCard, 'vids'), findsOneWidget);
 
       // All videos.
-      await tester.tap(find.text('All videos'));
+      await tester.tap(find.text('Every video'));
       await tester.pumpAndSettle();
       expect(find.text('Start'), findsOneWidget); // "01 Start" is episode 1, "Start"
       expect(find.text('Film'), findsOneWidget);

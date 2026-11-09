@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hometunes/models/playlist.dart';
 import 'package:hometunes/models/track_edit.dart';
 import 'package:hometunes/services/app_backup.dart';
 import 'package:hometunes/services/storage.dart';
@@ -67,6 +68,7 @@ class TestHost implements ProfileHost {
 }
 
 void main() {
+  group('PINs (phase 5)', pinTests);
   late Directory dir;
   late Storage storage;
 
@@ -342,5 +344,159 @@ void main() {
     expect(file('playlists.json').existsSync(), isFalse);
     expect(json('settings.json')?.containsKey('textSize'), isFalse);
     expect(json('profiles/p1/settings.json')?['textSize'], 1.3);
+  });
+
+  // ---- Phase 4: shared playlists (the owner chooses: play it, or play and change it) ----
+
+  test('a shared playlist shows for everyone else; only "play and change" lets them change it', () async {
+    final (profiles, host) = await open();
+    await profiles.turnOn(name: 'Sam');
+    final pl = host.playlists;
+    final mineOnly = pl.create('Sam only');
+    final road = pl.create('Road trip')..trackIds.addAll(['a', 'b', 'c']);
+    pl.setSharing(road, PlaylistSharing.play);
+    final party = pl.create('Party')..trackIds.addAll(['x', 'y']);
+    pl.setSharing(party, PlaylistSharing.change);
+    expect(mineOnly.sharing, PlaylistSharing.off);
+    await host.saveEverything();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(json('profiles/p1/playlists.json')?['playlists'][1]['sharing'], 'play');
+
+    await profiles.add(name: 'Alex');
+    await profiles.switchTo('p2');
+    // Alex sees Sam's two shared playlists, not the private one, marked as Sam's.
+    expect([for (final p in pl.playlists) p.name], ['Road trip', 'Party']);
+    final seenRoad = pl.playlists.first, seenParty = pl.playlists.last;
+    expect(seenRoad.isMine, isFalse);
+    expect(seenRoad.ownerName, 'Sam');
+    expect(seenRoad.canChangeSongs, isFalse);
+    expect(seenParty.canChangeSongs, isTrue);
+
+    // Play only: nothing changes, not even the name.
+    pl.removeAt(seenRoad, 0);
+    pl.rename(seenRoad, 'Mine now');
+    pl.delete(seenRoad);
+    expect(seenRoad.trackIds, ['a', 'b', 'c']);
+    expect(seenRoad.name, 'Road trip');
+    expect(pl.playlists, contains(seenRoad));
+    // Play and change: songs can move and go, written into Sam's file; the name is still Sam's.
+    pl.setOrder(seenParty, ['y', 'x']);
+    pl.removeAt(seenParty, 1);
+    pl.rename(seenParty, 'Alex party');
+    await pl.flush();
+    final samParty = (json('profiles/p1/playlists.json')?['playlists'] as List).firstWhere((p) => p['name'] == 'Party');
+    expect(samParty['trackIds'], ['y']);
+    // Alex's own playlists file holds only Alex's (none yet).
+    expect(json('profiles/p2/playlists.json')?['playlists'] ?? const [], isEmpty);
+
+    // A new playlist of Alex's comes before the shared ones.
+    pl.create('Alex mix');
+    expect(pl.playlists.first.name, 'Alex mix');
+
+    // Back to Sam: the change is there, and nothing of Alex's is shown (not shared).
+    await profiles.switchTo('p1');
+    expect([for (final p in pl.playlists) p.name], ['Sam only', 'Road trip', 'Party']);
+    expect(pl.byId(party.id)?.trackIds, ['y']);
+    expect(pl.playlists.every((p) => p.isMine), isTrue);
+  });
+
+  test('with sharing turned back off, the others no longer see it; with profiles off nobody does', () async {
+    final (profiles, host) = await open();
+    await profiles.turnOn(name: 'Sam');
+    final pl = host.playlists;
+    final road = pl.create('Road trip');
+    pl.setSharing(road, PlaylistSharing.change);
+    await profiles.add(name: 'Alex');
+    await profiles.switchTo('p2');
+    expect(pl.playlists.single.name, 'Road trip');
+    await profiles.switchTo('p1');
+    pl.setSharing(pl.byId(road.id)!, PlaylistSharing.off);
+    await profiles.switchTo('p2');
+    expect(pl.playlists, isEmpty);
+    await profiles.switchTo('p1');
+    await profiles.turnOff('p1');
+    expect([for (final p in pl.playlists) p.name], ['Road trip']);
+    expect(pl.playlists.single.isMine, isTrue);
+  });
+}
+
+void pinTests() {
+  late Directory dir;
+  setUp(() => dir = Directory.systemTemp.createTempSync('hometunes_pins'));
+  tearDown(() {
+    try {
+      dir.deleteSync(recursive: true);
+    } catch (_) {}
+  });
+
+  Future<ProfilesModel> two() async {
+    await Storage.at(dir).write(ProfilesModel.fileName, {
+      'on': true,
+      'profiles': [
+        {'id': 'p1', 'name': 'Sam', 'colour': '#FF7A59', 'icon': 'person'},
+        {'id': 'p2', 'name': 'Alex', 'colour': '#4FC3F7', 'icon': 'person'},
+      ],
+      'last': 'p1',
+    });
+    final m = ProfilesModel(Storage.at(dir));
+    await m.load();
+    return m;
+  }
+
+  test('a PIN is kept only as a salted hash, set for the profile in use, and survives a restart', () async {
+    final m = await two();
+    expect(m.current?.hasPin, isFalse);
+    expect(() => m.setPin('12'), throwsArgumentError);
+    expect(() => m.setPin('12ab'), throwsArgumentError);
+    await m.setPin('2468');
+    expect(m.current?.hasPin, isTrue);
+    expect(m.byId('p2')?.hasPin, isFalse); // only the one in use
+    final saved = File(p.join(dir.path, ProfilesModel.fileName)).readAsStringSync();
+    expect(saved, isNot(contains('2468')));
+    // Two profiles with the same PIN don't get the same stored text (salted).
+    final first = m.current!.pin;
+    await m.setPin('2468');
+    expect(m.current!.pin, isNot(first));
+
+    final again = ProfilesModel(Storage.at(dir));
+    await again.load();
+    expect(again.byId('p1')?.hasPin, isTrue);
+    expect(again.checkPin('p1', '2468'), PinCheck.right);
+    expect(again.checkPin('p1', '1357'), PinCheck.wrong);
+    expect(again.checkPin('p2', 'anything'), PinCheck.right); // no PIN: nothing to check
+  });
+
+  test('five wrong tries wait 30 seconds; the right PIN then works again', () async {
+    final m = await two();
+    await m.setPin('2468');
+    var clock = DateTime(2026, 11, 8, 20);
+    m.now = () => clock;
+    for (var i = 0; i < 4; i++) {
+      expect(m.checkPin('p1', '0000'), PinCheck.wrong);
+    }
+    expect(m.checkPin('p1', '0000'), PinCheck.wait);
+    expect(m.checkPin('p1', '2468'), PinCheck.wait); // even the right one, while waiting
+    expect(m.pinWaitLeft('p1'), const Duration(seconds: 30));
+    clock = clock.add(const Duration(seconds: 31));
+    expect(m.pinWaitLeft('p1'), Duration.zero);
+    expect(m.checkPin('p1', '2468'), PinCheck.right);
+  });
+
+  test('opening straight into the last profile asks who\'s listening when that one has a PIN', () async {
+    final m = await two();
+    expect(m.openLast, isTrue);
+    expect(m.needsChoosing, isFalse);
+    await m.setPin('2468');
+    final again = ProfilesModel(Storage.at(dir));
+    await again.load();
+    expect(again.needsChoosing, isTrue);
+    await again.switchTo('p1');
+    expect(again.needsChoosing, isFalse);
+    // Removing the PIN: straight in again next time.
+    await again.setPin(null);
+    final third = ProfilesModel(Storage.at(dir));
+    await third.load();
+    expect(third.current?.hasPin, isFalse);
+    expect(third.needsChoosing, isFalse);
   });
 }

@@ -105,6 +105,10 @@ class VideoItem {
   /// when not known (local files: the player finds out when it opens).
   final String? videoCodec;
 
+  /// The film series its .nfo names (`<set>`, 9 Nov 2026): offered as a suggested film
+  /// collection. (Before, a `<set>` made the films one show's episodes.)
+  final String? setName;
+
   const VideoItem({
     required this.id,
     required this.path,
@@ -134,6 +138,7 @@ class VideoItem {
     this.showPlot,
     this.nfoMs,
     this.videoCodec,
+    this.setName,
   });
 
   static String idFor(String path) => 'video:$path';
@@ -208,6 +213,7 @@ class VideoItem {
         showPlot: showPlot,
         nfoMs: nfoMs,
         videoCodec: videoCodec,
+        setName: setName,
       );
   }
 
@@ -245,6 +251,7 @@ class VideoItem {
         showPlot: showPlot,
         nfoMs: nfoMs,
         videoCodec: videoCodec,
+        setName: setName,
       );
 
   /// A copy marked special with [title] (0.1.66), or not special when null.
@@ -282,6 +289,7 @@ class VideoItem {
         if (showPlot != null) 'showPlot': showPlot,
         if (nfoMs != null) 'nfoMs': nfoMs,
         if (videoCodec != null) 'videoCodec': videoCodec,
+        if (setName != null) 'setName': setName,
       };
 
   /// Reads one back from videos.json. Throws on a wrong shape (the model skips that entry).
@@ -315,6 +323,7 @@ class VideoItem {
       showPlot: j['showPlot'] as String?,
       nfoMs: j['nfoMs'] as int?,
       videoCodec: j['videoCodec'] as String?,
+      setName: j['setName'] as String?,
     );
   }
 
