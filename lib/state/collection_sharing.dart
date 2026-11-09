@@ -275,18 +275,28 @@ Future<ShareOutcome> shareCollections({
     if (g.links.containsKey(serverKey)) continue;
     final items = itemsOf(g);
     if (items.isEmpty) continue;
-    final same = note.sets.entries
-        .where((e) =>
-            e.value.name.toLowerCase() == g.name.toLowerCase() &&
-            boxes.containsKey(e.key) &&
-            groups.linkedTo(serverKey, e.key) == null)
-        .firstOrNull;
-    if (same != null) {
-      // Both devices' films, then shared as one.
-      groups.link(g, serverKey, same.key);
-      groups.add(g, [for (final i in boxes[same.key]!.items) ?filmsByItem[i]]);
+    final want = g.name.trim().toLowerCase();
+    final sameId = note.sets.entries
+            .where((e) => e.value.name.toLowerCase() == want && boxes.containsKey(e.key) && groups.linkedTo(serverKey, e.key) == null)
+            .firstOrNull
+            ?.key ??
+        // Jellyfin's own collection of that name ("Star Wars" or "Star Wars Collection"), not
+        // one HomeTunes shares yet (9 Nov 2026): joined, not made a second time.
+        boxes.values
+            .where((b) {
+              final n = b.name.trim().toLowerCase();
+              return (n == want || n == '$want collection' || '$n collection' == want) &&
+                  !note.sets.containsKey(b.id) &&
+                  groups.linkedTo(serverKey, b.id) == null;
+            })
+            .firstOrNull
+            ?.id;
+    if (sameId != null) {
+      // Both sides' films, then shared as one.
+      groups.link(g, serverKey, sameId);
+      groups.add(g, [for (final i in boxes[sameId]!.items) ?filmsByItem[i]]);
       g.changedMs = VideoGroups.clock();
-      await syncLinked(g, same.key);
+      await syncLinked(g, sameId);
       continue;
     }
     if (!rights.manage) {

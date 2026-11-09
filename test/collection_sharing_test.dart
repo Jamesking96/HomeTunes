@@ -220,6 +220,18 @@ void main() {
     expect(pc.group('heists')!.keys.toSet(), {'snatch', 'skyfall'});
   });
 
+  test('a collection named like one of Jellyfin\'s own joins it instead of making a second', () async {
+    final server = FakeServer();
+    server.boxes['tmdb'] = const JellyfinCollection(id: 'tmdb', name: 'James Bond Collection', items: ['i1']);
+    final pc = Device(catalogue());
+    final g = pc.groups.create('James Bond', [pc.named('Goldfinger')]);
+    await pc.sync(server);
+    expect(server.boxes.keys, ['tmdb']);
+    expect(server.boxes['tmdb']!.items.toSet(), {'i1', 'i2'});
+    expect(g.links, {'den': 'tmdb'});
+    expect(g.keys.toSet(), {'goldfinger', 'dr. no'});
+  });
+
   test('a user who may not change collections is told what to turn on', () async {
     final server = FakeServer()
       ..admin = false
