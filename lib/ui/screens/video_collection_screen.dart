@@ -41,6 +41,7 @@ import '../widgets/selectable_title.dart';
 import 'video_collection/season_title_dialog.dart';
 export 'video_collection/season_title_dialog.dart' show showSeasonTitleDialog;
 import 'video_collection/edit_collection.dart';
+import 'video_group_actions.dart' show groupMenuItems, runGroupMenuChoice;
 export 'video_collection/edit_collection.dart' show showEditCollections, showEditCollection;
 part 'video_collection/collection_card.dart';
 part 'video_collection/contents_panel.dart';

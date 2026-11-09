@@ -12,6 +12,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/cards.dart' show EmptyState;
 import 'video_collection_screen.dart' show CollectionCard, collectionCardHeight;
+import 'video_group_actions.dart';
 import 'video_pictures.dart' show PosterPicture;
 import 'videos_screen.dart' show sliverCardRows;
 
@@ -26,12 +27,17 @@ String groupDetails(List<VideoCollection> films) {
 
 /// Up to four of its films' posters, side by side (one fills the whole picture).
 class GroupPicture extends StatelessWidget {
-  const GroupPicture({super.key, required this.films});
+  const GroupPicture({super.key, required this.films, this.group});
   final List<VideoCollection> films;
+
+  /// Its own picture, when one was chosen (step 3), is shown instead.
+  final VideoGroup? group;
 
   @override
   Widget build(BuildContext context) {
     final model = context.watch<VideoLibraryModel>();
+    final own = group == null ? null : model.groupPosterFile(group!);
+    if (own != null) return PosterPicture(file: own);
     final shown = films.take(4).toList();
     if (shown.isEmpty) {
       return ColoredBox(
@@ -69,7 +75,14 @@ class GroupCard extends StatelessWidget {
     final accent = Theme.of(context).colorScheme.primary;
     return Padding(
       padding: const EdgeInsets.all(8),
-      child: InkWell(
+      // Right-click / press and hold: its menu (step 3).
+      child: GestureDetector(
+        onSecondaryTapUp: (d) => showGroupMenu(context, group, at: d.globalPosition),
+        onLongPress: () {
+          final box = context.findRenderObject() as RenderBox;
+          showGroupMenu(context, group, at: box.localToGlobal(box.size.center(Offset.zero)));
+        },
+        child: InkWell(
         key: ValueKey('group-card:${group.id}'),
         borderRadius: AppShape.circular(8),
         onTap: () => context.read<AppNav>().openVideoGroup(group.id),
@@ -79,7 +92,7 @@ class GroupCard extends StatelessWidget {
             child: ClipRRect(
               borderRadius: AppShape.circular(8),
               child: Stack(fit: StackFit.expand, children: [
-                GroupPicture(films: films),
+                GroupPicture(films: films, group: group),
                 // A collection of films: a small stack mark in the corner.
                 Positioned(
                   right: 6,
@@ -114,6 +127,7 @@ class GroupCard extends StatelessWidget {
                 maxLines: 1, style: TextStyle(color: AppColors.textDim, fontSize: 12)),
         ]),
       ),
+      ),
     );
   }
 }
@@ -142,7 +156,31 @@ class VideoGroupScreen extends StatelessWidget {
     final watched = model.watchedInGroup(g);
     final missing = g.keys.length - films.length;
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(actions: [
+        // Step 3: change it.
+        IconButton(
+          key: const ValueKey('group-edit'),
+          tooltip: 'Edit collection',
+          icon: const Icon(Icons.edit_outlined),
+          onPressed: () => showEditGroup(context, g),
+        ),
+        IconButton(
+          tooltip: 'Change picture',
+          icon: const Icon(Icons.image_outlined),
+          onPressed: () => showGroupPosterOptions(context, g),
+        ),
+        Builder(
+          builder: (context) => IconButton(
+            key: const ValueKey('group-more'),
+            tooltip: 'More',
+            icon: const Icon(Icons.more_vert),
+            onPressed: () {
+              final box = context.findRenderObject() as RenderBox;
+              showGroupMenu(context, g, at: box.localToGlobal(box.size.bottomLeft(Offset.zero)), onPage: true);
+            },
+          ),
+        ),
+      ]),
       body: LayoutBuilder(builder: (context, box) {
         final wide = box.maxWidth >= 640;
         final cols = (box.maxWidth / 250).floor().clamp(1, 8);
@@ -151,7 +189,7 @@ class VideoGroupScreen extends StatelessWidget {
           width: wide ? 320 : box.maxWidth - 32,
           child: AspectRatio(
             aspectRatio: PictureShape.wide.aspect,
-            child: ClipRRect(borderRadius: AppShape.circular(8), child: GroupPicture(films: films)),
+            child: ClipRRect(borderRadius: AppShape.circular(8), child: GroupPicture(films: films, group: g)),
           ),
         );
         final about = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

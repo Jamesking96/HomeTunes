@@ -4,6 +4,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/video_group.dart';
@@ -207,6 +208,112 @@ void main() {
     expect(find.text('Play: Pokemon The First Movie'), findsOneWidget);
     await show(tester, const VideoGroupScreen(groupId: 'gone'));
     expect(find.text('This collection has been deleted'), findsOneWidget);
+  });
+
+  // ---- step 3: making and changing them ----
+
+  Future<void> rightClick(WidgetTester tester, Finder f) async {
+    await tester.tap(f, buttons: kSecondaryButton);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('a film\'s menu: Add to collection… › New collection…, then Remove from it', (tester) async {
+    FoldedHeadings.openAll();
+    await tester.runAsync(scan);
+    await show(tester, const VideosScreen());
+    await rightClick(tester, find.widgetWithText(CollectionCard, 'Snatch'));
+    expect(find.text('Add to collection…'), findsOneWidget);
+    await tester.tap(find.text('Add to collection…'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('New collection…'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'Guy Ritchie');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    final g = videos.groups.all.single;
+    expect(g.name, 'Guy Ritchie');
+    expect(g.keys, ['snatch']);
+    expect(find.widgetWithText(GroupCard, 'Guy Ritchie'), findsOneWidget);
+    expect(find.widgetWithText(CollectionCard, 'Snatch'), findsNothing); // now inside the collection
+
+    // A show's menu has no Add to collection (shows stay their own collections).
+    await rightClick(tester, find.widgetWithText(CollectionCard, 'Silo'));
+    expect(find.text('Add to collection…'), findsNothing);
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+
+    // All videos: the film's menu says Remove from "Guy Ritchie".
+    await tester.tap(find.text('All videos'));
+    await tester.pumpAndSettle();
+    await rightClick(tester, find.widgetWithText(CollectionCard, 'Snatch'));
+    await tester.tap(find.text('Remove from "Guy Ritchie"'));
+    await tester.pumpAndSettle();
+    expect(g.keys, isEmpty);
+  });
+
+  testWidgets('Select mode: several films into an existing collection', (tester) async {
+    FoldedHeadings.openAll();
+    await tester.runAsync(scan);
+    final g = videos.groups.create('Pokémon');
+    await show(tester, const VideosScreen());
+    await tester.tap(find.text('All videos'));
+    await tester.pumpAndSettle();
+    await rightClick(tester, find.widgetWithText(CollectionCard, 'Pokemon 3'));
+    await tester.tap(find.text('Select'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CollectionCard, 'Pokemon 2000'));
+    await tester.tap(find.widgetWithText(CollectionCard, 'Silo')); // a show: left out
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('select-add-to-group')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('group-pick:${g.id}')));
+    await tester.pumpAndSettle();
+    expect(g.keys, unorderedEquals(['pokemon 3', 'pokemon 2000']));
+  });
+
+  testWidgets('a collection\'s page: Edit (name, description, order) and Delete', (tester) async {
+    await tester.runAsync(scan);
+    final g = videos.groups.create('Pokemon', [for (final c in videos.collections) if (c.name.startsWith('Pokemon')) c]);
+    await show(tester, VideoGroupScreen(groupId: g.id));
+    await tester.tap(find.byKey(const ValueKey('group-edit')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('group-name')), 'Pokémon films');
+    await tester.enterText(find.byKey(const ValueKey('group-description')), 'Every one of them');
+    await tester.tap(find.text('By name'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect((g.name, g.description, g.order), ('Pokémon films', 'Every one of them', VideoGroupOrder.name));
+    expect(find.text('Every one of them'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('group-more')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-group-delete')));
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      await tester.tap(find.text('Delete'));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    });
+    await tester.pumpAndSettle();
+    expect(videos.groups.isEmpty, isTrue);
+    expect(videos.collections.length, 5); // the films stay
+  });
+
+  test('a collection\'s own picture is kept with it, and goes back to the films\' posters', () async {
+    await scan();
+    final g = videos.groups.create('Pokémon', [for (final c in videos.collections) if (c.name.startsWith('Pokemon')) c]);
+    expect(videos.groupPosterFile(g), isNull);
+    await videos.setGroupPoster(g, [0xFF, 0xD8, 0xFF, 1, 2, 3]);
+    final file = videos.groupPosterFile(g);
+    expect(file, isNotNull);
+    expect(File(file!).existsSync(), isTrue);
+    final again = VideoLibraryModel(storage, lib);
+    await again.load();
+    expect(again.groupPosterFile(again.groups.byId(g.id)!), file);
+    again.dispose();
+    await videos.setGroupPoster(g, null);
+    expect(videos.groupPosterFile(g), isNull);
+    expect(File(file).existsSync(), isFalse); // tidied away
   });
 
   test('a damaged group in the file is skipped', () {

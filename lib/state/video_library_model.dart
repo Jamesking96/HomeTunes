@@ -910,8 +910,29 @@ class VideoLibraryModel extends ChangeNotifier {
   Future<void> _afterPictureChange() async {
     notifyListeners();
     await _save();
-    // Pictures no longer used by anything go.
-    await _pictureStore.removeUnused({..._pictures.values, ..._posters.values});
+    // Pictures no longer used by anything go (film collections' own pictures too).
+    await _pictureStore.removeUnused({
+      ..._pictures.values,
+      ..._posters.values,
+      for (final g in groups.all) ?groupPosterFile(g),
+    });
+  }
+
+  // ---- a film collection's own picture (9 Nov 2026, step 3) ----
+
+  /// The picture chosen for film collection [g], or null (its films' posters are tiled).
+  String? groupPosterFile(VideoGroup g) {
+    final name = g.poster;
+    if (name == null) return null;
+    final f = p.join(customPictureDir, p.basename(name));
+    return File(f).existsSync() ? f : null;
+  }
+
+  /// Gives film collection [g] the picture [bytes], or with null goes back to its films' posters.
+  /// Kept with the collection, so it's the same for every profile.
+  Future<void> setGroupPoster(VideoGroup g, List<int>? bytes) async {
+    g.poster = bytes == null ? null : p.basename(await _keep(bytes));
+    await _afterPictureChange();
   }
 
   // ---- loading and saving ----

@@ -35,6 +35,8 @@ import '../widgets/fold_heading.dart';
 import '../widgets/filter_sheet.dart' show FilterBar, showFilterSheet, reverseGroupsIf;
 import 'video_collection_screen.dart';
 import 'video_group_screen.dart' show GroupCard, groupCardHeight;
+import 'video_group_actions.dart' show showAddToGroup;
+import '../../state/video_groups.dart' show isFilm;
 import 'video_pictures.dart';
 
 import '../widgets/video_card.dart';
@@ -327,6 +329,17 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
                 icon: const Icon(Icons.edit_outlined),
                 onPressed: () => showEditCollections(context, picked),
               ),
+              // Film collections (step 3): the films picked into one.
+              if (picked.any(isFilm))
+                IconButton(
+                  key: const ValueKey('select-add-to-group'),
+                  tooltip: 'Add to collection',
+                  icon: const Icon(Icons.library_add_outlined),
+                  onPressed: () async {
+                    await showAddToGroup(context, picked);
+                    if (mounted) setState(_selected.clear);
+                  },
+                ),
               if (picked.length == 1)
                 IconButton(
                   tooltip: 'Change poster',

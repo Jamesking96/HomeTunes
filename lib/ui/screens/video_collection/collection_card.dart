@@ -210,6 +210,8 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c,
       PopupMenuItem(
           value: 'link',
           child: ListTile(leading: Icon(quickLinkMenuIcon(linked)), title: Text(quickLinkMenuText(linked)))),
+      // Film collections (step 3): Add to collection… / Remove from "Pokémon".
+      ...groupMenuItems(model, c),
       const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Edit collection…'))),
       const PopupMenuItem(value: 'poster', child: ListTile(leading: Icon(Icons.image_outlined), title: Text('Change poster…'))),
       PopupMenuItem(
@@ -227,6 +229,7 @@ Future<void> showCollectionMenu(BuildContext context, VideoCollection c,
     ],
   );
   if (!context.mounted) return;
+  if (await runGroupMenuChoice(context, choice, c) || !context.mounted) return;
   if (choice != null && choice.startsWith('dl:')) {
     for (final o in downloads) {
       if ('dl:${o.key}' == choice) await o.run();

@@ -29,6 +29,7 @@ class VideoGroup {
     List<String>? keys,
     this.description,
     this.order = VideoGroupOrder.year,
+    this.poster,
     int? createdMs,
   })  : keys = keys ?? [],
         createdMs = createdMs ?? DateTime.now().millisecondsSinceEpoch;
@@ -42,6 +43,10 @@ class VideoGroup {
   final List<String> keys;
   String? description;
   VideoGroupOrder order;
+
+  /// A picture the user chose for it (a file name in the chosen-pictures folder); null: its
+  /// films' posters, tiled.
+  String? poster;
   final int createdMs;
 
   /// The key its poster and favourite are kept under (beside the films' keys, which are names).
@@ -53,6 +58,7 @@ class VideoGroup {
         'keys': keys,
         if (description != null) 'description': description,
         if (order != VideoGroupOrder.year) 'order': order.name,
+        if (poster != null) 'poster': poster,
         'createdMs': createdMs,
       };
 
@@ -72,6 +78,10 @@ class VideoGroup {
       }.toList(),
       description: d is String && d.trim().isNotEmpty ? d.trim() : null,
       order: VideoGroupOrder.values.where((o) => o.name == j['order']).firstOrNull ?? VideoGroupOrder.year,
+      // Only a plain file name: a picture can't point outside the pictures folder.
+      poster: j['poster'] is String && RegExp(r'^[\w.-]+$').hasMatch(j['poster'] as String) && !(j['poster'] as String).startsWith('.')
+          ? j['poster'] as String
+          : null,
       createdMs: j['createdMs'] is int ? j['createdMs'] as int : null,
     );
   }
