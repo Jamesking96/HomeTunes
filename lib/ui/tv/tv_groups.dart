@@ -210,6 +210,14 @@ Future<void> showTvGroupSuggestions(BuildContext context) async {
   }
   String films(int n) => n == 1 ? '1 film' : '$n films';
   await showTvOptions(context, title: 'Suggested collections', subtitle: 'Nothing is made until you choose', options: [
+    // Every suggestion at once (9 Nov 2026).
+    if (list.length > 1)
+      TvOption('Use all ${list.length}', Icons.done_all, subtitle: list.map((s) => s.into?.name ?? s.name).join(' · '), () {
+        for (final s in list) {
+          videos.acceptSuggestion(s, s.films);
+        }
+        tvNotice(context, 'Made ${list.length} collections');
+      }),
     for (final s in list)
       TvOption(s.into == null ? s.name : 'Add to ${s.into!.name}', Icons.auto_awesome_outlined,
           subtitle: '${films(s.films.length)} · ${s.why}', opensMore: true, () {

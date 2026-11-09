@@ -91,6 +91,13 @@ class _SuggestionsDialogState extends State<_SuggestionsDialog> {
             child: const Text('Show ones I said no to'),
           ),
         TextButton(key: const ValueKey('suggest-close'), onPressed: () => Navigator.pop(context, _made), child: const Text('Close')),
+        // Every suggestion at once, as each is set (its name, its ticked films; 9 Nov 2026).
+        if (list != null && list.any((s) => _ticked[s]!.isNotEmpty))
+          FilledButton(
+            key: const ValueKey('suggest-all'),
+            onPressed: () => _acceptAll(model),
+            child: Text('Use all (${list.where((s) => _ticked[s]!.isNotEmpty).length})'),
+          ),
       ],
     );
   }
@@ -143,6 +150,19 @@ class _SuggestionsDialogState extends State<_SuggestionsDialog> {
         ]),
       ),
     );
+  }
+
+  /// "Use all": every suggestion with films ticked is made (or added to), then the window closes.
+  void _acceptAll(VideoLibraryModel model) {
+    final todo = [for (final s in _list ?? const <GroupSuggestion>[]) if (_ticked[s]!.isNotEmpty) s];
+    for (final s in todo) {
+      model.acceptSuggestion(s, [for (final c in s.films) if (_ticked[s]!.contains(c.key)) c], name: _names[s]?.text);
+    }
+    _made += todo.length;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    Navigator.pop(context, _made);
+    messenger?.showSnackBar(SnackBar(
+        content: Text(todo.length == 1 ? 'Made 1 collection' : 'Made ${todo.length} collections')));
   }
 
   void _accept(VideoLibraryModel model, GroupSuggestion s) {

@@ -185,6 +185,46 @@ void main() {
     await tester.runAsync(videos.settle);
   });
 
+  testWidgets('Use all: every suggestion as set (a film unticked, a name changed), in one go', (tester) async {
+    await tester.runAsync(scan);
+    await show(tester, const VideosScreen());
+    await tester.tap(find.byKey(const ValueKey('suggest-open')));
+    await tester.pump();
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pumpAndSettle();
+    expect(find.text('Use all (3)'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('suggest-film:pokemon 3')));
+    await tester.enterText(find.byKey(const ValueKey('suggest-name:pokemon')), 'Pokémon');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('suggest-all')));
+    await tester.pumpAndSettle();
+    expect(find.text('Made 3 collections'), findsOneWidget);
+    expect(find.byKey(const ValueKey('suggest-all')), findsNothing); // the window closed
+    final made = {for (final g in videos.groups.all) g.name: g.keys.toSet()};
+    expect(made, {
+      'James Bond': {'goldfinger', 'skyfall'},
+      'Monty Python': {'monty python and the holy grail', 'monty python\'s life of brian'},
+      'Pokémon': {'pokemon 2000', 'pokemon the first movie'},
+    });
+    await tester.runAsync(videos.settle);
+  });
+
+  testWidgets('TV: Suggested › Use all', (tester) async {
+    await tester.runAsync(scan);
+    await show(tester, const SizedBox(), tvMode: true);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tv-suggest')));
+    await tester.pump();
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Use all 3'));
+    await tester.pumpAndSettle();
+    expect([for (final g in videos.groups.all) g.name], ['James Bond', 'Monty Python', 'Pokemon']);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 3));
+    await tester.runAsync(videos.settle);
+  });
+
   testWidgets('TV: Suggested › a suggestion › Make the collection', (tester) async {
     await tester.runAsync(scan);
     await show(tester, const SizedBox(), tvMode: true);
