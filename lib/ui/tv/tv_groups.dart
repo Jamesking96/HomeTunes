@@ -11,7 +11,7 @@ import '../../state/settings/settings_groups.dart' as prefs;
 import '../../state/video_groups.dart' show isFilm;
 import '../../state/video_library_model.dart';
 import '../nav.dart';
-import '../screens/video_group_screen.dart' show GroupPicture, groupDetails;
+import '../screens/video_group_screen.dart' show GroupPicture, groupDetails, groupShareLine;
 import '../theme.dart';
 import 'tv_browse.dart';
 import 'tv_detail.dart';
@@ -39,6 +39,11 @@ TvTile tvGroupTile(BuildContext context, VideoGroup g, {FocusNode? node, double 
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
+            // Shared with the other devices (9 Nov 2026).
+            if (groupShareLine(videos, g)?.shared ?? false) ...[
+              const Icon(Icons.cloud_done_outlined, size: 14, color: Colors.white),
+              const SizedBox(width: 6),
+            ],
             const Icon(Icons.collections_bookmark_outlined, size: 14, color: Colors.white),
             const SizedBox(width: 4),
             Text('${films.length}', style: const TextStyle(color: Colors.white, fontSize: 12)),
@@ -90,6 +95,7 @@ class TvGroupPage extends StatelessWidget {
                   groupDetails(films),
                   if (films.isNotEmpty) watched == films.length ? 'all watched' : '$watched watched',
                 ].join(' · '),
+                ?groupShareLine(videos, g)?.text,
                 ?g.description,
               ],
               buttons: [

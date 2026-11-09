@@ -92,7 +92,7 @@ void main() {
     await scan();
     String id(String name) => videos.collectionNamed(name)!.main.single.id;
     videos.serverFilmSets = () async => [
-          (name: 'Heist Collection', server: 'Den', ids: [id('Snatch'), id('Heat'), 'jf:den:gone']),
+          (name: 'Heist Collection', server: 'Den', ids: [id('Snatch'), id('Heat'), 'jf:den:gone'], link: (server: 'den', id: 'box7')),
         ];
     final all = await videos.groupSuggestions();
     expect(all.first.name, 'Heist');
@@ -101,6 +101,8 @@ void main() {
 
     final g = videos.acceptSuggestion(all.first, all.first.films, name: 'Heists');
     expect(g.name, 'Heists');
+    // Shared as the server's own collection, not made again there (9 Nov).
+    expect(g.links, {'den': 'box7'});
     expect(videos.filmsIn(g).length, 2);
     // Films in a collection aren't suggested again.
     expect((await videos.groupSuggestions()).map((s) => s.name), isNot(contains('Heist')));

@@ -19,6 +19,16 @@ class VideoGroups {
 
   List<VideoGroup> _groups = [];
 
+  /// The time now (tests set their own).
+  static int Function() clock = () => DateTime.now().millisecondsSinceEpoch;
+
+  /// Shared collections deleted here that the server hasn't been told about yet (sharing, 9 Nov
+  /// 2026): `<server>:<its collection id>` → when.
+  Map<String, int> removed = {};
+
+  /// A change made here: it's the newest, so sharing sends it.
+  void _touch(VideoGroup g) => g.changedMs = clock();
+
   /// Every group, A–Z by name.
   List<VideoGroup> get all => [..._groups]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
@@ -35,11 +45,16 @@ class VideoGroups {
 
   // ---- reading and saving ----
 
-  void load(Object? json) {
+  void load(Object? json, [Object? removedJson]) {
     _groups = [
       if (json is List)
         for (final j in json) ?VideoGroup.fromJson(j),
     ];
+    removed = {
+      if (removedJson is Map)
+        for (final e in removedJson.entries)
+          if (e.key is String && e.value is int) e.key as String: e.value as int,
+    };
   }
 
   List<Map<String, dynamic>> toJson() => [for (final g in _groups) g.toJson()];
@@ -56,7 +71,7 @@ class VideoGroups {
 
   /// Makes a group called [name] with [films] in it (shows are left out). Returns it.
   VideoGroup create(String name, [Iterable<VideoCollection> films = const []]) {
-    final g = VideoGroup(id: _newId(), name: _clean(name));
+    final g = VideoGroup(id: _newId(), name: _clean(name), createdMs: clock());
     _groups.add(g);
     add(g, films, quiet: true);
     changed();
@@ -72,6 +87,7 @@ class VideoGroups {
       g.keys.add(c.key);
       n++;
     }
+    if (n > 0) _touch(g);
     if (n > 0 && !quiet) changed();
     return n;
   }
@@ -80,25 +96,33 @@ class VideoGroups {
   void remove(VideoGroup g, Iterable<String> collectionKeys) {
     final before = g.keys.length;
     g.keys.removeWhere(collectionKeys.toSet().contains);
-    if (g.keys.length != before) changed();
+    if (g.keys.length != before) {
+      _touch(g);
+      changed();
+    }
   }
 
   void rename(VideoGroup g, String name) {
     final n = _clean(name);
     if (n == g.name) return;
     g.name = n;
+    _touch(g);
     changed();
   }
 
   void describe(VideoGroup g, String? description) {
     final d = description?.trim();
-    g.description = d == null || d.isEmpty ? null : d;
+    final to = d == null || d.isEmpty ? null : d;
+    if (to == g.description) return;
+    g.description = to;
+    _touch(g);
     changed();
   }
 
   void setOrder(VideoGroup g, VideoGroupOrder order) {
     if (g.order == order) return;
     g.order = order;
+    _touch(g);
     changed();
   }
 
@@ -112,13 +136,69 @@ class VideoGroups {
       ..addAll(wanted)
       ..addAll(rest);
     g.order = VideoGroupOrder.own;
+    _touch(g);
     changed();
   }
 
-  /// Deletes the group; its films stay as they are.
+  /// Deletes the group; its films stay as they are. A shared one is deleted on its servers too,
+  /// the next time each is reached.
   void delete(VideoGroup g) {
+    if (!_groups.remove(g)) return;
+    for (final e in g.links.entries) {
+      removed['${e.key}:${e.value}'] = clock();
+    }
+    changed();
+  }
+
+  // ---- sharing (9 Nov 2026): changes from another device, which aren't new changes here ----
+
+  /// A shared collection that came from another device.
+  void adopt(VideoGroup g) {
+    _groups.add(g);
+    changed();
+  }
+
+  /// Gone from the server (deleted on another device or in Jellyfin): gone here too.
+  void drop(VideoGroup g) {
     if (_groups.remove(g)) changed();
   }
+
+  /// Now shared as [server]'s collection [boxId].
+  void link(VideoGroup g, String server, String boxId) {
+    if (g.links[server] == boxId) return;
+    g.links[server] = boxId;
+    changed();
+  }
+
+  /// Takes in what another device (or Jellyfin) has for [g]. Returns whether anything changed.
+  bool applyShared(VideoGroup g,
+      {required String name, String? description, required VideoGroupOrder order, required List<String> keys, required int changedMs}) {
+    final k = <String>{...keys}.toList();
+    final n = _clean(name);
+    final same = g.name == n &&
+        g.description == description &&
+        g.order == order &&
+        g.keys.length == k.length &&
+        [for (var i = 0; i < k.length; i++) g.keys[i] == k[i]].every((x) => x);
+    g.changedMs = changedMs;
+    if (same) return false;
+    g
+      ..name = n
+      ..description = description
+      ..order = order;
+    g.keys
+      ..clear()
+      ..addAll(k);
+    changed();
+    return true;
+  }
+
+  /// A new group id.
+  String newId() => _newId();
+
+  /// The group linked to [server]'s collection [boxId], if any.
+  VideoGroup? linkedTo(String server, String boxId) =>
+      _groups.where((g) => g.links[server] == boxId).firstOrNull;
 
   /// A film was renamed (Edit collection): its place in groups follows. Two films joined into
   /// one leave one entry.

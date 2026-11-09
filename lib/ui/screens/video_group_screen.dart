@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 
 import '../../models/video_group.dart';
 import '../../models/video_item.dart';
+import '../../state/remote_videos.dart' show remoteServerOf;
+import '../../state/video_groups.dart' show isFilm;
 import '../../state/video_library_model.dart';
 import '../nav.dart';
 import '../theme.dart';
@@ -62,6 +64,27 @@ class GroupPicture extends StatelessWidget {
 /// How tall a group card is at [width] (the same as a collection card, so they line up).
 double groupCardHeight(double width) => collectionCardHeight(width);
 
+/// Whether [g] is shared with the other devices (9 Nov 2026; docs/ai-context/
+/// 09_COLLECTION_SHARING_PLAN.md): "Shared through Den", "Waiting to share with Den" (or what's
+/// wrong), or "Only on this device" when none of its films are on a server. Null with sharing off.
+({String text, bool shared, bool problem})? groupShareLine(VideoLibraryModel model, VideoGroup g) {
+  if (!model.shareGroups) return null;
+  final through = model.sharedThrough(g);
+  if (through.isNotEmpty) return (text: 'Shared through ${through.join(' and ')}', shared: true, problem: false);
+  if (g.links.isNotEmpty) return (text: 'Shared with your other devices', shared: true, problem: false);
+  final servers = <String>{
+    for (final c in model.filmsIn(g))
+      if (isFilm(c)) ?remoteServerOf(c.main.single.id),
+  };
+  if (servers.isEmpty) return (text: 'Only on this device: none of its films are on a server', shared: false, problem: false);
+  for (final s in servers) {
+    final problem = model.sharing[s]?.problem;
+    if (problem != null) return (text: problem, shared: false, problem: true);
+  }
+  final name = [for (final s in servers) ?model.sharing[s]?.server].firstOrNull;
+  return (text: name == null ? 'Waiting to share with your other devices' : 'Waiting to share with $name', shared: false, problem: false);
+}
+
 /// A group on the Collections tab.
 class GroupCard extends StatelessWidget {
   const GroupCard({super.key, required this.group});
@@ -101,6 +124,11 @@ class GroupCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(color: Colors.black54, borderRadius: AppShape.circular(6)),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      // Shared with the other devices (9 Nov 2026): a small cloud.
+                      if (groupShareLine(model, group)?.shared ?? false) ...[
+                        const Icon(Icons.cloud_done_outlined, key: ValueKey('group-shared'), size: 14, color: Colors.white),
+                        const SizedBox(width: 6),
+                      ],
                       const Icon(Icons.collections_bookmark_outlined, size: 14, color: Colors.white),
                       const SizedBox(width: 4),
                       Text('${films.length}', style: const TextStyle(color: Colors.white, fontSize: 12)),
@@ -204,6 +232,19 @@ class VideoGroupScreen extends StatelessWidget {
                 if (missing > 0) '$missing not here now',
               ].join(' · '),
               style: TextStyle(color: AppColors.textDim)),
+          if (groupShareLine(model, g) case final share?) ...[
+            const SizedBox(height: 4),
+            Row(key: const ValueKey('group-share-line'), crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(
+                  share.problem
+                      ? Icons.cloud_off_outlined
+                      : (share.shared ? Icons.cloud_done_outlined : Icons.cloud_queue_outlined),
+                  size: 16,
+                  color: share.problem ? Theme.of(context).colorScheme.error : AppColors.textDim),
+              const SizedBox(width: 6),
+              Flexible(child: Text(share.text, style: TextStyle(color: AppColors.textDim, fontSize: 13))),
+            ]),
+          ],
           if (g.description != null) ...[
             const SizedBox(height: 10),
             Text(g.description!),

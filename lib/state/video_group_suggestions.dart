@@ -12,8 +12,9 @@ import '../models/video_group.dart';
 import '../models/video_item.dart';
 import 'video_groups.dart';
 
-/// One of the server's own collections, with HomeTunes' ids for its films.
-typedef ServerFilmSet = ({String name, String server, List<String> ids});
+/// One of the server's own collections, with HomeTunes' ids for its films. [link]: which server
+/// and its collection id there, so saying yes shares it as that one (9 Nov 2026).
+typedef ServerFilmSet = ({String name, String server, List<String> ids, ({String server, String id})? link});
 
 enum SuggestionSource {
   server('From the server\'s own collections'),
@@ -25,7 +26,10 @@ enum SuggestionSource {
 }
 
 class GroupSuggestion {
-  GroupSuggestion({required this.name, required this.source, required this.films, this.into, this.server});
+  GroupSuggestion({required this.name, required this.source, required this.films, this.into, this.server, this.link});
+
+  /// For the server's own collections: which server and its id there (it's shared as that one).
+  final ({String server, String id})? link;
 
   /// The name it would have ("Pokémon").
   final String name;
@@ -64,7 +68,7 @@ List<GroupSuggestion> suggestGroups({
     return groups.all.where((g) => g.name.trim().toLowerCase() == n).firstOrNull;
   }
 
-  void offer(String name, SuggestionSource source, Iterable<VideoCollection> films, {String? server}) {
+  void offer(String name, SuggestionSource source, Iterable<VideoCollection> films, {String? server, ({String server, String id})? link}) {
     final clean = name.trim();
     if (clean.isEmpty || dismissed.contains(clean.toLowerCase())) return;
     final list = [for (final c in films) if (!used.contains(c.key)) c];
@@ -76,13 +80,14 @@ List<GroupSuggestion> suggestGroups({
     if (same != null) {
       same.films.addAll(list);
     } else {
-      out.add(GroupSuggestion(name: clean, source: source, films: list, into: into, server: server));
+      out.add(GroupSuggestion(name: clean, source: source, films: list, into: into, server: server, link: link));
     }
     used.addAll([for (final c in list) c.key]);
   }
 
   for (final s in serverSets) {
-    offer(_withoutCollectionWord(s.name), SuggestionSource.server, [for (final id in s.ids) ?byVideo[id]], server: s.server);
+    offer(_withoutCollectionWord(s.name), SuggestionSource.server, [for (final id in s.ids) ?byVideo[id]],
+        server: s.server, link: s.link);
   }
 
   final sets = <String, List<VideoCollection>>{};

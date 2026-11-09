@@ -24,6 +24,7 @@ import '../../../state/server_books.dart';
 import '../../../state/server_reader.dart';
 import '../../../state/server_videos.dart';
 import '../../../state/servers_model.dart';
+import '../../../state/video_library_model.dart';
 import '../../nav.dart';
 import '../../theme.dart';
 import 'settings_widgets.dart';
@@ -165,6 +166,7 @@ class _ServerSection extends StatelessWidget {
             ),
           ),
         for (final s in list) _ServerCard(server: s, kind: kind, servers: servers),
+        if (kind == MediaKind.videos && list.isNotEmpty) const _ShareCollections(),
         Padding(
           padding: const EdgeInsets.fromLTRB(8, 0, 16, 0),
           child: TextButton.icon(
@@ -175,6 +177,42 @@ class _ServerSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// "Share film collections through Jellyfin" (9 Nov 2026; docs/ai-context/
+/// 09_COLLECTION_SHARING_PLAN.md), and how it's going with each server.
+class _ShareCollections extends StatelessWidget {
+  const _ShareCollections();
+
+  @override
+  Widget build(BuildContext context) {
+    final videos = context.watch<VideoLibraryModel?>();
+    if (videos == null) return const SizedBox.shrink();
+    return SettingTarget(
+      'share-collections',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SwitchListTile(
+          key: const ValueKey('share-collections'),
+          secondary: const Icon(Icons.cloud_sync_outlined),
+          title: const Text('Share film collections through Jellyfin'),
+          subtitle: const Text('Your film collections show on every device signed in to the same Jellyfin server, '
+              'and changes made on one show on the others.'),
+          value: videos.shareGroups,
+          onChanged: videos.setShareGroups,
+        ),
+        if (videos.shareGroups)
+          for (final e in videos.sharing.entries)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(72, 0, 16, 6),
+              child: _StatusLine(
+                e.value.problem ??
+                    '${e.value.server}: ${e.value.shared == 1 ? '1 shared collection' : '${e.value.shared} shared collections'}',
+                ok: e.value.problem == null,
+              ),
+            ),
+      ]),
     );
   }
 }
