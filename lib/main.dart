@@ -62,6 +62,7 @@ import 'ui/tv/tv_focus.dart';
 import 'ui/tv/tv_shell.dart' show AppHome;
 import 'ui/widgets/notices.dart';
 import 'ui/widgets/offline_warning.dart';
+import 'ui/widgets/server_progress_notice.dart';
 import 'ui/widgets/window_scale.dart';
 import 'ui/library_providers.dart';
 import 'state/settings/settings_groups.dart' as prefs;
@@ -553,7 +554,12 @@ class HomeTunesApp extends StatelessWidget {
                       builder: (context) => TvFocus(
                         enabled: tv,
                         sounds: context.select<prefs.AppearanceSettings, bool>((s) => s.tvSounds),
-                        child: withTextSize(context, look.textSize, child!),
+                        // Over every page: how far any server being read has got (9 Nov 2026).
+                        child: withTextSize(
+                          context,
+                          look.textSize,
+                          Stack(fit: StackFit.expand, children: [child!, ServerProgressNotice(tv: tv)]),
+                        ),
                       ),
                     ),
                   ),

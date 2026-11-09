@@ -71,11 +71,14 @@ extension LibraryServer on LibraryModel {
         if (c == null) return;
         error = null;
         status = 'Connecting to server…';
+        serverSync.value = 'Connecting…';
         _changed();
         try {
           final result = await c.fetchAllTracks(onProgress: (done, total) {
             status = 'Syncing server albums $done / $total';
+            serverSync.value = 'Albums $done / $total';
           });
+          serverSync.value = null;
           status = null;
           // The server may have been forgotten or switched off while we synced.
           if (!identical(c, _client)) return;
@@ -86,6 +89,7 @@ extension LibraryServer on LibraryModel {
           }
         } catch (e) {
           status = null;
+          serverSync.value = null;
           // Cancelled by "Forget server" / switching it off: not an error.
           if (!identical(c, _client)) return;
           error = 'Server sync failed: ${hideSecrets('$e')}';

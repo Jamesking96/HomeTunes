@@ -274,6 +274,9 @@ class LibraryModel extends ChangeNotifier {
   final ValueNotifier<String?> statusText = ValueNotifier(null);
   String? get status => statusText.value;
   set status(String? v) => statusText.value = v;
+  /// While the music server is being read: how far it's got ("Albums 40 / 310"), else null.
+  /// For the server progress notice (9 Nov 2026), which shows every server being read.
+  final ValueNotifier<String?> serverSync = ValueNotifier(null);
   /// A message for the user when something went wrong (shown as a banner), or null.
   String? error;
 
