@@ -19,6 +19,7 @@ import 'screens/downloads_screen.dart';
 import 'screens/playlist_screen.dart';
 import 'screens/series_screen.dart';
 import 'screens/video_collection_screen.dart';
+import 'screens/video_group_screen.dart' show VideoGroupScreen;
 import 'screens/settings/update_ui.dart' show appNavigatorKey;
 import 'screens/video_player_screen.dart';
 import 'tv/tv_book_pages.dart';
@@ -182,6 +183,15 @@ class AppNav extends ChangeNotifier {
       notifyListeners();
     }
     _afterFrame(() => push(tv ? TvCollectionPage(name: name, videoId: videoId) : VideoCollectionScreen(name: name)));
+  }
+
+  /// Opens one of the user's film collections (a group of films) on the Videos tab (8 Nov 2026).
+  void openVideoGroup(String id) {
+    if (tab != videosTab) {
+      tab = videosTab;
+      notifyListeners();
+    }
+    _afterFrame(() => push(VideoGroupScreen(groupId: id)));
   }
 
   /// Opens a video's player page on the Videos tab (0.1.40). On the TV (step 5) the TV player

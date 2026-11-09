@@ -20,6 +20,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/video_group.dart';
 import '../../models/video_item.dart';
 import '../../state/music_filters.dart';
 import '../../state/range_select.dart';
@@ -32,6 +33,7 @@ import '../widgets/cards.dart' show EmptyState;
 import '../widgets/escape_cancels.dart';
 import '../widgets/filter_sheet.dart' show FilterBar, showFilterSheet, reverseGroupsIf;
 import 'video_collection_screen.dart';
+import 'video_group_screen.dart' show GroupCard, groupCardHeight;
 import 'video_pictures.dart';
 
 import '../widgets/video_card.dart';
@@ -106,7 +108,7 @@ class _VideosScreenState extends State<VideosScreen> {
     final type = _chosenType;
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Videos', style: TextStyle(fontWeight: FontWeight.w800)),
@@ -120,7 +122,10 @@ class _VideosScreenState extends State<VideosScreen> {
           bottom: const TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            tabs: [Tab(text: 'Collections'), Tab(text: 'All videos'), Tab(text: 'Favourites')],
+            // Film collections (8 Nov 2026): Collections holds the user's groups of films and
+            // the shows and films not in one; All videos is every show and film (what
+            // Collections was); Every video is the episode-by-episode grid, in its own tab.
+            tabs: [Tab(text: 'Collections'), Tab(text: 'All videos'), Tab(text: 'Every video'), Tab(text: 'Favourites')],
           ),
         ),
         body: Column(children: [
@@ -135,6 +140,7 @@ class _VideosScreenState extends State<VideosScreen> {
             ),
           Expanded(
             child: TabBarView(children: [
+              _CollectionGrid(favourites: false, withGroups: true, type: type, typeTabs: types.length > 1),
               _CollectionGrid(favourites: false, type: type, typeTabs: types.length > 1),
               _AllVideosTab(type: type),
               _CollectionGrid(favourites: true, type: type, typeTabs: types.length > 1),
@@ -198,7 +204,7 @@ class _FavouritesRequest extends StatelessWidget {
     context.select<AppNav, String?>((n) => n.viewRequest);
     if (context.read<AppNav>().takeView(AppNav.favouriteVideosView)) {
       final tabs = DefaultTabController.of(context);
-      WidgetsBinding.instance.addPostFrameCallback((_) => tabs.animateTo(2));
+      WidgetsBinding.instance.addPostFrameCallback((_) => tabs.animateTo(3));
     }
     return const SizedBox.shrink();
   }
@@ -208,12 +214,16 @@ class _FavouritesRequest extends StatelessWidget {
 class _CollectionGrid extends StatefulWidget {
   final bool favourites;
 
+  /// The Collections tab (8 Nov 2026): the user's groups of films first, then the shows and films
+  /// not in one. Without it (All videos): every show and film.
+  final bool withGroups;
+
   /// The type tab chosen (null: All).
   final String? type;
 
   /// Whether the type tabs are showing (there's more than one type).
   final bool typeTabs;
-  const _CollectionGrid({required this.favourites, this.type, this.typeTabs = false});
+  const _CollectionGrid({required this.favourites, this.withGroups = false, this.type, this.typeTabs = false});
 
   @override
   State<_CollectionGrid> createState() => _CollectionGridState();
@@ -254,7 +264,9 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
   Widget build(BuildContext context) {
     super.build(context);
     final model = context.watch<VideoLibraryModel>();
-    final every = widget.favourites ? model.favouriteCollections : model.collections;
+    final every = widget.favourites
+        ? model.favouriteCollections
+        : (widget.withGroups ? model.ungrouped : model.collections);
     if (widget.favourites && every.isEmpty) {
       return const EmptyState(
         icon: Icons.favorite_border,
@@ -267,6 +279,22 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
     final all = type == null ? every : [for (final c in every) if (collectionType(c) == type) c];
     final shown = searchCollections(
         [for (final c in all) if (_only.matches(c, collectionFilterFields)) c], _query);
+    // The user's groups of films (Collections tab): shown when the group's name matches what's
+    // typed, or any of its films passes the type, filters and search.
+    final groupsShown = [
+      if (widget.withGroups)
+        for (final g in model.groups.all)
+          if (() {
+            final films = [
+              for (final f in model.filmsIn(g))
+                if ((type == null || collectionType(f) == type) && _only.matches(f, collectionFilterFields)) f
+            ];
+            if (films.isEmpty) return type == null && _only.isEmpty && g.keys.isEmpty && _query.trim().isEmpty;
+            final q = _query.trim().toLowerCase();
+            return q.isEmpty || g.name.toLowerCase().contains(q) || searchCollections(films, _query).isNotEmpty;
+          }())
+            g,
+    ];
     // With the type tabs showing, the Category sort's headings (TV, Anime, Films) would only
     // repeat them (4 Nov 2026, the user: "show all videos in order without the dividers of
     // typing"): it's left out of the menu, and All lists every collection in one run, A–Z.
@@ -361,7 +389,32 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
           final cols = (c.maxWidth / 250).floor().clamp(1, 8);
           final itemWidth = (c.maxWidth - 16) / cols;
           return CustomScrollView(slivers: [
-            if (shown.isEmpty)
+            // The user's groups of films first (8 Nov 2026), then everything not in one.
+            if (groupsShown.isNotEmpty) ...[
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: Text('Film collections', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                sliver: sliverCardRows<VideoGroup>(
+                  items: groupsShown,
+                  cols: cols,
+                  height: (_) => groupCardHeight(itemWidth),
+                  card: (g) => GroupCard(key: ValueKey('group:${g.id}'), group: g),
+                ),
+              ),
+              if (shown.isNotEmpty && groups.every((x) => x.$1 == null))
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: Text('Shows and films', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  ),
+                ),
+            ],
+            if (shown.isEmpty && groupsShown.isEmpty)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(32),

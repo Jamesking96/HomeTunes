@@ -317,7 +317,7 @@ void main() {
       expect(shown('Dune'), findsNothing);
 
       // All videos: the same type.
-      await tap(tester, find.text('All videos'));
+      await tap(tester, find.text('Every video'));
       expect(shown('Attack on Titan a1'), findsOneWidget);
       expect(shown('Daria'), findsNothing);
       await tap(tester, find.byKey(const ValueKey('video-type:Films')));

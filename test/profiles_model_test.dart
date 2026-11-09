@@ -1,7 +1,7 @@
 // Profiles, phase 1 (state/profiles_model.dart; plan: claude/06_PROFILES_PLAN.md): turning them
 // on moves the person's things into a profile (nothing lost), a new profile starts with a copy
 // of the edits only, switching swaps whose files every personal model uses (the shared and
-// this-device settings stay), and on Ã¢â€ â€™ off Ã¢â€ â€™ on gives back the same things.
+// this-device settings stay), and on → off → on gives back the same things.
 import 'dart:convert';
 import 'dart:io';
 

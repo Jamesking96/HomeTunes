@@ -4,8 +4,15 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hometunes/models/video_group.dart';
+import 'package:hometunes/ui/library_providers.dart';
+import 'package:hometunes/ui/nav.dart';
+import 'package:hometunes/ui/screens/video_collection_screen.dart' show CollectionCard;
+import 'package:hometunes/ui/screens/video_group_screen.dart';
+import 'package:hometunes/ui/screens/videos_screen.dart';
+import 'package:provider/provider.dart';
 import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/video_groups.dart';
@@ -121,6 +128,56 @@ void main() {
     await videos.setWatched([first.main.single.id], true);
     expect(videos.watchedInGroup(g), 1);
     expect(videos.nextInGroup(g)?.name, 'Pokemon 2000');
+  });
+
+  // ---- step 2: on screen ----
+
+  Future<void> show(WidgetTester tester, Widget home) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ...libraryProviders(lib),
+        ChangeNotifierProvider.value(value: videos),
+        ChangeNotifierProvider(create: (_) => AppNav()),
+      ],
+      child: MaterialApp(home: home),
+    ));
+    await tester.pump();
+  }
+
+  testWidgets('Collections: the groups, then what isn\'t in one; All videos: every show and film', (tester) async {
+    await tester.runAsync(scan);
+    videos.groups.create('Pokémon', [for (final c in videos.collections) if (c.name.startsWith('Pokemon')) c]);
+    await show(tester, const VideosScreen());
+    expect(find.text('Film collections'), findsOneWidget);
+    expect(find.widgetWithText(GroupCard, 'Pokémon'), findsOneWidget);
+    expect(find.textContaining('3 films · 1998–2000'), findsOneWidget);
+    expect(find.byType(CollectionCard), findsNWidgets(2)); // Silo and Snatch, not the Pokémon films
+    expect(find.widgetWithText(CollectionCard, 'Pokemon 3'), findsNothing);
+
+    await tester.tap(find.text('All videos'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CollectionCard), findsNWidgets(5));
+    expect(find.byType(GroupCard), findsNothing);
+
+    await tester.tap(find.text('Every video'));
+    await tester.pumpAndSettle();
+    expect(find.byType(VideoCard), findsWidgets);
+    expect(find.text('Favourites'), findsOneWidget);
+  });
+
+  testWidgets('a group\'s page: its films and what to watch next', (tester) async {
+    await tester.runAsync(scan);
+    final g = videos.groups.create('Pokémon', [for (final c in videos.collections) if (c.name.startsWith('Pokemon')) c]);
+    await show(tester, VideoGroupScreen(groupId: g.id));
+    expect(find.text('Pokémon'), findsOneWidget);
+    expect(find.text('COLLECTION'), findsOneWidget);
+    expect(find.byType(CollectionCard), findsNWidgets(3));
+    expect(find.text('Play: Pokemon The First Movie'), findsOneWidget);
+    await show(tester, const VideoGroupScreen(groupId: 'gone'));
+    expect(find.text('This collection has been deleted'), findsOneWidget);
   });
 
   test('a damaged group in the file is skipped', () {
