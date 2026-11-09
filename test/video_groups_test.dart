@@ -12,6 +12,7 @@ import 'package:hometunes/ui/nav.dart';
 import 'package:hometunes/ui/screens/video_collection_screen.dart' show CollectionCard;
 import 'package:hometunes/ui/screens/video_group_screen.dart';
 import 'package:hometunes/ui/screens/videos_screen.dart';
+import 'package:hometunes/ui/widgets/fold_heading.dart';
 import 'package:provider/provider.dart';
 import 'package:hometunes/services/storage.dart';
 import 'package:hometunes/state/library_model.dart';
@@ -166,6 +167,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(VideoCard), findsWidgets);
     expect(find.text('Favourites'), findsOneWidget);
+  });
+
+  testWidgets('headings fold up and open again (9 Nov: "Make all headers … colapsable")', (tester) async {
+    FoldedHeadings.openAll();
+    addTearDown(FoldedHeadings.openAll);
+    await tester.runAsync(scan);
+    videos.groups.create('Pokémon', [for (final c in videos.collections) if (c.name.startsWith('Pokemon')) c]);
+    await show(tester, const VideosScreen());
+    await tester.tap(find.byKey(const ValueKey('fold:videos.collections:Film collections')));
+    await tester.pumpAndSettle();
+    expect(find.byType(GroupCard), findsNothing);
+    expect(find.text('  ·  1'), findsOneWidget); // how many, while folded
+    expect(find.byType(CollectionCard), findsNWidgets(2));
+    await tester.tap(find.byKey(const ValueKey('fold:videos.collections:Shows and films')));
+    await tester.pumpAndSettle();
+    expect(find.byType(CollectionCard), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('fold:videos.collections:Film collections')));
+    await tester.pumpAndSettle();
+    expect(find.byType(GroupCard), findsOneWidget);
+    // Every video: the sort's headings fold too.
+    await tester.tap(find.text('Every video'));
+    await tester.pumpAndSettle();
+    bool shownCard() => tester.widgetList<VideoCard>(find.byType(VideoCard)).any((c) => c.video.collection == 'Pokemon 2000');
+    expect(shownCard(), isTrue);
+    await tester.tap(find.byKey(const ValueKey('fold:videos.every:Pokemon 2000')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('fold:videos.every:Pokemon 2000')), findsOneWidget); // the heading stays
+    expect(shownCard(), isFalse);
   });
 
   testWidgets('a group\'s page: its films and what to watch next', (tester) async {

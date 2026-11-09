@@ -31,6 +31,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/cards.dart' show EmptyState;
 import '../widgets/escape_cancels.dart';
+import '../widgets/fold_heading.dart';
 import '../widgets/filter_sheet.dart' show FilterBar, showFilterSheet, reverseGroupsIf;
 import 'video_collection_screen.dart';
 import 'video_group_screen.dart' show GroupCard, groupCardHeight;
@@ -306,6 +307,8 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
     final picked = [for (final c in all) if (_selected.contains(c.key)) c];
     final selecting = picked.isNotEmpty;
     final accent = Theme.of(context).colorScheme.primary;
+    // Which tab's headings these are, for remembering what's folded (9 Nov 2026).
+    final fold = widget.favourites ? 'videos.favourites' : (widget.withGroups ? 'videos.collections' : 'videos.all');
     return Column(children: [
       if (selecting)
         // Esc cancels the selection, like the ✕ (0.1.48).
@@ -391,12 +394,15 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
           return CustomScrollView(slivers: [
             // The user's groups of films first (8 Nov 2026), then everything not in one.
             if (groupsShown.isNotEmpty) ...[
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  child: Text('Film collections', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              SliverToBoxAdapter(
+                child: FoldHeading(
+                  foldKey: '$fold:Film collections',
+                  text: 'Film collections',
+                  count: groupsShown.length,
+                  onToggle: () => setState(() {}),
                 ),
               ),
+              if (!FoldedHeadings.isFolded('$fold:Film collections'))
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 sliver: sliverCardRows<VideoGroup>(
@@ -407,10 +413,12 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
                 ),
               ),
               if (shown.isNotEmpty && groups.every((x) => x.$1 == null))
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-                    child: Text('Shows and films', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                SliverToBoxAdapter(
+                  child: FoldHeading(
+                    foldKey: '$fold:Shows and films',
+                    text: 'Shows and films',
+                    count: shown.length,
+                    onToggle: () => setState(() {}),
                   ),
                 ),
             ],
@@ -429,11 +437,16 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
             for (final (heading, list) in groups) ...[
               if (heading != null)
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                    child: Text(heading, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  child: FoldHeading(
+                    foldKey: '$fold:$heading',
+                    text: heading,
+                    count: list.length,
+                    onToggle: () => setState(() {}),
                   ),
                 ),
+              if (heading != null
+                  ? !FoldedHeadings.isFolded('$fold:$heading')
+                  : groupsShown.isEmpty || !FoldedHeadings.isFolded('$fold:Shows and films'))
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 sliver: sliverCardRows<VideoCollection>(
@@ -653,12 +666,16 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
             ),
             // Continue watching: a row across the top of "All".
             if (continuing.isNotEmpty) ...[
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
-                  child: Text('Continue watching', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              SliverToBoxAdapter(
+                child: FoldHeading(
+                  foldKey: 'videos.every:Continue watching',
+                  text: 'Continue watching',
+                  count: continuing.length,
+                  padding: const EdgeInsets.fromLTRB(8, 4, 16, 4),
+                  onToggle: () => setState(() {}),
                 ),
               ),
+              if (!FoldedHeadings.isFolded('videos.every:Continue watching'))
               SliverToBoxAdapter(
                 child: SizedBox(
                   height: continuing.map((v) => videoCardHeight(260, model.shapeOf(v))).reduce(math.max),
@@ -702,18 +719,20 @@ class _AllVideosTabState extends State<_AllVideosTab> with AutomaticKeepAliveCli
                           onSelectAll: () => setState(() => _selected.addAll([for (final v in list) v.id])),
                           onUnselect: () => setState(() => _selected.removeAll([for (final v in list) v.id])),
                         );
-                    return GestureDetector(
+                    return KeyedSubtree(
                       key: ValueKey('group-heading:$header'),
-                      behavior: HitTestBehavior.opaque,
-                      onSecondaryTapUp: (d) => menu(d.globalPosition),
-                      onLongPressStart: (d) => menu(d.globalPosition),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                        child: Text(header, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                      child: FoldHeading(
+                        foldKey: 'videos.every:$header',
+                        text: header,
+                        count: list.length,
+                        onToggle: () => setState(() {}),
+                        onSecondaryTapUp: (d) => menu(d.globalPosition),
+                        onLongPressStart: (d) => menu(d.globalPosition),
                       ),
                     );
                   }),
                 ),
+              if (header == null || !FoldedHeadings.isFolded('videos.every:$header'))
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 sliver: sliverCardRows<VideoItem>(
