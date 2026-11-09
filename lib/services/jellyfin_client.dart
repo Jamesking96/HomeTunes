@@ -270,6 +270,34 @@ class JellyfinClient {
     'Container',
   ];
 
+  /// The server's own collections of films (box sets, 9 Nov 2026): each one's name and the ids
+  /// of the films in it. Offered as suggested film collections; nothing is changed on the server.
+  Future<List<({String name, List<String> items})>> boxSets() async {
+    final u = _need();
+    final j = await _json('GET', uri('/Items', {
+      'userId': u,
+      'recursive': 'true',
+      'includeItemTypes': 'BoxSet',
+      'sortBy': 'SortName',
+      'limit': '500',
+    }));
+    final sets = j is Map && j['Items'] is List ? j['Items'] as List : const [];
+    final out = <({String name, List<String> items})>[];
+    for (final s in sets) {
+      if (s is! Map || s['Id'] is! String || s['Name'] is! String) continue;
+      final k = await _json('GET', uri('/Items', {
+        'userId': u,
+        'parentId': s['Id'] as String,
+        'includeItemTypes': 'Movie',
+        'limit': '500',
+      }));
+      final films = k is Map && k['Items'] is List ? k['Items'] as List : const [];
+      final ids = [for (final f in films) if (f is Map && f['Id'] is String) f['Id'] as String];
+      if (ids.length >= 2) out.add((name: (s['Name'] as String).trim(), items: ids));
+    }
+    return out;
+  }
+
   /// Everything of [types] inside library [parentId], a page at a time ([pageSize] each), with
   /// this user's place and watched mark (UserData). Missing (not yet aired) episodes are left out.
   Future<List<Map<String, dynamic>>> items({

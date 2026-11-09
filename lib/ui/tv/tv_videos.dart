@@ -19,11 +19,12 @@ import '../../models/video_group.dart';
 import '../../models/video_item.dart';
 import '../../state/library_index.dart' show sortKey;
 import '../../state/library_model.dart';
+import '../../state/video_groups.dart' show isFilm;
 import '../../state/video_library_model.dart';
 import '../../state/video_types.dart';
 import '../nav.dart';
 import 'tv_browse.dart';
-import 'tv_groups.dart' show tvGroupTile;
+import 'tv_groups.dart' show tvGroupTile, showTvGroupSuggestions;
 import 'tv_items.dart';
 import 'tv_music.dart' show tvEmptyLibraryHints, tvLibraryHints;
 import 'tv_options.dart';
@@ -288,6 +289,16 @@ class _TvVideosScreenState extends State<TvVideosScreen> {
                 ),
               ),
             ),
+            // Suggested collections (step 5): made only on a yes.
+            if (_tab == TvVideoTab.collections && videos.ungrouped.where(isFilm).length >= 2) ...[
+              TvButton(
+                key: const ValueKey('tv-suggest'),
+                label: 'Suggested',
+                icon: Icons.auto_awesome_outlined,
+                onPressed: () => showTvGroupSuggestions(context),
+              ),
+              const SizedBox(width: 10),
+            ],
             TvButton(
               key: const ValueKey('tv-video-filter'),
               label: _choice.filters == 0 ? 'Filter' : 'Filter (${_choice.filters})',

@@ -36,6 +36,7 @@ import '../widgets/filter_sheet.dart' show FilterBar, showFilterSheet, reverseGr
 import 'video_collection_screen.dart';
 import 'video_group_screen.dart' show GroupCard, groupCardHeight;
 import 'video_group_actions.dart' show showAddToGroup;
+import 'video_group_suggest.dart';
 import '../../state/video_groups.dart' show isFilm;
 import 'video_pictures.dart';
 
@@ -405,6 +406,22 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
           final cols = (c.maxWidth / 250).floor().clamp(1, 8);
           final itemWidth = (c.maxWidth - 16) / cols;
           return CustomScrollView(slivers: [
+            // Suggested collections (step 5, 9 Nov 2026): made only on a yes.
+            if (widget.withGroups && _query.trim().isEmpty && model.ungrouped.where(isFilm).length >= 2)
+              SliverToBoxAdapter(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 4, 12, 0),
+                    child: TextButton.icon(
+                      key: const ValueKey('suggest-open'),
+                      icon: const Icon(Icons.auto_awesome_outlined),
+                      label: const Text('Suggested collections'),
+                      onPressed: () => showGroupSuggestions(context),
+                    ),
+                  ),
+                ),
+              ),
             // The user's groups of films first (8 Nov 2026), then everything not in one.
             if (groupsShown.isNotEmpty) ...[
               SliverToBoxAdapter(

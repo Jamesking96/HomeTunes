@@ -30,6 +30,7 @@ import 'media_folders.dart';
 import 'custom_art_store.dart';
 import 'remote_videos.dart';
 import 'video_filters.dart';
+import 'video_group_suggestions.dart';
 import 'video_groups.dart';
 import 'video_shuffle.dart';
 import 'video_types.dart' show collectionType;
@@ -226,6 +227,56 @@ class VideoLibraryModel extends ChangeNotifier {
     return films.where((c) => c.main.any((v) => _places[v.id]?.inProgress ?? false)).firstOrNull ??
         films.where((c) => !watched(c)).firstOrNull;
   }
+
+  // ---- suggested film collections (step 5, 9 Nov 2026) ----
+
+  /// The video servers' own collections (set by ServerVideosModel); null with no server.
+  Future<List<ServerFilmSet>> Function()? serverFilmSets;
+
+  /// Suggestion names the user said "No thanks" to (any case), shared like the groups.
+  Set<String> _dismissedSuggestions = {};
+
+  /// The suggestions from the films' .nfo files and similar names (straight away).
+  List<GroupSuggestion> get localSuggestions =>
+      suggestGroups(collections: collections, groups: groups, dismissed: _dismissedSuggestions);
+
+  /// Every suggestion, the server's own collections too (asks each video server).
+  Future<List<GroupSuggestion>> groupSuggestions() async {
+    List<ServerFilmSet> sets = const [];
+    try {
+      sets = await serverFilmSets?.call() ?? const [];
+    } catch (_) {
+      // Away: the others still show.
+    }
+    return suggestGroups(collections: collections, groups: groups, serverSets: sets, dismissed: _dismissedSuggestions);
+  }
+
+  /// Yes to [s]: makes the collection [name] (or adds to the one named the same) with [films].
+  VideoGroup acceptSuggestion(GroupSuggestion s, Iterable<VideoCollection> films, {String? name}) {
+    final into = s.into == null ? null : groups.byId(s.into!.id);
+    if (into != null) {
+      groups.add(into, films);
+      return into;
+    }
+    return groups.create(name ?? s.name, films);
+  }
+
+  /// "No thanks" to [s]: not suggested again.
+  Future<void> dismissSuggestion(GroupSuggestion s) async {
+    if (!_dismissedSuggestions.add(s.dismissKey)) return;
+    notifyListeners();
+    await _save();
+  }
+
+  /// Suggestions said "No thanks" to are offered again.
+  Future<void> undismissSuggestions() async {
+    if (_dismissedSuggestions.isEmpty) return;
+    _dismissedSuggestions = {};
+    notifyListeners();
+    await _save();
+  }
+
+  bool get hasDismissedSuggestions => _dismissedSuggestions.isNotEmpty;
 
   /// How many of [g]'s films are watched.
   int watchedInGroup(VideoGroup g) =>
@@ -618,8 +669,10 @@ class VideoLibraryModel extends ChangeNotifier {
           if (series) 'showtitle': v.collection,
           if (series) 'season': v.season?.toString(),
           if (series) 'episode': v.episode?.toString(),
-          // A film on its own is its own collection: no set then.
-          if (!series) 'set': (c != null && c.videos.length > 1) || v.collection != v.title ? v.collection : null,
+          // A film's `<set>` is the film collection it's in (9 Nov 2026), so Jellyfin, Kodi and
+          // Plex group it the same way (and HomeTunes suggests it on a new install); none when
+          // it isn't in one.
+          if (!series) 'set': c == null ? null : groups.of(c.key).firstOrNull?.name,
           'year': v.year?.toString(),
           'genre': v.genre,
           'plot': v.description,
@@ -1026,6 +1079,10 @@ class VideoLibraryModel extends ChangeNotifier {
     if (damaged) await storage.keepCopy(fileName);
     // Film collections (8 Nov 2026): the user's groups of films, shared by every profile.
     groups.load(j['groups']);
+    _dismissedSuggestions = {
+      if (j['groupsDismissed'] is List)
+        for (final d in j['groupsDismissed'] as List) if (d is String) d,
+    };
     _foundGenres = foundGenres;
     _scanned = scanned;
     _edits = edits;
@@ -1123,6 +1180,7 @@ class VideoLibraryModel extends ChangeNotifier {
           for (final e in _shuffleChoices.entries) e.key: {for (final s in e.value.entries) s.key: s.value},
         },
       if (!groups.isEmpty) 'groups': groups.toJson(),
+      if (_dismissedSuggestions.isNotEmpty) 'groupsDismissed': _dismissedSuggestions.toList()..sort(),
       if (_favourites.isNotEmpty) 'favourites': _favourites.toList()..sort(),
       if (_descriptions.isNotEmpty) 'descriptions': _descriptions,
       if (_foundGenres.isNotEmpty)

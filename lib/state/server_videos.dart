@@ -124,6 +124,7 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
     _known = {for (final s in servers.all) s.id: s};
     servers.addListener(_onServers);
     videos.remote = this;
+    videos.serverFilmSets = boxSets;
   }
 
   /// Where the catalogue is kept: the profile's folder with profiles on (phase 3, [useStorage]).
@@ -819,6 +820,24 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
   @override
   String? problemFor(VideoItem v) => _problems[v.id];
 
+  /// Each video server's own collections of films (box sets, 9 Nov 2026), with HomeTunes' ids
+  /// for the films (`jf:<server>:<item>`): offered as suggested film collections. A server that
+  /// can't be reached is skipped.
+  Future<List<({String name, String server, List<String> ids})>> boxSets() async {
+    final out = <({String name, String server, List<String> ids})>[];
+    for (final s in videoServers) {
+      try {
+        final c = await _signedIn(s);
+        for (final b in await c.boxSets().timeout(const Duration(seconds: 20))) {
+          out.add((name: b.name, server: s.name, ids: [for (final i in b.items) 'jf:${s.id}:$i']));
+        }
+      } catch (_) {
+        // Not signed in, or away: no suggestions from it this time.
+      }
+    }
+    return out;
+  }
+
   @override
   Future<VideoAddress?> streamFor(VideoItem v, {bool converted = false, Duration? start}) async {
     final key = remoteServerOf(v.id), item = remoteItemOf(v.id);
@@ -1013,7 +1032,10 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
     _resync?.cancel();
     _offlineTimer?.cancel();
     servers.removeListener(_onServers);
-    if (identical(videos.remote, this)) videos.remote = null;
+    if (identical(videos.remote, this)) {
+      videos.remote = null;
+      videos.serverFilmSets = null;
+    }
     for (final c in _clients.values) {
       c.close();
     }

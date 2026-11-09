@@ -191,3 +191,42 @@ List<TvOption> tvGroupOptionsFor(BuildContext context, VideoCollection c) {
       TvOption('Remove from ${g.name}', Icons.playlist_remove, () => videos.groups.remove(g, [c.key])),
   ];
 }
+
+/// Suggested collections on the TV (step 5, 9 Nov 2026): each suggestion's panel offers to make
+/// it (as it is, or named first) or "No thanks". Nothing is made without a yes.
+Future<void> showTvGroupSuggestions(BuildContext context) async {
+  final videos = context.read<VideoLibraryModel>();
+  tvNotice(context, 'Looking for collections to suggest…');
+  final list = await videos.groupSuggestions();
+  if (!context.mounted) return;
+  ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+  if (list.isEmpty) {
+    await showTvOptions(context, title: 'Suggested collections', subtitle: 'Nothing to suggest right now', options: [
+      TvOption('OK', Icons.check, () {}),
+      if (videos.hasDismissedSuggestions)
+        TvOption('Show ones I said no to', Icons.undo, () => videos.undismissSuggestions()),
+    ]);
+    return;
+  }
+  String films(int n) => n == 1 ? '1 film' : '$n films';
+  await showTvOptions(context, title: 'Suggested collections', subtitle: 'Nothing is made until you choose', options: [
+    for (final s in list)
+      TvOption(s.into == null ? s.name : 'Add to ${s.into!.name}', Icons.auto_awesome_outlined,
+          subtitle: '${films(s.films.length)} · ${s.why}', opensMore: true, () {
+        showTvOptions(context, title: s.into == null ? s.name : 'Add to ${s.into!.name}', subtitle: s.films.map((c) => c.name).join(' · '), options: [
+          TvOption(s.into == null ? 'Make the collection' : 'Add ${films(s.films.length)}', Icons.check, () {
+            final g = videos.acceptSuggestion(s, s.films);
+            tvNotice(context, s.into == null ? 'Made ${g.name}' : 'Added to ${g.name}');
+          }),
+          if (s.into == null)
+            TvOption('Name it, then make it', Icons.drive_file_rename_outline, opensMore: true, () async {
+              final name = await showTvTextInput(context, title: 'Name the collection', initial: s.name);
+              if (name == null || name.trim().isEmpty || !context.mounted) return;
+              final g = videos.acceptSuggestion(s, s.films, name: name);
+              tvNotice(context, 'Made ${g.name}');
+            }),
+          TvOption('No thanks', Icons.close, () => videos.dismissSuggestion(s)),
+        ]);
+      }),
+  ]);
+}
