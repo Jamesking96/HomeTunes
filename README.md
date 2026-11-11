@@ -287,8 +287,6 @@ installer/hometunes.iss      Inno Setup script
 docs/USER_GUIDE.md           download and user guide
 ```
 
-For a full tour of every file, see `docs/ai-context/05_CODE_GUIDE.md`.
-
 ## Known limits (good next steps)
 
 - **Automatic updates** install themselves only with the Windows installer; the portable zip and

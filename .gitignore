@@ -48,3 +48,7 @@ app.*.map.json
 .widget_preview/
 
 /android/.kotlin/
+
+# Private working notes: never commit these.
+/docs/ai-context/
+/_claude_review/
