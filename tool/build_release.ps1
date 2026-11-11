@@ -20,6 +20,18 @@ $ErrorActionPreference = 'Stop'
 
 # This script lives in tool\, so the project root is its parent folder.
 $root = Split-Path -Parent $PSScriptRoot
+# HomeTunes (0.2.15): build from a short drive letter. Flutter writes the project's full folder
+# path into the finished app, and under C:\Users\<name> that gives away the Windows user name.
+# `subst` makes the folder above the project appear as Y:, so the app only ever sees Y:\hometunes.
+# (The project can't be the drive's root itself: Flutter's Windows build fails on "Y:\".)
+if ($root -match '\\Users\\') {
+    $parent = Split-Path -Parent $root
+    if (-not ((subst) -match [regex]::Escape("Y:\: => $parent"))) {
+        if (Test-Path 'Y:\') { throw 'Drive Y: is in use, so the build cannot be given a short path. Free it or change the letter in tool\build_release.ps1.' }
+        subst Y: $parent
+    }
+    $root = Join-Path 'Y:\' (Split-Path -Leaf $root)
+}
 Set-Location $root
 
 # Version from pubspec.yaml, e.g. "0.1.0+1" -> "0.1.0"
@@ -59,6 +71,12 @@ Copy-Item (Join-Path $root 'THIRD_PARTY_NOTICES.md') $release -Force
 $licenceDir = Join-Path $release 'licenses'
 New-Item -ItemType Directory -Force $licenceDir | Out-Null
 Copy-Item (Join-Path $root 'licenses\*.txt') $licenceDir -Force
+
+# 2c. HomeTunes (0.2.15): the build must not name this PC's user (see the drive letter note above).
+$appSo = Join-Path $release 'data\app.so'
+if ((Test-Path $appSo) -and (Select-String -Path $appSo -Pattern ([regex]::Escape($env:USERNAME)) -Quiet)) {
+    throw "The build contains this PC's user name ($env:USERNAME). Run 'flutter clean' and build again with this script."
+}
 
 # 3. Portable zip (contains a HomeTunes\ folder)
 $dist = Join-Path $root 'build\dist'
