@@ -293,9 +293,75 @@ void main() {
     late _FakeServer server;
     setUp(() => videos.remote = server = _FakeServer());
 
-    void serverFilm(String codec) => videos.setServerVideos('s1', [
-          VideoItem(id: 'jf:s1:film', path: 'jellyfin://s1/film.avi', title: 'A Goofy Movie', collection: 'A Goofy Movie', videoCodec: codec),
+    void serverFilm(String codec, {List<String> subtitles = const []}) => videos.setServerVideos('s1', [
+          VideoItem(
+              id: 'jf:s1:film',
+              path: 'jellyfin://s1/film.avi',
+              title: 'A Goofy Movie',
+              collection: 'A Goofy Movie',
+              videoCodec: codec,
+              subtitles: subtitles),
         ]);
+
+    // 14 Nov 2026, the user: "Some videos don't show with the subtitles when they are turned on".
+    // DVD and Blu-ray subtitles are pictures, which the TVs and phone can't draw themselves.
+    test('picture subtitles on a TV: drawn in by the server, from where it was; Off goes back; remembered', () async {
+      serverFilm('h264', subtitles: [
+        'jfsub:{"i":3,"p":1,"e":1,"t":"English - PGSSUB","l":"eng"}',
+        'jfsub:{"i":2,"f":"srt","e":1,"t":"English - SRT","l":"eng"}',
+      ]);
+      engine.options['hwdec-current'] = 'mediacodec';
+      final s = startWith('jf:s1:film', VideoDrawing.chip);
+      await settle();
+      expect(server.asked, ['original']);
+      final tracks = [
+        const MediaTrack('1', codec: 'hdmv_pgs_subtitle', language: 'eng'),
+        const MediaTrack('2', codec: 'subrip', language: 'eng', title: 'English'),
+      ];
+      engine.loaded(subtitles: tracks);
+      await settle();
+      // The player's own picture track would stay blank: offered as one the server draws instead.
+      expect([for (final t in s.subtitleTracks) t.id], ['2', 'burn:3']);
+      engine.moveTo(const Duration(minutes: 2));
+      await s.chooseSubtitles(s.subtitleTracks.last);
+      await settle();
+      expect(server.asked, ['original', 'burn 3']);
+      expect(engine.openPath, 'https://s1/film-burned.m3u8');
+      engine.loaded(subtitles: const []);
+      await settle();
+      expect(s.sid, 'burn:3');
+      expect(engine.calls.last, 'subtitles off'); // none of the player's on top
+
+      // Off: back to the film as it is, from where it was.
+      engine.moveTo(const Duration(minutes: 3));
+      await s.chooseSubtitles(null);
+      await settle();
+      expect(server.asked.last, 'original');
+
+      // Chosen again, then the film opened another time: drawn in straight away.
+      engine.loaded(subtitles: tracks);
+      await settle();
+      await s.chooseSubtitles(s.subtitleTracks.firstWhere((t) => t.id == 'burn:3'));
+      await settle();
+      s.dispose();
+      session = null;
+      server.asked.clear();
+      final again = startWith('jf:s1:film', VideoDrawing.chip);
+      await settle();
+      engine.loaded(subtitles: tracks);
+      await settle();
+      await until(() => server.asked.contains('burn 3'));
+      expect(again.subtitleTracks.map((t) => t.id), contains('burn:3'));
+    });
+
+    test('on the PC the player draws picture subtitles itself: nothing changes', () async {
+      serverFilm('h264', subtitles: ['jfsub:{"i":3,"p":1,"e":1,"t":"English - PGSSUB","l":"eng"}']);
+      final s = startWith('jf:s1:film', VideoDrawing.none);
+      await settle();
+      engine.loaded(subtitles: const [MediaTrack('1', codec: 'hdmv_pgs_subtitle', language: 'eng')]);
+      await settle();
+      expect([for (final t in s.subtitleTracks) t.id], ['1']);
+    });
 
     /// An old-format server film downloaded as it is (the original): a file on this device.
     String oldFile({bool original = true}) {
@@ -441,7 +507,11 @@ void main() {
 class _FakeServer implements RemoteVideoSource {
   final asked = <String>[];
   @override
-  Future<VideoAddress?> streamFor(VideoItem v, {bool converted = false, Duration? start}) async {
+  Future<VideoAddress?> streamFor(VideoItem v, {bool converted = false, Duration? start, int? burnSubtitle}) async {
+    if (burnSubtitle != null) {
+      asked.add('burn $burnSubtitle');
+      return VideoAddress('https://s1/film-burned.m3u8', remote: true, converted: true, startsAt: start, burnedSubtitle: burnSubtitle);
+    }
     asked.add(converted ? 'converted' : 'original');
     return converted
         ? VideoAddress('https://s1/film-converted.m3u8', remote: true, converted: true, startsAt: start)

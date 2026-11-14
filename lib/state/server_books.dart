@@ -456,9 +456,17 @@ class ServerBooksModel extends ChangeNotifier implements RemoteBookSource, Serve
   int _lastRead = 0;
 
   /// Reads every book server now, then again every [resyncEvery] while HomeTunes is open.
+  /// (14 Nov 2026) When every one was read less than [resyncEvery] ago, the first read waits
+  /// until it's due (as for videos).
   void start() {
-    _lastRead = now();
-    unawaited(syncAll());
+    final reads = [for (final s in bookServers) _state[s.id]?.syncedMs];
+    final oldest = reads.isEmpty || reads.contains(null) ? null : reads.whereType<int>().reduce(min);
+    if (oldest != null && now() - oldest >= 0 && now() - oldest < resyncEvery.inMilliseconds) {
+      _lastRead = oldest;
+    } else {
+      _lastRead = now();
+      unawaited(syncAll());
+    }
     _resync?.cancel();
     _resync = Timer.periodic(resyncCheckEvery, (_) => resyncIfDue());
   }

@@ -9,15 +9,43 @@ import 'library_index.dart' show sortKey;
 
 // ---------------------------------------------------------------- title search
 
-/// Splits what was typed into lower-case words.
-List<String> filterWords(String query) =>
-    query.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+/// Text as searches compare it (14 Nov 2026): lower case, with accents taken off, so "pokemon"
+/// finds "Pokémon" and "Pokémon" finds "Pokemon".
+String searchText(String s) {
+  final lower = s.toLowerCase();
+  if (!_hasAccent.hasMatch(lower)) return lower;
+  final b = StringBuffer();
+  for (final r in lower.runes) {
+    final ch = String.fromCharCode(r);
+    b.write(_plain[ch] ?? ch);
+  }
+  return b.toString();
+}
 
-/// True when every word of [query] appears in [title] (ignoring case). A blank query matches all.
+final _hasAccent = RegExp(r'[^\x00-\x7f]');
+const _plain = {
+  'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a', 'å': 'a', 'ā': 'a', 'ă': 'a', 'ą': 'a', 'æ': 'ae',
+  'ç': 'c', 'ć': 'c', 'č': 'c', 'ď': 'd', 'đ': 'd', 'ð': 'd',
+  'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e', 'ē': 'e', 'ė': 'e', 'ę': 'e', 'ě': 'e',
+  'ğ': 'g', 'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i', 'ī': 'i', 'į': 'i', 'ı': 'i',
+  'ł': 'l', 'ľ': 'l', 'ñ': 'n', 'ń': 'n', 'ň': 'n',
+  'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o', 'ø': 'o', 'ō': 'o', 'ő': 'o', 'œ': 'oe',
+  'ř': 'r', 'ś': 's', 'š': 's', 'ş': 's', 'ß': 'ss', 'ť': 't', 'ţ': 't', 'þ': 'th',
+  'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u', 'ū': 'u', 'ů': 'u', 'ű': 'u', 'ų': 'u',
+  'ý': 'y', 'ÿ': 'y', 'ź': 'z', 'ż': 'z', 'ž': 'z',
+  '’': "'", '‘': "'", '“': '"', '”': '"', '–': '-', '—': '-',
+};
+
+/// Splits what was typed into words, as searches compare them ([searchText]).
+List<String> filterWords(String query) =>
+    searchText(query).split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+
+/// True when every word of [query] appears in [title] (ignoring case and accents). A blank query
+/// matches all.
 bool titleMatches(String title, String query) {
   final words = filterWords(query);
   if (words.isEmpty) return true;
-  final t = title.toLowerCase();
+  final t = searchText(title);
   return words.every(t.contains);
 }
 

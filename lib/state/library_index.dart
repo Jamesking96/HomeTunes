@@ -6,6 +6,7 @@
 // search box. Albums are keyed by album artist + album name (see `Track.albumKey`), and
 // sorting ignores a leading "The " so "The Beatles" sits under B.
 import '../models/track.dart';
+import 'filters.dart' show filterWords, searchText;
 
 /// Pure helpers for grouping and searching tracks (no Flutter, easy to test).
 
@@ -93,14 +94,15 @@ class SearchResults {
 SearchResults search(String query, List<Track> tracks, List<Album> albums, List<Artist> artists,
     {int limit = 50}) {
   // Split the query into lower-case words, dropping extra spaces. Nothing typed = no results.
-  final words = query.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+  // (14 Nov 2026) Accents ignored too: "beyonce" finds Beyoncé.
+  final words = filterWords(query);
   if (words.isEmpty) return SearchResults.empty;
   // The tidied-up query, used to spot items whose name starts with exactly what was typed.
   final q = words.join(' ');
 
   // An item matches if every typed word appears somewhere in its text, in any order.
   bool matches(String text) {
-    final l = text.toLowerCase();
+    final l = searchText(text);
     return words.every(l.contains);
   }
 
@@ -110,8 +112,8 @@ SearchResults search(String query, List<Track> tracks, List<Album> albums, List<
   List<T> ranked<T>(Iterable<T> items, String Function(T) text, String Function(T) primary) {
     final hits = items.where((i) => matches(text(i))).toList();
     hits.sort((a, b) {
-      final pa = primary(a).toLowerCase().startsWith(q) ? 0 : 1;
-      final pb = primary(b).toLowerCase().startsWith(q) ? 0 : 1;
+      final pa = searchText(primary(a)).startsWith(q) ? 0 : 1;
+      final pb = searchText(primary(b)).startsWith(q) ? 0 : 1;
       return pa.compareTo(pb);
     });
     return hits.take(limit).toList();

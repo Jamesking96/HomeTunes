@@ -646,13 +646,13 @@ class VideoLibraryModel extends ChangeNotifier {
   /// headers. With [converted], a copy the server converts (for a device that can't play the
   /// original), starting at [start]. A downloaded copy plays first (0.2.3). Null when it can't be
   /// played now; [problemWith] says why.
-  Future<VideoAddress?> playableAddress(VideoItem v, {bool converted = false, Duration? start}) async {
+  Future<VideoAddress?> playableAddress(VideoItem v, {bool converted = false, Duration? start, int? burnSubtitle}) async {
     if (isServerVideo(v)) {
-      if (!converted) {
+      if (!converted && burnSubtitle == null) {
         final copy = downloadedCopy?.call(v);
         if (copy != null) return copy;
       }
-      return remote?.streamFor(v, converted: converted, start: start);
+      return remote?.streamFor(v, converted: converted, start: start, burnSubtitle: burnSubtitle);
     }
     final file = playableFile(v);
     return file == null ? null : VideoAddress(file);

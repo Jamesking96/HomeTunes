@@ -288,8 +288,10 @@ class JellyfinClient {
 
   // ---- collections, for sharing them (9 Nov 2026; docs/ai-context/09_COLLECTION_SHARING_PLAN.md) ----
 
-  /// Every collection (box set) this user can see, with its films' ids.
-  Future<List<JellyfinCollection>> collections() async {
+  /// Every collection (box set) this user can see, with its films' ids: those of every one, or
+  /// (14 Nov 2026) with [itemsFor] just those it says yes to (one request each; the rest come
+  /// with no films listed).
+  Future<List<JellyfinCollection>> collections({bool Function(String id, String name)? itemsFor}) async {
     final u = _need();
     final j = await _json('GET', uri('/Items', {
       'userId': u,
@@ -303,6 +305,14 @@ class JellyfinClient {
     final out = <JellyfinCollection>[];
     for (final s in sets) {
       if (s is! Map || s['Id'] is! String || s['Name'] is! String) continue;
+      if (itemsFor != null && !itemsFor(s['Id'] as String, (s['Name'] as String).trim())) {
+        out.add(JellyfinCollection(
+          id: s['Id'] as String,
+          name: (s['Name'] as String).trim(),
+          overview: s['Overview'] is String ? s['Overview'] as String : null,
+        ));
+        continue;
+      }
       final k = await _json('GET', uri('/Items', {
         'userId': u,
         'parentId': s['Id'] as String,
@@ -483,6 +493,7 @@ class JellyfinClient {
     String? playSessionId,
     int? audioStreamIndex,
     int segmentLength = 6,
+    int? burnSubtitle,
   }) =>
       uri('/Videos/$itemId/master.m3u8', {
         'MediaSourceId': mediaSourceId ?? itemId,
@@ -500,6 +511,9 @@ class JellyfinClient {
         if (maxHeight != null) 'MaxHeight': '$maxHeight',
         'VideoBitRate': '${videoBitRate ?? bitRateFor(maxHeight)}',
         if (audioStreamIndex != null) 'AudioStreamIndex': '$audioStreamIndex',
+        // (14 Nov 2026) A picture subtitle drawn onto the picture by the server.
+        if (burnSubtitle != null) 'SubtitleStreamIndex': '$burnSubtitle',
+        if (burnSubtitle != null) 'SubtitleMethod': 'Encode',
         'EnableAdaptiveBitrateStreaming': 'false',
       });
 

@@ -498,10 +498,19 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
 
   int _lastRead = 0;
 
-  /// Reads every video server now, then again every [resyncEvery] while HomeTunes is open.
+  /// Reads every video server now, then again every [resyncEvery] while HomeTunes is open. When
+  /// every one was read less than [resyncEvery] ago (14 Nov 2026: a TV closes HomeTunes in the
+  /// background often, and each opening read some 6,000 videos again), the first read waits
+  /// until it's due; what was read last time shows meanwhile.
   void start() {
-    _lastRead = now();
-    unawaited(syncAll());
+    final reads = [for (final s in videoServers) _state[s.id]?.syncedMs];
+    final oldest = reads.isEmpty || reads.contains(null) ? null : reads.whereType<int>().reduce(min);
+    if (oldest != null && now() - oldest >= 0 && now() - oldest < resyncEvery.inMilliseconds) {
+      _lastRead = oldest;
+    } else {
+      _lastRead = now();
+      unawaited(syncAll());
+    }
     _resync?.cancel();
     _resync = Timer.periodic(resyncCheckEvery, (_) => resyncIfDue());
   }
@@ -907,7 +916,7 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
   }
 
   @override
-  Future<VideoAddress?> streamFor(VideoItem v, {bool converted = false, Duration? start}) async {
+  Future<VideoAddress?> streamFor(VideoItem v, {bool converted = false, Duration? start, int? burnSubtitle}) async {
     final key = remoteServerOf(v.id), item = remoteItemOf(v.id);
     final s = key == null ? null : servers.byId(key);
     if (s == null || item == null) {
@@ -930,18 +939,24 @@ class ServerVideosModel extends ChangeNotifier implements RemoteVideoSource, Ser
     // A converted copy (0.2.7) comes in segments (HLS): the player knows its whole length and can
     // go anywhere in it. (As one file sent while it was made, the player only knew as much of it
     // as had arrived: The Lion King showed 19 minutes long, and going further didn't work.)
-    final uri = converted
-        ? c.hlsUri(item, maxHeight: 1080, playSessionId: _playSession(v.id))
+    // (14 Nov 2026) [burnSubtitle]: a picture subtitle the server draws onto the converted copy.
+    final convert = converted || burnSubtitle != null;
+    final uri = convert
+        ? c.hlsUri(item, maxHeight: 1080, playSessionId: _playSession(v.id), burnSubtitle: burnSubtitle)
         : c.streamUri(item, container: ext.isEmpty ? null : ext);
     return VideoAddress(
       uri.toString(),
       headers: c.mediaHeaders,
       remote: true,
-      converted: converted,
+      converted: convert,
+      burnedSubtitle: burnSubtitle,
       subtitles: [
         for (final sub in v.subtitles)
-          if (serverSubtitle(sub) case final t?)
-            (uri: c.subtitleUri(item, t.index, t.format).toString(), label: t.label, language: t.language),
+          if (serverSubtitleInfo(sub) case final t?)
+            // Files beside it always; text ones inside it for a converted copy (14 Nov 2026: a
+            // converted copy carries none of its own, so they were lost). The original has them.
+            if (t.format != null && (!t.embedded || convert))
+              (uri: c.subtitleUri(item, t.index, t.format!).toString(), label: t.label, language: t.language),
       ],
     );
   }
@@ -1157,17 +1172,43 @@ class ServerPicture {
   const ServerPicture(this.videoId, this.itemId, this.type, this.tag, this.file, this.width, {this.cover = false});
 }
 
-/// A subtitle file the server keeps beside a video, as kept in [VideoItem.subtitles].
+/// A subtitle file the server keeps beside a video, as kept in [VideoItem.subtitles]. Null for
+/// the others (inside the video, or pictures: [serverSubtitleInfo]).
 ({int index, String format, String label, String? language})? serverSubtitle(String s) {
+  final t = serverSubtitleInfo(s);
+  if (t == null || t.embedded || t.format == null) return null;
+  return (index: t.index, format: t.format!, label: t.label, language: t.language);
+}
+
+/// The subtitle files the server keeps beside [v] (what downloads fetch), in order.
+List<String> serverSubtitleFiles(VideoItem v) => [for (final s in v.subtitles) if (serverSubtitle(s) != null) s];
+
+/// Any subtitle the server knows of for a video (14 Nov 2026): a file beside it, or one inside
+/// it ([embedded]); text (with its [format]) or pictures ([format] null: DVD and Blu-ray ones).
+({int index, String? format, String label, String? language, bool embedded})? serverSubtitleInfo(String s) {
   if (!s.startsWith('jfsub:')) return null;
   try {
     final j = jsonDecode(s.substring(6));
-    if (j is! Map || j['i'] is! int || j['f'] is! String) return null;
-    return (index: j['i'] as int, format: j['f'] as String, label: (j['t'] as String?) ?? 'Subtitles', language: j['l'] as String?);
+    if (j is! Map || j['i'] is! int) return null;
+    final f = j['f'] is String ? j['f'] as String : null;
+    if (f == null && j['p'] != 1) return null;
+    return (
+      index: j['i'] as int,
+      format: f,
+      label: (j['t'] as String?) ?? 'Subtitles',
+      language: j['l'] as String?,
+      embedded: j['e'] == 1,
+    );
   } catch (_) {
     return null;
   }
 }
+
+/// Subtitles made of pictures (DVD, Blu-ray, DVB), by Jellyfin's or mpv's codec name: the TVs
+/// and phone draw subtitles themselves and can only draw text (14 Nov 2026).
+bool isPictureSubtitleCodec(String? codec) => const {
+      'pgssub', 'hdmv_pgs_subtitle', 'pgs', 'dvdsub', 'dvd_subtitle', 'vobsub', 'dvbsub', 'dvb_subtitle', 'xsub',
+    }.contains(codec?.trim().toLowerCase());
 
 /// The file format to ask for a text subtitle in, from Jellyfin's codec name (null: a picture
 /// subtitle, which can't be fetched on its own).
@@ -1249,12 +1290,25 @@ String? _seasonTitle(Object? name) {
       break;
     }
   }
+  // Every subtitle the server knows of (14 Nov 2026: the ones inside the video too, and picture
+  // ones). Files beside it are added to the player; the text ones inside it are fetched as files
+  // for a converted copy (which carries none); picture ones are drawn into a converted copy on
+  // the TVs and phone, which can only show text subtitles.
   for (final st in streams) {
-    if (st is! Map || st['Type'] != 'Subtitle' || st['IsExternal'] != true || st['Index'] is! int) continue;
+    if (st is! Map || st['Type'] != 'Subtitle' || st['Index'] is! int) continue;
+    final external = st['IsExternal'] == true;
     final format = _subtitleFormat(st['Codec']);
-    if (format == null) continue;
+    final picture = format == null && isPictureSubtitleCodec('${st['Codec']}');
+    if (format == null && !picture) continue;
     final label = (st['DisplayTitle'] ?? st['Title'] ?? st['Language'] ?? 'Subtitles').toString();
-    subtitles.add('jfsub:${jsonEncode({'i': st['Index'], 'f': format, 't': label, if (st['Language'] is String) 'l': st['Language']})}');
+    subtitles.add('jfsub:${jsonEncode({
+      'i': st['Index'],
+      'f': ?format,
+      if (picture) 'p': 1,
+      if (!external) 'e': 1,
+      't': label,
+      if (st['Language'] is String) 'l': st['Language'],
+    })}');
   }
 
   // Pictures: the video's own (an episode's still, a film's wide picture) and the collection's
