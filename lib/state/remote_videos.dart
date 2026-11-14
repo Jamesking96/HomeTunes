@@ -54,6 +54,9 @@ class VideoAddress {
   /// label ("English (SRT)").
   final List<({String uri, String label, String? language})> subtitles;
 
+  /// The picture subtitle the server drew onto this converted copy (its number there), if any.
+  final int? burnedSubtitle;
+
   const VideoAddress(
     this.uri, {
     this.headers,
@@ -62,6 +65,7 @@ class VideoAddress {
     this.startsAt,
     this.subtitles = const [],
     this.original = true,
+    this.burnedSubtitle,
   });
 }
 
@@ -70,7 +74,9 @@ abstract class RemoteVideoSource {
   /// The address to play [v] from, starting at [start]; with [converted], a copy the server
   /// converts. Null when the server can't be reached or isn't signed in (the reason is in
   /// [problemFor]).
-  Future<VideoAddress?> streamFor(VideoItem v, {bool converted = false, Duration? start});
+  /// [burnSubtitle] (14 Nov 2026): a picture subtitle (the server's number for it) drawn onto a
+  /// converted copy, for the TVs and phone, which can only show text subtitles themselves.
+  Future<VideoAddress?> streamFor(VideoItem v, {bool converted = false, Duration? start, int? burnSubtitle});
 
   /// Why [v] can't be played right now, in a sentence, or null.
   String? problemFor(VideoItem v);

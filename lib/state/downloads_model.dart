@@ -40,7 +40,7 @@ import 'listening_model.dart';
 import 'playlists_model.dart';
 import 'remote_books.dart';
 import 'remote_videos.dart';
-import 'server_videos.dart' show ServerVideosModel, serverSubtitle;
+import 'server_videos.dart' show ServerVideosModel, serverSubtitle, serverSubtitleFiles;
 import 'source_filter.dart';
 import 'video_library_model.dart';
 import 'video_tracks.dart' show languageCodeFor;
@@ -235,9 +235,12 @@ class DownloadsModel extends ChangeNotifier {
     if (f == null) return null;
     final e = _entries[v.id]!;
     final subs = <({String uri, String label, String? language})>[];
-    for (var i = 0; i < e.subtitles.length && i < v.subtitles.length; i++) {
+    // Downloaded subtitle files go with the server's subtitle files, in order (not the ones inside
+    // the video, which the catalogue lists too since 14 Nov 2026).
+    final files = serverSubtitleFiles(v);
+    for (var i = 0; i < e.subtitles.length && i < files.length; i++) {
       final path = e.subtitles[i];
-      final info = serverSubtitle(v.subtitles[i]);
+      final info = serverSubtitle(files[i]);
       if (path.isEmpty || info == null || !File(path).existsSync()) continue;
       subs.add((uri: path, label: info.label, language: info.language));
     }
@@ -1250,7 +1253,8 @@ class DownloadsModel extends ChangeNotifier {
       for (var i = 0; i < e.subtitles.length; i++) {
         final s = e.subtitles[i];
         if (s.isEmpty || !File(s).existsSync()) continue;
-        final info = v != null && i < v.subtitles.length ? serverSubtitle(v.subtitles[i]) : null;
+        final files = v == null ? const <String>[] : serverSubtitleFiles(v);
+        final info = i < files.length ? serverSubtitle(files[i]) : null;
         final lang = languageCodeFor(info?.language ?? info?.label ?? '') ?? '$i';
         subsTo.add((s, p.joinAll([...parts, '$base.$lang${p.extension(s)}'])));
       }

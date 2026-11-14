@@ -21,7 +21,9 @@ import 'video_groups.dart';
 /// What sharing needs from a server (JellyfinClient on a real one; tests use their own).
 abstract class CollectionServer {
   Future<({bool admin, bool manage})> rights();
-  Future<List<JellyfinCollection>> collections();
+
+  /// Every collection; films listed only for those [itemsFor] says yes to (all without it).
+  Future<List<JellyfinCollection>> collections({bool Function(String id, String name)? itemsFor});
   Future<String> create(String name, List<String> items);
   Future<void> add(String id, List<String> items);
   Future<void> remove(String id, List<String> items);
@@ -43,7 +45,8 @@ class JellyfinCollectionServer implements CollectionServer {
   @override
   Future<({bool admin, bool manage})> rights() => c.collectionRights();
   @override
-  Future<List<JellyfinCollection>> collections() => c.collections();
+  Future<List<JellyfinCollection>> collections({bool Function(String id, String name)? itemsFor}) =>
+      c.collections(itemsFor: itemsFor);
   @override
   Future<String> create(String name, List<String> items) => c.createCollection(name, items);
   @override
@@ -176,8 +179,23 @@ Future<ShareOutcome> shareCollections({
   final out = ShareOutcome();
   final now = VideoGroups.clock();
   final rights = await server.rights();
-  final boxes = {for (final c in await server.collections()) c.id: c};
   final note = SharedNote.parse(await server.readNote());
+  // (14 Nov 2026) Films are listed only for the collections that matter here: shared ones, ones
+  // in the note, and ones named like a collection here. Before, every one was asked about in
+  // turn on every read.
+  final linked = {for (final g in groups.all) ?g.links[serverKey]};
+  final names = <String>{
+    for (final g in groups.all) ...[g.name.trim().toLowerCase(), '${g.name.trim().toLowerCase()} collection'],
+  };
+  bool wanted(String id, String name) {
+    final n = name.toLowerCase();
+    return linked.contains(id) ||
+        note.sets.containsKey(id) ||
+        names.contains(n) ||
+        (n.endsWith(' collection') && names.contains(n.substring(0, n.length - 11)));
+  }
+
+  final boxes = {for (final c in await server.collections(itemsFor: wanted)) c.id: c};
   var noteChanged = false;
   String cant() => 'Collections can\'t be shared through $serverName: the Jellyfin user "$userName" isn\'t allowed to change '
       'collections. In Jellyfin: Dashboard › Users › $userName, turn on "Allow this user to manage collections".';

@@ -19,8 +19,19 @@ class FakeServer implements CollectionServer {
 
   @override
   Future<({bool admin, bool manage})> rights() async => (admin: admin, manage: manage);
+  /// How many collections had their films listed (14 Nov: only the ones that matter).
+  int listed = 0;
   @override
-  Future<List<JellyfinCollection>> collections() async => boxes.values.toList();
+  Future<List<JellyfinCollection>> collections({bool Function(String id, String name)? itemsFor}) async => [
+        for (final b in boxes.values)
+          if (itemsFor == null || itemsFor(b.id, b.name))
+            (() {
+              listed++;
+              return b;
+            })()
+          else
+            JellyfinCollection(id: b.id, name: b.name, overview: b.overview),
+      ];
   @override
   Future<String> create(String name, List<String> items) async {
     final id = 'box${++_n}';
@@ -230,6 +241,20 @@ void main() {
     expect(server.boxes['tmdb']!.items.toSet(), {'i1', 'i2'});
     expect(g.links, {'den': 'tmdb'});
     expect(g.keys.toSet(), {'goldfinger', 'dr. no'});
+  });
+
+  test('only the collections that matter have their films listed (14 Nov: lighter reads)', () async {
+    final server = FakeServer();
+    for (var i = 0; i < 20; i++) {
+      server.boxes['other$i'] = JellyfinCollection(id: 'other$i', name: 'Other $i', items: const ['i4']);
+    }
+    final pc = Device(catalogue());
+    pc.groups.create('Bond', [pc.named('Dr. No')]);
+    await pc.sync(server);
+    server.listed = 0;
+    await pc.sync(server);
+    expect(server.listed, 1); // just Bond's, not the 20 others
+    expect(server.boxes, hasLength(21));
   });
 
   test('a user who may not change collections is told what to turn on', () async {

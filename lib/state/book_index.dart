@@ -290,7 +290,7 @@ List<Book> groupBooks(Iterable<Track> tracks) {
 
 /// Splits a search into lower-case words.
 List<String> _searchWords(String q) =>
-    q.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    filterWords(q); // (14 Nov 2026) accents ignored too
 
 /// Books whose title, author, narrator or series contain every word of [q].
 /// Titles that start with the search come first.
@@ -300,11 +300,11 @@ List<Book> searchBookList(Iterable<Book> books, String q) {
   final query = words.join(' ');
   final hits = [
     for (final b in books)
-      if (words.every('${b.title} ${b.author} ${b.narrator ?? ''} ${b.series ?? ''}'.toLowerCase().contains)) b
+      if (words.every(searchText('${b.title} ${b.author} ${b.narrator ?? ''} ${b.series ?? ''}').contains)) b
   ];
   // 0 = title starts with the search, 1 = title contains it, 2 = matched elsewhere.
   int rank(Book b) {
-    final t = b.title.toLowerCase();
+    final t = searchText(b.title);
     if (t.startsWith(query)) return 0;
     if (t.contains(query)) return 1;
     return 2;
@@ -326,7 +326,7 @@ List<({Book book, int chapter})> searchChapterList(Iterable<Book> books, String 
     final chapters = b.chapters;
     // Stop as soon as we have enough, so a short query over a big library stays quick.
     for (var i = 0; i < chapters.length; i++) {
-      final title = chapters[i].title.toLowerCase();
+      final title = searchText(chapters[i].title);
       if (words.every(title.contains)) {
         out.add((book: b, chapter: i));
         if (out.length >= limit) return out;

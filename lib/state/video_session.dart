@@ -26,6 +26,7 @@ import 'library_model.dart';
 import 'now_watching.dart';
 import 'player_model.dart';
 import 'remote_videos.dart';
+import 'server_videos.dart' show serverSubtitleInfo, isPictureSubtitleCodec;
 import 'settings/settings_groups.dart' show PlaybackSettings, VideoSettings;
 import 'video_filters.dart';
 import 'video_library_model.dart';
@@ -484,12 +485,16 @@ class VideoSession extends ChangeNotifier {
     videos.playbackStopped(id, at ?? engine.position, length ?? _length());
   }
 
-  Future<void> open(String id, {bool converted = false, Duration? at}) async {
+  /// [keepBurn]: the same video opened again with the picture subtitles chosen ([_burn]).
+  Future<void> open(String id, {bool converted = false, Duration? at, bool keepBurn = false}) async {
     if (!converted) _reportStopped();
     final v = videos.byId(id);
     _file = null;
     _address = null;
     shownId.value = id;
+    // Picture subtitles drawn in (14 Nov 2026) go with this video only; the next one picks them
+    // again from the choice remembered for the collection.
+    if (!keepBurn && id != _id) _burn = null;
     _id = id;
     if (!converted) _triedConverted = false;
     _lastAt = null;
@@ -528,7 +533,7 @@ class VideoSession extends ChangeNotifier {
     // A converted copy carries on from where the original stopped.
     if (at != null) start = at;
     // A file, or (0.2.1) a server's address with the sign-in in its headers.
-    final address = await videos.playableAddress(v, converted: converted, start: start);
+    final address = await videos.playableAddress(v, converted: converted, start: start, burnSubtitle: _burn);
     if (_disposed || _id != id) return;
     if (address == null) {
       problem = videos.problemWith(v);
@@ -539,12 +544,12 @@ class VideoSession extends ChangeNotifier {
     // (0.2.8) An old format (DivX 3, XviD…), or one that didn't play properly before. From a
     // server: the server's converted copy. A file (or a downloaded original): decoded in software,
     // so the app must draw the picture; drawn from the chip, the page starts again.
-    final old = !converted && address.original && (isOldVideoFormat(v.videoCodec) || _needsSoftware.contains(v.id));
+    final old = !converted && !address.converted && address.original && (isOldVideoFormat(v.videoCodec) || _needsSoftware.contains(v.id));
     if (old && address.remote) {
       PlaybackLog.add('Video "${v.title}" is in an old format (${v.videoCodec ?? 'found while playing'}): '
           'asking the server for a converted copy');
       _triedConverted = true;
-      await open(id, converted: true, at: start);
+      await open(id, converted: true, at: start, keepBurn: true);
       return;
     }
     if (old && drawing == VideoDrawing.chip && onNeedAppDrawing != null) {
@@ -609,7 +614,45 @@ class VideoSession extends ChangeNotifier {
   // ---- audio and subtitles ----
 
   List<MediaTrack> get audioTracks => engine.audioTracks;
-  List<MediaTrack> get subtitleTracks => engine.subtitleTracks;
+
+  /// The subtitles to choose from. On the TVs and phone (14 Nov 2026), a server video's picture
+  /// subtitles (DVD, Blu-ray) are offered as ones the server draws onto a converted copy
+  /// (`burn:<its number>`), since the app can only draw text subtitles itself; the player's own
+  /// picture tracks would only stay blank.
+  List<MediaTrack> get subtitleTracks {
+    final all = engine.subtitleTracks;
+    final pictures = _pictureSubtitles();
+    if (pictures.isEmpty) return all;
+    return [
+      for (final t in all) if (!isPictureSubtitleCodec(t.codec)) t,
+      for (final p in pictures) MediaTrack('burn:${p.index}', title: p.label, language: p.language),
+    ];
+  }
+
+  /// The picture subtitle the server draws onto the converted copy now playing (its number).
+  int? _burn;
+
+  /// A server video's picture subtitles, on a device that draws subtitles itself (Android).
+  List<({int index, String label, String? language})> _pictureSubtitles() {
+    if (drawing == VideoDrawing.none) return const [];
+    final v = videos.byId(_id);
+    if (v == null || !isRemoteVideoId(v.id)) return const [];
+    return [
+      for (final s in v.subtitles)
+        if (serverSubtitleInfo(s) case final t? when t.format == null) (index: t.index, label: t.label, language: t.language),
+    ];
+  }
+
+  /// Opens the same video again where it is: with picture subtitle [burn] drawn in by the server,
+  /// or (null) without, as the original unless it needed a converted copy anyway.
+  Future<void> _reopenWithBurn(int? burn) async {
+    final at = engine.position;
+    _burn = burn;
+    PlaybackLog.add(burn == null
+        ? 'Video: picture subtitles off, back to the video as it is'
+        : 'Video: picture subtitles asked for, so the server draws them onto a converted copy');
+    await open(_id, converted: _needsSoftware.contains(_id), at: at > Duration.zero ? at : null, keepBurn: true);
+  }
 
   /// When the file's tracks are known: add the subtitle files beside it, then pick the audio and
   /// subtitles last chosen in this collection.
@@ -646,12 +689,24 @@ class VideoSession extends ChangeNotifier {
         if (t != null) await engine.setAudioTrack(t.id);
       }
     }
-    if (choice.subtitles != null) {
+    if (_burn != null) {
+      // The server draws the subtitles into the picture: none of the player's on top.
+      await engine.setSubtitleTrack(null);
+    } else if (choice.subtitles != null) {
       if (choice.subtitles!.off) {
         await engine.setSubtitleTrack(null);
       } else {
-        final t = matchTrack(engine.subtitleTracks, choice.subtitles!);
-        if (t != null) await engine.setSubtitleTrack(t.id);
+        final t = matchTrack(subtitleTracks, choice.subtitles!);
+        if (t != null && t.id.startsWith('burn:')) {
+          // Picture subtitles chosen before (14 Nov 2026): the server draws them in.
+          final n = int.tryParse(t.id.substring(5));
+          if (n != null && !_disposed) {
+            unawaited(_reopenWithBurn(n));
+            return;
+          }
+        } else if (t != null) {
+          await engine.setSubtitleTrack(t.id);
+        }
       }
     }
     await _readCurrentTracks();
@@ -665,7 +720,7 @@ class VideoSession extends ChangeNotifier {
       final s = await engine.getOption('sid');
       if (!_disposed) {
         aid = a;
-        sid = s;
+        sid = _burn != null ? 'burn:$_burn' : s;
         notifyListeners();
       }
     } catch (_) {}
@@ -684,12 +739,20 @@ class VideoSession extends ChangeNotifier {
 
   /// The listener chose subtitles (null: off); remembered for the whole collection.
   Future<void> chooseSubtitles(MediaTrack? t) async {
-    await engine.setSubtitleTrack(t?.id);
     final collection = videos.byId(_id)?.collection;
     if (collection != null) {
       videos.rememberTrackChoice(collection,
           subtitles: t == null ? TrackPick.none : TrackPick(language: t.language, title: t.title));
     }
+    // Picture subtitles drawn by the server (14 Nov 2026): on, off or another one means opening
+    // the video again where it is; the choice just remembered is picked when it's open.
+    final burn = t != null && t.id.startsWith('burn:') ? int.tryParse(t.id.substring(5)) : null;
+    if (burn != _burn) {
+      await _reopenWithBurn(burn);
+      return;
+    }
+    if (burn != null) return;
+    await engine.setSubtitleTrack(t?.id);
     await _readCurrentTracks();
   }
 

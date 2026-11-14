@@ -13,6 +13,7 @@ import 'package:hometunes/services/jellyfin_client.dart';
 import 'package:hometunes/services/secret_store.dart';
 import 'package:hometunes/services/server_probe.dart';
 import 'package:hometunes/services/storage.dart';
+import 'package:hometunes/state/filters.dart' show searchText, titleMatches;
 import 'package:hometunes/state/library_model.dart';
 import 'package:hometunes/state/player_model.dart';
 import 'package:hometunes/state/remote_videos.dart';
@@ -324,9 +325,11 @@ void main() {
       expect(ep1.duration, const Duration(minutes: 50));
       expect(ep1.resolution, '1920×1080');
       expect(ep1.genre, 'Drama');
-      // The subtitle file it keeps beside it (a picture subtitle can't be fetched on its own).
-      expect(ep1.subtitles.length, 1);
-      expect(serverSubtitle(ep1.subtitles.single)!.format, 'srt');
+      // The subtitle file it keeps beside it (a picture subtitle can't be fetched on its own, but
+      // since 14 Nov 2026 it's listed too: the TVs ask the server to draw it in).
+      expect(serverSubtitleFiles(ep1).length, 1);
+      expect(serverSubtitle(serverSubtitleFiles(ep1).single)!.format, 'srt');
+      expect(ep1.subtitles.length, 2);
 
       final dune = videos.collectionNamed('Dune')!;
       expect(dune.category, 'Films');
@@ -720,5 +723,55 @@ void main() {
     final place = placeFromJellyfin({'PlaybackPositionTicks': 0, 'Played': false});
     expect(place, isNull);
     expect(VideoPlace(position: Duration.zero, updatedMs: 1).watched, isFalse);
+  });
+
+  // 14 Nov 2026, the user: "Some videos don't show with the subtitles when they are turned on".
+  test('every subtitle is known: files beside it, text inside it, and picture ones', () {
+    final made = videoFromJellyfin(
+      {
+        'Id': 'f1',
+        'Type': 'Movie',
+        'Name': 'Akira',
+        'MediaSources': [
+          {
+            'Container': 'mkv',
+            'MediaStreams': [
+              {'Type': 'Video', 'Codec': 'h264', 'Index': 0},
+              {'Type': 'Subtitle', 'Codec': 'ass', 'Index': 2, 'IsExternal': false, 'Language': 'eng', 'DisplayTitle': 'English - ASS'},
+              {'Type': 'Subtitle', 'Codec': 'PGSSUB', 'Index': 3, 'IsExternal': false, 'Language': 'jpn', 'DisplayTitle': 'Japanese - PGSSUB'},
+              {'Type': 'Subtitle', 'Codec': 'subrip', 'Index': 4, 'IsExternal': true, 'Language': 'fre', 'DisplayTitle': 'French - SRT'},
+              {'Type': 'Subtitle', 'Codec': 'mov_text', 'Index': 5, 'IsExternal': false},
+            ],
+          },
+        ],
+      },
+      serverKey: 's1',
+      view: const JellyfinView('films', 'Films', 'movies'),
+      pictureDir: dir.path,
+    )!;
+    final infos = [for (final s in made.video.subtitles) serverSubtitleInfo(s)!];
+    expect([for (final t in infos) (t.index, t.format, t.embedded)], [(2, 'ass', true), (3, null, true), (4, 'srt', false)]);
+    // Downloads still fetch just the file beside it.
+    expect(serverSubtitleFiles(made.video).map((s) => serverSubtitle(s)!.index), [4]);
+    expect(isPictureSubtitleCodec('hdmv_pgs_subtitle'), isTrue);
+    expect(isPictureSubtitleCodec('subrip'), isFalse);
+  });
+
+  test('a converted copy can have a picture subtitle drawn in by the server', () {
+    final c = JellyfinClient(baseUrl: 'http://den:8096', deviceId: 'd1', token: 't', userId: 'u');
+    final plain = c.hlsUri('f1', maxHeight: 1080).queryParameters;
+    expect(plain.containsKey('SubtitleStreamIndex'), isFalse);
+    final burned = c.hlsUri('f1', maxHeight: 1080, burnSubtitle: 3).queryParameters;
+    expect(burned['SubtitleStreamIndex'], '3');
+    expect(burned['SubtitleMethod'], 'Encode');
+    c.close();
+  });
+
+  test('searches ignore accents (14 Nov 2026: "pokemon" found nothing)', () {
+    expect(searchText('Pokémon: The First Movie'), 'pokemon: the first movie');
+    expect(titleMatches('Pokémon 3', 'pokemon'), isTrue);
+    expect(titleMatches('Pokemon 3', 'Pokémon'), isTrue);
+    expect(titleMatches('Amélie', 'AMELIE'), isTrue);
+    expect(titleMatches('Snatch', 'pokemon'), isFalse);
   });
 }

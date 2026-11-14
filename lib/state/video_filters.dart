@@ -52,7 +52,7 @@ List<VideoItem> searchVideos(List<VideoItem> videos, String query) {
   if (words.isEmpty) return videos;
   return [
     for (final v in videos)
-      if (words.every((w) => '${v.title} ${v.collection} ${v.genre ?? ''} ${v.year ?? ''}'.toLowerCase().contains(w))) v
+      if (searchText('${v.title} ${v.collection} ${v.genre ?? ''} ${v.year ?? ''}') case final t when words.every(t.contains)) v
   ];
 }
 
@@ -281,7 +281,7 @@ List<VideoCollection> searchCollections(List<VideoCollection> list, String query
   if (words.isEmpty) return list;
   return [
     for (final c in list)
-      if (words.every((w) => '${c.name} ${c.category ?? ''} ${c.genre ?? ''} ${c.year ?? ''}'.toLowerCase().contains(w))) c
+      if (searchText('${c.name} ${c.category ?? ''} ${c.genre ?? ''} ${c.year ?? ''}') case final t when words.every(t.contains)) c
   ];
 }
 

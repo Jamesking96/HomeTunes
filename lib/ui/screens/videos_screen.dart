@@ -294,8 +294,8 @@ class _CollectionGridState extends State<_CollectionGrid> with AutomaticKeepAliv
                 if ((type == null || collectionType(f) == type) && _only.matches(f, collectionFilterFields)) f
             ];
             if (films.isEmpty) return type == null && _only.isEmpty && g.keys.isEmpty && _query.trim().isEmpty;
-            final q = _query.trim().toLowerCase();
-            return q.isEmpty || g.name.toLowerCase().contains(q) || searchCollections(films, _query).isNotEmpty;
+            final q = searchText(_query.trim());
+            return q.isEmpty || searchText(g.name).contains(q) || searchCollections(films, _query).isNotEmpty;
           }())
             g,
     ];
