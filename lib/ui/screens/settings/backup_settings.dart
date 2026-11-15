@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../services/app_backup.dart';
+import '../../../services/device_backups.dart';
 import '../../../state/bookmarks_model.dart';
 import '../../../state/downloads_model.dart';
 import '../../../state/equalizer_model.dart';
@@ -22,6 +23,8 @@ import '../../../state/playlists_model.dart';
 import '../../../state/servers_model.dart';
 import '../../../state/video_library_model.dart';
 import '../../theme.dart';
+import '../../tv/tv_focus.dart' show tvModeOf;
+import '../../tv/tv_options.dart';
 import 'settings_widgets.dart';
 
 /// Settings › Backup & restore.
@@ -47,11 +50,21 @@ class BackupSettingsState extends State<BackupSettings> {
   Future<void> _export() async {
     final lib = context.read<LibraryModel>();
     final messenger = ScaffoldMessenger.of(context);
+    final tv = tvModeOf(context);
     setState(() => _working = true);
     try {
       final bytes = await lib.createBackup(
         includeCoverCache: _includeCoverCache,
       );
+      // A TV (14 Nov 2026): no "save a file" screen there, so it goes in HomeTunes' own backups
+      // folder on the TV (Import backup… finds it there).
+      final tvFolder = tv ? await deviceBackupFolder() : null;
+      if (tvFolder != null) {
+        final file = await saveDeviceBackup(tvFolder, _fileName, bytes);
+        final mb = (bytes.length / (1024 * 1024)).toStringAsFixed(1);
+        messenger.showSnackBar(SnackBar(content: Text('Backup saved on this TV ($mb MB): ${file.uri.pathSegments.last}')));
+        return;
+      }
       // The picker is given the bytes and writes the file itself (on Android the app can't
       // write to the chosen place directly). Null means the user cancelled.
       final saved = await FilePicker.saveFile(
@@ -91,12 +104,31 @@ class BackupSettingsState extends State<BackupSettings> {
     // 1. Pick and read the file. A file that isn't a backup (or is from a newer HomeTunes)
     //    throws a FormatException whose message is already written for the user.
     BackupContents backup;
+    // A TV (14 Nov 2026): the backups in HomeTunes' own folder on it, newest first.
+    final tvFolder = tvModeOf(context) ? await deviceBackupFolder() : null;
     try {
-      final file = await FilePicker.pickFile(type: FileType.any, dialogTitle: 'Choose a HomeTunes backup');
-      final path = file?.path;
-      if (path == null) return;
+      String? path;
+      if (tvFolder != null) {
+        final found = deviceBackups(tvFolder);
+        if (found.isEmpty) {
+          messenger.showSnackBar(const SnackBar(content: Text('No backups on this TV yet. Export backup… saves one here.')));
+          return;
+        }
+        if (!mounted) return;
+        await showTvOptions(context, title: 'Choose a backup', subtitle: 'Backups saved on this TV', options: [
+          for (final f in found)
+            TvOption(f.uri.pathSegments.last, Icons.restore,
+                subtitle: '${(f.lengthSync() / (1024 * 1024)).toStringAsFixed(1)} MB · ${_date(f.statSync().modified)}',
+                () => path = f.path),
+        ]);
+      } else {
+        final file = await FilePicker.pickFile(type: FileType.any, dialogTitle: 'Choose a HomeTunes backup');
+        path = file?.path;
+      }
+      final chosen = path;
+      if (chosen == null) return;
       setState(() => _working = true);
-      backup = AppBackup.read(await File(path).readAsBytes());
+      backup = AppBackup.read(await File(chosen).readAsBytes());
     } catch (e) {
       if (mounted) setState(() => _working = false);
       messenger.showSnackBar(SnackBar(content: Text(e is FormatException ? e.message : 'Couldn\'t read it: $e')));
